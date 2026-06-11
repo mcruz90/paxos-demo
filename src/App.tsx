@@ -144,16 +144,9 @@ const scenarios: Record<string, ScenarioConfig> = {
       },
       {
         rule: { type: 'temporal', label: 'Metformin Therapy >= 90 Consecutive Days at Maximum Tolerated Dose' },
-        status: 'needs_review',
-        note: 'Metformin start date partially legible on Page 3. Pharmacy fill history required to confirm 90-day duration.',
+        status: 'found',
+        note: 'Page 3 — Pharmacy refill record confirms Metformin 1000mg BID for 112 consecutive days prior to referral. 90-day threshold satisfied.',
         docSource: 'Pharmacy Records',
-        suggestedAction: 'Request complete pharmacy fill records from dispensing pharmacy confirming ≥90 consecutive days of Metformin at maximum tolerated dose. Partial fill history on page 3 is insufficient.',
-        workflowPlan: {
-          action: 'Request pharmacy fill history',
-          recipient: 'Express Scripts · Member Services',
-          channel: 'Fax · (800) 555-0174',
-          turnaround: '3–5 business days',
-        },
       },
       {
         rule: { type: 'safety', label: 'NO Personal or Family History of Medullary Thyroid Carcinoma (MTC)' },
@@ -229,16 +222,9 @@ const scenarios: Record<string, ScenarioConfig> = {
       },
       {
         rule: { type: 'temporal', label: 'Non-Pharmacological Conservative Therapy Trial (Positioning, Thickened Feeds ≥2 Weeks)' },
-        status: 'needs_review',
-        note: 'Page 3 — 6-week visit (04/20/2026) references positioning guidance but does not specify duration or documented response. Written attestation from prescriber required.',
+        status: 'found',
+        note: 'Page 3 — 6-week visit (04/20/2026) documents positioning protocol and thickened feeds initiated at 4-week visit. 10-week follow-up confirms worsening despite ≥2 weeks of conservative management.',
         docSource: 'Outpatient Visit Notes',
-        suggestedAction: 'Request written attestation from Dr. Patricia Chen (Pediatric GI) confirming positioning and thickened feeding interventions were trialed for ≥2 weeks prior to PPI initiation, with inadequate symptom control documented.',
-        workflowPlan: {
-          action: 'Request clinical attestation of conservative therapy trial',
-          recipient: 'Dr. Patricia Chen · Pediatric Gastroenterology',
-          channel: 'Fax · (416) 555-0291',
-          turnaround: '1–2 business days',
-        },
       },
     ],
     citations: {
@@ -1087,71 +1073,12 @@ function IntakeView({ preloadedScenarioId, onLaunch }: {
 }
 
 // ---------------------------------------------------------------------------
-// Pipeline trace helpers
+// Pipeline step definitions (label + plain-English explanation)
 // ---------------------------------------------------------------------------
-
-interface TraceStep {
-  label: string
-  icon: React.ReactNode
-  findings: string[]
-}
 
 interface PipelineStep {
   label: string
   explanation: string
-}
-
-function buildPipelineTrace(scenario: ScenarioConfig): TraceStep[] {
-  const found = scenario.criteriaResults.filter(c => c.status === 'found')
-  const isInfant = scenario.id === 'infant-omeprazole'
-  return [
-    {
-      label: 'Ingestion',
-      icon: <Upload className="w-3.5 h-3.5" />,
-      findings: [
-        `Drug: ${scenario.drug}`,
-        `Diagnosis: ${scenario.diagnosis}`,
-        `Payer: ${scenario.plan} · ${scenario.planId}`,
-        `Denial reason extracted: "${scenario.denialReason}"`,
-      ],
-    },
-    {
-      label: 'Retrieval',
-      icon: <Search className="w-3.5 h-3.5" />,
-      findings: isInfant
-        ? [
-            `Policy loaded: ${scenario.planId} — pediatric GI formulary`,
-            `${scenario.criteriaResults.length} PA criteria identified`,
-            'FDA Safety Communication: NDMA contamination in ranitidine (Apr 2020)',
-            'NASPGHAN 2018 GERD guidelines located (PMID 29470322)',
-          ]
-        : [
-            `Policy loaded: ${scenario.planId} — step therapy protocol`,
-            `${scenario.criteriaResults.length} PA criteria identified`,
-            'Formulary alternatives flagged for verification',
-          ],
-    },
-    {
-      label: 'Synthesis',
-      icon: <GitBranch className="w-3.5 h-3.5" />,
-      findings: [
-        `${found.length}/${scenario.criteriaResults.length} criteria satisfied — all grounded in payer policy`,
-        ...found.slice(0, 3).map(c => `↳ ${c.rule.label}`),
-        ...(found.length > 3 ? [`↳ +${found.length - 3} more`] : []),
-      ],
-    },
-    {
-      label: 'Gatekeeper',
-      icon: <Shield className="w-3.5 h-3.5" />,
-      findings: [
-        'Drug name present in generated letter ✓',
-        'Denial reason addressed ✓',
-        `All ${found.length} criteria cited ✓`,
-        'No refusal or off-task patterns detected ✓',
-        'Letter length ≥ 400 chars ✓',
-      ],
-    },
-  ]
 }
 
 function getPipelineSteps(scenario: ScenarioConfig): PipelineStep[] {
@@ -1219,7 +1146,7 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
   const [pendingDispatch, setPendingDispatch] = useState<string[]>([])
   const [acknowledged, setAcknowledged] = useState(false)
   const [appealRef] = useState(() => `PH-${Math.floor(Math.random() * 9000) + 1000}`)
-  const [traceOpen, setTraceOpen] = useState(false)
+  const [traceOpen, setTraceOpen] = useState(true)
   const [hoveredCite, setHoveredCite] = useState<number | null>(null)
   const [editMode, setEditMode] = useState(false)
   const [editedBody, setEditedBody] = useState<string | null>(null)
@@ -1245,11 +1172,8 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
     let i = 0
     const iv = setInterval(() => {
       i++; setRound2StepIdx(i)
-      if (i >= pipelineSteps.length - 1) {
-        clearInterval(iv)
-        setTimeout(() => { setPhase('round2_done') }, 500)
-      }
-    }, 700)
+      if (i >= pipelineSteps.length - 1) { clearInterval(iv) }
+    }, 2500)
   }
 
   const [overrides, setOverrides] = useState<Record<string, string>>({}) // ruleLabel -> AM rationale
@@ -1287,8 +1211,8 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
     let i = 0
     const iv = setInterval(() => {
       i++; setStepIdx(i)
-      if (i >= pipelineSteps.length - 1) { clearInterval(iv); setTimeout(() => setPhase('done'), 500) }
-    }, 800)
+      if (i >= pipelineSteps.length - 1) { clearInterval(iv) }
+    }, 2500)
   }
 
   useEffect(() => {
@@ -1693,7 +1617,16 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
               <div className="bg-violet-500 h-1 rounded-full transition-all duration-700"
                 style={{ width: `${((round2StepIdx + 1) / pipelineSteps.length) * 100}%` }} />
             </div>
-            <p className="text-xs text-slate-500 text-center pt-0.5">Round 2 counter-argument · Citing NASPGHAN guidelines</p>
+            {round2StepIdx === pipelineSteps.length - 1 ? (
+              <button
+                onClick={() => setPhase('round2_done')}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors mt-1"
+              >
+                <ChevronRight className="w-4 h-4" />Continue to Counter-Argument
+              </button>
+            ) : (
+              <p className="text-xs text-slate-500 text-center pt-0.5">Round 2 counter-argument · Citing NASPGHAN guidelines</p>
+            )}
           </div>
 
         ) : phase === 'round2_done' ? (
@@ -2106,36 +2039,34 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
               </div>
             </div>
 
-            {/* Pipeline trace — collapsible "behind the scenes" panel */}
-            <div className="border border-slate-700/60 rounded-xl overflow-hidden">
-              <button
-                onClick={() => setTraceOpen(o => !o)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/40 hover:bg-slate-800/70 transition-colors text-left"
-              >
-                <div className="flex items-center gap-2">
-                  <Code className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm font-medium text-slate-300">Behind the Scenes — Pipeline Trace</span>
-                </div>
-                <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${traceOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {traceOpen && (
-                <div className="divide-y divide-slate-700/40">
-                  {buildPipelineTrace(scenario).map((step, i) => (
-                    <div key={i} className="px-4 py-3 bg-slate-900/30">
-                      <div className="flex items-center gap-2 mb-2 text-slate-400">
-                        {step.icon}
-                        <span className="text-xs font-semibold uppercase tracking-wider">{step.label}</span>
+            {/* Completed pipeline trail — only shown when pipeline was run this session */}
+            {stepIdx === pipelineSteps.length - 1 && (
+              <div className="border border-slate-700/60 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setTraceOpen(o => !o)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/40 hover:bg-slate-800/70 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <Code className="w-4 h-4 text-slate-400" />
+                    <span className="text-sm font-medium text-slate-300">Pipeline Run — {pipelineSteps.length} steps completed</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${traceOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {traceOpen && (
+                  <div className="divide-y divide-slate-700/40">
+                    {pipelineSteps.map((step, i) => (
+                      <div key={i} className="flex items-start gap-3 px-4 py-3 bg-slate-900/20">
+                        <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm text-slate-300">{step.label}</p>
+                          <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{step.explanation}</p>
+                        </div>
                       </div>
-                      <ul className="space-y-1">
-                        {step.findings.map((f, j) => (
-                          <li key={j} className="text-xs text-slate-400 font-mono pl-2 border-l border-slate-700">{f}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div>
               <h3 className="text-sm font-semibold text-slate-300 mb-3">Extraction Audit Trail</h3>
@@ -2238,7 +2169,16 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
                   <div className="bg-blue-500 h-1 rounded-full transition-all duration-700"
                     style={{ width: `${((stepIdx + 1) / pipelineSteps.length) * 100}%` }} />
                 </div>
-                <p className="text-xs text-slate-500 text-center pt-0.5">Universal pipeline · Config: {scenario.configFile}</p>
+                {stepIdx === pipelineSteps.length - 1 ? (
+                  <button
+                    onClick={() => setPhase('done')}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors mt-1"
+                  >
+                    <ChevronRight className="w-4 h-4" />Continue to Appeal Letter
+                  </button>
+                ) : (
+                  <p className="text-xs text-slate-500 text-center pt-0.5">Universal pipeline · Config: {scenario.configFile}</p>
+                )}
               </div>
             )}
           </>
