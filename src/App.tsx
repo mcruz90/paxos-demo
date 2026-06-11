@@ -1096,6 +1096,11 @@ interface TraceStep {
   findings: string[]
 }
 
+interface PipelineStep {
+  label: string
+  explanation: string
+}
+
 function buildPipelineTrace(scenario: ScenarioConfig): TraceStep[] {
   const found = scenario.criteriaResults.filter(c => c.status === 'found')
   const isInfant = scenario.id === 'infant-omeprazole'
@@ -1149,21 +1154,47 @@ function buildPipelineTrace(scenario: ScenarioConfig): TraceStep[] {
   ]
 }
 
-function getPipelineSteps(scenario: ScenarioConfig): string[] {
+function getPipelineSteps(scenario: ScenarioConfig): PipelineStep[] {
   const isInfant = scenario.id === 'infant-omeprazole'
   return [
-    isInfant
-      ? 'Ingestion · parsing Cigna denial for omeprazole suspension'
-      : `Ingestion · parsing ${scenario.plan} denial for ${scenario.drug}`,
-    isInfant
-      ? 'Retrieval · loading pediatric dosing policy + FDA NDMA recall evidence'
-      : `Retrieval · loading ${scenario.plan} step-therapy requirements`,
-    'Synthesis · drafting evidence-grounded appeal letter...',
-    isInfant
-      ? 'Synthesis · citing NASPGHAN 2018 guidelines (PMID 29470322)...'
-      : 'Synthesis · citing clinical trial data and payer policy criteria...',
-    'Gatekeeper · deterministic rule validation (no LLM)...',
-    'Gatekeeper · output schema validated · complete',
+    {
+      label: isInfant
+        ? 'Ingestion · parsing Cigna denial for omeprazole suspension'
+        : `Ingestion · parsing ${scenario.plan} denial for ${scenario.drug}`,
+      explanation: isInfant
+        ? `Identified the denial as a pediatric formulation refusal. Extracted drug (omeprazole suspension), diagnosis (infantile GERD), and denial basis — formulary preference for H2 blocker alternatives.`
+        : `Identified the denial as a step therapy requirement. Extracted drug (${scenario.drug}), diagnosis (${scenario.diagnosis}), and payer plan ID (${scenario.planId}).`,
+    },
+    {
+      label: isInfant
+        ? 'Retrieval · loading pediatric dosing policy + FDA NDMA recall evidence'
+        : `Retrieval · loading ${scenario.plan} step-therapy requirements`,
+      explanation: isInfant
+        ? `Loaded Cigna's pediatric GI formulary criteria. Also retrieved the FDA's April 2020 ranitidine market withdrawal — establishing that the payer's preferred H2 blocker alternative is no longer available due to NDMA contamination.`
+        : `Loaded ${scenario.plan}'s prior authorization policy for ${scenario.drug}. Found ${scenario.criteriaResults.length} PA criteria to satisfy: diagnosis confirmation, prior treatment history, and prescriber documentation.`,
+    },
+    {
+      label: 'Synthesis · drafting evidence-grounded appeal letter...',
+      explanation: isInfant
+        ? `Drafted an appeal documenting why omeprazole suspension is the only viable option: H2 blocker alternatives withdrawn due to NDMA contamination, and PPI therapy is the current standard of care for infantile GERD.`
+        : `Generated an appeal letter addressing each step therapy criterion. Every claim is grounded in the patient's medical record and payer policy language — no unsupported assertions.`,
+    },
+    {
+      label: isInfant
+        ? 'Synthesis · citing NASPGHAN 2018 guidelines (PMID 29470322)...'
+        : 'Synthesis · citing clinical trial data and payer policy criteria...',
+      explanation: isInfant
+        ? `Anchored the dosing argument to NASPGHAN 2018 pediatric GERD guidelines (PMID 29470322), which establish the therapeutic dose range. Each clinical claim traces directly to the retrieved guideline text.`
+        : `Cross-referenced clinical guidelines and payer policy criteria to verify every cited criterion. Confirmed no invented requirements — each claim maps to a retrieved source.`,
+    },
+    {
+      label: 'Gatekeeper · deterministic rule validation (no LLM)...',
+      explanation: `Ran ${isInfant ? '5' : '5'} deterministic checks without using an AI model: drug name present, diagnosis referenced, denial reason addressed, all ${scenario.criteriaResults.filter(c => c.status === 'found').length} criteria cited, minimum letter length met. All passed.`,
+    },
+    {
+      label: 'Gatekeeper · output validated · ready for review',
+      explanation: `The appeal passed all automated checks. It has been handed off to the Authorization Manager for final review — the AM is the human authority before anything is transmitted to the payer.`,
+    },
   ]
 }
 
@@ -1643,13 +1674,18 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
             {pipelineSteps.slice(0, round2StepIdx + 1).map((step, i) => {
               const done = i < round2StepIdx
               return (
-                <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border transition-all ${
+                <div key={i} className={`flex items-start gap-3 px-4 py-2.5 rounded-lg border transition-all ${
                   done ? 'bg-slate-800/20 border-slate-700/30' : 'bg-slate-800/70 border-violet-700/60'
                 }`}>
-                  {done
-                    ? <CheckCircle className="w-4 h-4 text-violet-400 shrink-0" />
-                    : <Loader2 className="w-4 h-4 text-violet-400 animate-spin shrink-0" />}
-                  <span className={`text-sm ${done ? 'text-slate-500' : 'text-violet-300'}`}>{step}</span>
+                  <div className="mt-0.5 shrink-0">
+                    {done
+                      ? <CheckCircle className="w-4 h-4 text-violet-400" />
+                      : <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`text-sm ${done ? 'text-slate-400' : 'text-violet-300'}`}>{step.label}</p>
+                    {done && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{step.explanation}</p>}
+                  </div>
                 </div>
               )
             })}
@@ -2183,13 +2219,18 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
                 {pipelineSteps.slice(0, stepIdx + 1).map((step, i) => {
                   const done = i < stepIdx
                   return (
-                    <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border transition-all ${
+                    <div key={i} className={`flex items-start gap-3 px-4 py-2.5 rounded-lg border transition-all ${
                       done ? 'bg-slate-800/20 border-slate-700/30' : 'bg-slate-800/70 border-slate-700'
                     }`}>
-                      {done
-                        ? <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
-                        : <Loader2 className="w-4 h-4 text-blue-400 animate-spin shrink-0" />}
-                      <span className={`text-sm ${done ? 'text-slate-500' : 'text-blue-300'}`}>{step}</span>
+                      <div className="mt-0.5 shrink-0">
+                        {done
+                          ? <CheckCircle className="w-4 h-4 text-emerald-500" />
+                          : <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`text-sm ${done ? 'text-slate-400' : 'text-blue-300'}`}>{step.label}</p>
+                        {done && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{step.explanation}</p>}
+                      </div>
                     </div>
                   )
                 })}
