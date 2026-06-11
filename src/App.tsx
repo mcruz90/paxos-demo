@@ -1,10 +1,9 @@
-import { useState, useRef, useEffect } from 'react'
-import { Joyride, type Step, EVENTS, STATUS, ACTIONS } from 'react-joyride'
+﻿import { useState, useRef, useEffect } from 'react'
 import {
   LayoutDashboard, Library, Plus, Activity, Settings, Clock, ShieldAlert,
   Upload, FileText, CheckCircle, Loader2, Users, Zap, ChevronRight,
   Building2, User, AlertTriangle, Search, Pill, Shield,
-  Download, RotateCcw, Code, Package, ChevronDown, HelpCircle, BookmarkPlus,
+  Download, RotateCcw, Code, Package, ChevronDown, BookmarkPlus,
   Info, GitBranch, Pencil,
 } from 'lucide-react'
 
@@ -116,236 +115,6 @@ const universalPrimitives = [
 // ---------------------------------------------------------------------------
 
 const scenarios: Record<string, ScenarioConfig> = {
-  'amgen-repatha': {
-    id: 'amgen-repatha',
-    drugKey: 'repatha',
-    configFile: 'repatha_heFH_cardiology.json',
-    drug: 'Repatha (evolocumab)',
-    manufacturer: 'Amgen',
-    plan: 'UnitedHealthcare Choice Plus',
-    planId: 'H2227-001',
-    categoryKey: 'cardiology',
-    categoryLabel: 'Cardiology',
-    diagnosis: 'Heterozygous Familial Hypercholesterolemia (HeFH)',
-    denialReason: 'Step therapy requirements not met — statin trial documentation insufficient',
-    clientType: 'medtech',
-    criteriaResults: [
-      {
-        rule: { type: 'diagnostic', label: 'Confirmed Diagnosis: ASCVD or Heterozygous Familial Hypercholesterolemia (HeFH)' },
-        status: 'found',
-        note: 'Page 1 — Cardiology consult confirms HeFH via genetic testing. LDL receptor mutation variant identified by Quest Diagnostics.',
-        docSource: 'Specialist Consult (Cardiology)',
-      },
-      {
-        rule: { type: 'math', label: 'Baseline LDL-C >= 70 mg/dL on Maximally Tolerated Statin' },
-        status: 'found',
-        note: 'Page 5 — Lipid panel 02/10/2024: LDL-C 187 mg/dL on Rosuvastatin 40mg (maximum tolerated dose).',
-        docSource: 'Lab Report',
-      },
-      {
-        rule: { type: 'temporal', label: 'High-Intensity Statin Therapy >= 8 Consecutive Weeks' },
-        status: 'needs_review',
-        note: 'Statin start date documented on Page 3; discontinuation note on Page 7 is ambiguous. Duration requires AM verification.',
-        docSource: 'Pharmacy Records',
-        suggestedAction: 'Request complete pharmacy fill history from CVS Caremark or Express Scripts confirming ≥8 consecutive weeks of continuous high-intensity statin coverage prior to discontinuation.',
-        workflowPlan: {
-          action: 'Request pharmacy fill history',
-          recipient: 'CVS Caremark · Member Services',
-          channel: 'Fax · (800) 555-0193',
-          turnaround: '3–5 business days',
-        },
-      },
-    ],
-    citations: {
-      'Confirmed Diagnosis: ASCVD or Heterozygous Familial Hypercholesterolemia (HeFH)':
-        { source: 'Specialist Consult (Cardiology)', page: 'p. 1', text: 'Cardiology consult confirms HeFH via LDL receptor mutation genetic testing (Quest Diagnostics, confirmed 01/22/2024).' },
-      'Baseline LDL-C >= 70 mg/dL on Maximally Tolerated Statin':
-        { source: 'Lab Report', page: 'p. 5', text: 'Lipid panel 02/10/2024 — LDL-C: 187 mg/dL. Patient on Rosuvastatin 40mg (maximum tolerated dose per cardiologist note).' },
-      'High-Intensity Statin Therapy >= 8 Consecutive Weeks':
-        { source: 'Pharmacy Records', page: 'p. 7', text: 'Pharmacy refill history confirms Rosuvastatin 40mg with continuous adherence over 6 months prior to referral.' },
-    },
-    configJson: `{
-  "policy_id": "repatha-heFH-v2",
-  "target_drug": "evolocumab",
-  "diagnostic_rules": [
-    { "condition_category": "ASCVD or HeFH",
-      "must_be_present": true }
-  ],
-  "biomarker_rules": [
-    { "biomarker_name": "LDL-C",
-      "operator": ">=",
-      "absolute_threshold": 70,
-      "max_age_days": 180 }
-  ],
-  "temporal_rules": [
-    { "intervention_target": "High-Intensity Statin",
-      "minimum_duration_days": 56,
-      "allows_intolerance_bypass": true }
-  ]
-}`,
-  },
-
-  'novartis-kisqali': {
-    id: 'novartis-kisqali',
-    drugKey: 'kisqali',
-    configFile: 'kisqali_hrplus_oncology.json',
-    drug: 'Kisqali (ribociclib)',
-    manufacturer: 'Novartis',
-    plan: 'BlueCross BlueShield PPO',
-    planId: 'B7721-112',
-    categoryKey: 'oncology',
-    categoryLabel: 'Oncology',
-    diagnosis: 'HR+/HER2- Advanced Breast Cancer',
-    denialReason: 'Medical necessity not established — alternative therapy not documented',
-    clientType: 'medtech',
-    criteriaResults: [
-      {
-        rule: { type: 'diagnostic', label: 'Confirmed HR+/HER2- Advanced or Metastatic Breast Cancer' },
-        status: 'found',
-        note: 'Page 1 — Pathology report: HR+/HER2- invasive ductal carcinoma, Stage IIIB confirmed by oncology attending.',
-        docSource: 'Pathology Report',
-      },
-      {
-        rule: { type: 'diagnostic', label: 'Postmenopausal Status OR Pre/Peri-menopausal with Ovarian Suppression' },
-        status: 'found',
-        note: 'Page 2 — FSH > 40 mIU/mL and clinical history confirm postmenopausal status.',
-        docSource: 'Lab Report',
-      },
-      {
-        rule: { type: 'temporal', label: 'Aromatase Inhibitor (AI) Baseline >= 8 Consecutive Weeks' },
-        status: 'found',
-        note: 'Page 4 — Letrozole 2.5mg initiated 4 months prior to referral. No dose reduction or intolerance noted.',
-        docSource: 'Oncology Notes',
-      },
-      {
-        rule: { type: 'math', label: 'ECOG Performance Status <= 1' },
-        status: 'found',
-        note: 'Page 2 — ECOG PS 0 (fully active) confirmed at two consecutive oncology visits.',
-        docSource: 'Oncology Notes',
-      },
-      {
-        rule: { type: 'safety', label: 'NO Prior CDK4/6 Inhibitor Therapy (palbociclib, ribociclib, abemaciclib)' },
-        status: 'needs_review',
-        note: 'Medication reconciliation on Page 3 references prior trial enrollment. CDK4/6 class exclusion must be confirmed with oncologist.',
-        docSource: 'Medication Reconciliation',
-        suggestedAction: 'Contact treating oncologist to provide written confirmation that prior trial enrollment was an immunotherapy arm — not CDK4/6 class (palbociclib, ribociclib, or abemaciclib).',
-        workflowPlan: {
-          action: 'Request written confirmation from treating oncologist',
-          recipient: 'Dr. Maria Santos, Oncology · Brigham and Women\'s',
-          channel: 'Secure fax · (617) 555-0261',
-          turnaround: '2–4 business days',
-        },
-      },
-    ],
-    citations: {
-      'Confirmed HR+/HER2- Advanced or Metastatic Breast Cancer':
-        { source: 'Pathology Report', page: 'p. 1', text: 'Pathology report 01/15/2024 — HR+/HER2- invasive ductal carcinoma, Stage IIIB.' },
-      'Postmenopausal Status OR Pre/Peri-menopausal with Ovarian Suppression':
-        { source: 'Lab Report', page: 'p. 2', text: 'FSH 52 mIU/mL and last menstrual period > 24 months confirm postmenopausal status.' },
-      'Aromatase Inhibitor (AI) Baseline >= 8 Consecutive Weeks':
-        { source: 'Oncology Notes', page: 'p. 4', text: 'Letrozole 2.5mg daily initiated September 2023 — 4 months continuous use.' },
-      'ECOG Performance Status <= 1':
-        { source: 'Oncology Notes', page: 'p. 2', text: 'Oncology visit 03/12/2024 — ECOG PS 0.' },
-      'NO Prior CDK4/6 Inhibitor Therapy (palbociclib, ribociclib, abemaciclib)':
-        { source: 'Medication Reconciliation', page: 'p. 3', text: 'Prior trial enrollment was immunotherapy arm — not CDK4/6 class.' },
-    },
-    configJson: `{
-  "policy_id": "kisqali-hrplus-v1",
-  "target_drug": "ribociclib",
-  "diagnostic_rules": [
-    { "condition_category": "HR+/HER2- Advanced Breast Cancer", "must_be_present": true },
-    { "condition_category": "Postmenopausal or AI + OFS", "must_be_present": true }
-  ],
-  "biomarker_rules": [
-    { "biomarker_name": "ECOG Performance Status",
-      "operator": "<=", "absolute_threshold": 1, "max_age_days": 90 }
-  ],
-  "temporal_rules": [
-    { "intervention_target": "Aromatase Inhibitor",
-      "minimum_duration_days": 56, "allows_intolerance_bypass": false }
-  ],
-  "safety_rules": [
-    { "condition_category": "Prior CDK4/6 Inhibitor Use", "must_be_present": false }
-  ]
-}`,
-  },
-
-  'ph-2847': {
-    id: 'ph-2847',
-    drugKey: 'ocaliva',
-    configFile: 'ocaliva_pbc_hepatology.json',
-    drug: 'Ocaliva (obeticholic acid)',
-    manufacturer: 'Intercept Pharmaceuticals',
-    plan: 'Aetna Select Plus PPO',
-    planId: 'H5521-034',
-    categoryKey: 'hepatology',
-    categoryLabel: 'Hepatology',
-    diagnosis: 'Primary Biliary Cholangitis (PBC)',
-    denialReason: 'Step therapy requirements not met',
-    clientType: 'patient',
-    criteriaResults: [
-      {
-        rule: { type: 'diagnostic', label: 'Confirmed Diagnosis: Primary Biliary Cholangitis (PBC)' },
-        status: 'found',
-        note: 'Page 2 — AMA-M2 antibody confirmed positive. PBC diagnosis documented by GI specialist.',
-        docSource: 'Specialist Consult (GI)',
-      },
-      {
-        rule: { type: 'temporal', label: 'Ursodiol Duration >= 12 Months OR Clinical Intolerance Documented' },
-        status: 'found',
-        note: 'Page 4 — Ursodiol 500mg BID initiated Jan 2023 (14 months continuous). No intolerance reported.',
-        docSource: 'Patient Chart',
-      },
-      {
-        rule: { type: 'math', label: 'Alkaline Phosphatase >= 1.67x Upper Limit of Normal' },
-        status: 'found',
-        note: 'Page 6 — ALP 312 U/L on 03/15/2024. ULN 120 U/L → 2.6x ULN. Threshold met.',
-        docSource: 'Lab Report',
-      },
-      {
-        rule: { type: 'safety', label: 'NO Decompensated Cirrhosis (Child-Pugh B or C)' },
-        status: 'needs_review',
-        note: 'Child-Pugh score not explicitly documented. GI consult note referenced but not attached to chart.',
-        docSource: 'Specialist Consult (GI)',
-        suggestedAction: 'Upload the GI specialist consult note referenced on page 3 of the patient chart. Alternatively, request a Child-Pugh score calculation directly from the treating gastroenterologist.',
-        workflowPlan: {
-          action: 'Request Child-Pugh score from gastroenterologist',
-          recipient: 'Dr. James Okafor, Gastroenterology · Mt. Sinai',
-          channel: 'Secure fax · (212) 555-0147',
-          turnaround: '2–3 business days',
-        },
-      },
-    ],
-    citations: {
-      'Confirmed Diagnosis: Primary Biliary Cholangitis (PBC)':
-        { source: 'Specialist Consult (GI)', page: 'p. 2', text: 'Patient established care for PBC in 2021, confirmed via AMA-M2 antibody positivity.' },
-      'Ursodiol Duration >= 12 Months OR Clinical Intolerance Documented':
-        { source: 'Patient Chart', page: 'p. 4', text: 'Chart notes indicate 14 months of Ursodiol therapy (500mg BID) initiated Jan 2023.' },
-      'Alkaline Phosphatase >= 1.67x Upper Limit of Normal':
-        { source: 'Lab Report', page: 'p. 6', text: 'Lab report dated 03/15/2024 — ALP: 312 U/L (ULN: 120 U/L → 2.6x ULN).' },
-      'NO Decompensated Cirrhosis (Child-Pugh B or C)':
-        { source: 'Specialist Consult (GI)', page: 'p. 3', text: 'GI consult confirms Child-Pugh Class A. No ascites, encephalopathy, or variceal bleeding documented.' },
-    },
-    configJson: `{
-  "policy_id": "ocaliva-pbc-v3",
-  "target_drug": "obeticholic acid",
-  "diagnostic_rules": [
-    { "condition_category": "Primary Biliary Cholangitis", "must_be_present": true }
-  ],
-  "biomarker_rules": [
-    { "biomarker_name": "Alkaline Phosphatase",
-      "operator": ">=", "multiplier_of_uln": 1.67, "max_age_days": 180 }
-  ],
-  "temporal_rules": [
-    { "intervention_target": "Ursodiol",
-      "minimum_duration_days": 365, "allows_intolerance_bypass": true }
-  ],
-  "safety_rules": [
-    { "condition_category": "Decompensated Cirrhosis (Child-Pugh B/C)", "must_be_present": false }
-  ]
-}`,
-  },
-
   // ── Ozempic family: Cigna base ──────────────────────────────────────────────
   'novo-ozempic': {
     id: 'novo-ozempic',
@@ -421,188 +190,6 @@ const scenarios: Record<string, ScenarioConfig> = {
   "safety_rules": [
     { "condition_category": "Medullary Thyroid Carcinoma (MTC) or MEN2",
       "must_be_present": false }
-  ]
-}`,
-  },
-
-  // ── Ozempic family: Aetna carrier base ─────────────────────────────────────
-  'ozempic-aetna-base': {
-    id: 'ozempic-aetna-base',
-    drugKey: 'ozempic',
-    configFile: 'ozempic_aetna_base.json',
-    drug: 'Ozempic (semaglutide)',
-    manufacturer: 'Novo Nordisk',
-    plan: 'Aetna Commercial PPO',
-    planId: 'AETNA-COM-2024',
-    categoryKey: 'endocrinology',
-    categoryLabel: 'Endocrinology',
-    diagnosis: 'Type 2 Diabetes Mellitus (E11.9)',
-    denialReason: 'Step therapy not met — prior oral agent documentation insufficient',
-    clientType: 'patient',
-    criteriaResults: [
-      {
-        rule: { type: 'diagnostic', label: 'Confirmed Diagnosis: Type 2 Diabetes Mellitus (T2DM)' },
-        status: 'found',
-        note: 'Page 1 — Endocrinology note confirms T2DM diagnosis established 2020. ICD-10 E11.9 documented.',
-        docSource: 'Specialist Consult (Endocrinology)',
-      },
-      {
-        rule: { type: 'math', label: 'HbA1c >= 7.5% on Current Oral Regimen' },
-        status: 'found',
-        note: 'Page 3 — Lab report 04/02/2024: HbA1c 8.1%. Threshold ≥7.5% met.',
-        docSource: 'Lab Report',
-      },
-      {
-        rule: { type: 'temporal', label: 'Metformin Therapy >= 90 Consecutive Days at Maximum Tolerated Dose' },
-        status: 'found',
-        note: 'Page 5 — Pharmacy records confirm Metformin 1000mg BID for 5 months with no gaps.',
-        docSource: 'Pharmacy Records',
-      },
-      {
-        rule: { type: 'safety', label: 'NO Personal or Family History of Medullary Thyroid Carcinoma (MTC)' },
-        status: 'found',
-        note: 'Page 2 — Medical history review: no personal or family history of MTC or MEN2. Thyroid ultrasound normal.',
-        docSource: 'Medical History',
-      },
-    ],
-    citations: {
-      'Confirmed Diagnosis: Type 2 Diabetes Mellitus (T2DM)':
-        { source: 'Specialist Consult (Endocrinology)', page: 'p. 1', text: 'Endocrinology note 03/15/2024 — T2DM (E11.9) established 2020, active management ongoing.' },
-      'HbA1c >= 7.5% on Current Oral Regimen':
-        { source: 'Lab Report', page: 'p. 3', text: 'Lab report 04/02/2024 — HbA1c: 8.1% (threshold ≥7.5%). Criterion satisfied.' },
-      'Metformin Therapy >= 90 Consecutive Days at Maximum Tolerated Dose':
-        { source: 'Pharmacy Records', page: 'p. 5', text: 'CVS Caremark fill history — Metformin 1000mg BID, 5 months continuous, no interruption.' },
-      'NO Personal or Family History of Medullary Thyroid Carcinoma (MTC)':
-        { source: 'Medical History', page: 'p. 2', text: 'Comprehensive history review — no MTC or MEN2. Thyroid ultrasound 01/2024 unremarkable.' },
-    },
-    configJson: `{
-  "policy_id": "ozempic-aetna-base-v1",
-  "target_drug": "semaglutide",
-  "carrier": "aetna",
-  "plan_type": "fully_insured_commercial",
-  "diagnostic_rules": [
-    { "condition_category": "Type 2 Diabetes Mellitus", "must_be_present": true }
-  ],
-  "biomarker_rules": [
-    { "biomarker_name": "HbA1c", "operator": ">=",
-      "absolute_threshold": 7.5, "max_age_days": 180 }
-  ],
-  "temporal_rules": [
-    { "intervention_target": "Metformin",
-      "minimum_duration_days": 90, "allows_intolerance_bypass": true }
-  ],
-  "safety_rules": [
-    { "condition_category": "Medullary Thyroid Carcinoma (MTC) or MEN2",
-      "must_be_present": false }
-  ]
-}`,
-  },
-
-  // ── Ozempic family: Aetna / Costco self-insured override ───────────────────
-  'ozempic-aetna-costco': {
-    id: 'ozempic-aetna-costco',
-    drugKey: 'ozempic',
-    parentConfigId: 'ozempic-aetna-base',
-    overriddenFields: [
-      { label: 'HbA1c threshold', base: '≥ 7.5%', override: '≥ 8.0%' },
-      { label: 'Metformin trial', base: '≥ 90 days', override: '≥ 180 days' },
-      { label: 'BMI requirement', base: '—', override: '≥ 35 kg/m² (added)' },
-    ],
-    configFile: 'ozempic_aetna_costco.json',
-    drug: 'Ozempic (semaglutide)',
-    manufacturer: 'Novo Nordisk',
-    plan: 'Aetna (Costco Wholesale Self-Insured)',
-    planId: 'AETNA-TPA-CSTCO',
-    categoryKey: 'endocrinology',
-    categoryLabel: 'Endocrinology',
-    diagnosis: 'Type 2 Diabetes Mellitus (E11.9)',
-    denialReason: 'Benefit design threshold not met — HbA1c below plan-specific requirement',
-    clientType: 'patient',
-    criteriaResults: [
-      {
-        rule: { type: 'diagnostic', label: 'Confirmed Diagnosis: Type 2 Diabetes Mellitus (T2DM)' },
-        status: 'found',
-        note: 'Page 1 — T2DM (E11.9) confirmed by endocrinologist. Diagnosis established 2019.',
-        docSource: 'Specialist Consult (Endocrinology)',
-      },
-      {
-        rule: { type: 'math', label: 'HbA1c >= 8.0% (Costco plan override — base Aetna threshold is 7.5%)' },
-        status: 'needs_review',
-        note: 'Page 3 — HbA1c 7.9% (04/18/2024). Satisfies Aetna base (≥7.5%) but falls short of Costco override threshold (≥8.0%). Requires re-test or physician attestation.',
-        docSource: 'Lab Report',
-        suggestedAction: 'Option 1: Order repeat HbA1c — current result of 7.9% must reach plan threshold of ≥8.0%. Option 2: Obtain physician attestation letter documenting clinical necessity despite marginally sub-threshold value.',
-        workflowPlan: {
-          action: 'Outreach to ordering physician for repeat HbA1c or attestation',
-          recipient: 'Dr. Linda Torres, Endocrinology · Toronto Western',
-          channel: 'Secure fax · (416) 555-0182',
-          turnaround: '2–5 business days',
-        },
-      },
-      {
-        rule: { type: 'math', label: 'BMI >= 35 kg/m² (added by Costco plan — not in Aetna base)' },
-        status: 'needs_review',
-        note: 'BMI not documented in uploaded chart. Requires height/weight measurement from most recent visit.',
-        docSource: 'Clinical Visit Notes',
-        suggestedAction: 'Request height/weight vitals from the most recent clinical encounter. Contact the provider office for a nursing measurement record or most recent clinical visit note.',
-        workflowPlan: {
-          action: 'Request vitals from last clinical encounter',
-          recipient: 'Dr. Linda Torres, Endocrinology · Toronto Western',
-          channel: 'Secure fax · (416) 555-0182',
-          turnaround: '1–2 business days',
-        },
-      },
-      {
-        rule: { type: 'temporal', label: 'Metformin Therapy >= 180 Consecutive Days (Costco override — base is 90 days)' },
-        status: 'found',
-        note: 'Page 5 — Pharmacy records confirm Metformin 1000mg BID for 7 months. Satisfies both base (90d) and override (180d) thresholds.',
-        docSource: 'Pharmacy Records',
-      },
-      {
-        rule: { type: 'safety', label: 'NO Personal or Family History of Medullary Thyroid Carcinoma (MTC)' },
-        status: 'found',
-        note: 'Page 2 — Medical history clear. No MTC or MEN2 in personal or family history.',
-        docSource: 'Medical History',
-      },
-    ],
-    citations: {
-      'Confirmed Diagnosis: Type 2 Diabetes Mellitus (T2DM)':
-        { source: 'Specialist Consult (Endocrinology)', page: 'p. 1', text: 'Endocrinology note 04/01/2024 — T2DM (E11.9) established 2019.' },
-      'HbA1c >= 8.0% (Costco plan override — base Aetna threshold is 7.5%)':
-        { source: 'Lab Report', page: 'p. 3', text: 'Lab report 04/18/2024 — HbA1c: 7.9%. Below Costco plan threshold of 8.0%. Aetna base threshold of 7.5% would be satisfied.' },
-      'BMI >= 35 kg/m² (added by Costco plan — not in Aetna base)':
-        { source: 'Clinical Visit Notes', page: 'pending', text: 'BMI not present in uploaded records. Most recent clinical visit note required.' },
-      'Metformin Therapy >= 180 Consecutive Days (Costco override — base is 90 days)':
-        { source: 'Pharmacy Records', page: 'p. 5', text: 'Pharmacy history — Metformin 1000mg BID, 212 consecutive days. Both 90-day and 180-day thresholds satisfied.' },
-      'NO Personal or Family History of Medullary Thyroid Carcinoma (MTC)':
-        { source: 'Medical History', page: 'p. 2', text: 'Full medical history review — no MTC or MEN2 documented.' },
-    },
-    configJson: `{
-  "policy_id": "ozempic-aetna-costco-v1",
-  "extends": "ozempic-aetna-base-v1",
-  "plan_type": "self_insured",
-  "tpa": "aetna",
-  "employer": "Costco Wholesale",
-  "note": "Self-insured override. Fields below diverge from carrier base.",
-
-  "biomarker_overrides": [
-    { "biomarker_name": "HbA1c",
-      "operator": ">=",
-      "absolute_threshold": 8.0,
-      "_base_threshold": 7.5,
-      "max_age_days": 180 }
-  ],
-  "biomarker_additions": [
-    { "biomarker_name": "BMI",
-      "operator": ">=",
-      "absolute_threshold": 35,
-      "max_age_days": 365,
-      "_note": "not in base config — added by employer" }
-  ],
-  "temporal_overrides": [
-    { "intervention_target": "Metformin",
-      "minimum_duration_days": 180,
-      "_base_days": 90,
-      "allows_intolerance_bypass": true }
   ]
 }`,
   },
@@ -710,249 +297,10 @@ const scenarios: Record<string, ScenarioConfig> = {
 // ---------------------------------------------------------------------------
 
 const initialClients: Client[] = [
-  { id: 1, name: 'Amgen',         drug: 'Repatha',             categoryLabel: 'Cardiology',      status: 'submitted',        clientType: 'medtech', lastUpdated: 'Jun 5, 2026',  scenarioId: 'amgen-repatha' },
-  { id: 2, name: 'Novartis',      drug: 'Kisqali',             categoryLabel: 'Oncology',        status: 'ready_for_review', clientType: 'medtech', lastUpdated: 'Jun 4, 2026',  scenarioId: 'novartis-kisqali' },
-  { id: 3, name: 'Case #PH-2847', drug: 'Ocaliva',             categoryLabel: 'Hepatology',      status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 7, 2026',  scenarioId: 'ph-2847' },
-  { id: 4, name: 'Case #PH-3102', drug: 'Ozempic',             categoryLabel: 'Endocrinology',   status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 8, 2026',  scenarioId: 'ozempic-aetna-base' },
-  { id: 5, name: 'Case #PH-3847', drug: 'Ozempic',             categoryLabel: 'Endocrinology',   status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 10, 2026', scenarioId: 'ozempic-aetna-costco' },
-  { id: 6, name: 'Case #PH-4201', drug: 'Omeprazole Susp.',    categoryLabel: 'Gastroenterology', status: 'payer_response',   clientType: 'patient', lastUpdated: 'Jun 11, 2026', scenarioId: 'infant-omeprazole' },
+  { id: 1, name: 'Case #PH-3102', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 8, 2026',  scenarioId: 'novo-ozempic' },
+  { id: 2, name: 'Case #PH-4201', drug: 'Omeprazole Susp.', categoryLabel: 'Gastroenterology', status: 'payer_response',   clientType: 'patient', lastUpdated: 'Jun 11, 2026', scenarioId: 'infant-omeprazole' },
 ]
 
-// ---------------------------------------------------------------------------
-// Joyride tour — 18 steps across all views
-// ---------------------------------------------------------------------------
-
-const tc = (body: string, note?: string) => (
-  <div>
-    <p style={{ color: '#cbd5e1', fontSize: 13, lineHeight: 1.65, margin: 0 }}>{body}</p>
-    {note && <p style={{ color: '#64748b', fontSize: 12, lineHeight: 1.5, marginTop: 8, marginBottom: 0 }}>{note}</p>}
-  </div>
-)
-
-const TOUR_STEPS: Step[] = [
-  {
-    target: 'body',
-    placement: 'center',
-    skipBeacon: true,
-    title: 'PaxOS Guided Tour',
-    content: tc(
-      'This walkthrough covers the full prior authorization workflow — from the Ontology Library to a generated appeal letter. You\'ll see what the system sees at every step and why no prompt engineering is required.',
-      '18 steps · Use the arrows to navigate · press Esc to exit'
-    ),
-  },
-  {
-    target: '#tour-portfolio-list',
-    placement: 'right',
-    skipBeacon: true,
-    title: 'Client Portfolio',
-    content: tc(
-      'Your CRM-style case list. MedTech partners and patient appeal cases appear side by side. Notice the two Ozempic rows — same drug, different payers, different PA criteria. Each is a distinct case with its own config.'
-    ),
-  },
-  {
-    target: '#tour-new-case-btn',
-    placement: 'bottom',
-    skipBeacon: true,
-    title: 'Start a New Intake',
-    content: tc(
-      'Upload a denial letter or patient chart here. The extraction pipeline reads the document, identifies the drug and the Plan ID, and auto-selects the matching config — including plan-specific overrides.',
-      'For the demo, new uploads resolve to a pre-configured scenario so you can see the full extraction result immediately.'
-    ),
-  },
-  {
-    target: '#tour-sidebar-library',
-    placement: 'right',
-    skipBeacon: true,
-    title: 'Ontology Library',
-    content: tc(
-      'The Library holds every building block for every pipeline. Two layers: universal rule primitives (the factory) and drug × carrier configurations (the materials). Next, we\'ll walk through both layers.'
-    ),
-  },
-  // --- Library view steps ---
-  {
-    target: '#tour-layer1',
-    placement: 'bottom',
-    skipBeacon: true,
-    title: 'Layer 1 — Universal Primitives',
-    content: tc(
-      'These four rule types cover every prior authorization scenario in clinical practice. They are never rewritten between clients — only parameterized. Think of them as the assembly line; the drug config is the raw material loaded onto it.'
-    ),
-  },
-  {
-    target: '#tour-primitive-diagnostic',
-    placement: 'right',
-    skipBeacon: true,
-    title: 'Diagnostic Rule',
-    content: tc(
-      'Checks for the presence or absence of a clinical diagnosis. The retrieval agent scans ICD codes, specialist consult notes, and attending physician attestation.',
-      'Example: "Confirmed Type 2 Diabetes (E11.9) must be present." Set must_be_present: true for indications, false for contraindications.'
-    ),
-  },
-  {
-    target: '#tour-primitive-math',
-    placement: 'left',
-    skipBeacon: true,
-    title: 'Biomarker / Math Rule',
-    content: tc(
-      'Compares an extracted lab value against a threshold. Supports absolute comparisons (LDL-C ≥ 70 mg/dL), multiples of the upper limit of normal (ALP ≥ 1.67× ULN), and a recency window to reject stale labs.',
-      'Example: HbA1c ≥ 7.5% within the last 180 days. The threshold is the only thing that changes between carrier configs — the rule primitive stays the same.'
-    ),
-  },
-  {
-    target: '#tour-primitive-temporal',
-    placement: 'right',
-    skipBeacon: true,
-    title: 'Temporal Rule',
-    content: tc(
-      'Verifies that a prior line of therapy was tried for a minimum duration. Example: Metformin ≥ 90 days.',
-      'The Costco self-insured plan overrides this to 180 days. Same primitive, different parameter — the pipeline doesn\'t care which plan it is; it just reads the loaded config.'
-    ),
-  },
-  {
-    target: '#tour-primitive-safety',
-    placement: 'left',
-    skipBeacon: true,
-    title: 'Safety / Contraindication Rule',
-    content: tc(
-      'A hard exclusion gate — must_be_present is always false. If the contraindicated condition appears anywhere in the chart, the pipeline halts and returns Denied regardless of other criteria.',
-      'Example: personal or family history of medullary thyroid carcinoma is a black-box contraindication for semaglutide (Ozempic). This rule is identical across all carrier configs for this drug.'
-    ),
-  },
-  {
-    target: '#tour-layer2',
-    placement: 'top',
-    skipBeacon: true,
-    title: 'Layer 2 — Drug × Carrier Configurations',
-    content: tc(
-      'Each drug has one config per supported carrier — plus plan-specific overrides for self-insured employer plans. The pipeline is identical for all of them; the config is the only variable.',
-      'Adding a new carrier or self-insured plan takes minutes: write the config (or just the override delta), add it to the library. No engineering ticket, no prompt rewrite.'
-    ),
-  },
-  {
-    target: '#tour-drug-ozempic',
-    placement: 'top',
-    skipBeacon: true,
-    title: 'Config Hierarchy: Same Drug, Different Plans',
-    content: tc(
-      'Ozempic has three configs here — Cigna, Aetna standard, and Aetna/Costco self-insured. The Costco override only stores what diverges from the Aetna base: HbA1c ≥ 8.0% (vs 7.5%), Metformin ≥ 180 days (vs 90), and an added BMI rule.',
-      'When the extraction pipeline reads a Plan ID of AETNA-TPA-CSTCO, it loads the Aetna base config and patches in the Costco override automatically. The AM never selects a config manually.'
-    ),
-  },
-  // --- Intake view steps (Ozempic/Cigna pre-loaded) ---
-  {
-    target: '#tour-intake-header',
-    placement: 'bottom',
-    skipBeacon: true,
-    title: 'Opening a New Case from the Library',
-    content: tc(
-      'Clicking "Use This Template" opened this intake pre-loaded with the Ozempic/Cigna config. No drug selection, no payer lookup — the config is already active.',
-      'In practice: when Novo Nordisk submits a patient case or a patient calls about an Ozempic denial under a Cigna plan, the AM opens this template. The Library config was built during Novo Nordisk\'s onboarding.'
-    ),
-  },
-  {
-    target: '#tour-config-banner',
-    placement: 'bottom',
-    skipBeacon: true,
-    title: 'Configuration Auto-Loaded',
-    content: tc(
-      'The blue banner confirms which config file is active. The pipeline doesn\'t know about Ozempic specifically — it only knows about the four primitive types. The config tells it which parameters to apply.',
-      'For uploads, the extraction pipeline identifies the drug and Plan ID from the document and auto-selects the matching config. For library templates, it\'s pre-loaded.'
-    ),
-  },
-  {
-    target: '#tour-extracted-fields',
-    placement: 'right',
-    skipBeacon: true,
-    title: 'Extracted Fields',
-    content: tc(
-      'Drug, manufacturer, insurance plan, plan ID, diagnosis, and denial reason — all sourced from the uploaded documents or pre-populated from the library config.',
-      'For new document uploads, these fields are populated by the extraction pipeline. The AM reviews them before launching, not before uploading.'
-    ),
-  },
-  {
-    target: '#tour-criteria-precheck',
-    placement: 'right',
-    skipBeacon: true,
-    title: 'Criteria Pre-check',
-    content: tc(
-      'Before the full pipeline runs, the system does a fast evidence scan. Green = evidence found with a page citation. Yellow = the document doesn\'t have it — the AM needs to chase it down.',
-      'This is not the full pipeline. It\'s a lightweight scan that surfaces gaps before the AM commits to launching. Reduces rework.'
-    ),
-  },
-  {
-    target: '#tour-launch-btn',
-    placement: 'top',
-    skipBeacon: true,
-    title: 'Launch Full Pipeline',
-    content: tc(
-      'When criteria are reviewed, launch the complete 4-node DAG: Retrieval → Synthesis → Compliance → Safety/Critic. The output is a structured appeal document with every clinical citation embedded and auditable.',
-      'Next: we\'ll walk through the pipeline execution view.'
-    ),
-  },
-  // --- POC view steps ---
-  {
-    target: '#tour-pipeline-header',
-    placement: 'bottom',
-    skipBeacon: true,
-    title: 'Pipeline Execution View',
-    content: tc(
-      'The header confirms the active config file — here it\'s ozempic_cigna_base.json. This is the same 4-node DAG regardless of which drug or carrier is being processed. The config file is the only thing that changes.',
-      'Node 1: Document Ingestion → Node 2: Retrieval → Node 3: Synthesis → Node 4: Compliance + Safety Critic'
-    ),
-  },
-  {
-    target: '#tour-execute-btn',
-    placement: 'top',
-    skipBeacon: true,
-    title: 'Execute the Pipeline',
-    content: tc(
-      'Click Execute to run. Each node streams live progress: Vectorizing chunks → Retrieval → Synthesis → Compliance → Safety Critic → Pydantic schema validation.',
-      'The output: a Case Approved decision (or Denied with reasoning), a full extraction audit trail with page citations, and a downloadable prior authorization appeal letter ready to send.'
-    ),
-  },
-]
-
-const JOYRIDE_STYLES: import('react-joyride').PartialDeep<import('react-joyride').Styles> = {
-  tooltip: {
-    borderRadius: 12,
-    border: '1px solid rgba(51,65,85,0.9)',
-    boxShadow: '0 25px 60px rgba(0,0,0,0.5)',
-    padding: 0,
-  },
-  tooltipTitle: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: '#f1f5f9',
-    padding: '18px 18px 10px',
-    margin: 0,
-  },
-  tooltipContent: {
-    padding: '0 18px 4px',
-  },
-  tooltipFooter: {
-    padding: '12px 18px 16px',
-    marginTop: 0,
-  },
-  buttonPrimary: {
-    backgroundColor: '#10b981',
-    borderRadius: 8,
-    fontSize: 13,
-    fontWeight: 500,
-    padding: '7px 14px',
-  },
-  buttonBack: {
-    color: '#64748b',
-    fontSize: 13,
-    marginRight: 4,
-  },
-  buttonSkip: {
-    color: '#475569',
-    fontSize: 12,
-  },
-  buttonClose: {
-    color: '#475569',
-  },
-}
 
 // ---------------------------------------------------------------------------
 // Shared display helpers
@@ -1010,7 +358,7 @@ function ClientTypePill({ type }: { type: ClientType }) {
 // Sidebar
 // ---------------------------------------------------------------------------
 
-function Sidebar({ view, setView, onHelpClick }: { view: View; setView: (v: View) => void; onHelpClick: () => void }) {
+function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) {
   return (
     <aside className="w-60 shrink-0 bg-slate-900 border-r border-slate-800 flex flex-col">
       <div className="px-5 py-5 border-b border-slate-800">
@@ -1043,13 +391,6 @@ function Sidebar({ view, setView, onHelpClick }: { view: View; setView: (v: View
             {label}
           </button>
         ))}
-        <button
-          onClick={onHelpClick}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-        >
-          <HelpCircle className="w-4 h-4" />
-          Guided Tour
-        </button>
       </nav>
       <div className="p-3 border-t border-slate-800">
         <div className="flex items-center gap-3 px-2 py-2">
@@ -1078,11 +419,12 @@ function PortfolioView({ clients, onNew, onOpenCase }: {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<CaseStatus | null>(null)
 
-  const readyCount     = clients.filter(c => c.status === 'ready_for_review').length
-  const exceptionCount = clients.filter(c => c.status === 'exception').length
-  const submittedCount = clients.filter(c => c.status === 'submitted').length
-  const processingCount = clients.filter(c => c.status === 'processing').length
-  const actionableCount = readyCount + exceptionCount
+  const readyCount         = clients.filter(c => c.status === 'ready_for_review').length
+  const exceptionCount     = clients.filter(c => c.status === 'exception').length
+  const payerResponseCount = clients.filter(c => c.status === 'payer_response').length
+  const submittedCount     = clients.filter(c => c.status === 'submitted').length
+  const processingCount    = clients.filter(c => c.status === 'processing').length
+  const actionableCount    = readyCount + exceptionCount + payerResponseCount
 
   const statusOrder: Record<CaseStatus, number> = { exception: 0, payer_response: 0, ready_for_review: 1, submitted: 2, processing: 3 }
 
@@ -1163,6 +505,28 @@ function PortfolioView({ clients, onNew, onOpenCase }: {
               </p>
               <p className="text-xs text-amber-400 mt-2 font-medium">
                 {statusFilter === 'exception' ? '← Clear filter' : 'Show these cases →'}
+              </p>
+            </button>
+          )}
+          {payerResponseCount > 0 && (
+            <button
+              onClick={() => toggleFilter('payer_response')}
+              className={`text-left rounded-xl p-4 border transition-all ${
+                statusFilter === 'payer_response'
+                  ? 'bg-violet-950/60 border-violet-500/50 ring-1 ring-violet-500/30'
+                  : 'bg-violet-950/30 border-violet-500/20 hover:border-violet-500/40'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                <RotateCcw className="w-4 h-4 text-violet-400 shrink-0" />
+                <span className="text-xl font-bold text-violet-400">{payerResponseCount}</span>
+                <span className="text-sm font-medium text-violet-300">Payer Responded</span>
+              </div>
+              <p className="text-xs text-violet-400/60 leading-snug">
+                Counter-offer received — Round 2 argument ready to file
+              </p>
+              <p className="text-xs text-violet-400 mt-2 font-medium">
+                {statusFilter === 'payer_response' ? '← Clear filter' : 'Show these cases →'}
               </p>
             </button>
           )}
@@ -1723,18 +1087,89 @@ function IntakeView({ preloadedScenarioId, onLaunch }: {
 }
 
 // ---------------------------------------------------------------------------
-// View 3 — Pipeline Execution
+// Pipeline trace helpers
 // ---------------------------------------------------------------------------
 
-const pipelineSteps = [
-  'Vectorizing document chunks...',
-  'Running Retrieval Node...',
-  'Running Synthesis Node...',
-  'Running Compliance Node...',
-  'Running Safety / Critic Node...',
-  'Validating Pydantic output schema...',
-  'Complete',
-]
+interface TraceStep {
+  label: string
+  icon: React.ReactNode
+  findings: string[]
+}
+
+function buildPipelineTrace(scenario: ScenarioConfig): TraceStep[] {
+  const found = scenario.criteriaResults.filter(c => c.status === 'found')
+  const isInfant = scenario.id === 'infant-omeprazole'
+  return [
+    {
+      label: 'Ingestion',
+      icon: <Upload className="w-3.5 h-3.5" />,
+      findings: [
+        `Drug: ${scenario.drug}`,
+        `Diagnosis: ${scenario.diagnosis}`,
+        `Payer: ${scenario.plan} · ${scenario.planId}`,
+        `Denial reason extracted: "${scenario.denialReason}"`,
+      ],
+    },
+    {
+      label: 'Retrieval',
+      icon: <Search className="w-3.5 h-3.5" />,
+      findings: isInfant
+        ? [
+            `Policy loaded: ${scenario.planId} — pediatric GI formulary`,
+            `${scenario.criteriaResults.length} PA criteria identified`,
+            'FDA Safety Communication: NDMA contamination in ranitidine (Apr 2020)',
+            'NASPGHAN 2018 GERD guidelines located (PMID 29470322)',
+          ]
+        : [
+            `Policy loaded: ${scenario.planId} — step therapy protocol`,
+            `${scenario.criteriaResults.length} PA criteria identified`,
+            'Formulary alternatives flagged for verification',
+          ],
+    },
+    {
+      label: 'Synthesis',
+      icon: <GitBranch className="w-3.5 h-3.5" />,
+      findings: [
+        `${found.length}/${scenario.criteriaResults.length} criteria satisfied — all grounded in payer policy`,
+        ...found.slice(0, 3).map(c => `↳ ${c.rule.label}`),
+        ...(found.length > 3 ? [`↳ +${found.length - 3} more`] : []),
+      ],
+    },
+    {
+      label: 'Gatekeeper',
+      icon: <Shield className="w-3.5 h-3.5" />,
+      findings: [
+        'Drug name present in generated letter ✓',
+        'Denial reason addressed ✓',
+        `All ${found.length} criteria cited ✓`,
+        'No refusal or off-task patterns detected ✓',
+        'Letter length ≥ 400 chars ✓',
+      ],
+    },
+  ]
+}
+
+function getPipelineSteps(scenario: ScenarioConfig): string[] {
+  const isInfant = scenario.id === 'infant-omeprazole'
+  return [
+    isInfant
+      ? 'Ingestion · parsing Cigna denial for omeprazole suspension'
+      : `Ingestion · parsing ${scenario.plan} denial for ${scenario.drug}`,
+    isInfant
+      ? 'Retrieval · loading pediatric dosing policy + FDA NDMA recall evidence'
+      : `Retrieval · loading ${scenario.plan} step-therapy requirements`,
+    'Synthesis · drafting evidence-grounded appeal letter...',
+    isInfant
+      ? 'Synthesis · citing NASPGHAN 2018 guidelines (PMID 29470322)...'
+      : 'Synthesis · citing clinical trial data and payer policy criteria...',
+    'Gatekeeper · deterministic rule validation (no LLM)...',
+    'Gatekeeper · output schema validated · complete',
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// View 3 — Pipeline Execution
+// ---------------------------------------------------------------------------
 
 function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, caseStatus }: {
   scenario: ScenarioConfig
@@ -1753,6 +1188,7 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
   const [pendingDispatch, setPendingDispatch] = useState<string[]>([])
   const [acknowledged, setAcknowledged] = useState(false)
   const [appealRef] = useState(() => `PH-${Math.floor(Math.random() * 9000) + 1000}`)
+  const [traceOpen, setTraceOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [editedBody, setEditedBody] = useState<string | null>(null)
   const [round2StepIdx, setRound2StepIdx] = useState(0)
@@ -1777,6 +1213,8 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
     if (!r2 || !offer) return ''
     return `Dear Medical Director,\n\nThank you for your partial authorization dated ${offer.date} for ${scenario.drug}. We write to formally contest the approved dose limitation of ${offer.approvedDose}.\n\nCLINICAL BASIS FOR DOSE INCREASE\n\n${r2.keyArgument}\n\nSUPPORTING GUIDELINE\n\n${r2.guidelineRef}\nPubMed PMID: ${r2.guidelinePMID}\n\nREQUESTED AUTHORIZATION\n\nWe respectfully request authorization be revised to ${r2.requiredDose} for ${scenario.diagnosis}. Approval at the sub-therapeutic dose previously authorized does not meet the evidence-based standard of care and places the patient at continued clinical risk.\n\nWe are prepared to provide any additional clinical documentation upon request and appreciate your prompt reconsideration.\n\nSincerely,\nPaxos Health\nAI-Assisted Prior Authorization Team`
   }
+
+  const pipelineSteps = getPipelineSteps(scenario)
 
   const handleRound2Execute = () => {
     setPhase('round2_loading'); setRound2StepIdx(0)
@@ -2452,6 +1890,37 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
               </div>
             </div>
 
+            {/* Pipeline trace — collapsible "behind the scenes" panel */}
+            <div className="border border-slate-700/60 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setTraceOpen(o => !o)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/40 hover:bg-slate-800/70 transition-colors text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <Code className="w-4 h-4 text-slate-400" />
+                  <span className="text-sm font-medium text-slate-300">Behind the Scenes — Pipeline Trace</span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${traceOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {traceOpen && (
+                <div className="divide-y divide-slate-700/40">
+                  {buildPipelineTrace(scenario).map((step, i) => (
+                    <div key={i} className="px-4 py-3 bg-slate-900/30">
+                      <div className="flex items-center gap-2 mb-2 text-slate-400">
+                        {step.icon}
+                        <span className="text-xs font-semibold uppercase tracking-wider">{step.label}</span>
+                      </div>
+                      <ul className="space-y-1">
+                        {step.findings.map((f, j) => (
+                          <li key={j} className="text-xs text-slate-400 font-mono pl-2 border-l border-slate-700">{f}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div>
               <h3 className="text-sm font-semibold text-slate-300 mb-3">Extraction Audit Trail</h3>
               <div className="space-y-3">
@@ -2898,9 +2367,6 @@ export default function App() {
   const [reviewMode, setReviewMode] = useState(false)
   const [autoStart, setAutoStart] = useState(false)
   const [openedCaseStatus, setOpenedCaseStatus] = useState<CaseStatus | null>(null)
-  const [tourRunning, setTourRunning] = useState(true)
-  const [tourStepIndex, setTourStepIndex] = useState(0)
-
   const addToPortfolio = (scenario: ScenarioConfig) => {
     const now = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     const name = scenario.clientType === 'patient'
@@ -2963,77 +2429,9 @@ export default function App() {
     setView('portfolio')
   }
 
-  const startTour = () => {
-    setView('portfolio')
-    setTourStepIndex(0)
-    setTourRunning(true)
-  }
-
-  const handleJoyrideCallback = (data: { action: string; index: number; status: string; type: string }) => {
-    const { action, index, status, type } = data
-
-    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
-      setTourRunning(false)
-      return
-    }
-
-    if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
-      const isNext = action === ACTIONS.NEXT
-      const isPrev = action === ACTIONS.PREV
-      if (!isNext && !isPrev) return
-
-      const delta = isNext ? 1 : -1
-      const next = index + delta
-
-      if (isNext) {
-        if (index === 3) { setView('library'); setTimeout(() => setTourStepIndex(4), 350); return }
-        if (index === 10) { setPreloadedScenarioId('novo-ozempic'); setView('intake'); setTimeout(() => setTourStepIndex(11), 400); return }
-        if (index === 15) { setActiveScenario(scenarios['novo-ozempic']); setView('poc'); setTimeout(() => setTourStepIndex(16), 400); return }
-      }
-
-      if (isPrev) {
-        if (index === 4) { setView('portfolio'); setTimeout(() => setTourStepIndex(3), 350); return }
-        if (index === 11) { setView('library'); setTimeout(() => setTourStepIndex(10), 350); return }
-        if (index === 16) { setPreloadedScenarioId('novo-ozempic'); setView('intake'); setTimeout(() => setTourStepIndex(15), 400); return }
-      }
-
-      setTourStepIndex(next)
-    }
-  }
-
   return (
     <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
-      <Joyride
-        steps={TOUR_STEPS}
-        run={tourRunning}
-        stepIndex={tourStepIndex}
-        onEvent={handleJoyrideCallback}
-        continuous
-        scrollToFirstStep
-        styles={JOYRIDE_STYLES}
-        options={{
-          arrowColor: '#1e293b',
-          backgroundColor: '#1e293b',
-          overlayColor: 'rgba(2, 6, 23, 0.6)',
-          primaryColor: '#10b981',
-          textColor: '#cbd5e1',
-          zIndex: 200,
-          width: 400,
-          buttons: ['back', 'primary', 'skip'],
-          showProgress: true,
-          overlayClickAction: false,
-          skipBeacon: true,
-        }}
-        locale={{
-          back: '← Back',
-          close: '✕',
-          last: 'Finish Tour',
-          next: 'Next →',
-          open: 'Open',
-          skip: 'Skip tour',
-        }}
-      />
-      <Sidebar view={view} setView={setView} onHelpClick={startTour} />
+      <Sidebar view={view} setView={setView} />
       {view === 'portfolio' && (
         <PortfolioView clients={clients} onNew={() => openNew()} onOpenCase={openCase} />
       )}
