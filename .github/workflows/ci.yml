@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend-check:
+    name: Frontend (tsc + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run build
+
+  backend-unit:
+    name: Backend unit + contract tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tesseract OCR (required by pytesseract)
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --group dev
+      - name: Run pip-audit (supply chain check)
+        working-directory: backend
+        run: uv run pip-audit --desc || true
+      - name: Run unit + contract tests
+        working-directory: backend
+        run: uv run pytest tests/unit tests/contract -v --tb=short
+
+  backend-integration:
+    name: Backend integration tests (MockLLMBackend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tesseract OCR (required by pytesseract)
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --group dev
+      - name: Run integration tests
+        working-directory: backend
+        run: uv run pytest tests/integration -v --tb=short
+
+  lint:
+    name: Lint + type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --group dev
+      - name: Ruff lint
+        working-directory: backend
+        run: uv run ruff check .
+      - name: Mypy type check
+        working-directory: backend
+        run: uv run mypy . --ignore-missing-imports
+
+# NOTE: evals/run_evals.py is NOT in CI — it requires a live LLM and costs tokens.
+# Run manually: uv run python -m evals.run_evals --scenario novo-ozempic --tier structural
+# Or trigger via workflow_dispatch once GROQ_API_KEY secret is configured.
