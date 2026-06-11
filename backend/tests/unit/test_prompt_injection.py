@@ -27,11 +27,8 @@ from security.sanitize import PhantomLintResult, sanitize_extracted_text
 
 
 def _state(base_appeal_request: AppealRequest, denial_text: str, pa_context: str = "") -> PipelineState:
-    from copy import deepcopy
-    req = deepcopy(base_appeal_request)
-    object.__setattr__(req, "denial_text", denial_text)
     return {
-        "request": req,
+        "request": base_appeal_request.model_copy(update={"denial_text": denial_text}),
         "pa_context": pa_context or "PA requirements: step therapy required.",
         "appeal_text": "",
         "model_name": "",

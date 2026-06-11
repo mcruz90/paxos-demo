@@ -39,11 +39,8 @@ def test_retrieval_contains_drug_name(base_appeal_request) -> None:
 
 def test_retrieval_unknown_drug_returns_generic_context(base_appeal_request) -> None:
     """An unknown drug_key should fall back to a generic context, not raise."""
-    from copy import deepcopy
-    req = deepcopy(base_appeal_request)
-    object.__setattr__(req, "scenario_id", "unknown-drug-xyz")
     state: PipelineState = {
-        "request": req,
+        "request": base_appeal_request.model_copy(update={"scenario_id": "unknown-drug-xyz"}),
         "pa_context": "",
         "appeal_text": "",
         "model_name": "",

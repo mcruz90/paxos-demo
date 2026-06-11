@@ -18,7 +18,7 @@ FastAPI Backend  ──► LangGraph 4-node DAG
         │
         ├──► LLM Backend  (Ollama local  |  Groq API)
         ├──► Langfuse     (trace + eval scores per run)
-        └──► ETL-1        denial letter → AppealRequest  (EasyOCR + PyMuPDF + DSPy)
+        └──► ETL-1        denial letter → AppealRequest  (Tesseract OCR + PyMuPDF + DSPy)
 ```
 
 ## Quick Start

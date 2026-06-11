@@ -7,7 +7,7 @@ must be reflected there and vice versa.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Literal, Optional, TypedDict, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -119,6 +119,10 @@ class AppealRequest(BaseModel):
     plan_id: Annotated[str, Field(max_length=100)]
     criteria_results: list[CriterionResult]
     company_names: list[str] = Field(default_factory=list)
+    # Set by ETL pipeline when hidden/suspicious content is detected in source document.
+    # Not expected from HTTP clients — defaults to False on inbound requests.
+    security_hold: bool = False
+    security_reason: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -156,8 +160,6 @@ AppealEvent = Union[StepEvent, ChunkEvent, DoneEvent, ErrorEvent]
 # ---------------------------------------------------------------------------
 # Pipeline state (LangGraph TypedDict)
 # ---------------------------------------------------------------------------
-
-from typing import TypedDict
 
 
 class PipelineState(TypedDict):

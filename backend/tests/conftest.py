@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import AsyncIterator
 
 import pytest
@@ -12,6 +10,7 @@ from models.schemas import (
     AppealRequest,
     CriterionResult,
     CriterionStatus,
+    PipelineState,
     Rule,
     RuleType,
     ScenarioConfig,
@@ -125,6 +124,34 @@ def exception_scenario(
         drug_key="ozempic",
         company_names=["BlueCross BlueShield"],
     )
+
+
+@pytest.fixture
+def make_pipeline_state(base_appeal_request: AppealRequest):
+    """Factory fixture — returns a callable that builds a PipelineState with overrides.
+
+    Usage in tests:
+        def test_foo(make_pipeline_state):
+            state = make_pipeline_state(appeal_text="...", pa_context="...")
+    """
+    def _make(
+        appeal_text: str = "",
+        pa_context: str = "PA requirements: step therapy required.",
+        model_name: str = "",
+        passed_gatekeeper: bool = False,
+        retry_count: int = 0,
+        errors: list | None = None,
+    ) -> PipelineState:
+        return {
+            "request": base_appeal_request,
+            "pa_context": pa_context,
+            "appeal_text": appeal_text,
+            "model_name": model_name,
+            "passed_gatekeeper": passed_gatekeeper,
+            "retry_count": retry_count,
+            "errors": errors or [],
+        }
+    return _make
 
 
 @pytest.fixture
