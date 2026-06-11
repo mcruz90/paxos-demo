@@ -16,9 +16,9 @@ type View = 'portfolio' | 'intake' | 'poc' | 'library'
 type IntakePhase = 'upload' | 'analyzing' | 'extracted'
 type ClientType = 'medtech' | 'patient'
 type RuleType = 'diagnostic' | 'temporal' | 'math' | 'safety'
-type SimPhase = 'idle' | 'loading' | 'done' | 'review' | 'submitted'
+type SimPhase = 'idle' | 'loading' | 'done' | 'review' | 'submitted' | 'round2_loading' | 'round2_done' | 'round2_submitted'
 type CriterionStatus = 'found' | 'needs_review'
-type CaseStatus = 'processing' | 'ready_for_review' | 'exception' | 'submitted'
+type CaseStatus = 'processing' | 'ready_for_review' | 'exception' | 'submitted' | 'payer_response'
 
 interface Rule {
   type: RuleType
@@ -60,6 +60,9 @@ interface ScenarioConfig {
   drugKey: string            // groups same drug across carrier configs
   parentConfigId?: string    // if set, this config is a plan-specific override of the parent
   overriddenFields?: { label: string; base: string; override: string }[]
+  // Multi-round appeal support
+  payerCounterOffer?: { date: string; summary: string; newDenialReason: string; approvedDose: string }
+  round2Appeal?: { keyArgument: string; guidelineRef: string; guidelinePMID: string; requiredDose: string }
 }
 
 interface Client {
@@ -603,6 +606,103 @@ const scenarios: Record<string, ScenarioConfig> = {
   ]
 }`,
   },
+
+  // ── Infant GERD: Omeprazole suspension — multi-round escalation demo ────────
+  'infant-omeprazole': {
+    id: 'infant-omeprazole',
+    drugKey: 'omeprazole',
+    configFile: 'omeprazole_uhc_pediatric.json',
+    drug: 'Omeprazole (Prilosec) 2mg/mL Oral Suspension',
+    manufacturer: 'Fagron Compounding Services',
+    plan: 'UnitedHealthcare Choice Plus',
+    planId: 'UHC-CHOICE-2024',
+    categoryKey: 'gastroenterology',
+    categoryLabel: 'Gastroenterology',
+    diagnosis: 'Gastroesophageal Reflux Disease with Esophagitis — Infant (K21.0)',
+    denialReason: 'Non-formulary compounded formulation — tablet/capsule alternatives required, step therapy not documented',
+    clientType: 'patient',
+    criteriaResults: [
+      {
+        rule: { type: 'diagnostic', label: 'Confirmed GERD Diagnosis with Esophageal Involvement (K21.0)' },
+        status: 'found',
+        note: 'Page 1 — Pediatric GI consult 05/14/2026 confirms erosive GERD. Upper endoscopy (05/12/2026): Los Angeles Grade B esophagitis.',
+        docSource: 'Pediatric GI Consult',
+      },
+      {
+        rule: { type: 'safety', label: 'Patient Age ≤12 Months — Solid Oral Dosage Forms Physically Contraindicated' },
+        status: 'found',
+        note: 'Page 1 — D.O.B. 02/03/2026. Age 4 months. UHC formulary alternatives (omeprazole 20mg capsule, esomeprazole 20mg capsule) require intact swallowing — developmentally impossible at this age.',
+        docSource: 'Admission Record',
+      },
+      {
+        rule: { type: 'safety', label: 'Ranitidine (Formulary H2 Alternative) — FDA Market Withdrawal, NDMA Contamination (April 2020)' },
+        status: 'found',
+        note: 'Ranitidine (Zantac) withdrawn from US market April 1, 2020 per FDA request due to unacceptable NDMA contamination levels. Product unavailable — no trial possible.',
+        docSource: 'FDA MedWatch Safety Alert',
+      },
+      {
+        rule: { type: 'temporal', label: 'Non-Pharmacological Conservative Therapy Trial (Positioning, Thickened Feeds ≥2 Weeks)' },
+        status: 'needs_review',
+        note: 'Page 3 — 6-week visit (04/20/2026) references positioning guidance but does not specify duration or documented response. Written attestation from prescriber required.',
+        docSource: 'Outpatient Visit Notes',
+        suggestedAction: 'Request written attestation from Dr. Patricia Chen (Pediatric GI) confirming positioning and thickened feeding interventions were trialed for ≥2 weeks prior to PPI initiation, with inadequate symptom control documented.',
+        workflowPlan: {
+          action: 'Request clinical attestation of conservative therapy trial',
+          recipient: 'Dr. Patricia Chen · Pediatric Gastroenterology',
+          channel: 'Fax · (416) 555-0291',
+          turnaround: '1–2 business days',
+        },
+      },
+    ],
+    citations: {
+      'Confirmed GERD Diagnosis with Esophageal Involvement (K21.0)': {
+        source: 'Pediatric GI Consult', page: 'p. 1',
+        text: 'Endoscopy 05/12/2026 — Los Angeles Grade B esophagitis confirmed. Pediatric GI assessment: erosive GERD requiring PPI therapy. ICD-10 K21.0.',
+      },
+      'Patient Age ≤12 Months — Solid Oral Dosage Forms Physically Contraindicated': {
+        source: 'Admission Record', page: 'p. 1',
+        text: 'D.O.B. 02/03/2026. Age at prescription: 4 months. Developmental stage: pre-solid foods. Administration of tablet or capsule formulations is not developmentally possible.',
+      },
+      'Ranitidine (Formulary H2 Alternative) — FDA Market Withdrawal, NDMA Contamination (April 2020)': {
+        source: 'FDA MedWatch Safety Alert', page: 'April 1, 2020',
+        text: 'FDA requested immediate market withdrawal of all ranitidine products due to NDMA impurity exceeding acceptable limits. Product is no longer commercially available in the United States.',
+      },
+      'Non-Pharmacological Conservative Therapy Trial (Positioning, Thickened Feeds ≥2 Weeks)': {
+        source: 'Outpatient Visit Notes', page: 'p. 3',
+        text: '6-week visit 04/20/2026 — positioning guidance provided. Thickened feeds discussed. 10-week follow-up noted worsening regurgitation and feeding aversion despite measures.',
+      },
+    },
+    payerCounterOffer: {
+      date: 'Jun 10, 2026',
+      summary: 'Exception to non-formulary status granted for liquid formulation. Authorization approved for Omeprazole 2mg/mL oral suspension — however, approved dose is limited to 0.5 mg/kg/day for 30 days.',
+      newDenialReason: 'Dose exceeds standard protocol — authorization limited to 0.5 mg/kg/day',
+      approvedDose: '0.5 mg/kg/day (below evidence-based therapeutic threshold)',
+    },
+    round2Appeal: {
+      keyArgument: 'The authorized dose of 0.5 mg/kg/day falls below the minimum evidence-based therapeutic threshold for infantile erosive GERD. NASPGHAN/ESPGHAN 2018 joint clinical practice guidelines (PMID 29470322) recommend 0.7–1.4 mg/kg/day as the effective dosing range for infants with confirmed esophagitis. Approval at 0.5 mg/kg/day is predicted to provide insufficient acid suppression and does not meet the standard of care for this diagnosis.',
+      guidelineRef: 'Rosen R, et al. Pediatric Gastroesophageal Reflux Clinical Practice Guidelines: Joint Recommendations of NASPGHAN and ESPGHAN. J Pediatr Gastroenterol Nutr. 2018;66(3):516–554.',
+      guidelinePMID: '29470322',
+      requiredDose: '1 mg/kg/day (NASPGHAN standard starting dose for infantile erosive GERD)',
+    },
+    configJson: `{
+  "policy_id": "omeprazole-uhc-pediatric-v1",
+  "target_drug": "omeprazole",
+  "carrier": "unitedhealthcare",
+  "formulary_class": "non_formulary_compounded",
+  "patient_age_rules": [
+    { "condition": "age_months <= 12", "tablet_contraindicated": true, "required_formulation": "oral_liquid" }
+  ],
+  "formulary_alternative_exceptions": [
+    { "drug": "ranitidine", "exception_reason": "FDA_market_withdrawal_NDMA_April_2020", "status": "unavailable" }
+  ],
+  "diagnostic_rules": [
+    { "condition_category": "GERD", "icd10": "K21.0", "must_be_present": true }
+  ],
+  "conservative_therapy_rules": [
+    { "intervention": "positioning_thickened_feeds", "minimum_trial_weeks": 2, "allows_attestation_bypass": false }
+  ]
+}`,
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -610,11 +710,12 @@ const scenarios: Record<string, ScenarioConfig> = {
 // ---------------------------------------------------------------------------
 
 const initialClients: Client[] = [
-  { id: 1, name: 'Amgen',         drug: 'Repatha', categoryLabel: 'Cardiology',    status: 'submitted',        clientType: 'medtech', lastUpdated: 'Jun 5, 2026',  scenarioId: 'amgen-repatha' },
-  { id: 2, name: 'Novartis',      drug: 'Kisqali', categoryLabel: 'Oncology',      status: 'ready_for_review', clientType: 'medtech', lastUpdated: 'Jun 4, 2026',  scenarioId: 'novartis-kisqali' },
-  { id: 3, name: 'Case #PH-2847', drug: 'Ocaliva', categoryLabel: 'Hepatology',    status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 7, 2026',  scenarioId: 'ph-2847' },
-  { id: 4, name: 'Case #PH-3102', drug: 'Ozempic', categoryLabel: 'Endocrinology', status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 8, 2026',  scenarioId: 'ozempic-aetna-base' },
-  { id: 5, name: 'Case #PH-3847', drug: 'Ozempic', categoryLabel: 'Endocrinology', status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 10, 2026', scenarioId: 'ozempic-aetna-costco' },
+  { id: 1, name: 'Amgen',         drug: 'Repatha',             categoryLabel: 'Cardiology',      status: 'submitted',        clientType: 'medtech', lastUpdated: 'Jun 5, 2026',  scenarioId: 'amgen-repatha' },
+  { id: 2, name: 'Novartis',      drug: 'Kisqali',             categoryLabel: 'Oncology',        status: 'ready_for_review', clientType: 'medtech', lastUpdated: 'Jun 4, 2026',  scenarioId: 'novartis-kisqali' },
+  { id: 3, name: 'Case #PH-2847', drug: 'Ocaliva',             categoryLabel: 'Hepatology',      status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 7, 2026',  scenarioId: 'ph-2847' },
+  { id: 4, name: 'Case #PH-3102', drug: 'Ozempic',             categoryLabel: 'Endocrinology',   status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 8, 2026',  scenarioId: 'ozempic-aetna-base' },
+  { id: 5, name: 'Case #PH-3847', drug: 'Ozempic',             categoryLabel: 'Endocrinology',   status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 10, 2026', scenarioId: 'ozempic-aetna-costco' },
+  { id: 6, name: 'Case #PH-4201', drug: 'Omeprazole Susp.',    categoryLabel: 'Gastroenterology', status: 'payer_response',   clientType: 'patient', lastUpdated: 'Jun 11, 2026', scenarioId: 'infant-omeprazole' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -882,10 +983,11 @@ function RuleTag({ type }: { type: RuleType }) {
 
 function StatusBadge({ status }: { status: CaseStatus }) {
   const config: Record<CaseStatus, { label: string; className: string }> = {
-    processing:       { label: 'Processing',       className: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-    ready_for_review: { label: 'Ready for Review', className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-    exception:        { label: 'Exception',        className: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    submitted:        { label: 'Submitted',        className: 'bg-slate-600/30 text-slate-400 border-slate-600/30' },
+    processing:       { label: 'Processing',        className: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+    ready_for_review: { label: 'Ready for Review',  className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    exception:        { label: 'Exception',         className: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    submitted:        { label: 'Submitted',         className: 'bg-slate-600/30 text-slate-400 border-slate-600/30' },
+    payer_response:   { label: 'Payer Response',    className: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
   }
   const { label, className } = config[status]
   return (
@@ -982,7 +1084,7 @@ function PortfolioView({ clients, onNew, onOpenCase }: {
   const processingCount = clients.filter(c => c.status === 'processing').length
   const actionableCount = readyCount + exceptionCount
 
-  const statusOrder: Record<CaseStatus, number> = { exception: 0, ready_for_review: 1, submitted: 2, processing: 3 }
+  const statusOrder: Record<CaseStatus, number> = { exception: 0, payer_response: 0, ready_for_review: 1, submitted: 2, processing: 3 }
 
   const filtered = clients
     .filter(c =>
@@ -1643,7 +1745,7 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
   caseStatus?: CaseStatus
 }) {
   const [phase, setPhase] = useState<SimPhase>(
-    reviewMode && caseStatus === 'submitted' ? 'submitted' :
+    reviewMode && (caseStatus === 'submitted' || caseStatus === 'payer_response') ? 'submitted' :
     reviewMode ? 'done' :
     'idle'
   )
@@ -1653,6 +1755,8 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
   const [appealRef] = useState(() => `PH-${Math.floor(Math.random() * 9000) + 1000}`)
   const [editMode, setEditMode] = useState(false)
   const [editedBody, setEditedBody] = useState<string | null>(null)
+  const [round2StepIdx, setRound2StepIdx] = useState(0)
+  const [round2Body, setRound2Body] = useState<string | null>(null)
 
   const letterDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
@@ -1667,6 +1771,25 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
     }).join('\n\n')
     return `Dear Medical Director,\n\nWe are writing to formally appeal the prior authorization denial for ${scenario.drug}. The denial cited "${scenario.denialReason}." Upon thorough review of the patient's clinical record, we submit that all applicable criteria for ${scenario.diagnosis} have been satisfied, as documented below.\n\nCLINICAL EVIDENCE — ${scenario.configFile}\n\n${evidenceLines}\n\nBased on the documented clinical evidence, we respectfully request that the prior authorization for ${scenario.drug} be approved. This medication is medically necessary for the management of ${scenario.diagnosis} and consistent with current clinical guidelines.\n\nSincerely,\nPaxos Health\nAI-Assisted Prior Authorization Team`
   }
+  const generateRound2LetterBody = (): string => {
+    const r2 = scenario.round2Appeal
+    const offer = scenario.payerCounterOffer
+    if (!r2 || !offer) return ''
+    return `Dear Medical Director,\n\nThank you for your partial authorization dated ${offer.date} for ${scenario.drug}. We write to formally contest the approved dose limitation of ${offer.approvedDose}.\n\nCLINICAL BASIS FOR DOSE INCREASE\n\n${r2.keyArgument}\n\nSUPPORTING GUIDELINE\n\n${r2.guidelineRef}\nPubMed PMID: ${r2.guidelinePMID}\n\nREQUESTED AUTHORIZATION\n\nWe respectfully request authorization be revised to ${r2.requiredDose} for ${scenario.diagnosis}. Approval at the sub-therapeutic dose previously authorized does not meet the evidence-based standard of care and places the patient at continued clinical risk.\n\nWe are prepared to provide any additional clinical documentation upon request and appreciate your prompt reconsideration.\n\nSincerely,\nPaxos Health\nAI-Assisted Prior Authorization Team`
+  }
+
+  const handleRound2Execute = () => {
+    setPhase('round2_loading'); setRound2StepIdx(0)
+    let i = 0
+    const iv = setInterval(() => {
+      i++; setRound2StepIdx(i)
+      if (i >= pipelineSteps.length - 1) {
+        clearInterval(iv)
+        setTimeout(() => { setRound2Body(generateRound2LetterBody()); setPhase('round2_done') }, 500)
+      }
+    }, 700)
+  }
+
   const [overrides, setOverrides] = useState<Record<string, string>>({}) // ruleLabel -> AM rationale
   const [pendingOverride, setPendingOverride] = useState<string | null>(null)
   const [overrideInput, setOverrideInput] = useState('')
@@ -1981,12 +2104,107 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
               ))}
             </div>
 
+            {scenario.payerCounterOffer && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-4 bg-violet-950/40 border border-violet-500/30 rounded-xl">
+                  <div className="w-9 h-9 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-5 h-5 text-violet-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-violet-300">Payer Response Received · {scenario.payerCounterOffer.date}</p>
+                    <p className="text-xs text-violet-300/70 mt-0.5">{scenario.payerCounterOffer.summary}</p>
+                  </div>
+                </div>
+                <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4 space-y-1.5">
+                  {([
+                    { k: 'approved_dose',    v: scenario.payerCounterOffer.approvedDose },
+                    { k: 'new_denial_basis', v: scenario.payerCounterOffer.newDenialReason },
+                    { k: 'guideline_ref',    v: scenario.round2Appeal?.guidelineRef ?? '' },
+                    { k: 'pmid',             v: scenario.round2Appeal?.guidelinePMID ? `https://pubmed.ncbi.nlm.nih.gov/${scenario.round2Appeal.guidelinePMID}` : '' },
+                  ] as const).filter(({ v }) => v).map(({ k, v }) => (
+                    <div key={k} className="flex items-start gap-3 text-xs font-mono">
+                      <span className="text-slate-600 w-28 shrink-0">{k}</span>
+                      <span className="text-slate-300">{v}</span>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={handleRound2Execute}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors">
+                  <Zap className="w-4 h-4" />Generate Round 2 Counter-Argument
+                </button>
+              </div>
+            )}
+
             <div className="flex gap-3 pt-1">
               <button onClick={onReset}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors">
                 <ChevronRight className="w-4 h-4" />Return to Portfolio
               </button>
             </div>
+          </div>
+
+        ) : phase === 'round2_loading' ? (
+          // ── Round 2 Loading ──────────────────────────────────────────────
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 px-4 py-3 bg-slate-800/70 border border-slate-700 rounded-lg">
+              <Loader2 className="w-4 h-4 text-violet-400 animate-spin shrink-0" />
+              <span className="text-sm text-violet-300">{pipelineSteps[round2StepIdx]}</span>
+            </div>
+            <div className="w-full bg-slate-700 rounded-full h-1">
+              <div className="bg-violet-500 h-1 rounded-full transition-all duration-700"
+                style={{ width: `${((round2StepIdx + 1) / pipelineSteps.length) * 100}%` }} />
+            </div>
+            <p className="text-xs text-slate-500 text-center">Round 2 counter-argument · Citing NASPGHAN guidelines</p>
+          </div>
+
+        ) : phase === 'round2_done' ? (
+          // ── Round 2 Letter ───────────────────────────────────────────────
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 p-4 bg-violet-950/40 border border-violet-500/30 rounded-xl">
+              <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
+                <Shield className="w-5 h-5 text-violet-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-violet-300">Round 2 Counter-Argument Ready</h2>
+                <p className="text-xs text-violet-300/70">Dose threshold · NASPGHAN 2018 · PMID {scenario.round2Appeal?.guidelinePMID}</p>
+              </div>
+            </div>
+            <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4">
+              <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">{round2Body}</pre>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setPhase('round2_submitted')}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors">
+                <CheckCircle className="w-4 h-4" />Submit Round 2 Counter
+              </button>
+              <button onClick={onReset}
+                className="flex items-center gap-2 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium transition-colors">
+                <RotateCcw className="w-4 h-4" />Reset
+              </button>
+            </div>
+          </div>
+
+        ) : phase === 'round2_submitted' ? (
+          // ── Round 2 Submitted ────────────────────────────────────────────
+          <div className="space-y-5">
+            <div className="flex items-center gap-4 p-5 bg-violet-950/40 border border-violet-500/30 rounded-xl">
+              <div className="w-11 h-11 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
+                <CheckCircle className="w-6 h-6 text-violet-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-violet-300">Round 2 Counter Submitted</h2>
+                <p className="text-sm text-violet-300/70">Transmitted to {scenario.plan} · {appealRef}</p>
+              </div>
+            </div>
+            <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-2 font-semibold uppercase tracking-wide">Clinical basis cited</p>
+              <p className="text-sm text-slate-300">{scenario.round2Appeal?.guidelineRef}</p>
+              <p className="text-xs text-slate-500 mt-1">PMID: {scenario.round2Appeal?.guidelinePMID} · Required dose: {scenario.round2Appeal?.requiredDose}</p>
+            </div>
+            <button onClick={onReset}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors">
+              <ChevronRight className="w-4 h-4" />Return to Portfolio
+            </button>
           </div>
 
         ) : phase === 'done' && hasExceptions ? (
@@ -2709,7 +2927,7 @@ export default function App() {
   const openCase = (scenarioId: string, status: CaseStatus) => {
     const scenario = scenarios[scenarioId]
     if (!scenario) return
-    if (status === 'ready_for_review' || status === 'submitted' || status === 'exception') {
+    if (status === 'ready_for_review' || status === 'submitted' || status === 'exception' || status === 'payer_response') {
       setActiveScenario(scenario)
       setReviewMode(true)
       setOpenedCaseStatus(status)
