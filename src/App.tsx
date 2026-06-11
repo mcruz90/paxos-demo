@@ -1189,10 +1189,10 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
   const [acknowledged, setAcknowledged] = useState(false)
   const [appealRef] = useState(() => `PH-${Math.floor(Math.random() * 9000) + 1000}`)
   const [traceOpen, setTraceOpen] = useState(false)
+  const [hoveredCite, setHoveredCite] = useState<number | null>(null)
   const [editMode, setEditMode] = useState(false)
   const [editedBody, setEditedBody] = useState<string | null>(null)
   const [round2StepIdx, setRound2StepIdx] = useState(0)
-  const [round2Body, setRound2Body] = useState<string | null>(null)
 
   const letterDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
@@ -1207,13 +1207,6 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
     }).join('\n\n')
     return `Dear Medical Director,\n\nWe are writing to formally appeal the prior authorization denial for ${scenario.drug}. The denial cited "${scenario.denialReason}." Upon thorough review of the patient's clinical record, we submit that all applicable criteria for ${scenario.diagnosis} have been satisfied, as documented below.\n\nCLINICAL EVIDENCE — ${scenario.configFile}\n\n${evidenceLines}\n\nBased on the documented clinical evidence, we respectfully request that the prior authorization for ${scenario.drug} be approved. This medication is medically necessary for the management of ${scenario.diagnosis} and consistent with current clinical guidelines.\n\nSincerely,\nPaxos Health\nAI-Assisted Prior Authorization Team`
   }
-  const generateRound2LetterBody = (): string => {
-    const r2 = scenario.round2Appeal
-    const offer = scenario.payerCounterOffer
-    if (!r2 || !offer) return ''
-    return `Dear Medical Director,\n\nThank you for your partial authorization dated ${offer.date} for ${scenario.drug}. We write to formally contest the approved dose limitation of ${offer.approvedDose}.\n\nCLINICAL BASIS FOR DOSE INCREASE\n\n${r2.keyArgument}\n\nSUPPORTING GUIDELINE\n\n${r2.guidelineRef}\nPubMed PMID: ${r2.guidelinePMID}\n\nREQUESTED AUTHORIZATION\n\nWe respectfully request authorization be revised to ${r2.requiredDose} for ${scenario.diagnosis}. Approval at the sub-therapeutic dose previously authorized does not meet the evidence-based standard of care and places the patient at continued clinical risk.\n\nWe are prepared to provide any additional clinical documentation upon request and appreciate your prompt reconsideration.\n\nSincerely,\nPaxos Health\nAI-Assisted Prior Authorization Team`
-  }
-
   const pipelineSteps = getPipelineSteps(scenario)
 
   const handleRound2Execute = () => {
@@ -1223,7 +1216,7 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
       i++; setRound2StepIdx(i)
       if (i >= pipelineSteps.length - 1) {
         clearInterval(iv)
-        setTimeout(() => { setRound2Body(generateRound2LetterBody()); setPhase('round2_done') }, 500)
+        setTimeout(() => { setPhase('round2_done') }, 500)
       }
     }, 700)
   }
@@ -1445,8 +1438,16 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
                           <div className="space-y-4">
                             {scenario.criteriaResults.map((cr, i) => {
                               const cite = scenario.citations[cr.rule.label]
+                              const active = hoveredCite === i
                               return (
-                                <div key={i} className="pl-4 border-l-2 border-slate-300">
+                                <div
+                                  key={i}
+                                  onMouseEnter={() => setHoveredCite(i)}
+                                  onMouseLeave={() => setHoveredCite(null)}
+                                  className={`pl-3 border-l-2 rounded-sm pr-2 py-1 transition-colors cursor-default ${
+                                    active ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 hover:border-slate-400'
+                                  }`}
+                                >
                                   <p className="text-xs font-bold text-slate-700">{i + 1}. {cr.rule.label}</p>
                                   {cite && <p className="text-xs text-slate-400 mt-0.5">{cite.source} · {cite.page}</p>}
                                   <p className="text-xs italic text-slate-600 mt-1">
@@ -1493,11 +1494,17 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
                   <div className="divide-y divide-slate-700/40">
                     {scenario.criteriaResults.map((cr, i) => {
                       const cite = scenario.citations[cr.rule.label]
+                      const active = hoveredCite === i
                       return (
-                        <div key={i} className="px-4 py-3">
+                        <div
+                          key={i}
+                          onMouseEnter={() => setHoveredCite(i)}
+                          onMouseLeave={() => setHoveredCite(null)}
+                          className={`px-4 py-3 transition-colors cursor-default ${active ? 'bg-emerald-950/50' : ''}`}
+                        >
                           <div className="flex items-start gap-2 mb-2">
-                            <span className="text-xs font-bold text-slate-500 mt-0.5 shrink-0">{i + 1}</span>
-                            <p className="text-xs font-medium text-slate-300 leading-snug">{cr.rule.label}</p>
+                            <span className={`text-xs font-bold mt-0.5 shrink-0 transition-colors ${active ? 'text-emerald-400' : 'text-slate-500'}`}>{i + 1}</span>
+                            <p className={`text-xs font-medium leading-snug transition-colors ${active ? 'text-white' : 'text-slate-300'}`}>{cr.rule.label}</p>
                           </div>
                           {cite ? (
                             <div className="space-y-1.5">
@@ -1507,7 +1514,9 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
                                 <span className="text-slate-700">·</span>
                                 <span>{cite.page}</span>
                               </div>
-                              <p className="text-xs italic text-emerald-300/80 bg-emerald-950/40 border border-emerald-500/20 rounded px-2.5 py-1.5 leading-relaxed">
+                              <p className={`text-xs italic text-emerald-300/80 rounded px-2.5 py-1.5 leading-relaxed transition-all ${
+                                active ? 'bg-emerald-950/80 border border-emerald-400/50' : 'bg-emerald-950/40 border border-emerald-500/20'
+                              }`}>
                                 &ldquo;{cite.text}&rdquo;
                               </p>
                             </div>
@@ -1666,9 +1675,56 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
                     <p className="text-xs text-violet-300/70">Dose threshold · NASPGHAN 2018 · PMID {scenario.round2Appeal?.guidelinePMID}</p>
                   </div>
                 </div>
-                <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4">
-                  <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">{round2Body}</pre>
-                </div>
+                {/* Round 2 letter — structured sections so each maps to a citation */}
+                {scenario.round2Appeal && scenario.payerCounterOffer && (() => {
+                  const r2 = scenario.round2Appeal!
+                  const offer = scenario.payerCounterOffer!
+                  const sectionCls = (idx: number) =>
+                    `p-3 rounded-lg border transition-colors cursor-default ${
+                      hoveredCite === idx
+                        ? 'bg-violet-900/40 border-violet-500/50'
+                        : 'bg-transparent border-transparent hover:bg-slate-800/40 hover:border-slate-700/40'
+                    }`
+                  return (
+                    <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 font-mono text-xs text-slate-300 space-y-1 leading-relaxed">
+                      <p>Dear Medical Director,</p>
+                      <p className="pb-2">Thank you for your partial authorization dated <span className="text-slate-200">{offer.date}</span> for <span className="text-slate-200">{scenario.drug}</span>. We write to formally contest the approved dose limitation of <span className="text-amber-300">{offer.approvedDose}</span>.</p>
+
+                      <div
+                        onMouseEnter={() => setHoveredCite(0)}
+                        onMouseLeave={() => setHoveredCite(null)}
+                        className={sectionCls(0)}
+                      >
+                        <p className="font-bold text-slate-200 mb-1">CLINICAL BASIS FOR DOSE INCREASE</p>
+                        <p>{r2.keyArgument}</p>
+                      </div>
+
+                      <div
+                        onMouseEnter={() => setHoveredCite(1)}
+                        onMouseLeave={() => setHoveredCite(null)}
+                        className={sectionCls(1)}
+                      >
+                        <p className="font-bold text-slate-200 mb-1">SUPPORTING GUIDELINE</p>
+                        <p>{r2.guidelineRef}</p>
+                        <p className="text-slate-400">PubMed PMID: {r2.guidelinePMID}</p>
+                      </div>
+
+                      <div
+                        onMouseEnter={() => setHoveredCite(2)}
+                        onMouseLeave={() => setHoveredCite(null)}
+                        className={sectionCls(2)}
+                      >
+                        <p className="font-bold text-slate-200 mb-1">REQUESTED AUTHORIZATION</p>
+                        <p>We respectfully request authorization be revised to <span className="text-emerald-300">{r2.requiredDose}</span> for {scenario.diagnosis}. Approval at the sub-therapeutic dose previously authorized does not meet the evidence-based standard of care and places the patient at continued clinical risk.</p>
+                      </div>
+
+                      <div className="pt-2">
+                        <p>We are prepared to provide any additional clinical documentation upon request and appreciate your prompt reconsideration.</p>
+                        <p className="pt-2">Sincerely,<br />Paxos Health<br /><span className="text-slate-500">AI-Assisted Prior Authorization Team</span></p>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* Right col: citation panel */}
@@ -1683,34 +1739,51 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
                       <p className="text-xs text-slate-500">Sources cited in this counter-argument</p>
                     </div>
                     <div className="divide-y divide-slate-700/40">
-                      <div className="px-4 py-3 space-y-1.5">
-                        <p className="text-xs font-semibold text-violet-300">Clinical Guideline</p>
-                        <p className="text-xs font-medium text-slate-300 leading-snug">{scenario.round2Appeal.guidelineRef}</p>
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                          <FileText className="w-3 h-3 shrink-0" />
-                          <span>PubMed PMID: {scenario.round2Appeal.guidelinePMID}</span>
-                        </div>
-                        <p className="text-xs italic text-violet-300/80 bg-violet-950/40 border border-violet-500/20 rounded px-2.5 py-1.5 leading-relaxed">
-                          Therapeutic dose for infantile GERD: {scenario.round2Appeal.requiredDose} — below which clinical response is sub-therapeutic.
-                        </p>
-                      </div>
-                      <div className="px-4 py-3 space-y-1.5">
-                        <p className="text-xs font-semibold text-violet-300">FDA Safety Communication</p>
-                        <p className="text-xs font-medium text-slate-300 leading-snug">Ranitidine (Zantac) Market Withdrawal — NDMA Contamination</p>
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                          <FileText className="w-3 h-3 shrink-0" />
-                          <span>FDA · April 2020</span>
-                        </div>
-                        <p className="text-xs italic text-violet-300/80 bg-violet-950/40 border border-violet-500/20 rounded px-2.5 py-1.5 leading-relaxed">
-                          All ranitidine products withdrawn from US market due to unacceptable NDMA levels — H2 blocker alternative unavailable.
-                        </p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-xs font-semibold text-violet-300 mb-1.5">Payer Counter-Offer on File</p>
-                        <p className="text-xs text-slate-400">Approved dose: <span className="text-amber-300 font-medium">{scenario.payerCounterOffer?.approvedDose}</span></p>
-                        <p className="text-xs text-slate-400 mt-0.5">Requested dose: <span className="text-emerald-300 font-medium">{scenario.round2Appeal.requiredDose}</span></p>
-                        <p className="text-xs text-slate-500 mt-1.5 italic">{scenario.round2Appeal.keyArgument}</p>
-                      </div>
+                      {[
+                        {
+                          idx: 0,
+                          label: 'Clinical Guideline',
+                          title: scenario.round2Appeal.guidelineRef,
+                          meta: `PubMed PMID: ${scenario.round2Appeal.guidelinePMID}`,
+                          quote: `Therapeutic dose for infantile GERD: ${scenario.round2Appeal.requiredDose} — below which clinical response is sub-therapeutic.`,
+                        },
+                        {
+                          idx: 1,
+                          label: 'FDA Safety Communication',
+                          title: 'Ranitidine (Zantac) Market Withdrawal — NDMA Contamination',
+                          meta: 'FDA · April 2020',
+                          quote: 'All ranitidine products withdrawn from US market due to unacceptable NDMA levels — H2 blocker alternative unavailable.',
+                        },
+                        {
+                          idx: 2,
+                          label: 'Payer Counter-Offer on File',
+                          title: `Approved ${scenario.payerCounterOffer?.approvedDose} → requested ${scenario.round2Appeal.requiredDose}`,
+                          meta: `Counter-offer dated ${scenario.payerCounterOffer?.date}`,
+                          quote: scenario.round2Appeal.keyArgument,
+                        },
+                      ].map(({ idx, label, title, meta, quote }) => {
+                        const active = hoveredCite === idx
+                        return (
+                          <div
+                            key={idx}
+                            onMouseEnter={() => setHoveredCite(idx)}
+                            onMouseLeave={() => setHoveredCite(null)}
+                            className={`px-4 py-3 space-y-1.5 transition-colors cursor-default ${active ? 'bg-violet-950/50' : ''}`}
+                          >
+                            <p className={`text-xs font-semibold transition-colors ${active ? 'text-violet-200' : 'text-violet-300'}`}>{label}</p>
+                            <p className={`text-xs font-medium leading-snug transition-colors ${active ? 'text-white' : 'text-slate-300'}`}>{title}</p>
+                            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                              <FileText className="w-3 h-3 shrink-0" />
+                              <span>{meta}</span>
+                            </div>
+                            <p className={`text-xs italic text-violet-300/80 rounded px-2.5 py-1.5 leading-relaxed transition-all ${
+                              active ? 'bg-violet-950/80 border border-violet-400/50' : 'bg-violet-950/40 border border-violet-500/20'
+                            }`}>
+                              {quote}
+                            </p>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
