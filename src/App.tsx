@@ -1,4 +1,5 @@
 ﻿import { useState, useRef, useEffect } from 'react'
+import { Joyride, type Step, EVENTS, STATUS, ACTIONS } from 'react-joyride'
 import {
   LayoutDashboard, Library, Plus, Activity, Settings, Clock, ShieldAlert,
   Upload, FileText, CheckCircle, Loader2, Users, Zap, ChevronRight,
@@ -291,6 +292,239 @@ const initialClients: Client[] = [
 // ---------------------------------------------------------------------------
 // Shared display helpers
 // ---------------------------------------------------------------------------
+// Joyride guided tour — 18 steps across all views
+// ---------------------------------------------------------------------------
+
+const tc = (body: string, note?: string) => (
+  <div>
+    <p style={{ color: '#cbd5e1', fontSize: 13, lineHeight: 1.65, margin: 0 }}>{body}</p>
+    {note && <p style={{ color: '#64748b', fontSize: 12, lineHeight: 1.5, marginTop: 8, marginBottom: 0 }}>{note}</p>}
+  </div>
+)
+
+const TOUR_STEPS: Step[] = [
+  {
+    target: 'body',
+    placement: 'center',
+    skipBeacon: true,
+    title: 'PaxOS Guided Tour',
+    content: tc(
+      "This walkthrough covers the full prior authorization workflow — from the Ontology Library to a generated appeal letter. You'll see what the system sees at every step and why no prompt engineering is required.",
+      '18 steps · Use the arrows to navigate · press Esc to exit'
+    ),
+  },
+  {
+    target: '#tour-portfolio-list',
+    placement: 'right',
+    skipBeacon: true,
+    title: 'Client Portfolio',
+    content: tc(
+      'Your CRM-style case list. Two adversarial PA scenarios: Ozempic (step therapy denial) and infant omeprazole (multi-round formulary dispute with an FDA safety angle). Each is a distinct case with its own config.'
+    ),
+  },
+  {
+    target: '#tour-new-case-btn',
+    placement: 'bottom',
+    skipBeacon: true,
+    title: 'Start a New Intake',
+    content: tc(
+      'Upload a denial letter or patient chart here. The extraction pipeline reads the document, identifies the drug and Plan ID, and auto-selects the matching config — including plan-specific overrides.',
+      'For the demo, new uploads resolve to a pre-configured scenario so you can see the full extraction result immediately.'
+    ),
+  },
+  {
+    target: '#tour-sidebar-library',
+    placement: 'right',
+    skipBeacon: true,
+    title: 'Ontology Library',
+    content: tc(
+      "The Library holds every building block for every pipeline. Two layers: universal rule primitives (the factory) and drug × carrier configurations (the materials). Next, we'll walk through both layers."
+    ),
+  },
+  {
+    target: '#tour-layer1',
+    placement: 'bottom',
+    skipBeacon: true,
+    title: 'Layer 1 — Universal Primitives',
+    content: tc(
+      'These four rule types cover every prior authorization scenario in clinical practice. They are never rewritten between clients — only parameterized. Think of them as the assembly line; the drug config is the raw material loaded onto it.'
+    ),
+  },
+  {
+    target: '#tour-primitive-diagnostic',
+    placement: 'right',
+    skipBeacon: true,
+    title: 'Diagnostic Rule',
+    content: tc(
+      'Checks for the presence or absence of a clinical diagnosis. The retrieval agent scans ICD codes, specialist consult notes, and attending physician attestation.',
+      'Example: "Confirmed Type 2 Diabetes (E11.9) must be present." Set must_be_present: true for indications, false for contraindications.'
+    ),
+  },
+  {
+    target: '#tour-primitive-math',
+    placement: 'left',
+    skipBeacon: true,
+    title: 'Biomarker / Math Rule',
+    content: tc(
+      'Compares an extracted lab value against a threshold. Supports absolute comparisons (HbA1c ≥ 7.5%), multiples of the upper limit of normal, and a recency window to reject stale labs.',
+      'Example: HbA1c ≥ 7.5% within the last 180 days. The threshold is the only thing that changes between carrier configs — the rule primitive stays the same.'
+    ),
+  },
+  {
+    target: '#tour-primitive-temporal',
+    placement: 'right',
+    skipBeacon: true,
+    title: 'Temporal Rule',
+    content: tc(
+      "Verifies that a prior line of therapy was tried for a minimum duration. Example: Metformin ≥ 90 days.",
+      "The Costco self-insured plan overrides this to 180 days. Same primitive, different parameter — the pipeline doesn't care which plan it is; it just reads the loaded config."
+    ),
+  },
+  {
+    target: '#tour-primitive-safety',
+    placement: 'left',
+    skipBeacon: true,
+    title: 'Safety / Contraindication Rule',
+    content: tc(
+      'A hard exclusion gate — must_be_present is always false. If the contraindicated condition appears anywhere in the chart, the pipeline halts and returns Denied regardless of other criteria.',
+      'Example: personal or family history of medullary thyroid carcinoma is a black-box contraindication for semaglutide (Ozempic). Identical across all carrier configs for this drug.'
+    ),
+  },
+  {
+    target: '#tour-layer2',
+    placement: 'top',
+    skipBeacon: true,
+    title: 'Layer 2 — Drug × Carrier Configurations',
+    content: tc(
+      'Each drug has one config per supported carrier — plus plan-specific overrides for self-insured employer plans. The pipeline is identical for all of them; the config is the only variable.',
+      'Adding a new carrier or self-insured plan takes minutes: write the config (or just the override delta). No engineering ticket, no prompt rewrite.'
+    ),
+  },
+  {
+    target: '#tour-drug-ozempic',
+    placement: 'top',
+    skipBeacon: true,
+    title: 'Config Hierarchy: Same Drug, Different Plans',
+    content: tc(
+      'Ozempic has three configs here — Cigna, Aetna standard, and Aetna/Costco self-insured. The Costco override only stores what diverges from the Aetna base: HbA1c ≥ 8.0% (vs 7.5%), Metformin ≥ 180 days (vs 90), and an added BMI rule.',
+      'When the extraction pipeline reads Plan ID AETNA-TPA-CSTCO, it loads the Aetna base and patches in the Costco override automatically. The AM never selects a config manually.'
+    ),
+  },
+  {
+    target: '#tour-intake-header',
+    placement: 'bottom',
+    skipBeacon: true,
+    title: 'Opening a New Case from the Library',
+    content: tc(
+      "Clicking 'Use This Template' opened this intake pre-loaded with the Ozempic/Cigna config. No drug selection, no payer lookup — the config is already active.",
+      "In practice: when Novo Nordisk submits a patient case or a patient calls about an Ozempic denial under a Cigna plan, the AM opens this template. The Library config was built during onboarding."
+    ),
+  },
+  {
+    target: '#tour-config-banner',
+    placement: 'bottom',
+    skipBeacon: true,
+    title: 'Configuration Auto-Loaded',
+    content: tc(
+      "The blue banner confirms which config file is active. The pipeline doesn't know about Ozempic specifically — it only knows about the four primitive types. The config tells it which parameters to apply.",
+      'For uploads, the extraction pipeline identifies the drug and Plan ID from the document and auto-selects the matching config. For library templates, it\'s pre-loaded.'
+    ),
+  },
+  {
+    target: '#tour-extracted-fields',
+    placement: 'right',
+    skipBeacon: true,
+    title: 'Extracted Fields',
+    content: tc(
+      'Drug, manufacturer, insurance plan, plan ID, diagnosis, and denial reason — all sourced from the uploaded documents or pre-populated from the library config.',
+      'For new document uploads, these fields are populated by the extraction pipeline. The AM reviews them before launching, not before uploading.'
+    ),
+  },
+  {
+    target: '#tour-criteria-precheck',
+    placement: 'right',
+    skipBeacon: true,
+    title: 'Criteria Pre-check',
+    content: tc(
+      'Before the full pipeline runs, the system does a fast evidence scan. Green = evidence found with a page citation. Yellow = the document lacks it — the AM needs to chase it down.',
+      'This is not the full pipeline. It\'s a lightweight scan that surfaces gaps before the AM commits to launching. Reduces rework.'
+    ),
+  },
+  {
+    target: '#tour-launch-btn',
+    placement: 'top',
+    skipBeacon: true,
+    title: 'Launch Full Pipeline',
+    content: tc(
+      'When criteria are reviewed, launch the complete 4-node DAG: Ingestion → Retrieval → Synthesis → Gatekeeper. The output is a structured appeal document with every clinical citation embedded and auditable.',
+      "Next: we'll walk through the pipeline execution view."
+    ),
+  },
+  {
+    target: '#tour-pipeline-header',
+    placement: 'bottom',
+    skipBeacon: true,
+    title: 'Pipeline Execution View',
+    content: tc(
+      "The header confirms the active config file — here it's ozempic_cigna_base.json. This is the same 4-node DAG regardless of which drug or carrier is being processed. The config file is the only thing that changes.",
+      'Node 1: Ingestion → Node 2: Retrieval → Node 3: Synthesis → Node 4: Gatekeeper'
+    ),
+  },
+  {
+    target: '#tour-execute-btn',
+    placement: 'top',
+    skipBeacon: true,
+    title: 'Execute the Pipeline',
+    content: tc(
+      'Click Execute to run. Each node streams live progress through the horizontal stepper above. The tour card below explains what each stage found and why it matters.',
+      'The output: a fully cited appeal letter ready for AM authorization — the human is always the final step before anything goes to the payer.'
+    ),
+  },
+]
+
+const JOYRIDE_STYLES: import('react-joyride').PartialDeep<import('react-joyride').Styles> = {
+  tooltip: {
+    borderRadius: 12,
+    border: '1px solid rgba(51,65,85,0.9)',
+    boxShadow: '0 25px 60px rgba(0,0,0,0.5)',
+    padding: 0,
+  },
+  tooltipTitle: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: '#f1f5f9',
+    padding: '18px 18px 10px',
+    margin: 0,
+  },
+  tooltipContent: {
+    padding: '0 18px 4px',
+  },
+  tooltipFooter: {
+    padding: '12px 18px 16px',
+    marginTop: 0,
+  },
+  buttonPrimary: {
+    backgroundColor: '#10b981',
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 500,
+    padding: '7px 14px',
+  },
+  buttonBack: {
+    color: '#64748b',
+    fontSize: 13,
+    marginRight: 4,
+  },
+  buttonSkip: {
+    color: '#475569',
+    fontSize: 12,
+  },
+  buttonClose: {
+    color: '#475569',
+  },
+}
+
+// ---------------------------------------------------------------------------
 
 const ruleIcons: Record<RuleType, React.ReactNode> = {
   diagnostic: <Activity className="w-4 h-4" />,
@@ -344,7 +578,7 @@ function ClientTypePill({ type }: { type: ClientType }) {
 // Sidebar
 // ---------------------------------------------------------------------------
 
-function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) {
+function Sidebar({ view, setView, onStartTour }: { view: View; setView: (v: View) => void; onStartTour: () => void }) {
   return (
     <aside className="w-60 shrink-0 bg-slate-900 border-r border-slate-800 flex flex-col">
       <div className="px-5 py-5 border-b border-slate-800">
@@ -378,7 +612,14 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
           </button>
         ))}
       </nav>
-      <div className="p-3 border-t border-slate-800">
+      <div className="p-3 border-t border-slate-800 space-y-1">
+        <button
+          onClick={onStartTour}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+        >
+          <Activity className="w-4 h-4" />
+          Guided Tour
+        </button>
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
             <Users className="w-3.5 h-3.5 text-slate-400" />
@@ -2696,6 +2937,8 @@ export default function App() {
   const [reviewMode, setReviewMode] = useState(false)
   const [autoStart, setAutoStart] = useState(false)
   const [openedCaseStatus, setOpenedCaseStatus] = useState<CaseStatus | null>(null)
+  const [tourRunning, setTourRunning] = useState(false)
+  const [tourStepIndex, setTourStepIndex] = useState(0)
   const addToPortfolio = (scenario: ScenarioConfig) => {
     const now = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     const name = scenario.clientType === 'patient'
@@ -2758,9 +3001,68 @@ export default function App() {
     setView('portfolio')
   }
 
+  const startTour = () => {
+    setView('portfolio')
+    setTourStepIndex(0)
+    setTourRunning(true)
+  }
+
+  const handleJoyrideCallback = (data: { action: string; index: number; status: string; type: string }) => {
+    const { action, index, status, type } = data
+
+    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+      setTourRunning(false)
+      return
+    }
+
+    if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
+      const isNext = action === ACTIONS.NEXT
+      const isPrev = action === ACTIONS.PREV
+      if (!isNext && !isPrev) return
+
+      const next = index + (isNext ? 1 : -1)
+
+      if (isNext) {
+        if (index === 3) { setView('library'); setTimeout(() => setTourStepIndex(4), 350); return }
+        if (index === 10) { setPreloadedScenarioId('novo-ozempic'); setView('intake'); setTimeout(() => setTourStepIndex(11), 400); return }
+        if (index === 15) { setActiveScenario(scenarios['novo-ozempic']); setReviewMode(false); setAutoStart(false); setView('poc'); setTimeout(() => setTourStepIndex(16), 400); return }
+      }
+
+      if (isPrev) {
+        if (index === 4) { setView('portfolio'); setTimeout(() => setTourStepIndex(3), 350); return }
+        if (index === 11) { setView('library'); setTimeout(() => setTourStepIndex(10), 350); return }
+        if (index === 16) { setPreloadedScenarioId('novo-ozempic'); setView('intake'); setTimeout(() => setTourStepIndex(15), 400); return }
+      }
+
+      setTourStepIndex(next)
+    }
+  }
+
   return (
     <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
-      <Sidebar view={view} setView={setView} />
+      <Joyride
+        steps={TOUR_STEPS}
+        run={tourRunning}
+        stepIndex={tourStepIndex}
+        onEvent={handleJoyrideCallback as Parameters<typeof Joyride>[0]['onEvent']}
+        continuous
+        scrollToFirstStep
+        styles={JOYRIDE_STYLES}
+        options={{
+          arrowColor: '#1e293b',
+          backgroundColor: '#1e293b',
+          overlayColor: 'rgba(2, 6, 23, 0.6)',
+          primaryColor: '#10b981',
+          textColor: '#cbd5e1',
+          zIndex: 200,
+          width: 400,
+          buttons: ['back', 'primary', 'skip'],
+          showProgress: true,
+          overlayClickAction: false,
+          skipBeacon: true,
+        }}
+      />
+      <Sidebar view={view} setView={setView} onStartTour={startTour} />
       {view === 'portfolio' && (
         <PortfolioView clients={clients} onNew={() => openNew()} onOpenCase={openCase} />
       )}
