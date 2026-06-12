@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Library, Plus, Activity, Settings, Clock, ShieldAlert,
   Upload, FileText, CheckCircle, Loader2, Users, Zap, ChevronRight,
   Building2, User, AlertTriangle, Search, Pill, Shield,
-  Download, RotateCcw, Code, Package, ChevronDown, BookmarkPlus,
+  Download, RotateCcw, Code, Package, ChevronDown, ChevronLeft, BookmarkPlus,
   Info, GitBranch, Pencil,
 } from 'lucide-react'
 
@@ -1078,6 +1078,7 @@ function IntakeView({ preloadedScenarioId, onLaunch }: {
 
 interface PipelineStep {
   label: string
+  loadingText: string
   explanation: string
 }
 
@@ -1085,42 +1086,36 @@ function getPipelineSteps(scenario: ScenarioConfig): PipelineStep[] {
   const isInfant = scenario.id === 'infant-omeprazole'
   return [
     {
-      label: isInfant
-        ? 'Ingestion · parsing Cigna denial for omeprazole suspension'
-        : `Ingestion · parsing ${scenario.plan} denial for ${scenario.drug}`,
+      label: 'Ingestion',
+      loadingText: isInfant
+        ? 'Parsing UHC denial for omeprazole suspension...'
+        : `Parsing ${scenario.plan} denial for ${scenario.drug}...`,
       explanation: isInfant
-        ? `Identified the denial as a pediatric formulation refusal. Extracted drug (omeprazole suspension), diagnosis (infantile GERD), and denial basis — formulary preference for H2 blocker alternatives.`
-        : `Identified the denial as a step therapy requirement. Extracted drug (${scenario.drug}), diagnosis (${scenario.diagnosis}), and payer plan ID (${scenario.planId}).`,
+        ? `Parsed the UnitedHealthcare denial for omeprazole oral suspension. Identified the denial as a formulary exception request — the payer requires step therapy with a tablet or H2 blocker before approving a compounded liquid. Extracted patient age (4 months), diagnosis (infantile GERD, K21.0), and the formulary alternative the payer cited.`
+        : `Parsed the ${scenario.plan} denial for ${scenario.drug} (semaglutide). Identified the denial as a step therapy requirement: the payer claims insufficient documentation that the patient trialed Metformin before escalating to a GLP-1 agonist. Extracted drug, diagnosis (T2DM, E11.9), and the four PA criteria to satisfy.`,
     },
     {
-      label: isInfant
-        ? 'Retrieval · loading pediatric dosing policy + FDA NDMA recall evidence'
-        : `Retrieval · loading ${scenario.plan} step-therapy requirements`,
+      label: 'Retrieval',
+      loadingText: isInfant
+        ? 'Loading pediatric GI policy + FDA safety database...'
+        : `Loading ${scenario.plan} PA policy for GLP-1 agonists...`,
       explanation: isInfant
-        ? `Loaded Cigna's pediatric GI formulary criteria. Also retrieved the FDA's April 2020 ranitidine market withdrawal — establishing that the payer's preferred H2 blocker alternative is no longer available due to NDMA contamination.`
-        : `Loaded ${scenario.plan}'s prior authorization policy for ${scenario.drug}. Found ${scenario.criteriaResults.length} PA criteria to satisfy: diagnosis confirmation, prior treatment history, and prescriber documentation.`,
+        ? `Loaded UHC's pediatric GI formulary criteria. Critically, also retrieved the FDA's April 2020 ranitidine (Zantac) market withdrawal notice — establishing that the payer's preferred H2 blocker alternative is no longer legally available in the US due to NDMA contamination. The step therapy path the payer requires does not exist.`
+        : `Loaded ${scenario.plan}'s PA policy for GLP-1 agonists. Retrieved 4 criteria to satisfy: confirmed T2DM diagnosis, HbA1c ≥ 7.5% on current regimen, ≥ 90 days of Metformin at maximum tolerated dose, and no history of medullary thyroid carcinoma. Cross-referenced each against the patient's submitted records.`,
     },
     {
-      label: 'Synthesis · drafting evidence-grounded appeal letter...',
+      label: 'Synthesis',
+      loadingText: 'Drafting evidence-grounded appeal letter...',
       explanation: isInfant
-        ? `Drafted an appeal documenting why omeprazole suspension is the only viable option: H2 blocker alternatives withdrawn due to NDMA contamination, and PPI therapy is the current standard of care for infantile GERD.`
-        : `Generated an appeal letter addressing each step therapy criterion. Every claim is grounded in the patient's medical record and payer policy language — no unsupported assertions.`,
+        ? `Generated an appeal making two independent arguments that can't be simultaneously refuted: (1) the patient is 4 months old — solid tablet formulations are physically impossible to administer; (2) the formulary H2 alternative (ranitidine) was withdrawn by the FDA due to NDMA contamination and cannot be trialed. Cited NASPGHAN 2018 pediatric GERD guidelines (PMID 29470322) for dosing standards.`
+        : `Generated an appeal letter grounded in all 4 PA criteria. Confirmed T2DM via endocrinology consult (HbA1c 8.2%, threshold 7.5%). Documented 112 consecutive days of Metformin 1000mg BID from pharmacy fill records — exceeding the 90-day threshold. Safety check clear. Every claim traces to a source document; no unsupported assertions.`,
     },
     {
-      label: isInfant
-        ? 'Synthesis · citing NASPGHAN 2018 guidelines (PMID 29470322)...'
-        : 'Synthesis · citing clinical trial data and payer policy criteria...',
+      label: 'Gatekeeper',
+      loadingText: 'Running deterministic validation (no LLM)...',
       explanation: isInfant
-        ? `Anchored the dosing argument to NASPGHAN 2018 pediatric GERD guidelines (PMID 29470322), which establish the therapeutic dose range. Each clinical claim traces directly to the retrieved guideline text.`
-        : `Cross-referenced clinical guidelines and payer policy criteria to verify every cited criterion. Confirmed no invented requirements — each claim maps to a retrieved source.`,
-    },
-    {
-      label: 'Gatekeeper · deterministic rule validation (no LLM)...',
-      explanation: `Ran ${isInfant ? '5' : '5'} deterministic checks without using an AI model: drug name present, diagnosis referenced, denial reason addressed, all ${scenario.criteriaResults.filter(c => c.status === 'found').length} criteria cited, minimum letter length met. All passed.`,
-    },
-    {
-      label: 'Gatekeeper · output validated · ready for review',
-      explanation: `The appeal passed all automated checks. It has been handed off to the Authorization Manager for final review — the AM is the human authority before anything is transmitted to the payer.`,
+        ? `Ran 5 deterministic checks without any AI model: drug name present, infant age documented, FDA recall referenced, NASPGHAN PMID cited, letter length adequate. All passed. The appeal is ready for the Authorization Manager's review — a human is the final authority before anything is transmitted to the payer.`
+        : `Ran 5 deterministic checks without AI: drug name present, diagnosis referenced, step therapy denial addressed, all 4 criteria cited, minimum letter length met. All passed. The appeal has been handed to the AM for final human review and authorization before submission to ${scenario.plan}.`,
     },
   ]
 }
@@ -1151,6 +1146,8 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
   const [editMode, setEditMode] = useState(false)
   const [editedBody, setEditedBody] = useState<string | null>(null)
   const [round2StepIdx, setRound2StepIdx] = useState(0)
+  const [tourIdx, setTourIdx] = useState(0)
+  const [round2TourIdx, setRound2TourIdx] = useState(0)
 
   const letterDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
@@ -1168,7 +1165,7 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
   const pipelineSteps = getPipelineSteps(scenario)
 
   const handleRound2Execute = () => {
-    setPhase('round2_loading'); setRound2StepIdx(0)
+    setPhase('round2_loading'); setRound2StepIdx(0); setRound2TourIdx(0)
     let i = 0
     const iv = setInterval(() => {
       i++; setRound2StepIdx(i)
@@ -1207,13 +1204,21 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
   const [stepIdx, setStepIdx] = useState(0)
 
   const handleExecute = () => {
-    setPhase('loading'); setStepIdx(0)
+    setPhase('loading'); setStepIdx(0); setTourIdx(0)
     let i = 0
     const iv = setInterval(() => {
       i++; setStepIdx(i)
       if (i >= pipelineSteps.length - 1) { clearInterval(iv) }
     }, 2500)
   }
+
+  useEffect(() => {
+    setTourIdx(prev => prev === stepIdx - 1 ? stepIdx : prev)
+  }, [stepIdx])
+
+  useEffect(() => {
+    setRound2TourIdx(prev => prev === round2StepIdx - 1 ? round2StepIdx : prev)
+  }, [round2StepIdx])
 
   useEffect(() => {
     if (autoStart) handleExecute()
@@ -1594,40 +1599,108 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
 
         ) : phase === 'round2_loading' ? (
           // ── Round 2 Loading ──────────────────────────────────────────────
-          <div className="space-y-1.5">
-            {pipelineSteps.slice(0, round2StepIdx + 1).map((step, i) => {
-              const done = i < round2StepIdx
-              return (
-                <div key={i} className={`flex items-start gap-3 px-4 py-2.5 rounded-lg border transition-all ${
-                  done ? 'bg-slate-800/20 border-slate-700/30' : 'bg-slate-800/70 border-violet-700/60'
-                }`}>
-                  <div className="mt-0.5 shrink-0">
-                    {done
-                      ? <CheckCircle className="w-4 h-4 text-violet-400" />
-                      : <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />}
+          (() => {
+            const stepIcons = [FileText, Search, GitBranch, Shield]
+            const TourIcon = stepIcons[round2TourIdx]
+            const tourStepDone = round2TourIdx < round2StepIdx
+            return (
+              <div className="space-y-4">
+                {/* Horizontal stepper — violet scheme */}
+                <div className="grid grid-cols-4">
+                  {pipelineSteps.map((step, i) => {
+                    const isComplete = i < round2StepIdx
+                    const isCurrent = i === round2StepIdx
+                    const StepIcon = stepIcons[i]
+                    return (
+                      <div
+                        key={i}
+                        className="relative flex flex-col items-center cursor-pointer group"
+                        onClick={() => i <= round2StepIdx && setRound2TourIdx(i)}
+                      >
+                        {i < pipelineSteps.length - 1 && (
+                          <div className={`absolute top-5 left-1/2 w-full h-px z-0 transition-colors duration-700 ${
+                            isComplete ? 'bg-violet-500' : 'bg-slate-700'
+                          }`} />
+                        )}
+                        <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${
+                          isComplete ? 'bg-violet-500/20 border-violet-500' :
+                          isCurrent ? 'bg-violet-500/10 border-violet-400' :
+                          'bg-slate-800 border-slate-700'
+                        } ${round2TourIdx === i && i <= round2StepIdx ? 'ring-2 ring-offset-2 ring-offset-slate-900 ring-white/20' : ''}`}>
+                          {isComplete
+                            ? <CheckCircle className="w-5 h-5 text-violet-400" />
+                            : isCurrent
+                            ? <Loader2 className="w-5 h-5 text-violet-400 animate-spin" />
+                            : <StepIcon className="w-5 h-5 text-slate-600" />}
+                        </div>
+                        <span className={`text-xs font-medium mt-1.5 text-center leading-tight ${
+                          isComplete ? 'text-violet-400' :
+                          isCurrent ? 'text-violet-300' :
+                          'text-slate-600'
+                        } ${i <= round2StepIdx ? 'group-hover:brightness-125' : ''}`}>{step.label}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Tour card — violet */}
+                <div className="bg-slate-800/70 border border-violet-800/60 rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-violet-800/40 bg-slate-800/40">
+                    <div className="flex items-center gap-2.5">
+                      <TourIcon className={`w-4 h-4 ${tourStepDone ? 'text-violet-400' : 'text-violet-400'}`} />
+                      <span className="text-sm font-semibold text-white">{pipelineSteps[round2TourIdx].label}</span>
+                      {tourStepDone && <span className="text-xs px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400 font-medium">Complete</span>}
+                    </div>
+                    <span className="text-xs text-slate-500">Step {round2TourIdx + 1} of {pipelineSteps.length}</span>
                   </div>
-                  <div className="min-w-0">
-                    <p className={`text-sm ${done ? 'text-slate-400' : 'text-violet-300'}`}>{step.label}</p>
-                    {done && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{step.explanation}</p>}
+                  <div className="px-4 py-4 min-h-[80px]">
+                    {tourStepDone ? (
+                      <p className="text-sm text-slate-300 leading-relaxed">{pipelineSteps[round2TourIdx].explanation}</p>
+                    ) : (
+                      <div className="flex items-start gap-2.5">
+                        <Loader2 className="w-4 h-4 text-violet-400 animate-spin shrink-0 mt-0.5" />
+                        <p className="text-sm text-violet-300">{pipelineSteps[round2TourIdx].loadingText}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-2.5 border-t border-violet-800/30 bg-slate-900/30">
+                    <button
+                      onClick={() => setRound2TourIdx(prev => Math.max(0, prev - 1))}
+                      disabled={round2TourIdx === 0}
+                      className="flex items-center gap-1 text-xs text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-default transition-colors"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />Previous
+                    </button>
+                    <div className="flex gap-1.5">
+                      {pipelineSteps.map((_, i) => (
+                        <div key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                          round2TourIdx === i ? 'bg-violet-400' : i < round2StepIdx ? 'bg-violet-700' : i === round2StepIdx ? 'bg-violet-900' : 'bg-slate-700'
+                        }`} />
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setRound2TourIdx(prev => Math.min(round2StepIdx, prev + 1))}
+                      disabled={round2TourIdx >= round2StepIdx}
+                      className="flex items-center gap-1 text-xs text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-default transition-colors"
+                    >
+                      Next<ChevronRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-              )
-            })}
-            <div className="w-full bg-slate-700 rounded-full h-1 mt-2">
-              <div className="bg-violet-500 h-1 rounded-full transition-all duration-700"
-                style={{ width: `${((round2StepIdx + 1) / pipelineSteps.length) * 100}%` }} />
-            </div>
-            {round2StepIdx === pipelineSteps.length - 1 ? (
-              <button
-                onClick={() => setPhase('round2_done')}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors mt-1"
-              >
-                <ChevronRight className="w-4 h-4" />Continue to Counter-Argument
-              </button>
-            ) : (
-              <p className="text-xs text-slate-500 text-center pt-0.5">Round 2 counter-argument · Citing NASPGHAN guidelines</p>
-            )}
-          </div>
+
+                {round2StepIdx === pipelineSteps.length - 1 ? (
+                  <button
+                    onClick={() => setPhase('round2_done')}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />Continue to Counter-Argument
+                  </button>
+                ) : (
+                  <p className="text-xs text-slate-500 text-center">Round 2 · Counter-argument pipeline · {scenario.configFile}</p>
+                )}
+              </div>
+            )
+          })()
 
         ) : phase === 'round2_done' ? (
           // ── Round 2 Letter ───────────────────────────────────────────────
@@ -2048,21 +2121,41 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
                 >
                   <div className="flex items-center gap-2">
                     <Code className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm font-medium text-slate-300">Pipeline Run — {pipelineSteps.length} steps completed</span>
+                    <span className="text-sm font-medium text-slate-300">Pipeline Run — {pipelineSteps.length} nodes completed</span>
                   </div>
                   <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${traceOpen ? 'rotate-180' : ''}`} />
                 </button>
-                {traceOpen && (
-                  <div className="divide-y divide-slate-700/40">
+                {/* Horizontal stepper — always visible as summary */}
+                <div className="px-6 py-4 border-b border-slate-700/40 bg-slate-900/20">
+                  <div className="grid grid-cols-4">
                     {pipelineSteps.map((step, i) => (
-                      <div key={i} className="flex items-start gap-3 px-4 py-3 bg-slate-900/20">
-                        <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm text-slate-300">{step.label}</p>
-                          <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{step.explanation}</p>
+                      <div key={i} className="relative flex flex-col items-center">
+                        {i < pipelineSteps.length - 1 && (
+                          <div className="absolute top-5 left-1/2 w-full h-px z-0 bg-emerald-500" />
+                        )}
+                        <div className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 bg-emerald-500/20 border-emerald-500">
+                          <CheckCircle className="w-5 h-5 text-emerald-400" />
                         </div>
+                        <span className="text-xs font-medium mt-1.5 text-center leading-tight text-emerald-400">{step.label}</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+                {traceOpen && (
+                  <div className="divide-y divide-slate-700/40">
+                    {pipelineSteps.map((step, i) => {
+                      const trailIcons = [FileText, Search, GitBranch, Shield]
+                      const TrailIcon = trailIcons[i]
+                      return (
+                        <div key={i} className="flex items-start gap-3 px-4 py-3 bg-slate-900/20">
+                          <TrailIcon className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-slate-300">{step.label}</p>
+                            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{step.explanation}</p>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -2145,42 +2238,108 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
                 <Zap className="w-4 h-4" />Execute Full Pipeline
               </button>
             )}
-            {phase === 'loading' && (
-              <div className="space-y-1.5">
-                {pipelineSteps.slice(0, stepIdx + 1).map((step, i) => {
-                  const done = i < stepIdx
-                  return (
-                    <div key={i} className={`flex items-start gap-3 px-4 py-2.5 rounded-lg border transition-all ${
-                      done ? 'bg-slate-800/20 border-slate-700/30' : 'bg-slate-800/70 border-slate-700'
-                    }`}>
-                      <div className="mt-0.5 shrink-0">
-                        {done
-                          ? <CheckCircle className="w-4 h-4 text-emerald-500" />
-                          : <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />}
+            {phase === 'loading' && (() => {
+              const stepIcons = [FileText, Search, GitBranch, Shield]
+              const TourIcon = stepIcons[tourIdx]
+              const tourStepDone = tourIdx < stepIdx
+              return (
+                <div className="space-y-4">
+                  {/* Horizontal stepper */}
+                  <div className="grid grid-cols-4">
+                    {pipelineSteps.map((step, i) => {
+                      const isComplete = i < stepIdx
+                      const isCurrent = i === stepIdx
+                      const StepIcon = stepIcons[i]
+                      return (
+                        <div
+                          key={i}
+                          className="relative flex flex-col items-center cursor-pointer group"
+                          onClick={() => i <= stepIdx && setTourIdx(i)}
+                        >
+                          {i < pipelineSteps.length - 1 && (
+                            <div className={`absolute top-5 left-1/2 w-full h-px z-0 transition-colors duration-700 ${
+                              isComplete ? 'bg-emerald-500' : 'bg-slate-700'
+                            }`} />
+                          )}
+                          <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${
+                            isComplete ? 'bg-emerald-500/20 border-emerald-500' :
+                            isCurrent ? 'bg-blue-500/20 border-blue-400' :
+                            'bg-slate-800 border-slate-700'
+                          } ${tourIdx === i && i <= stepIdx ? 'ring-2 ring-offset-2 ring-offset-slate-900 ring-white/20' : ''}`}>
+                            {isComplete
+                              ? <CheckCircle className="w-5 h-5 text-emerald-400" />
+                              : isCurrent
+                              ? <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                              : <StepIcon className="w-5 h-5 text-slate-600" />}
+                          </div>
+                          <span className={`text-xs font-medium mt-1.5 text-center leading-tight ${
+                            isComplete ? 'text-emerald-400' :
+                            isCurrent ? 'text-blue-300' :
+                            'text-slate-600'
+                          } ${i <= stepIdx ? 'group-hover:brightness-125' : ''}`}>{step.label}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Tour card */}
+                  <div className="bg-slate-800/70 border border-slate-700 rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/60 bg-slate-800/40">
+                      <div className="flex items-center gap-2.5">
+                        <TourIcon className={`w-4 h-4 ${tourStepDone ? 'text-emerald-400' : 'text-blue-400'}`} />
+                        <span className="text-sm font-semibold text-white">{pipelineSteps[tourIdx].label}</span>
+                        {tourStepDone && <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">Complete</span>}
                       </div>
-                      <div className="min-w-0">
-                        <p className={`text-sm ${done ? 'text-slate-400' : 'text-blue-300'}`}>{step.label}</p>
-                        {done && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{step.explanation}</p>}
-                      </div>
+                      <span className="text-xs text-slate-500">Step {tourIdx + 1} of {pipelineSteps.length}</span>
                     </div>
-                  )
-                })}
-                <div className="w-full bg-slate-700 rounded-full h-1 mt-2">
-                  <div className="bg-blue-500 h-1 rounded-full transition-all duration-700"
-                    style={{ width: `${((stepIdx + 1) / pipelineSteps.length) * 100}%` }} />
+                    <div className="px-4 py-4 min-h-[80px]">
+                      {tourStepDone ? (
+                        <p className="text-sm text-slate-300 leading-relaxed">{pipelineSteps[tourIdx].explanation}</p>
+                      ) : (
+                        <div className="flex items-start gap-2.5">
+                          <Loader2 className="w-4 h-4 text-blue-400 animate-spin shrink-0 mt-0.5" />
+                          <p className="text-sm text-blue-300">{pipelineSteps[tourIdx].loadingText}</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-700/40 bg-slate-900/30">
+                      <button
+                        onClick={() => setTourIdx(prev => Math.max(0, prev - 1))}
+                        disabled={tourIdx === 0}
+                        className="flex items-center gap-1 text-xs text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-default transition-colors"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />Previous
+                      </button>
+                      <div className="flex gap-1.5">
+                        {pipelineSteps.map((_, i) => (
+                          <div key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                            tourIdx === i ? 'bg-blue-400' : i < stepIdx ? 'bg-emerald-600' : i === stepIdx ? 'bg-blue-800' : 'bg-slate-700'
+                          }`} />
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => setTourIdx(prev => Math.min(stepIdx, prev + 1))}
+                        disabled={tourIdx >= stepIdx}
+                        className="flex items-center gap-1 text-xs text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-default transition-colors"
+                      >
+                        Next<ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {stepIdx === pipelineSteps.length - 1 ? (
+                    <button
+                      onClick={() => setPhase('done')}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />Continue to Appeal Letter
+                    </button>
+                  ) : (
+                    <p className="text-xs text-slate-500 text-center">Universal pipeline · {scenario.configFile}</p>
+                  )}
                 </div>
-                {stepIdx === pipelineSteps.length - 1 ? (
-                  <button
-                    onClick={() => setPhase('done')}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors mt-1"
-                  >
-                    <ChevronRight className="w-4 h-4" />Continue to Appeal Letter
-                  </button>
-                ) : (
-                  <p className="text-xs text-slate-500 text-center pt-0.5">Universal pipeline · Config: {scenario.configFile}</p>
-                )}
-              </div>
-            )}
+              )
+            })()}
           </>
         )}
       </div>
