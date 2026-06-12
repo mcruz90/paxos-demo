@@ -303,181 +303,111 @@ const tc = (body: string, note?: string) => (
 )
 
 const TOUR_STEPS: Step[] = [
+  // ── Step 0: Welcome ──────────────────────────────────────────────────────
   {
     target: 'body',
     placement: 'center',
     skipBeacon: true,
-    title: 'PaxOS Guided Tour',
+    title: 'PaxOS Case Walkthrough',
     content: tc(
-      "This walkthrough covers the full prior authorization workflow — from the Ontology Library to a generated appeal letter. You'll see what the system sees at every step and why no prompt engineering is required.",
-      '18 steps · Use the arrows to navigate · press Esc to exit'
+      'This tour walks through two adversarial PA cases from start to finish — an Ozempic step therapy fight and a multi-round infant omeprazole dispute. You\'ll see the AI output, the clinical evidence, and the human authorization step.',
+      '10 steps · arrows to navigate · Esc to exit'
     ),
   },
+  // ── Step 1: Portfolio ─────────────────────────────────────────────────────
   {
     target: '#tour-portfolio-list',
     placement: 'right',
     skipBeacon: true,
-    title: 'Client Portfolio',
+    title: 'Two Active Cases',
     content: tc(
-      'Your CRM-style case list. Two adversarial PA scenarios: Ozempic (step therapy denial) and infant omeprazole (multi-round formulary dispute with an FDA safety angle). Each is a distinct case with its own config.'
+      'Case 1 (Ozempic): the AI pipeline already ran and the appeal is waiting for AM authorization. Case 2 (infant omeprazole): the payer responded with a counter-offer — a second pipeline run is needed to rebut it.',
+      "Both cases are adversarial. The payer's denial argument has a specific legal/clinical weakness the system exploits."
     ),
   },
+  // ── Step 2: Ozempic case card ─────────────────────────────────────────────
   {
-    target: '#tour-new-case-btn',
-    placement: 'bottom',
-    skipBeacon: true,
-    title: 'Start a New Intake',
-    content: tc(
-      'Upload a denial letter or patient chart here. The extraction pipeline reads the document, identifies the drug and Plan ID, and auto-selects the matching config — including plan-specific overrides.',
-      'For the demo, new uploads resolve to a pre-configured scenario so you can see the full extraction result immediately.'
-    ),
-  },
-  {
-    target: '#tour-sidebar-library',
+    target: '#tour-case-ozempic',
     placement: 'right',
     skipBeacon: true,
-    title: 'Ontology Library',
+    title: 'Case 1 — Ozempic Step Therapy Denial',
     content: tc(
-      "The Library holds every building block for every pipeline. Two layers: universal rule primitives (the factory) and drug × carrier configurations (the materials). Next, we'll walk through both layers."
+      "Cigna denied Ozempic claiming the patient hadn't documented sufficient Metformin therapy. But pharmacy fill records show 112 consecutive days of Metformin 1000mg BID — exceeding the 90-day threshold Cigna requires.",
+      "Next: open the case and see how the pipeline built the argument."
     ),
   },
-  {
-    target: '#tour-layer1',
-    placement: 'bottom',
-    skipBeacon: true,
-    title: 'Layer 1 — Universal Primitives',
-    content: tc(
-      'These four rule types cover every prior authorization scenario in clinical practice. They are never rewritten between clients — only parameterized. Think of them as the assembly line; the drug config is the raw material loaded onto it.'
-    ),
-  },
-  {
-    target: '#tour-primitive-diagnostic',
-    placement: 'right',
-    skipBeacon: true,
-    title: 'Diagnostic Rule',
-    content: tc(
-      'Checks for the presence or absence of a clinical diagnosis. The retrieval agent scans ICD codes, specialist consult notes, and attending physician attestation.',
-      'Example: "Confirmed Type 2 Diabetes (E11.9) must be present." Set must_be_present: true for indications, false for contraindications.'
-    ),
-  },
-  {
-    target: '#tour-primitive-math',
-    placement: 'left',
-    skipBeacon: true,
-    title: 'Biomarker / Math Rule',
-    content: tc(
-      'Compares an extracted lab value against a threshold. Supports absolute comparisons (HbA1c ≥ 7.5%), multiples of the upper limit of normal, and a recency window to reject stale labs.',
-      'Example: HbA1c ≥ 7.5% within the last 180 days. The threshold is the only thing that changes between carrier configs — the rule primitive stays the same.'
-    ),
-  },
-  {
-    target: '#tour-primitive-temporal',
-    placement: 'right',
-    skipBeacon: true,
-    title: 'Temporal Rule',
-    content: tc(
-      "Verifies that a prior line of therapy was tried for a minimum duration. Example: Metformin ≥ 90 days.",
-      "The Costco self-insured plan overrides this to 180 days. Same primitive, different parameter — the pipeline doesn't care which plan it is; it just reads the loaded config."
-    ),
-  },
-  {
-    target: '#tour-primitive-safety',
-    placement: 'left',
-    skipBeacon: true,
-    title: 'Safety / Contraindication Rule',
-    content: tc(
-      'A hard exclusion gate — must_be_present is always false. If the contraindicated condition appears anywhere in the chart, the pipeline halts and returns Denied regardless of other criteria.',
-      'Example: personal or family history of medullary thyroid carcinoma is a black-box contraindication for semaglutide (Ozempic). Identical across all carrier configs for this drug.'
-    ),
-  },
-  {
-    target: '#tour-layer2',
-    placement: 'top',
-    skipBeacon: true,
-    title: 'Layer 2 — Drug × Carrier Configurations',
-    content: tc(
-      'Each drug has one config per supported carrier — plus plan-specific overrides for self-insured employer plans. The pipeline is identical for all of them; the config is the only variable.',
-      'Adding a new carrier or self-insured plan takes minutes: write the config (or just the override delta). No engineering ticket, no prompt rewrite.'
-    ),
-  },
-  {
-    target: '#tour-drug-ozempic',
-    placement: 'top',
-    skipBeacon: true,
-    title: 'Config Hierarchy: Same Drug, Different Plans',
-    content: tc(
-      'Ozempic has three configs here — Cigna, Aetna standard, and Aetna/Costco self-insured. The Costco override only stores what diverges from the Aetna base: HbA1c ≥ 8.0% (vs 7.5%), Metformin ≥ 180 days (vs 90), and an added BMI rule.',
-      'When the extraction pipeline reads Plan ID AETNA-TPA-CSTCO, it loads the Aetna base and patches in the Costco override automatically. The AM never selects a config manually.'
-    ),
-  },
-  {
-    target: '#tour-intake-header',
-    placement: 'bottom',
-    skipBeacon: true,
-    title: 'Opening a New Case from the Library',
-    content: tc(
-      "Clicking 'Use This Template' opened this intake pre-loaded with the Ozempic/Cigna config. No drug selection, no payer lookup — the config is already active.",
-      "In practice: when Novo Nordisk submits a patient case or a patient calls about an Ozempic denial under a Cigna plan, the AM opens this template. The Library config was built during onboarding."
-    ),
-  },
-  {
-    target: '#tour-config-banner',
-    placement: 'bottom',
-    skipBeacon: true,
-    title: 'Configuration Auto-Loaded',
-    content: tc(
-      "The blue banner confirms which config file is active. The pipeline doesn't know about Ozempic specifically — it only knows about the four primitive types. The config tells it which parameters to apply.",
-      'For uploads, the extraction pipeline identifies the drug and Plan ID from the document and auto-selects the matching config. For library templates, it\'s pre-loaded.'
-    ),
-  },
-  {
-    target: '#tour-extracted-fields',
-    placement: 'right',
-    skipBeacon: true,
-    title: 'Extracted Fields',
-    content: tc(
-      'Drug, manufacturer, insurance plan, plan ID, diagnosis, and denial reason — all sourced from the uploaded documents or pre-populated from the library config.',
-      'For new document uploads, these fields are populated by the extraction pipeline. The AM reviews them before launching, not before uploading.'
-    ),
-  },
-  {
-    target: '#tour-criteria-precheck',
-    placement: 'right',
-    skipBeacon: true,
-    title: 'Criteria Pre-check',
-    content: tc(
-      'Before the full pipeline runs, the system does a fast evidence scan. Green = evidence found with a page citation. Yellow = the document lacks it — the AM needs to chase it down.',
-      'This is not the full pipeline. It\'s a lightweight scan that surfaces gaps before the AM commits to launching. Reduces rework.'
-    ),
-  },
-  {
-    target: '#tour-launch-btn',
-    placement: 'top',
-    skipBeacon: true,
-    title: 'Launch Full Pipeline',
-    content: tc(
-      'When criteria are reviewed, launch the complete 4-node DAG: Ingestion → Retrieval → Synthesis → Gatekeeper. The output is a structured appeal document with every clinical citation embedded and auditable.',
-      "Next: we'll walk through the pipeline execution view."
-    ),
-  },
+  // ── Step 3: Ozempic POC — pipeline header ────────────────────────── (after view transition)
   {
     target: '#tour-pipeline-header',
     placement: 'bottom',
     skipBeacon: true,
-    title: 'Pipeline Execution View',
+    title: 'Pipeline Complete — Ozempic',
     content: tc(
-      "The header confirms the active config file — here it's ozempic_cigna_base.json. This is the same 4-node DAG regardless of which drug or carrier is being processed. The config file is the only thing that changes.",
-      'Node 1: Ingestion → Node 2: Retrieval → Node 3: Synthesis → Node 4: Gatekeeper'
+      "Config: ozempic_cigna_base.json. The 4-node DAG ran: Ingestion identified the step therapy denial type, Retrieval loaded Cigna's GLP-1 PA policy, Synthesis drafted the letter, and the Gatekeeper ran 5 deterministic checks (no LLM).",
     ),
   },
+  // ── Step 4: Completed trail ───────────────────────────────────────────────
   {
-    target: '#tour-execute-btn',
+    target: '#tour-pipeline-trail',
     placement: 'top',
     skipBeacon: true,
-    title: 'Execute the Pipeline',
+    title: 'All 4 Nodes Passed',
     content: tc(
-      'Click Execute to run. Each node streams live progress through the horizontal stepper above. The tour card below explains what each stage found and why it matters.',
-      'The output: a fully cited appeal letter ready for AM authorization — the human is always the final step before anything goes to the payer.'
+      'Each node is visible and auditable. The Gatekeeper is deterministic — pure rule logic, no model involved. It verified drug name, diagnosis, denial reason, all 4 criteria cited, and minimum letter length. All passed.',
+      'Click any completed node to read what it found.'
+    ),
+  },
+  // ── Step 5: Extraction audit ──────────────────────────────────────────────
+  {
+    target: '#tour-criteria-audit',
+    placement: 'top',
+    skipBeacon: true,
+    title: 'All 4 PA Criteria Met',
+    content: tc(
+      'T2DM confirmed (E11.9), HbA1c 8.2% (threshold 7.5%), Metformin 112 days (threshold 90), no medullary thyroid carcinoma history. Every criterion maps to a source document and page number.',
+    ),
+  },
+  // ── Step 6: Approve button ────────────────────────────────────────────────
+  {
+    target: '#tour-review-btn',
+    placement: 'top',
+    skipBeacon: true,
+    title: 'Human Authorization — AM is the Final Gate',
+    content: tc(
+      "The AM reviews the letter, confirms every citation, and clicks Approve. Nothing is transmitted to Cigna until a human authorizes it. The AI generates; the AM decides.",
+      'Next: Case 2 — the infant omeprazole counter-offer.'
+    ),
+  },
+  // ── Step 7: Infant case card ──────────────────────────────────────────────
+  {
+    target: '#tour-case-infant',
+    placement: 'right',
+    skipBeacon: true,
+    title: 'Case 2 — Infant Omeprazole, Round 2',
+    content: tc(
+      "Round 1 won the formulary exception — UHC agreed to cover the liquid formulation. But they capped the dose at 0.5 mg/kg/day. NASPGHAN 2018 guidelines require 1 mg/kg/day for infantile GERD. The payer's counter-offer is clinically inadequate.",
+      'Next: see the payer response and the round 2 argument.'
+    ),
+  },
+  // ── Step 8: Payer response card ───────────────────────────── (after view transition)
+  {
+    target: '#tour-payer-response',
+    placement: 'top',
+    skipBeacon: true,
+    title: 'Counter-Offer: Dose Capped at 0.5 mg/kg/day',
+    content: tc(
+      "UHC granted the formulary exception but authorized half the therapeutic dose. The new denial basis is 'dose exceeds standard protocol.' The round 2 argument targets this claim directly: NASPGHAN 2018 (PMID 29470322) establishes 1 mg/kg/day as the evidence-based standard for this patient's age and weight.",
+    ),
+  },
+  // ── Step 9: Round 2 execute ───────────────────────────────────────────────
+  {
+    target: '#tour-round2-execute',
+    placement: 'top',
+    skipBeacon: true,
+    title: 'Generate Round 2 Counter-Argument',
+    content: tc(
+      'The same 4-node pipeline reruns, this time scoped to the dose dispute. Synthesis will draft three tightly targeted sections: the clinical basis (NASPGHAN dosing standard), the supporting guideline (PMID), and the specific authorization requested (1 mg/kg/day for 90 days).',
+      'After the pipeline runs, each letter section highlights bidirectionally with its citation in the panel on the right.'
     ),
   },
 ]
@@ -797,6 +727,7 @@ function PortfolioView({ clients, onNew, onOpenCase }: {
             return (
               <div
                 key={client.id}
+                id={client.scenarioId === 'novo-ozempic' ? 'tour-case-ozempic' : client.scenarioId === 'infant-omeprazole' ? 'tour-case-infant' : undefined}
                 onClick={() => !isProcessing && onOpenCase(client.scenarioId, client.status)}
                 className={`grid grid-cols-[2fr_1fr_1fr_1fr_1fr_100px] gap-4 items-center px-4 py-3.5 rounded-xl border transition-all group ${
                   isProcessing
@@ -1800,7 +1731,7 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
             </div>
 
             {scenario.payerCounterOffer && (
-              <div className="space-y-3">
+              <div id="tour-payer-response" className="space-y-3">
                 <div className="flex items-center gap-3 p-4 bg-violet-950/40 border border-violet-500/30 rounded-xl">
                   <div className="w-9 h-9 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
                     <AlertTriangle className="w-5 h-5 text-violet-400" />
@@ -1823,7 +1754,7 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
                     </div>
                   ))}
                 </div>
-                <button onClick={handleRound2Execute}
+                <button id="tour-round2-execute" onClick={handleRound2Execute}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors">
                   <Zap className="w-4 h-4" />Generate Round 2 Counter-Argument
                 </button>
@@ -2355,7 +2286,7 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
 
             {/* Completed pipeline trail — only shown when pipeline was run this session */}
             {stepIdx === pipelineSteps.length - 1 && (
-              <div className="border border-slate-700/60 rounded-xl overflow-hidden">
+              <div id="tour-pipeline-trail" className="border border-slate-700/60 rounded-xl overflow-hidden">
                 <button
                   onClick={() => setTraceOpen(o => !o)}
                   className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/40 hover:bg-slate-800/70 transition-colors text-left"
@@ -2402,7 +2333,7 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
               </div>
             )}
 
-            <div>
+            <div id="tour-criteria-audit">
               <h3 className="text-sm font-semibold text-slate-300 mb-3">Extraction Audit Trail</h3>
               <div className="space-y-3">
                 {scenario.criteriaResults.map((cr, i) => (
@@ -2449,7 +2380,7 @@ function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, 
 
             <div className="flex gap-3 pt-1 flex-wrap">
               {reviewMode ? (
-                <button onClick={() => setPhase('review')}
+                <button id="tour-review-btn" onClick={() => setPhase('review')}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors">
                   <CheckCircle className="w-4 h-4" />Approve &amp; Submit Appeal
                 </button>
@@ -3023,15 +2954,60 @@ export default function App() {
       const next = index + (isNext ? 1 : -1)
 
       if (isNext) {
-        if (index === 3) { setView('library'); setTimeout(() => setTourStepIndex(4), 350); return }
-        if (index === 10) { setPreloadedScenarioId('novo-ozempic'); setView('intake'); setTimeout(() => setTourStepIndex(11), 400); return }
-        if (index === 15) { setActiveScenario(scenarios['novo-ozempic']); setReviewMode(false); setAutoStart(false); setView('poc'); setTimeout(() => setTourStepIndex(16), 400); return }
+        // Step 2 (Ozempic case card) → open Ozempic in done/review mode
+        if (index === 2) {
+          setActiveScenario(scenarios['novo-ozempic'])
+          setReviewMode(true)
+          setOpenedCaseStatus('ready_for_review')
+          setAutoStart(false)
+          setView('poc')
+          setTimeout(() => setTourStepIndex(3), 400)
+          return
+        }
+        // Step 6 (review button) → back to portfolio for case 2
+        if (index === 6) {
+          setActiveScenario(null)
+          setView('portfolio')
+          setTimeout(() => setTourStepIndex(7), 350)
+          return
+        }
+        // Step 7 (infant case card) → open infant in payer_response mode
+        if (index === 7) {
+          setActiveScenario(scenarios['infant-omeprazole'])
+          setReviewMode(true)
+          setOpenedCaseStatus('payer_response')
+          setAutoStart(false)
+          setView('poc')
+          setTimeout(() => setTourStepIndex(8), 400)
+          return
+        }
       }
 
       if (isPrev) {
-        if (index === 4) { setView('portfolio'); setTimeout(() => setTourStepIndex(3), 350); return }
-        if (index === 11) { setView('library'); setTimeout(() => setTourStepIndex(10), 350); return }
-        if (index === 16) { setPreloadedScenarioId('novo-ozempic'); setView('intake'); setTimeout(() => setTourStepIndex(15), 400); return }
+        // Step 3 (Ozempic pipeline header) → back to portfolio
+        if (index === 3) {
+          setActiveScenario(null)
+          setView('portfolio')
+          setTimeout(() => setTourStepIndex(2), 350)
+          return
+        }
+        // Step 7 (infant card) → reopen Ozempic POC at review button step
+        if (index === 7) {
+          setActiveScenario(scenarios['novo-ozempic'])
+          setReviewMode(true)
+          setOpenedCaseStatus('ready_for_review')
+          setAutoStart(false)
+          setView('poc')
+          setTimeout(() => setTourStepIndex(6), 400)
+          return
+        }
+        // Step 8 (payer response) → back to portfolio
+        if (index === 8) {
+          setActiveScenario(null)
+          setView('portfolio')
+          setTimeout(() => setTourStepIndex(7), 350)
+          return
+        }
       }
 
       setTourStepIndex(next)
