@@ -10,3 +10,77 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* ── Light mode: invert the slate scale so dark-coded classes render light ── */
+html.light {
+  /* Slate backgrounds become light */
+  --color-slate-950: #f8fafc;
+  --color-slate-900: #f1f5f9;
+  --color-slate-800: #e2e8f0;
+  --color-slate-700: #cbd5e1;
+  --color-slate-600: #94a3b8;
+  /* slate-500 stays as-is (#64748b — neutral midpoint) */
+  --color-slate-400: #475569;
+  --color-slate-300: #334155;
+  --color-slate-200: #1e293b;
+  --color-slate-100: #0f172a;
+  --color-slate-50:  #020617;
+
+  /* Tinted dark section backgrounds → become their light equivalents */
+  --color-emerald-950: #f5f3ff;  /* plum tint, not green */
+  --color-violet-950:  #f5f3ff;
+  --color-amber-950:   #fffbeb;
+  --color-blue-950:    #eff6ff;
+  --color-red-950:     #fff1f2;
+  --color-sky-950:     #f0f9ff;
+
+  /* Accent: remap emerald → Paxos plum so every emerald class becomes on-brand */
+  --color-emerald-600: #3b0764;  /* darkest — button base */
+  --color-emerald-500: #4c1d95;  /* primary — logo bg, active state, CTA */
+  --color-emerald-400: #6d28d9;  /* badge text, icon fill */
+  --color-emerald-300: #5b21b6;  /* metric numbers */
+  --color-violet-400:  #7c3aed;
+  --color-violet-300:  #6d28d9;
+  --color-amber-400:   #d97706;
+  --color-amber-300:   #b45309;
+  --color-blue-400:    #2563eb;
+  --color-blue-300:    #1d4ed8;
+  --color-red-400:     #dc2626;
+  --color-red-300:     #b91c1c;
+  --color-sky-300:     #0284c7;
+}
+
+/* text-white can't be remapped via --color-white without breaking bg-white */
+html.light .text-white {
+  color: #0f172a;
+}
+
+/* Preserve white text on/inside plum-colored surfaces (buttons, logo) */
+html.light .bg-emerald-500 .text-white,
+html.light .bg-emerald-600 .text-white,
+html.light .bg-emerald-500.text-white,
+html.light .bg-emerald-600.text-white {
+  color: #ffffff;
+}
+
+/* "Paper" document cards (appeal letter, PA request) are ALWAYS white, so their
+   dark slate text must stay dark in light mode. Restore the un-inverted slate
+   scale (and a real green for the citation highlight) within the card only. */
+html.light .paper {
+  --color-slate-50:  #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-emerald-50:  #ecfdf5;
+  --color-emerald-100: #d1fae5;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+  --color-emerald-700: #047857;
+}
+html.light .paper .text-white { color: #0f172a; }
