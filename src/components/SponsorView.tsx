@@ -88,7 +88,7 @@ export function SponsorView() {
           </span>
         </div>
         <p className="text-sm text-slate-400 mt-0.5">
-          Aggregate authorization outcomes for your product across every site running PaxOS. Read-only — manufacturers fund the hubs that operate cases; they don’t work the queue.
+          Aggregate authorization outcomes for your product across every site running ClearAuth. Read-only — manufacturers fund the hubs that operate cases; they don’t work the queue.
         </p>
         {/* Brand selector */}
         <div className="flex items-center gap-2 mt-4">
@@ -126,8 +126,8 @@ export function SponsorView() {
         </div>
         <div className="rounded-xl p-4 bg-slate-800/40 border border-slate-700/60">
           <p className="text-xs text-slate-500 mb-1 flex items-center gap-1.5">
-            Sites live on PaxOS
-            <InfoHint text="Of the 42 client deployments on PaxOS, the number running this product's program. One drug runs at a subset of all deployments." wide />
+            Sites live on ClearAuth
+            <InfoHint text="Of the 42 client deployments on ClearAuth, the number running this product's program. One drug runs at a subset of all deployments." wide />
           </p>
           <p className="text-2xl font-bold text-white">{brand.sitesLive}<span className="text-base font-normal text-slate-500"> / 42</span></p>
           <span className="text-xs text-slate-500">deployments running this product</span>

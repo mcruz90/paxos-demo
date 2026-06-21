@@ -3,10 +3,9 @@ import { TENANT } from '../data/scenarios'
 import { ReviewPolicyControl } from './ReviewPolicyControl'
 
 // Operate-layer surface — CLIENT-OWNED. This is where the customer's PA team tunes
-// their own automation policy day-to-day (the Telus-Kroll "client self-serve"
-// boundary). Paxos sets sensible defaults at onboarding; the client adjusts them
-// here without involving Paxos. Distinct from the onboarding Review Tiers step,
-// which only previews these defaults.
+// their own automation policy day-to-day. ClearAuth sets sensible defaults at onboarding;
+// the client adjusts them here without involving ClearAuth. Distinct from the onboarding
+// Review Tiers step, which only previews these defaults.
 export function AutomationPolicyView() {
   return (
     <div className="flex-1 overflow-auto">
@@ -30,7 +29,7 @@ export function AutomationPolicyView() {
         <div className="flex items-start gap-3 px-4 py-3 bg-slate-800/50 border border-slate-700/40 rounded-xl">
           <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
           <p className="text-xs text-slate-400 leading-relaxed">
-            Paxos stands up the capability and a sensible default at onboarding; from here, your PA team adjusts the
+            ClearAuth stands up the capability and a sensible default at onboarding; from here, your PA team adjusts the
             policy directly — no implementation ticket required. Changes apply to new cases entering the queue.
           </p>
         </div>

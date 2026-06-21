@@ -31,7 +31,7 @@ export function PaRequestReviewPanel() {
           <div className="paper bg-white rounded-xl overflow-hidden shadow-xl">
             <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex items-center justify-between gap-4">
               <span className="text-xs font-mono text-slate-400 truncate">
-                Assembled by Paxos Health · {letterDate}
+                Assembled by ClearAuth · {letterDate}
               </span>
               <div className="flex items-center gap-3 shrink-0">
                 {!editMode && (

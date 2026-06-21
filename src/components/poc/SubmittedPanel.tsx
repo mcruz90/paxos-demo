@@ -25,7 +25,7 @@ export function SubmittedPanel() {
                     { k: 'plan',          v: `${scenario.plan} (${scenario.planId})` },
                     { k: 'diagnosis',     v: scenario.diagnosis },
                     { k: 'reference',     v: appealRef },
-                    { k: 'submitted_by',  v: 'PA Coordinator · Paxos Health Portal' },
+                    { k: 'submitted_by',  v: 'PA Coordinator · ClearAuth Portal' },
                     { k: 'timestamp',     v: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) },
                   ] as const).map(({ k, v }) => (
                     <div key={k} className="flex items-start gap-3 text-xs font-mono">
@@ -84,7 +84,7 @@ export function SubmittedPanel() {
                           <ArrowRight className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                           <p className="text-xs text-slate-400 leading-relaxed">
                             A denial isn't the end of the lifecycle — it's the start of the next stage. The same documented
-                            evidence becomes the basis for an appeal. Paxos opens the appeal on this case under reference{' '}
+                            evidence becomes the basis for an appeal. ClearAuth opens the appeal on this case under reference{' '}
                             <span className="font-mono text-slate-300">{scenario.appealHandoff.caseRef}</span> and drafts the
                             argument; the coordinator reviews and files.
                           </p>

@@ -49,10 +49,10 @@ export function buildPasPayload(scenario: ScenarioConfig): { fhir: string; x12: 
 
   const carrier = scenario.plan.split(' ')[0].toUpperCase()
   const x12 = [
-    `ISA*00*          *00*          *ZZ*PAXOSHEALTH    *ZZ*${carrier.padEnd(15).slice(0, 15)}*260617*1200*^*00501*000000001*0*P*:~`,
-    `GS*HI*PAXOSHEALTH*${carrier}*20260617*1200*1*X*005010X217~`,
+    `ISA*00*          *00*          *ZZ*CLEARAUTH      *ZZ*${carrier.padEnd(15).slice(0, 15)}*260617*1200*^*00501*000000001*0*P*:~`,
+    `GS*HI*CLEARAUTH*${carrier}*20260617*1200*1*X*005010X217~`,
     `ST*278*0001*005010X217~`,
-    `BHT*0078*13*PAXOS-${scenario.planId}*20260617*1200~`,
+    `BHT*0078*13*CLEAR-${scenario.planId}*20260617*1200~`,
     `HL*1**20*1~`,
     `NM1*X3*2*${scenario.plan}*****PI*${scenario.planId}~`,
     `HL*2*1*21*1~`,

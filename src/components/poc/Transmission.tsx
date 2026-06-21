@@ -19,11 +19,11 @@ export function TransmissionReceipt({ plan, lifecycle = 'appeal' }: { plan: stri
       </div>
       {isInitialPa ? (
         <p className="text-xs text-slate-400 leading-relaxed">
-          Paxos files the full PA lifecycle — initial prior auths, appeals, and determinations. <span className="text-slate-300">This initial PA request</span> transmits to {plan} over the electronic prior-authorization API (HL7 FHIR Da Vinci PAS, backed by X12&nbsp;278) — the structured questionnaire and FHIR bundle go straight to the payer's UM system. Payers not yet on ePA fall back to secure portal/fax. A denial would route to the payer's appeal channel — same packet, same audit trail.
+          ClearAuth files the full PA lifecycle — initial prior auths, appeals, and determinations. <span className="text-slate-300">This initial PA request</span> transmits to {plan} over the electronic prior-authorization API (HL7 FHIR Da Vinci PAS, backed by X12&nbsp;278) — the structured questionnaire and FHIR bundle go straight to the payer's UM system. Payers not yet on ePA fall back to secure portal/fax. A denial would route to the payer's appeal channel — same packet, same audit trail.
         </p>
       ) : (
         <p className="text-xs text-slate-400 leading-relaxed">
-          Paxos files the full PA lifecycle — initial prior auths, appeals, and determinations. <span className="text-slate-300">Initial PA requests</span> transmit to {plan} over the electronic prior-authorization API (HL7 FHIR Da Vinci PAS, backed by X12&nbsp;278) where the payer supports it. <span className="text-slate-300">This appeal</span> files through the payer's appeal channel or portal — same packet, same audit trail. Payers not yet on ePA fall back to secure fax.
+          ClearAuth files the full PA lifecycle — initial prior auths, appeals, and determinations. <span className="text-slate-300">Initial PA requests</span> transmit to {plan} over the electronic prior-authorization API (HL7 FHIR Da Vinci PAS, backed by X12&nbsp;278) where the payer supports it. <span className="text-slate-300">This appeal</span> files through the payer's appeal channel or portal — same packet, same audit trail. Payers not yet on ePA fall back to secure fax.
         </p>
       )}
       <div className="flex items-start gap-2 px-3 py-2 bg-slate-900/40 border border-slate-700/50 rounded-lg">

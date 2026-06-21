@@ -1,10 +1,10 @@
 import { LayoutDashboard, Library, Activity, FileText, Users, AlertTriangle, Pencil, BarChart2, LineChart, ShieldCheck, Rocket, Boxes, Workflow, Sliders, Sun, Moon } from 'lucide-react'
 import { type View } from '../types'
 
-// Who owns each surface — the Telus-Kroll boundary made explicit in the chrome.
-// Paxos owns the technical/platform layers (Build, Scale); the client operates the
+// Who owns each surface — made explicit in the chrome.
+// ClearAuth owns the technical/platform layers (Build, Scale); the client operates the
 // day-to-day surface (Operate); the manufacturer sees a read-only sponsor view.
-type Owner = 'Client' | 'Paxos' | 'Sponsor'
+type Owner = 'Client' | 'Platform' | 'Sponsor'
 
 interface NavSection {
   name: string
@@ -24,7 +24,7 @@ const SECTIONS: readonly NavSection[] = [
     ],
   },
   {
-    name: 'Build', subtitle: 'What the Applied AI Lead authors', owner: 'Paxos', persona: 'Applied AI Lead',
+    name: 'Build', subtitle: 'What the Applied AI Lead authors', owner: 'Platform', persona: 'Applied AI Lead',
     items: [
       ['library',      Library,       'Ontology Library'],
       ['specs',        FileText,      'Workflow Spec'],
@@ -34,7 +34,7 @@ const SECTIONS: readonly NavSection[] = [
     ],
   },
   {
-    name: 'Scale', subtitle: 'Reuse across customers', owner: 'Paxos', persona: 'Implementation Lead',
+    name: 'Scale', subtitle: 'Reuse across customers', owner: 'Platform', persona: 'Implementation Lead',
     items: [
       ['onboarding', Rocket, 'Onboard Client'],
       ['platform',   Boxes,  'Platform Registry'],
@@ -49,15 +49,15 @@ const SECTIONS: readonly NavSection[] = [
 ]
 
 const OWNER_CHIP: Record<Owner, string> = {
-  Client:  'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
-  Paxos:   'text-violet-300 bg-violet-500/10 border-violet-500/20',
-  Sponsor: 'text-sky-300 bg-sky-500/10 border-sky-500/20',
+  Client:   'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
+  Platform: 'text-violet-300 bg-violet-500/10 border-violet-500/20',
+  Sponsor:  'text-sky-300 bg-sky-500/10 border-sky-500/20',
 }
 
 const OWNER_LABEL: Record<Owner, string> = {
-  Client:  'Client-operated',
-  Paxos:   'Paxos-managed',
-  Sponsor: 'Manufacturer view',
+  Client:   'Client-operated',
+  Platform: 'Platform-managed',
+  Sponsor:  'Manufacturer view',
 }
 
 export function Sidebar({ view, setView, onStartTour, theme, onToggleTheme }: { view: View; setView: (v: View) => void; onStartTour: () => void; theme: 'dark' | 'light'; onToggleTheme: () => void }) {
@@ -77,7 +77,7 @@ export function Sidebar({ view, setView, onStartTour, theme, onToggleTheme }: { 
             <ShieldCheck className="w-4 h-4 text-white" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-white leading-none">PaxOS</p>
+            <p className="text-sm font-semibold text-white leading-none">ClearAuth</p>
             <p className="text-xs text-slate-500 mt-0.5">{activeSection.name} · {OWNER_LABEL[activeSection.owner]}</p>
           </div>
         </div>

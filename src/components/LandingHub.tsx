@@ -36,7 +36,7 @@ export function LandingHub({ onStartTour, onSkip }: { onStartTour: (id: TourId) 
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white leading-none">PaxOS</h1>
+            <h1 className="text-2xl font-bold text-white leading-none">ClearAuth</h1>
             <p className="text-sm text-slate-400 mt-1">AI-native prior authorization, across the full PA lifecycle</p>
           </div>
         </div>

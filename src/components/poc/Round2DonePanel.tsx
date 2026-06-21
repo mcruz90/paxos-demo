@@ -62,7 +62,7 @@ export function Round2DonePanel() {
     
                           <div className="pt-2">
                             <p>We are prepared to provide any additional clinical documentation upon request and appreciate your prompt reconsideration.</p>
-                            <p className="pt-2">Sincerely,<br />Paxos Health<br /><span className="text-slate-500">AI-Assisted Prior Authorization Team</span></p>
+                            <p className="pt-2">Sincerely,<br />ClearAuth<br /><span className="text-slate-500">AI-Assisted Prior Authorization Team</span></p>
                           </div>
                         </div>
                       )

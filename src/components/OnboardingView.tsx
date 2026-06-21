@@ -175,7 +175,7 @@ export function OnboardingView({ setView }: { setView: (v: View) => void }) {
           <RoleChip layer="scale" />
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/40">
             <Building2 className="w-3.5 h-3.5 text-slate-500" />
-            <span className="text-xs text-slate-400">Paxos Implementation Team</span>
+            <span className="text-xs text-slate-400">ClearAuth Implementation Team</span>
           </div>
         </div>
       </div>
@@ -321,7 +321,7 @@ export function OnboardingView({ setView }: { setView: (v: View) => void }) {
         {/* Step 4 — Coverage Scope */}
         {stepIdx === 3 && template && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-400">Declare {template.company}&rsquo;s coverage scope — the payers and drugs their patients present. PaxOS <span className="text-slate-300">resolves</span> matching packs from the shared <button onClick={() => setView('platform')} className="text-emerald-400 hover:underline">Policy Pack Registry</button> automatically. You don&rsquo;t hand-pick packs — a patient&rsquo;s plan resolves them per case, like pharmacy claim adjudication.</p>
+            <p className="text-sm text-slate-400">Declare {template.company}&rsquo;s coverage scope — the payers and drugs their patients present. ClearAuth <span className="text-slate-300">resolves</span> matching packs from the shared <button onClick={() => setView('platform')} className="text-emerald-400 hover:underline">Policy Pack Registry</button> automatically. You don&rsquo;t hand-pick packs — a patient&rsquo;s plan resolves them per case, like pharmacy claim adjudication.</p>
             <div className="space-y-2.5">
               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Resolved from registry</p>
               {template.policyPacks.map(p => (
@@ -381,7 +381,7 @@ export function OnboardingView({ setView }: { setView: (v: View) => void }) {
 
             <div className="pt-2">
               <p className="text-sm text-slate-400 mb-3">
-                Paxos sets a sensible default here at go-live; <span className="text-slate-300">{template.company} owns this policy</span> and
+                ClearAuth sets a sensible default here at go-live; <span className="text-slate-300">{template.company} owns this policy</span> and
                 tunes it day-to-day in their own workspace (<button onClick={() => setView('automation')} className="text-emerald-400 hover:underline">Operate → Automation Policy</button>).
                 Shown read-only below — how much routine volume to auto-assemble vs. review in depth.
               </p>

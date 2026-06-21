@@ -206,7 +206,7 @@ const SCALE_TOUR: TourStep[] = [
 const OVERVIEW_TOUR: TourStep[] = [
   {
     target: 'body', placement: 'center', skipBeacon: true, nav: { view: 'portfolio' },
-    title: 'PaxOS in 90 seconds',
+    title: 'ClearAuth in 90 seconds',
     content: tc(
       'An AI-native prior-authorization platform across the full PA lifecycle. Three layers — Operate, Build, Scale. Here’s the arc.',
       'Arrows to navigate · Esc to exit'

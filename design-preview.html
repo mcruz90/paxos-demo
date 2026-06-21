@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ClearAuth Design Directions</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Lora:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #111; font-family: 'Inter', sans-serif; }
+
+  /* ── Direction A: Clinical Blue-Gray ──────────────────────────────────── */
+  .a-shell    { background: #0d1117; font-family: 'Inter', sans-serif; }
+  .a-sidebar  { background: #0d1117; border-right: 1px solid #1c2433; }
+  .a-logo-bg  { background: #0e7490; } /* cyan-700 */
+  .a-logo-txt { color: #fff; font-weight: 700; letter-spacing: -0.5px; font-size: 14px; }
+  .a-nav-section-operate { border-left: 2px solid #0ea5e9; padding-left: 10px; }
+  .a-nav-section-build   { border-left: 2px solid #a78bfa; padding-left: 10px; }
+  .a-nav-section-scale   { border-left: 2px solid #f59e0b; padding-left: 10px; }
+  .a-nav-item        { color: #6e7f96; font-size: 13px; padding: 6px 10px; border-radius: 6px; display: flex; align-items: center; gap: 9px; }
+  .a-nav-item.active { background: #1c2d3e; color: #e2f4fb; font-weight: 600; }
+  .a-nav-item:hover  { color: #cbd5e1; }
+  .a-section-label   { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+  .a-section-label.operate { color: #38bdf8; }
+  .a-section-label.build   { color: #a78bfa; }
+  .a-section-label.scale   { color: #fbbf24; }
+  .a-header   { border-bottom: 1px solid #1c2433; background: #0d1117; }
+  .a-card     { background: #111927; border: 1px solid #1c2d3e; border-radius: 10px; }
+  .a-card-accent { border-left: 3px solid #0ea5e9; }
+  .a-badge-ready  { background: rgba(14,165,233,.1); color: #38bdf8; border: 1px solid rgba(14,165,233,.2); border-radius: 999px; font-size: 11px; padding: 1px 8px; }
+  .a-badge-payer  { background: rgba(167,139,250,.1); color: #c4b5fd; border: 1px solid rgba(167,139,250,.2); border-radius: 999px; font-size: 11px; padding: 1px 8px; }
+  .a-badge-exc    { background: rgba(251,191,36,.1); color: #fcd34d; border: 1px solid rgba(251,191,36,.2); border-radius: 999px; font-size: 11px; padding: 1px 8px; }
+  .a-btn      { background: #0e7490; color: #fff; border-radius: 7px; font-size: 13px; font-weight: 500; padding: 7px 14px; border: none; }
+  .a-metric   { color: #38bdf8; font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+  .a-tag-diag   { background: rgba(14,165,233,.08); color: #7dd3fc; border: 1px solid rgba(14,165,233,.15); border-radius: 4px; font-size: 10px; padding: 1px 6px; }
+  .a-tag-temp   { background: rgba(167,139,250,.08); color: #c4b5fd; border: 1px solid rgba(167,139,250,.15); border-radius: 4px; font-size: 10px; padding: 1px 6px; }
+
+  /* ── Direction B: Dense Data / Single-Signal ──────────────────────────── */
+  .b-shell    { background: #0f0f11; font-family: 'Inter', sans-serif; }
+  .b-sidebar  { background: #0f0f11; border-right: 1px solid #1f1f23; }
+  .b-logo-px  { font-size: 15px; font-weight: 800; color: #fff; letter-spacing: -1px; line-height: 1; }
+  .b-logo-px span { color: #7c3aed; }
+  .b-nav-item        { color: #525258; font-size: 12px; padding: 5px 8px; border-radius: 4px; display: flex; align-items: center; gap: 8px; font-weight: 500; letter-spacing: .01em; }
+  .b-nav-item.active { background: #7c3aed18; color: #ddd6fe; border-left: 2px solid #7c3aed; padding-left: 6px; }
+  .b-nav-item:hover  { color: #e4e4e7; }
+  .b-section-label   { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #3f3f46; }
+  .b-header   { border-bottom: 1px solid #1f1f23; background: #0f0f11; }
+  .b-card     { background: #141416; border: 1px solid #1f1f23; border-radius: 6px; }
+  .b-card.actionable { border-left: 2px solid #7c3aed; }
+  .b-badge-ready  { background: #7c3aed18; color: #a78bfa; border: 1px solid #7c3aed30; border-radius: 3px; font-size: 10px; padding: 1px 6px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; }
+  .b-badge-payer  { background: #7c3aed18; color: #c4b5fd; border: 1px solid #7c3aed30; border-radius: 3px; font-size: 10px; padding: 1px 6px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; }
+  .b-badge-exc    { background: #ef444418; color: #fca5a5; border: 1px solid #ef444430; border-radius: 3px; font-size: 10px; padding: 1px 6px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; }
+  .b-divider  { border: none; border-top: 1px solid #1f1f23; }
+  .b-btn      { background: #7c3aed; color: #fff; border-radius: 4px; font-size: 12px; font-weight: 600; padding: 6px 12px; border: none; letter-spacing: .01em; }
+  .b-metric   { color: #a78bfa; font-family: 'IBM Plex Mono', monospace; font-weight: 700; }
+  .b-case-id  { color: #3f3f46; font-family: 'IBM Plex Mono', monospace; font-size: 10px; }
+  .b-separator { color: #3f3f46; margin: 0 4px; }
+
+  /* ── Direction C: Warm Clinical / Light-first ─────────────────────────── */
+  .c-shell    { background: #f5f4f0; font-family: 'Inter', sans-serif; }
+  .c-sidebar  { background: #fff; border-right: 1px solid #e8e6e0; }
+  .c-logo-bg  { background: #1e3a5f; }
+  .c-logo-txt { color: #fff; font-weight: 700; font-size: 14px; letter-spacing: -.3px; }
+  .c-nav-item        { color: #9e9b93; font-size: 13px; padding: 6px 10px; border-radius: 6px; display: flex; align-items: center; gap: 9px; }
+  .c-nav-item.active { background: #eff6ff; color: #1e3a5f; font-weight: 600; }
+  .c-nav-item:hover  { color: #1e293b; }
+  .c-section-label   { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #c9c6bc; }
+  .c-header   { border-bottom: 1px solid #e8e6e0; background: #fff; }
+  .c-card     { background: #fff; border: 1px solid #e8e6e0; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .c-card.flagged { border-top: 3px solid #1e3a5f; }
+  .c-badge-ready  { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; border-radius: 999px; font-size: 11px; padding: 1px 8px; }
+  .c-badge-payer  { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 999px; font-size: 11px; padding: 1px 8px; }
+  .c-badge-exc    { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; border-radius: 999px; font-size: 11px; padding: 1px 8px; }
+  .c-btn      { background: #1e3a5f; color: #fff; border-radius: 7px; font-size: 13px; font-weight: 500; padding: 7px 14px; border: none; }
+  .c-metric   { color: #1e3a5f; font-family: 'IBM Plex Mono', monospace; font-weight: 700; }
+  .c-tag-diag { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 4px; font-size: 10px; padding: 1px 6px; }
+  .c-tag-temp { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; border-radius: 4px; font-size: 10px; padding: 1px 6px; }
+  .c-divider  { border: none; border-top: 1px solid #e8e6e0; }
+  .c-rule-text { color: #374151; }
+  .c-note-text { color: #6b7280; }
+
+  /* ── Icons (inline SVG via data-uri) ──────────────────────────────────── */
+  .icon { display: inline-flex; width: 15px; height: 15px; align-items: center; justify-content: center; flex-shrink: 0; }
+  .icon-sm { width: 12px; height: 12px; }
+
+  /* ── Outer chrome ─────────────────────────────────────────────────────── */
+  .panel-label { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+  .panel-tag   { font-family: 'Inter', sans-serif; font-size: 11px; color: #555; border: 1px solid #333; border-radius: 4px; padding: 2px 8px; }
+</style>
+</head>
+<body>
+
+<!-- ── Outer wrapper ────────────────────────────────────────────────────── -->
+<div style="padding: 32px; min-height: 100vh;">
+
+  <div style="max-width: 1560px; margin: 0 auto;">
+    <p style="color:#888; font-family:Inter,sans-serif; font-size:12px; margin-bottom: 6px; letter-spacing:.05em;">CLEARAUTH DESIGN DIRECTIONS — PREVIEW</p>
+    <h1 style="color:#fff; font-family:Inter,sans-serif; font-size:22px; font-weight:700; margin-bottom:4px;">Which direction feels right?</h1>
+    <p style="color:#666; font-family:Inter,sans-serif; font-size:13px; margin-bottom:28px;">Each panel shows the same three screens: sidebar + case queue + case detail card. No changes to the main app.</p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; align-items: start;">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           DIRECTION A — Clinical Blue-Gray
+      ═══════════════════════════════════════════════════════════ -->
+      <div>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+          <span class="panel-label" style="color:#38bdf8;">A — Clinical Blue-Gray</span>
+          <span class="panel-tag">"Records Room"</span>
+        </div>
+        <div style="font-family:Inter,sans-serif; font-size:11px; color:#666; margin-bottom:14px; line-height:1.6;">
+          Navy base · sky/cyan accent · colored sidebar section borders · <code style="background:#1c1c1e; color:#38bdf8; padding:1px 4px; border-radius:3px;">Px</code> monogram logo · IBM Plex Mono for data
+        </div>
+
+        <!-- Mini app shell -->
+        <div class="a-shell" style="border-radius:12px; overflow:hidden; border:1px solid #1c2433; display:flex; flex-direction:column; height:580px;">
+
+          <!-- Topbar -->
+          <div class="a-header" style="padding: 10px 14px; display:flex; align-items:center; gap:10px; flex-shrink:0;">
+            <div class="a-logo-bg" style="width:26px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center;">
+              <span style="color:#fff; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:11px; letter-spacing:-1px;">Px</span>
+            </div>
+            <div>
+              <div class="a-logo-txt">ClearAuth</div>
+              <div style="color:#3b5268; font-size:9px; font-weight:500; letter-spacing:.05em; text-transform:uppercase;">Coordinator Portal</div>
+            </div>
+          </div>
+
+          <!-- Body: sidebar + content -->
+          <div style="display:flex; flex:1; overflow:hidden;">
+            <!-- Sidebar -->
+            <div class="a-sidebar" style="width:155px; flex-shrink:0; padding:10px 10px; display:flex; flex-direction:column; gap:14px; overflow-y:auto;">
+
+              <div class="a-nav-section-operate">
+                <div class="a-section-label operate" style="margin-bottom:6px;">Operate</div>
+                <div style="display:flex; flex-direction:column; gap:1px;">
+                  <div class="a-nav-item active">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="#38bdf8" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                    Case Queue
+                  </div>
+                  <div class="a-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    Quality Report
+                  </div>
+                </div>
+              </div>
+
+              <div class="a-nav-section-build">
+                <div class="a-section-label build" style="margin-bottom:6px;">Build</div>
+                <div style="display:flex; flex-direction:column; gap:1px;">
+                  <div class="a-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+                    Ontology Library
+                  </div>
+                  <div class="a-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Workflow Spec
+                  </div>
+                  <div class="a-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Agent Instructions
+                  </div>
+                </div>
+              </div>
+
+              <div class="a-nav-section-scale">
+                <div class="a-section-label scale" style="margin-bottom:6px;">Scale</div>
+                <div style="display:flex; flex-direction:column; gap:1px;">
+                  <div class="a-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                    Onboard Client
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Main content -->
+            <div style="flex:1; overflow-y:auto; padding: 14px 14px; display:flex; flex-direction:column; gap:12px;">
+
+              <!-- Page header -->
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="color:#e2e8f0; font-size:15px; font-weight:700;">Case Queue</span>
+                    <span style="background:#111927; border:1px solid #1c2d3e; border-radius:999px; font-size:10px; color:#6e7f96; padding:1px 8px;">Meridian Health · Epic·FHIR</span>
+                  </div>
+                  <div style="color:#3b5268; font-size:11px; margin-top:2px;">3 cases need your attention</div>
+                </div>
+                <button class="a-btn">+ New Case</button>
+              </div>
+
+              <!-- Stat row -->
+              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                <div class="a-card" style="padding:10px 12px;">
+                  <div class="a-metric" style="font-size:20px; line-height:1;">1</div>
+                  <div style="color:#3b5268; font-size:10px; margin-top:3px; font-weight:500;">Ready for Review</div>
+                </div>
+                <div class="a-card" style="padding:10px 12px;">
+                  <div class="a-metric" style="font-size:20px; line-height:1;">1</div>
+                  <div style="color:#3b5268; font-size:10px; margin-top:3px; font-weight:500;">Payer Response</div>
+                </div>
+                <div class="a-card" style="padding:10px 12px;">
+                  <div style="color:#fcd34d; font-size:20px; line-height:1; font-family:'IBM Plex Mono',monospace; font-weight:700;">1</div>
+                  <div style="color:#3b5268; font-size:10px; margin-top:3px; font-weight:500;">Exception</div>
+                </div>
+              </div>
+
+              <!-- Case cards -->
+              <div class="a-card a-card-accent" style="padding:12px 14px;">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:8px;">
+                  <div>
+                    <div style="display:flex; align-items:center; gap:7px; margin-bottom:3px;">
+                      <span style="color:#e2e8f0; font-size:12px; font-weight:600;">Ozempic</span>
+                      <span class="a-badge-ready">Ready for Review</span>
+                      <span style="background:#0ea5e908; color:#38bdf8; border:1px solid #0ea5e920; border-radius:3px; font-size:10px; padding:1px 6px; font-weight:500;">Routine</span>
+                    </div>
+                    <div style="color:#3b5268; font-size:10px; font-family:'IBM Plex Mono',monospace;">Case #PH-3102 · Endocrinology · Jun 8</div>
+                  </div>
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#3b5268" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                  <span class="a-tag-diag">Diagnostic ✓</span>
+                  <span class="a-tag-temp">Temporal ✓</span>
+                  <span class="a-tag-diag">Math ✓</span>
+                  <span class="a-tag-temp">Provider ✓</span>
+                </div>
+              </div>
+
+              <div class="a-card" style="padding:12px 14px; border-left:3px solid #a78bfa;">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+                  <div>
+                    <div style="display:flex; align-items:center; gap:7px; margin-bottom:3px;">
+                      <span style="color:#e2e8f0; font-size:12px; font-weight:600;">Omeprazole Susp.</span>
+                      <span class="a-badge-payer">Payer Response</span>
+                      <span style="background:#a78bfa08; color:#c4b5fd; border:1px solid #a78bfa20; border-radius:3px; font-size:10px; padding:1px 6px; font-weight:500;">Complex</span>
+                    </div>
+                    <div style="color:#3b5268; font-size:10px; font-family:'IBM Plex Mono',monospace;">Case #PH-4201 · Gastroenterology · Jun 11</div>
+                  </div>
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#3b5268" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+              </div>
+
+              <div class="a-card" style="padding:12px 14px; border-left:3px solid #fbbf24;">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+                  <div>
+                    <div style="display:flex; align-items:center; gap:7px; margin-bottom:3px;">
+                      <span style="color:#e2e8f0; font-size:12px; font-weight:600;">Ocaliva</span>
+                      <span class="a-badge-exc">Exception</span>
+                      <span style="background:#fbbf2408; color:#fcd34d; border:1px solid #fbbf2420; border-radius:3px; font-size:10px; padding:1px 6px; font-weight:500;">Exception</span>
+                    </div>
+                    <div style="color:#3b5268; font-size:10px; font-family:'IBM Plex Mono',monospace;">Case #PH-2847 · Hepatology · Jun 9</div>
+                  </div>
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#3b5268" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <p style="color:#444; font-family:Inter,sans-serif; font-size:11px; margin-top:10px; line-height:1.6;">
+          <strong style="color:#38bdf8;">Sky-blue</strong> as clinical accent. Sidebar uses per-section colored borders as a wayfinding system — you always know which layer you're in. Monospace data everywhere.
+        </p>
+      </div>
+
+
+      <!-- ═══════════════════════════════════════════════════════════
+           DIRECTION B — Dense Data / Single-Signal
+      ═══════════════════════════════════════════════════════════ -->
+      <div>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+          <span class="panel-label" style="color:#a78bfa;">B — Dense Data / Single-Signal</span>
+          <span class="panel-tag">"Linear-style"</span>
+        </div>
+        <div style="font-family:Inter,sans-serif; font-size:11px; color:#666; margin-bottom:14px; line-height:1.6;">
+          Near-black base · single violet accent · tighter density · monospace case IDs · border-left activation cues
+        </div>
+
+        <!-- Mini app shell -->
+        <div class="b-shell" style="border-radius:12px; overflow:hidden; border:1px solid #1f1f23; display:flex; flex-direction:column; height:580px;">
+
+          <!-- Topbar -->
+          <div class="b-header" style="padding: 10px 14px; display:flex; align-items:center; gap:10px; flex-shrink:0;">
+            <div style="width:26px; height:26px; border-radius:5px; background:#7c3aed; display:flex; align-items:center; justify-content:center;">
+              <span style="color:#fff; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:10px; letter-spacing:-1px;">Px</span>
+            </div>
+            <div>
+              <div class="b-logo-px">Pax<span>OS</span></div>
+              <div style="color:#3f3f46; font-size:9px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;">Coordinator</div>
+            </div>
+          </div>
+
+          <!-- Body -->
+          <div style="display:flex; flex:1; overflow:hidden;">
+            <!-- Sidebar -->
+            <div class="b-sidebar" style="width:150px; flex-shrink:0; padding:10px 8px; display:flex; flex-direction:column; gap:16px; overflow-y:auto;">
+
+              <div>
+                <div class="b-section-label" style="padding:0 8px; margin-bottom:5px;">Operate</div>
+                <div style="display:flex; flex-direction:column; gap:0px;">
+                  <div class="b-nav-item active">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:#a78bfa;"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                    Case Queue
+                  </div>
+                  <div class="b-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    Quality
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="b-section-label" style="padding:0 8px; margin-bottom:5px;">Build</div>
+                <div style="display:flex; flex-direction:column; gap:0px;">
+                  <div class="b-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+                    Ontology
+                  </div>
+                  <div class="b-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+                    Specs
+                  </div>
+                  <div class="b-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Instructions
+                  </div>
+                  <div class="b-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Failures
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="b-section-label" style="padding:0 8px; margin-bottom:5px;">Scale</div>
+                <div style="display:flex; flex-direction:column; gap:0px;">
+                  <div class="b-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                    Onboard
+                  </div>
+                  <div class="b-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+                    Registry
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Main content -->
+            <div style="flex:1; overflow-y:auto; padding: 12px 12px; display:flex; flex-direction:column; gap:10px;">
+
+              <!-- Page header -->
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                  <span style="color:#e4e4e7; font-size:14px; font-weight:700; letter-spacing:-.3px;">Case Queue</span>
+                  <span style="color:#3f3f46; font-size:11px; margin-left:8px; font-family:'IBM Plex Mono',monospace;">3 actionable</span>
+                </div>
+                <button class="b-btn">+ New</button>
+              </div>
+
+              <hr class="b-divider" />
+
+              <!-- Compact case list -->
+              <div style="display:flex; flex-direction:column; gap:0;">
+
+                <div class="b-card actionable" style="padding:9px 12px; border-radius:6px 6px 0 0; border-bottom:none;">
+                  <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span class="b-badge-ready">READY</span>
+                      <span style="color:#e4e4e7; font-size:12px; font-weight:600;">Ozempic</span>
+                      <span class="b-case-id">#PH-3102</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span style="color:#525258; font-size:10px; font-family:'IBM Plex Mono',monospace;">Routine</span>
+                      <span style="color:#525258; font-size:10px;">Jun 8</span>
+                    </div>
+                  </div>
+                  <div style="margin-top:5px; color:#525258; font-size:10px; font-family:'IBM Plex Mono',monospace;">
+                    Cigna · T2DM step therapy · 4/4 criteria met
+                  </div>
+                </div>
+
+                <div class="b-card" style="padding:9px 12px; border-radius:0; border-bottom:none; border-top: 1px solid #1f1f23; border-left:2px solid #7c3aed;">
+                  <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span class="b-badge-payer">PAYER ↩</span>
+                      <span style="color:#e4e4e7; font-size:12px; font-weight:600;">Omeprazole Susp.</span>
+                      <span class="b-case-id">#PH-4201</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span style="color:#525258; font-size:10px; font-family:'IBM Plex Mono',monospace;">Complex</span>
+                      <span style="color:#525258; font-size:10px;">Jun 11</span>
+                    </div>
+                  </div>
+                  <div style="margin-top:5px; color:#525258; font-size:10px; font-family:'IBM Plex Mono',monospace;">
+                    UHC · Partial approval · dose below NASPGHAN threshold
+                  </div>
+                </div>
+
+                <div class="b-card actionable" style="padding:9px 12px; border-radius:0 0 6px 6px; border-top: 1px solid #1f1f23;">
+                  <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span class="b-badge-exc">EXCEPTION</span>
+                      <span style="color:#e4e4e7; font-size:12px; font-weight:600;">Ocaliva</span>
+                      <span class="b-case-id">#PH-2847</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span style="color:#ef4444; font-size:10px; font-family:'IBM Plex Mono',monospace;">Escalated</span>
+                      <span style="color:#525258; font-size:10px;">Jun 9</span>
+                    </div>
+                  </div>
+                  <div style="margin-top:5px; color:#525258; font-size:10px; font-family:'IBM Plex Mono',monospace;">
+                    Aetna · Missing NAS/MELD scores · investigation required
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Pipeline status block -->
+              <div style="margin-top:2px; padding:10px 12px; background:#141416; border:1px solid #1f1f23; border-radius:6px;">
+                <div style="color:#525258; font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px;">Pipeline</div>
+                <div style="display:flex; align-items:center; gap:0;">
+                  <div style="text-align:center; flex:1;">
+                    <div style="color:#a78bfa; font-size:13px; font-weight:700; font-family:'IBM Plex Mono',monospace;">87%</div>
+                    <div style="color:#3f3f46; font-size:9px; margin-top:2px;">Approval</div>
+                  </div>
+                  <div style="width:1px; background:#1f1f23; height:28px;"></div>
+                  <div style="text-align:center; flex:1;">
+                    <div style="color:#a78bfa; font-size:13px; font-weight:700; font-family:'IBM Plex Mono',monospace;">4.2d</div>
+                    <div style="color:#3f3f46; font-size:9px; margin-top:2px;">Avg Cycle</div>
+                  </div>
+                  <div style="width:1px; background:#1f1f23; height:28px;"></div>
+                  <div style="text-align:center; flex:1;">
+                    <div style="color:#a78bfa; font-size:13px; font-weight:700; font-family:'IBM Plex Mono',monospace;">14m</div>
+                    <div style="color:#3f3f46; font-size:9px; margin-top:2px;">Coordinator</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <p style="color:#444; font-family:Inter,sans-serif; font-size:11px; margin-top:10px; line-height:1.6;">
+          <strong style="color:#a78bfa;">Single violet accent</strong> means every color signal is meaningful (nothing is decorative). Denser layout reads as a real clinical tool, not a demo. Cases group into a single table unit.
+        </p>
+      </div>
+
+
+      <!-- ═══════════════════════════════════════════════════════════
+           DIRECTION C — Warm Clinical / Light-first
+      ═══════════════════════════════════════════════════════════ -->
+      <div>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+          <span class="panel-label" style="color:#c9b99a;">C — Warm Clinical / Light-first</span>
+          <span class="panel-tag">"Medical Records"</span>
+        </div>
+        <div style="font-family:Inter,sans-serif; font-size:11px; color:#666; margin-bottom:14px; line-height:1.6;">
+          Warm off-white · white cards · deep navy primary · soft shadows · light-mode default
+        </div>
+
+        <!-- Mini app shell -->
+        <div class="c-shell" style="border-radius:12px; overflow:hidden; border:1px solid #ddd9d0; display:flex; flex-direction:column; height:580px;">
+
+          <!-- Topbar -->
+          <div class="c-header" style="padding: 10px 14px; display:flex; align-items:center; gap:10px; flex-shrink:0;">
+            <div class="c-logo-bg" style="width:26px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center;">
+              <span style="color:#fff; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:11px; letter-spacing:-1px;">Px</span>
+            </div>
+            <div>
+              <div class="c-logo-txt">ClearAuth</div>
+              <div style="color:#9e9b93; font-size:9px; font-weight:500; letter-spacing:.05em; text-transform:uppercase;">Coordinator Portal</div>
+            </div>
+          </div>
+
+          <!-- Body -->
+          <div style="display:flex; flex:1; overflow:hidden;">
+            <!-- Sidebar -->
+            <div class="c-sidebar" style="width:155px; flex-shrink:0; padding:10px 10px; display:flex; flex-direction:column; gap:14px; overflow-y:auto;">
+
+              <div>
+                <div class="c-section-label" style="padding:0 10px; margin-bottom:6px;">Operate</div>
+                <div style="display:flex; flex-direction:column; gap:1px;">
+                  <div class="c-nav-item active">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="#1e3a5f" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                    Case Queue
+                  </div>
+                  <div class="c-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    Quality Report
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="c-section-label" style="padding:0 10px; margin-bottom:6px;">Build</div>
+                <div style="display:flex; flex-direction:column; gap:1px;">
+                  <div class="c-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+                    Ontology Library
+                  </div>
+                  <div class="c-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+                    Workflow Spec
+                  </div>
+                  <div class="c-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Agent Instructions
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="c-section-label" style="padding:0 10px; margin-bottom:6px;">Scale</div>
+                <div style="display:flex; flex-direction:column; gap:1px;">
+                  <div class="c-nav-item">
+                    <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                    Onboard Client
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Main content -->
+            <div style="flex:1; overflow-y:auto; padding: 14px 14px; display:flex; flex-direction:column; gap:12px;">
+
+              <!-- Page header -->
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="color:#1e293b; font-size:15px; font-weight:700;">Case Queue</span>
+                    <span style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:999px; font-size:10px; color:#64748b; padding:1px 8px;">Meridian Health · Epic·FHIR</span>
+                  </div>
+                  <div style="color:#94a3b8; font-size:11px; margin-top:2px;">3 cases need your attention</div>
+                </div>
+                <button class="c-btn">+ New Case</button>
+              </div>
+
+              <!-- Stat row -->
+              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                <div class="c-card" style="padding:10px 12px;">
+                  <div class="c-metric" style="font-size:20px; line-height:1;">1</div>
+                  <div style="color:#94a3b8; font-size:10px; margin-top:3px; font-weight:500;">Ready for Review</div>
+                </div>
+                <div class="c-card" style="padding:10px 12px;">
+                  <div class="c-metric" style="font-size:20px; line-height:1;">1</div>
+                  <div style="color:#94a3b8; font-size:10px; margin-top:3px; font-weight:500;">Payer Response</div>
+                </div>
+                <div class="c-card" style="padding:10px 12px; border-top:2px solid #f97316;">
+                  <div style="color:#c2410c; font-size:20px; line-height:1; font-family:'IBM Plex Mono',monospace; font-weight:700;">1</div>
+                  <div style="color:#94a3b8; font-size:10px; margin-top:3px; font-weight:500;">Exception</div>
+                </div>
+              </div>
+
+              <!-- Case cards -->
+              <div class="c-card" style="padding:12px 14px;">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:8px;">
+                  <div>
+                    <div style="display:flex; align-items:center; gap:7px; margin-bottom:3px;">
+                      <span style="color:#1e293b; font-size:12px; font-weight:600;">Ozempic</span>
+                      <span class="c-badge-ready">Ready for Review</span>
+                    </div>
+                    <div style="color:#94a3b8; font-size:10px; font-family:'IBM Plex Mono',monospace;">Case #PH-3102 · Endocrinology · Jun 8</div>
+                  </div>
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                  <span class="c-tag-diag">Diagnostic ✓</span>
+                  <span class="c-tag-temp">Temporal ✓</span>
+                  <span class="c-tag-diag">Math ✓</span>
+                  <span class="c-tag-temp">Provider ✓</span>
+                </div>
+              </div>
+
+              <div class="c-card" style="padding:12px 14px;">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+                  <div>
+                    <div style="display:flex; align-items:center; gap:7px; margin-bottom:3px;">
+                      <span style="color:#1e293b; font-size:12px; font-weight:600;">Omeprazole Susp.</span>
+                      <span class="c-badge-payer">Payer Response</span>
+                    </div>
+                    <div style="color:#94a3b8; font-size:10px; font-family:'IBM Plex Mono',monospace;">Case #PH-4201 · Gastroenterology · Jun 11</div>
+                  </div>
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+              </div>
+
+              <div class="c-card flagged" style="padding:12px 14px;">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+                  <div>
+                    <div style="display:flex; align-items:center; gap:7px; margin-bottom:3px;">
+                      <span style="color:#1e293b; font-size:12px; font-weight:600;">Ocaliva</span>
+                      <span class="c-badge-exc">Exception</span>
+                    </div>
+                    <div style="color:#94a3b8; font-size:10px; font-family:'IBM Plex Mono',monospace;">Case #PH-2847 · Hepatology · Jun 9</div>
+                  </div>
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <p style="color:#444; font-family:Inter,sans-serif; font-size:11px; margin-top:10px; line-height:1.6;">
+          <strong style="color:#c9b99a;">Light-first</strong> is the most distinctive departure — health-tech typically defaults dark. Warm off-white background + white cards reads as clinical documents, not a dashboard. Deep navy grounds it.
+        </p>
+      </div>
+
+    </div><!-- end grid -->
+
+    <div style="margin-top:28px; padding:16px 20px; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px;">
+      <p style="color:#888; font-family:Inter,sans-serif; font-size:11px; line-height:1.7;">
+        <strong style="color:#ccc;">Note on implementation effort:</strong>
+        A and B are low-disruption — they change the color system, sidebar structure, and logo without touching layout or component architecture. C requires flipping the light/dark theme default and adjusting the CSS variable overrides in style.css — moderate effort, ~1–2 hours.
+        All three keep the Tailwind utility approach; no new dependencies.
+      </p>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

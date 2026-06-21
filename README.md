@@ -1,4 +1,4 @@
-# PaxOS AM Portal
+# ClearAuth
 
 Prior authorization intelligence platform for Account Managers. The AI processes denial letters overnight; the AM arrives to an inbox of completed work and approves or escalates.
 

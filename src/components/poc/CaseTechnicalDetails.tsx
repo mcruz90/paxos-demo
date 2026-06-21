@@ -8,7 +8,7 @@ import { buildPasPayload } from './payload'
 // claims specialist's way. Holds the engineering/platform details that the
 // client view deliberately abstracts away: the pipeline/config provenance, the
 // coverage pack resolution (key/version/registry stats), and the transmission
-// payload (FHIR / X12 278). Surfaced here for technical Operate staff and Paxos
+// payload (FHIR / X12 278). Surfaced here for technical Operate staff and ClearAuth
 // support — the record you'd pull up to diagnose a transmission/network error —
 // and logged with the case for audit.
 export function CaseTechnicalDetails({ scenario }: { scenario: ScenarioConfig }) {
@@ -78,7 +78,7 @@ export function CaseTechnicalDetails({ scenario }: { scenario: ScenarioConfig })
 
           <div className="px-4 py-2.5">
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Logged with the case for audit and support. Surfaced for technical Operate staff and Paxos support — e.g. diagnosing a transmission/network error on a submission. Not needed for routine review.
+              Logged with the case for audit and support. Surfaced for technical Operate staff and ClearAuth support — e.g. diagnosing a transmission/network error on a submission. Not needed for routine review.
             </p>
           </div>
         </div>

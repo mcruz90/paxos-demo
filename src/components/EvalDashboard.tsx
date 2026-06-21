@@ -120,7 +120,7 @@ export function EvalDashboard() {
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${evalView === 'platform' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-300'}`}
           >
             <Building2 className="w-3.5 h-3.5" />
-            Paxos Platform
+            ClearAuth Platform
           </button>
         </div>
       </div>
@@ -256,7 +256,7 @@ export function EvalDashboard() {
 
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/60 border border-slate-700/40">
             <Shield className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-            <span className="text-xs text-slate-400">Internal quality metrics — visible to Paxos platform team only, not surfaced to client accounts.</span>
+            <span className="text-xs text-slate-400">Internal quality metrics — visible to ClearAuth platform team only, not surfaced to client accounts.</span>
           </div>
 
           {/* Headline metrics */}

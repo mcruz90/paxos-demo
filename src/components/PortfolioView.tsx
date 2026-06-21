@@ -64,7 +64,7 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
         {/* Auto-sync indicator — cases import automatically; no manual entry */}
         <div
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/40"
-          title="Cases import automatically from Epic via FHIR Subscriptions the moment the record updates — no manual entry. Epic stays the source of truth; PaxOS links the documents and writes the PA decision back."
+          title="Cases import automatically from Epic via FHIR Subscriptions the moment the record updates — no manual entry. Epic stays the source of truth; ClearAuth links the documents and writes the PA decision back."
         >
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
@@ -83,7 +83,7 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-white leading-snug">First time here?</p>
             <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-              PaxOS is an AI-native prior-authorization platform spanning the full PA lifecycle — initial prior auths, appeals, and determinations. The guided tours are split by audience: <span className="text-emerald-300">Operate</span> (a prospective client), <span className="text-violet-300">Build</span> (evaluating the AI Lead), and <span className="text-sky-300">Scale</span> (an investor). Pick your path on the welcome screen.
+              ClearAuth is an AI-native prior-authorization platform spanning the full PA lifecycle — initial prior auths, appeals, and determinations. The guided tours are split by audience: <span className="text-emerald-300">Operate</span> (a prospective client), <span className="text-violet-300">Build</span> (evaluating the AI Lead), and <span className="text-sky-300">Scale</span> (an investor). Pick your path on the welcome screen.
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0 ml-2">

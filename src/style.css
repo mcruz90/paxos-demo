@@ -34,7 +34,7 @@ html.light {
   --color-red-950:     #fff1f2;
   --color-sky-950:     #f0f9ff;
 
-  /* Accent: remap emerald → Paxos plum so every emerald class becomes on-brand */
+  /* Accent: remap emerald → ClearAuth plum so every emerald class becomes on-brand */
   --color-emerald-600: #3b0764;  /* darkest — button base */
   --color-emerald-500: #4c1d95;  /* primary — logo bg, active state, CTA */
   --color-emerald-400: #6d28d9;  /* badge text, icon fill */
