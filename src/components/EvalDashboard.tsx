@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Building2, User, Shield, Clock } from 'lucide-react'
-import { TENANT } from '../data/scenarios'
+import { initialClients, getCaseTier, CASE_STATUS_LABEL, PIPELINE_CASE_IDS, TENANT } from '../data/scenarios'
+import { TierBadge } from './ui'
 
 export const EVAL_HEADLINE = [
   {
@@ -85,11 +86,6 @@ export const DRUG_PERF: { drug: string; indication: string; category: string; ca
   { drug: 'Ocaliva',          indication: 'Primary Biliary Cholangitis', category: 'Hepatology',       cases: 1, approvalRate: null, trend: '→', trendColor: 'text-slate-400' },
 ]
 
-export const ACTIVE_PIPELINE = [
-  { name: 'Case #PH-3102', drug: 'Ozempic',          tier: 'Routine',   tierColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', status: 'Ready for Review',        statusColor: 'text-emerald-300' },
-  { name: 'Case #PH-4201', drug: 'Omeprazole Susp.', tier: 'Complex',   tierColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20',       status: 'Awaiting Payer Response', statusColor: 'text-amber-300' },
-  { name: 'Case #PH-2847', drug: 'Ocaliva',          tier: 'Exception', tierColor: 'text-red-400 bg-red-500/10 border-red-500/20',             status: 'Action Required',         statusColor: 'text-red-300' },
-]
 
 export function EvalDashboard() {
   const [evalView, setEvalView] = useState<'coordinator' | 'platform'>('coordinator')
@@ -169,16 +165,22 @@ export function EvalDashboard() {
             <h2 className="text-sm font-semibold text-slate-300 mb-1">Active Pipeline</h2>
             <p className="text-xs text-slate-500 mb-3">Cases currently in-flight — open the Case Queue to act</p>
             <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl overflow-hidden">
-              {ACTIVE_PIPELINE.map((c, i) => (
-                <div key={c.name} className={`flex items-center gap-4 px-4 py-3 ${i < ACTIVE_PIPELINE.length - 1 ? 'border-b border-slate-700/40' : ''}`}>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-200">{c.name}</p>
-                    <p className="text-xs text-slate-500">{c.drug}</p>
+              {PIPELINE_CASE_IDS.map((id, i) => {
+                const c = initialClients.find(cl => cl.name.endsWith(id))
+                if (!c) return null
+                const tier = getCaseTier(c)
+                const statusColor = tier === 'routine' ? 'text-emerald-300' : 'text-amber-300'
+                return (
+                  <div key={c.name} className={`flex items-center gap-4 px-4 py-3 ${i < PIPELINE_CASE_IDS.length - 1 ? 'border-b border-slate-700/40' : ''}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-200">{c.name}</p>
+                      <p className="text-xs text-slate-500">{c.drug}</p>
+                    </div>
+                    <TierBadge tier={tier} />
+                    <span className={`text-xs font-medium whitespace-nowrap ${statusColor}`}>{CASE_STATUS_LABEL[c.status]}</span>
                   </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${c.tierColor}`}>{c.tier}</span>
-                  <span className={`text-xs font-medium whitespace-nowrap ${c.statusColor}`}>{c.status}</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 

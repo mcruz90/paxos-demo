@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Joyride, EVENTS, STATUS, ACTIONS } from 'react-joyride'
 import { type CaseStatus, type Client, type ScenarioConfig, type View } from './types'
-import { initialClients, scenarios } from './data/scenarios'
+import { initialClients, newCaseRef, scenarios } from './data/scenarios'
 import { JOYRIDE_STYLES, TOURS, type TourId, type TourStep } from './components/tour'
 import { LandingHub } from './components/LandingHub'
 import { AgentInstructionsView, useInstructionStore } from './components/instructions'
@@ -36,14 +36,14 @@ export default function App() {
   const addToPortfolio = (scenario: ScenarioConfig) => {
     const now = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     const name = scenario.clientType === 'patient'
-      ? `Case #PH-${Math.floor(Math.random() * 9000) + 1000}`
+      ? `Case #${newCaseRef()}`
       : scenario.manufacturer
     setClients(prev => [...prev, {
       id: Date.now(),
       name,
       drug: scenario.drug.split(' ')[0],
       categoryLabel: scenario.categoryLabel,
-      status: (scenario.criteriaResults.some(r => r.status === 'needs_review') ? 'exception' : 'ready_for_review') as CaseStatus,
+      status: (scenario.criteriaResults.some(r => r.status === 'needs_review' || r.status === 'conflict') ? 'exception' : 'ready_for_review') as CaseStatus,
       clientType: scenario.clientType,
       lastUpdated: now,
       scenarioId: scenario.id,
@@ -77,11 +77,18 @@ export default function App() {
   const applyTourNav = (nav?: TourStep['nav']) => {
     if (!nav) return
     if (nav.scenarioId) {
-      setActiveScenario(scenarios[nav.scenarioId] ?? null)
+      const sc = scenarios[nav.scenarioId]
+      if (!sc) {
+        console.error(`[Tour] Unknown scenarioId "${nav.scenarioId}" — skipping nav`)
+        return
+      }
+      setActiveScenario(sc)
       setReviewMode(!!nav.caseStatus)
       setOpenedCaseStatus(nav.caseStatus ?? null)
     } else {
       setActiveScenario(null)
+      setReviewMode(false)
+      setOpenedCaseStatus(null)
     }
     setView(nav.view)
   }
