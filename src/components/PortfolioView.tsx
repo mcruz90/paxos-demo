@@ -38,7 +38,7 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
     .filter(g => g.rows.length > 0)
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex-1 overflow-y-auto">
       {/* Header */}
       <div className="px-8 py-6 border-b border-slate-800 flex items-center justify-between">
         <div>
@@ -107,7 +107,7 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
 
       {/* Search */}
       <div className="px-8 pt-5 pb-2">
-        <div className="relative max-w-med flex items-center gap-2">
+        <div className="relative max-w-sm flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
