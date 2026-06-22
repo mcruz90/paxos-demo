@@ -67,4 +67,7 @@ ignore = ["E501"]
 python_version = "3.12"
 strict = false
 ignore_missing_imports = true
-exclude = ["third_party/"]
+
+[[tool.mypy.overrides]]
+module = ["third_party.*"]
+ignore_errors = true
