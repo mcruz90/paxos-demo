@@ -2,7 +2,7 @@ name: pax-demo
 region: tor
 services: []
 static_sites:
-  - name: pax-demo-static
+  - name: paxos-demo-static
     github:
       repo: mcruz90/pax-demo
       branch: demo
