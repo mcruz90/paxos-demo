@@ -1,6 +1,8 @@
 # ClearAuth
 
-Prior authorization intelligence platform for Account Managers. The AI processes denial letters overnight; the AM arrives to an inbox of completed work and approves or escalates.
+Prior authorization lifecycle platform for Account Managers — initial PA submissions, determination review, and multi-round appeal generation. The AI handles the structural work; the AM reviews, overrides, and transmits.
+
+> `demo` branch: polished mock-data walkthrough (this repo). `main` branch: live backend build.
 
 ## Architecture
 
@@ -13,13 +15,17 @@ FastAPI Backend  ──► LangGraph 4-node DAG
         │                   │
         │           [1] Ingestion      validates AppealRequest → PipelineState
         │           [2] Retrieval      loads PA requirements → context block
-        │           [3] Synthesis      fhi/generate_appeal → streamed letter
+        │           [3] Synthesis      LLM → streamed appeal letter
         │           [4] Gatekeeper     deterministic rules → pass | retry | error
+        │                              (retries up to 3×)
         │
-        ├──► LLM Backend  (Ollama local  |  Groq API)
-        ├──► Langfuse     (trace + eval scores per run)
-        └──► ETL-1        denial letter → AppealRequest  (Tesseract OCR + PyMuPDF + DSPy)
+        ├──► LLM Backend  (pluggable — Ollama, Groq, or any OpenAI-compatible endpoint;
+        │                  model selection is per-node, not global)
+        ├──► Langfuse     (self-hosted; trace + eval scores per run)
+        └──► ETL          denial letter → AppealRequest  (Tesseract OCR + PyMuPDF + DSPy)
 ```
+
+The demo branch UI runs on 6 built-in fixture scenarios. Connect a local backend for live LLM generation in the POC view.
 
 ## Quick Start
 
@@ -29,31 +35,31 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
+Tour and scenario walkthroughs work without a backend. Live appeal generation requires the backend running on port 8000.
+
 **Backend**
 ```bash
 cd backend
-cp .env.example .env   # fill in LLM_BACKEND and any API keys
+cp .env.example .env   # set LLM_BACKEND and credentials
 uv sync
 uv run uvicorn main:app --reload   # http://localhost:8000
 ```
 
-Both must run simultaneously for the live appeal generation to work.
+Set `VITE_API_KEY` in the frontend `.env` to match `API_SECRET_KEY`.
 
 ## Backend Environment Variables
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `API_SECRET_KEY` | Yes | — | Bearer token for all `/api/*` routes |
-| `LLM_BACKEND` | No | `ollama` | `ollama` or `groq` |
-| `OLLAMA_MODEL` | No | `llama3.1:8b` | Model name for Ollama |
+| `LLM_BACKEND` | No | `ollama` | `ollama` (local) or `groq` (cloud) |
+| `OLLAMA_MODEL` | No | `llama3.1:8b` | Model name |
 | `OLLAMA_HOST` | No | `http://localhost:11434` | Ollama server URL |
 | `GROQ_API_KEY` | If `LLM_BACKEND=groq` | — | Groq API key |
 | `GROQ_MODEL` | No | `llama-3.3-70b-versatile` | Groq model name |
-| `LANGFUSE_PUBLIC_KEY` | No | — | Langfuse observability (optional) |
-| `LANGFUSE_SECRET_KEY` | No | — | Langfuse observability (optional) |
-| `LANGFUSE_HOST` | No | `https://cloud.langfuse.com` | Swap to self-hosted in Phase 3 |
-
-`VITE_API_KEY` must also be set in the frontend `.env` to match `API_SECRET_KEY`.
+| `LANGFUSE_PUBLIC_KEY` | No | — | Langfuse observability |
+| `LANGFUSE_SECRET_KEY` | No | — | Langfuse observability |
+| `LANGFUSE_HOST` | No | — | Self-hosted Langfuse URL (required if Langfuse keys set) |
 
 ## Running Tests
 
@@ -64,18 +70,19 @@ uv run pytest tests/integration              # MockLLMBackend, no network
 uv run python -m evals.run_evals --scenario novo-ozempic --tier structural  # live LLM
 ```
 
+## Roadmap
+
+| Milestone | Status |
+|---|---|
+| Demo UI — 6 fixture scenarios, full lifecycle UX, eval dashboard, guided tour | ✅ `demo` branch |
+| Live backend — LangGraph DAG, FastAPI SSE, HITL overrides, eval harness | ✅ `main` branch |
+| Data layer — Qdrant policy store, DSPy EHR extractor, denial letter ETL | In progress |
+| Security & compliance — Presidio PHI redaction, PostgreSQL audit log | Planned |
+| PA transmission — ePA rails (NCPDP/Da Vinci), payer submissions, determination tracking | Planned |
+
 ## Attribution
 
 Appeal letter generation logic forked from
 [Fight Health Insurance](https://github.com/fighthealthinsurance/fighthealthinsurance)
 — licensed under [Apache 2.0](backend/THIRD_PARTY_LICENSES/Apache-2.0.txt).
 See [backend/NOTICE.md](backend/NOTICE.md) for details.
-
-## Roadmap
-
-| Phase | Milestones | Status |
-|---|---|---|
-| Phase 1: Foundation | 1.1 Skeleton, 1.2 Policy Ingest (Qdrant), 1.3 DSPy Extractor, 1.4 Eval Harness | 1.4 ✅ (fixture-based), others deferred |
-| Phase 2: Live Integration | 2.1 LangGraph DAG, 2.2 FastAPI + SSE, 2.3 Split-pane review, 2.4 HITL overrides | 2.1 ✅ 2.2 ✅ 2.4 ✅ |
-| Phase 3: Security & Compliance | 3.1 Presidio PHI, 3.2 Self-hosted Langfuse, 3.3 Audit log (PostgreSQL), 3.4 Payer RLS | Deferred |
-| Phase 4: Appeals Automation | 4.1 Denial loop, 4.2 Payer submission, 4.3 Scale testing | Deferred |
