@@ -14,7 +14,6 @@ Scoring dimensions (each returns 0.0 or 1.0):
 
 from __future__ import annotations
 
-
 from models.schemas import AppealRequest, ScenarioConfig
 
 # Both ScenarioConfig and AppealRequest share the fields we need:
