@@ -6,8 +6,6 @@ They do NOT call a real LLM.
 
 from __future__ import annotations
 
-import pytest
-
 
 def test_denial_base_imports() -> None:
     """denial_base.py must be importable and expose the expected interface."""

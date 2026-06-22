@@ -1,6 +1,5 @@
 """Unit tests for evals/appeal_evals.py — structural scoring (deterministic, no LLM)."""
 
-import pytest
 
 from evals.appeal_evals import eval_structural
 from tests.conftest import MOCK_APPEAL_TEXT

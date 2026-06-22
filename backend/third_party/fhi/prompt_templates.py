@@ -14,6 +14,7 @@ class ChatType(str, Enum):
     PATIENT = "patient"
     PROFESSIONAL = "professional"
     TRIAL_PROFESSIONAL = "trial_professional"
+    APPEAL = "appeal"  # Added for PaxOS prior-auth appeal generation flow
 
 
 DELETE_DATA_SENTINEL = "DELETE_MY_DATA"

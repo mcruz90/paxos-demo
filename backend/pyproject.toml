@@ -55,6 +55,9 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+exclude = [
+  "third_party",   # forked upstream code — do not reformat
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]

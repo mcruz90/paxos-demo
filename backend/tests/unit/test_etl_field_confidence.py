@@ -1,9 +1,7 @@
 """Unit tests for fhi/field_confidence.py — confidence scoring logic."""
 
-import pytest
 
 from third_party.fhi.field_confidence import score_extracted_field
-
 
 # The thresholds under test (must match implementation):
 # score >= 0.6 → CriterionStatus.found

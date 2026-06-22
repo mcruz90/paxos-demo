@@ -1,0 +1,98 @@
+"""agents/graph.py — LangGraph-style pipeline orchestrator.
+
+Runs the 4-node DAG:
+    ingestion → retrieval → synthesis → gatekeeper
+
+Emits SSE-compatible AppealEvent objects as an async generator.
+Retries the synthesis→gatekeeper cycle up to MAX_RETRIES times.
+"""
+
+from __future__ import annotations
+
+import hashlib
+from collections.abc import AsyncIterator
+
+from agents.nodes.gatekeeper import run_gatekeeper
+from agents.nodes.ingestion import run_ingestion
+from agents.nodes.retrieval import run_retrieval
+from agents.nodes.synthesis import build_prompt
+from evals.appeal_evals import eval_structural
+from models.schemas import (
+    AppealEvent,
+    AppealRequest,
+    ChunkEvent,
+    DoneEvent,
+    ErrorEvent,
+    StepEvent,
+)
+
+MAX_RETRIES = 3
+
+
+async def run_pipeline(
+    request: AppealRequest,
+    llm_backend,
+) -> AsyncIterator[AppealEvent]:
+    """Execute the appeal generation pipeline and yield SSE events.
+
+    Args:
+        request: A fully-validated :class:`AppealRequest`.
+        llm_backend: LLM backend implementing ``generate`` and
+            ``generate_stream``. Injected for testability.
+
+    Yields:
+        :class:`StepEvent`, :class:`ChunkEvent`, :class:`DoneEvent`,
+        or :class:`ErrorEvent` objects.
+    """
+    # --- ingestion ---
+    yield StepEvent(step="ingestion", label="Validating request…")
+    state = run_ingestion(request)
+
+    # --- retrieval ---
+    yield StepEvent(step="retrieval", label="Retrieving PA requirements…")
+    state = run_retrieval(state)
+
+    # --- synthesis + gatekeeper loop ---
+    for attempt in range(MAX_RETRIES):
+        yield StepEvent(step="synthesis", label="Generating appeal letter…")
+
+        # Stream tokens while also collecting the full text
+        prompt = build_prompt(state)
+        collected: list[str] = []
+        async for chunk in llm_backend.generate_stream(prompt):
+            collected.append(chunk)
+            yield ChunkEvent(text=chunk)
+
+        full_text = "".join(collected)
+        state = {**state, "appeal_text": full_text, "model_name": llm_backend.model_name}
+
+        # --- gatekeeper ---
+        state = run_gatekeeper(state)
+
+        if state["passed_gatekeeper"]:
+            # Structural evaluation scores (deterministic, no LLM)
+            try:
+                scores = eval_structural(full_text, request)  # type: ignore[arg-type]
+            except Exception:
+                scores = {}
+
+            ref = hashlib.sha256(full_text.encode()).hexdigest()[:12]
+            yield DoneEvent(
+                model=state["model_name"],
+                ref=ref,
+                structural_scores=scores,
+            )
+            return
+
+        # Gatekeeper failed — prepare for retry
+        state = {**state, "retry_count": attempt + 1}
+
+    # All retries exhausted
+    yield ErrorEvent(
+        message=(
+            "Appeal generation failed after "
+            f"{MAX_RETRIES} attempts. "
+            + (state["errors"][-1] if state.get("errors") else "Quality checks did not pass.")
+        ),
+        retry_count=MAX_RETRIES,
+    )
