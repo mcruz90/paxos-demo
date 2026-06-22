@@ -5,7 +5,7 @@ static_sites:
   - name: pax-demo-static
     github:
       repo: mcruz90/pax-demo
-      branch: pax-demo
+      branch: demo
       deploy_on_push: true
     build_command: npm run build 
     output_dir: dist 
