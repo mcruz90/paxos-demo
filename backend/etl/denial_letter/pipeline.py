@@ -151,7 +151,7 @@ def process_denial_letter(raw_bytes: bytes, filename: str) -> AppealRequest:
             rule=Rule(type=RuleType.diagnostic, label=code),
             status=CriterionStatus.found,
             note="ICD code extracted from document",
-            doc_source="etl:extracted",
+            docSource="etl:extracted",
         )
         for code in icd_codes[:5]  # cap at 5 codes
     ]

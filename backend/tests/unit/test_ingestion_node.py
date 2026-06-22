@@ -21,7 +21,7 @@ def test_valid_request_produces_pipeline_state(base_appeal_request: AppealReques
 def test_missing_required_field_raises() -> None:
     """AppealRequest with a missing required field should raise ValidationError before ingestion."""
     with pytest.raises(ValidationError):
-        AppealRequest(
+        AppealRequest(  # type: ignore[call-arg]
             # scenario_id omitted
             drug="Ozempic",
             diagnosis="Type 2 Diabetes",
