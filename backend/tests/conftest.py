@@ -67,7 +67,7 @@ def criterion_found() -> CriterionResult:
         rule=Rule(type=RuleType.diagnostic, label="Type 2 Diabetes Mellitus"),
         status=CriterionStatus.found,
         note="ICD-10 E11.9 documented in chart",
-        doc_source="chart:page-1",
+        docSource="chart:page-1",
     )
 
 
@@ -77,8 +77,8 @@ def criterion_needs_review() -> CriterionResult:
         rule=Rule(type=RuleType.temporal, label="Failed 2 formulary alternatives"),
         status=CriterionStatus.needs_review,
         note="Only 1 alternative documented",
-        doc_source="chart:page-2",
-        suggested_action="Obtain prior treatment documentation",
+        docSource="chart:page-2",
+        suggestedAction="Obtain prior treatment documentation",
     )
 
 
@@ -86,18 +86,18 @@ def criterion_needs_review() -> CriterionResult:
 def base_scenario(criterion_found: CriterionResult) -> ScenarioConfig:
     return ScenarioConfig(
         id="novo-ozempic-t2dm",
-        config_file="novo-ozempic.json",
+        configFile="novo-ozempic.json",
         drug="Ozempic (semaglutide)",
         manufacturer="Novo Nordisk",
         plan="BlueCross PPO",
-        plan_id="BCBS-PPO-2024",
-        category_key="diabetes",
-        category_label="Type 2 Diabetes",
+        planId="BCBS-PPO-2024",
+        categoryKey="diabetes",
+        categoryLabel="Type 2 Diabetes",
         diagnosis="Type 2 Diabetes Mellitus",
-        denial_reason="formulary alternatives available",
-        client_type="commercial",
-        criteria_results=[criterion_found],
-        drug_key="ozempic",
+        denialReason="formulary alternatives available",
+        clientType="commercial",
+        criteriaResults=[criterion_found],
+        drugKey="ozempic",
         company_names=["BlueCross BlueShield"],
     )
 
@@ -110,18 +110,18 @@ def exception_scenario(
     """A scenario with at least one needs_review criterion — triggers exception path."""
     return ScenarioConfig(
         id="novo-ozempic-exception",
-        config_file="novo-ozempic.json",
+        configFile="novo-ozempic.json",
         drug="Ozempic (semaglutide)",
         manufacturer="Novo Nordisk",
         plan="BlueCross PPO",
-        plan_id="BCBS-PPO-2024",
-        category_key="diabetes",
-        category_label="Type 2 Diabetes",
+        planId="BCBS-PPO-2024",
+        categoryKey="diabetes",
+        categoryLabel="Type 2 Diabetes",
         diagnosis="Type 2 Diabetes Mellitus",
-        denial_reason="formulary alternatives available",
-        client_type="commercial",
-        criteria_results=[criterion_found, criterion_needs_review],
-        drug_key="ozempic",
+        denialReason="formulary alternatives available",
+        clientType="commercial",
+        criteriaResults=[criterion_found, criterion_needs_review],
+        drugKey="ozempic",
         company_names=["BlueCross BlueShield"],
     )
 

@@ -212,12 +212,15 @@ def score_freetext_extraction(value: Optional[str], source_text: str) -> str:
     return "medium"
 
 
-def score_extracted_field(field_name: str, value, source_text: str) -> str:
+def score_field_by_name(field_name: str, value, source_text: str) -> str:
     """Return a ``"high"``/``"medium"``/``"low"`` confidence label.
 
     Empty/None values always score ``"low"``. Unknown field names fall back to
     a simple "value appears in source" heuristic so the helper degrades
     gracefully if the extractor adds new fields later.
+
+    This is the original FHI field-routing interface. For the PaxOS ETL
+    interface (float score, keyword args), use ``score_extracted_field``.
     """
     if value is None:
         return "low"
@@ -242,7 +245,7 @@ def score_extracted_field(field_name: str, value, source_text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def score_extracted_field(field_value: str, source_text: str) -> float:  # type: ignore[misc]
+def score_extracted_field(field_value: str, source_text: str) -> float:
     """Return a confidence score in [0.0, 1.0] for *field_value* against *source_text*.
 
     This is the PaxOS ETL interface, distinct from the original FHI
