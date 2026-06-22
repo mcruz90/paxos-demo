@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { diffList, dimStatus, dimFails, verdictOf, thresholdLabel, type DimResult } from './versioning'
+import { diffList, dimStatus, dimFails, verdictOf, type DimResult } from './versioning'
+import { thresholdLabel } from '../data/evalRubric'
 
 describe('diffList', () => {
   const fmt = (x: { k: string }) => x.k
