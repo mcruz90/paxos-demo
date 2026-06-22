@@ -1,6 +1,5 @@
 """Unit tests for agents/nodes/gatekeeper.py — deterministic pass/fail matrix."""
 
-import pytest
 
 from agents.nodes.gatekeeper import run_gatekeeper
 from models.schemas import PipelineState

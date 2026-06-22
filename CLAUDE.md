@@ -1,4 +1,4 @@
-# PaxOS Development Standards
+# ClearAuth Development Standards
 
 ## TDD — Tests Before Code
 - Write a failing test BEFORE writing production code. No exceptions for backend code.

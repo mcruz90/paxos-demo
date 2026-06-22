@@ -21,7 +21,35 @@ import datetime
 import re
 from typing import Optional
 
-from fighthealthinsurance.generate_appeal import is_plausible_identifier
+# ADAPTED from fighthealthinsurance/field_confidence.py (Apache 2.0)
+# Changes:
+#   - Replaced `from fighthealthinsurance.generate_appeal import is_plausible_identifier`
+#     with an inline implementation (Django app not available in this project).
+#   - Replaced `from fighthealthinsurance.pa_requirements import ...` try-block
+#     was already guarded; left as-is (fails silently).
+#   - Added score_extracted_field(field_value, source_text) -> float overload
+#     used by the PaxOS ETL confidence tests.
+
+
+def is_plausible_identifier(value: str) -> bool:
+    """Return True if *value* looks like a real member/plan ID rather than junk.
+
+    Inline stub replacing the Django-coupled original from
+    ``fighthealthinsurance.generate_appeal``.
+    A plausible identifier is non-empty, contains at least one digit or
+    uppercase letter, and is not a common junk token.
+    """
+    if not value or not value.strip():
+        return False
+    stripped = value.strip()
+    if len(stripped) < 3:
+        return False
+    junk = {"none", "n/a", "na", "unknown", "false", "true"}
+    if stripped.lower() in junk:
+        return False
+    # Must contain at least one digit or uppercase run (real IDs do)
+    return bool(re.search(r"[0-9A-Z]", stripped))
+
 
 _LABEL_TOKENS = {
     "patient",
@@ -184,12 +212,15 @@ def score_freetext_extraction(value: Optional[str], source_text: str) -> str:
     return "medium"
 
 
-def score_extracted_field(field_name: str, value, source_text: str) -> str:
+def score_field_by_name(field_name: str, value, source_text: str) -> str:
     """Return a ``"high"``/``"medium"``/``"low"`` confidence label.
 
     Empty/None values always score ``"low"``. Unknown field names fall back to
     a simple "value appears in source" heuristic so the helper degrades
     gracefully if the extractor adds new fields later.
+
+    This is the original FHI field-routing interface. For the PaxOS ETL
+    interface (float score, keyword args), use ``score_extracted_field``.
     """
     if value is None:
         return "low"
@@ -207,3 +238,42 @@ def score_extracted_field(field_name: str, value, source_text: str) -> str:
 
     # Unknown field: degrade gracefully.
     return "high" if _appears_in_source(str(value), source_text) else "medium"
+
+
+# ---------------------------------------------------------------------------
+# PaxOS ETL interface — token-overlap confidence score (0.0 – 1.0)
+# ---------------------------------------------------------------------------
+
+
+def score_extracted_field(field_value: str, source_text: str) -> float:
+    """Return a confidence score in [0.0, 1.0] for *field_value* against *source_text*.
+
+    This is the PaxOS ETL interface, distinct from the original FHI
+    ``score_extracted_field(field_name, value, source_text) -> str`` above.
+    Calling convention: keyword arguments ``field_value=`` and ``source_text=``.
+
+    Scoring:
+    - Empty value or source → 0.0
+    - Exact case-insensitive substring match → 1.0
+    - Partial token overlap → proportional score in (0, 1)
+    - No overlap → 0.0
+    """
+    if not field_value or not source_text:
+        return 0.0
+
+    value_lower = field_value.lower()
+    source_lower = source_text.lower()
+
+    # Exact substring match
+    if value_lower in source_lower:
+        return 1.0
+
+    # Token overlap ratio (Jaccard-style over word tokens)
+    value_tokens = set(re.findall(r"[a-z0-9]+", value_lower))
+    source_tokens = set(re.findall(r"[a-z0-9]+", source_lower))
+    if not value_tokens:
+        return 0.0
+
+    overlap = value_tokens & source_tokens
+    score = len(overlap) / len(value_tokens)
+    return min(1.0, max(0.0, score))

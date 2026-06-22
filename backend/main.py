@@ -1,0 +1,168 @@
+"""main.py — FastAPI application entry point.
+
+Routes:
+  GET  /health                  — unauthenticated health check
+  POST /api/appeal/generate     — SSE appeal generation (Bearer auth required)
+
+Auth: All /api/* routes require Authorization: Bearer <API_SECRET_KEY>.
+      API_SECRET_KEY is read from the environment (set via .env or CI secrets).
+
+LLM backend selection: controlled by the LLM_BACKEND environment variable.
+  "mock"  → ml.mock_backend.MockLLMBackend  (CI / local dev, no API key needed)
+  "groq"  → groq-based backend              (production, requires GROQ_API_KEY)
+"""
+
+from __future__ import annotations
+
+import os
+from collections.abc import AsyncIterator
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
+
+from agents.graph import run_pipeline
+from models.schemas import AppealEvent, AppealRequest
+
+# ---------------------------------------------------------------------------
+# App
+# ---------------------------------------------------------------------------
+
+app = FastAPI(
+    title="PaxOS Appeal Generation API",
+    description="Streaming prior-authorization appeal generation backend.",
+    version="0.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Tighten in production
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---------------------------------------------------------------------------
+# Auth middleware — must run before body parsing so bad tokens get 401, not 422
+# ---------------------------------------------------------------------------
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    """Enforce Bearer token auth on all /api/* routes before body validation."""
+    if request.url.path.startswith("/api/"):
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return JSONResponse(
+                {"detail": "Missing or invalid Authorization header"},
+                status_code=401,
+            )
+        token = auth_header[len("Bearer "):]
+        secret = _get_secret_key()
+        if not secret or token != secret:
+            return JSONResponse(
+                {"detail": "Invalid API key"},
+                status_code=401,
+            )
+    return await call_next(request)
+
+
+_API_SECRET_KEY: str | None = None
+
+
+def _get_secret_key() -> str:
+    """Read API_SECRET_KEY from env, cached after first call."""
+    global _API_SECRET_KEY
+    if _API_SECRET_KEY is None:
+        _API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "")
+    return _API_SECRET_KEY
+
+
+
+# ---------------------------------------------------------------------------
+# LLM backend factory
+# ---------------------------------------------------------------------------
+
+def _build_llm_backend():
+    """Instantiate the LLM backend selected by the LLM_BACKEND env var."""
+    backend_name = os.environ.get("LLM_BACKEND", "groq").lower()
+
+    if backend_name == "mock":
+        from ml.mock_backend import MockLLMBackend
+        return MockLLMBackend()
+
+    if backend_name == "groq":
+        # Lazy import so groq package errors only surface at runtime,
+        # not on import (allows CI lint to run without GROQ_API_KEY).
+        from groq import AsyncGroq  # type: ignore[import]
+
+        class _GroqBackend:
+            model_name = os.environ.get("GROQ_MODEL", "llama3-8b-8192")
+
+            def __init__(self) -> None:
+                self._client = AsyncGroq(api_key=os.environ["GROQ_API_KEY"])
+
+            async def generate_stream(self, prompt: str):
+                stream = await self._client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=self.model_name,
+                    stream=True,
+                )
+                async for chunk in stream:
+                    delta = chunk.choices[0].delta.content or ""
+                    if delta:
+                        yield delta
+
+            async def generate(self, prompt: str) -> str:
+                chunks = []
+                async for chunk in self.generate_stream(prompt):
+                    chunks.append(chunk)
+                return "".join(chunks)
+
+        return _GroqBackend()
+
+    raise ValueError(f"Unknown LLM_BACKEND: {backend_name!r}. Use 'mock' or 'groq'.")
+
+
+# ---------------------------------------------------------------------------
+# SSE formatting
+# ---------------------------------------------------------------------------
+
+def _sse_line(event: AppealEvent) -> str:
+    """Format a single SSE message frame."""
+    return f"event: {event.event}\ndata: {event.model_dump_json()}\n\n"
+
+
+async def _stream_events(request: AppealRequest) -> AsyncIterator[str]:
+    llm_backend = _build_llm_backend()
+    async for event in run_pipeline(request, llm_backend=llm_backend):
+        yield _sse_line(event)
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+
+@app.get("/health")
+async def health() -> dict:
+    """Unauthenticated health check — used by load balancers and CI smoke tests."""
+    return {"status": "ok"}
+
+
+@app.post("/api/appeal/generate")
+async def generate_appeal(body: AppealRequest) -> StreamingResponse:
+    """Stream an appeal letter as Server-Sent Events.
+
+    Authentication: enforced by the auth_middleware before this is reached.
+
+    Returns a ``text/event-stream`` response emitting ``step``, ``chunk``,
+    ``done``, and ``error`` events.
+    """
+    return StreamingResponse(
+        _stream_events(body),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
