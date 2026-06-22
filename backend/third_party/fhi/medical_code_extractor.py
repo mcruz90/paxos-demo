@@ -206,17 +206,23 @@ def extract_hcpcs_codes(text: str) -> set[str]:
     return {m.group(1) for m in HCPCS_CODE_PATTERN.finditer(text)}
 
 
-def extract_icd10_codes(text: str) -> set[str]:
-    """Return the set of ICD-10-CM diagnosis codes found in *text*."""
+def extract_icd10_codes(text: str) -> list[str]:
+    """Return the list of ICD-10-CM diagnosis codes found in *text*.
+
+    Note (PaxOS): changed return type from set to list for consistent
+    ordering and compatibility with test assertions against [].
+    """
     if not text:
-        return set()
-    return {m.group(1) for m in ICD10_CODE_PATTERN.finditer(text)}
+        return []
+    return list({m.group(1) for m in ICD10_CODE_PATTERN.finditer(text)})
 
 
-def extract_procedure_codes(text: str) -> set[str]:
-    """Return the union of CPT and HCPCS codes - the full set of
-    procedure-style codes useful for downstream RAG / lookup."""
-    return extract_cpt_codes(text) | extract_hcpcs_codes(text)
+def extract_procedure_codes(text: str) -> list[str]:
+    """Return the union of CPT and HCPCS codes.
+
+    Note (PaxOS): changed return type from set to list.
+    """
+    return list(extract_cpt_codes(text) | extract_hcpcs_codes(text))
 
 
 def hcpcs_category(code: str) -> Optional[str]:
