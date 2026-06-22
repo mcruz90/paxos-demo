@@ -6,29 +6,29 @@ must be reflected there and vice versa.
 
 from __future__ import annotations
 
-from enum import Enum
-from typing import Annotated, Literal, Optional, TypedDict, Union
-from pydantic import BaseModel, ConfigDict, Field
+from enum import StrEnum
+from typing import Annotated, Literal, TypedDict
 
+from pydantic import BaseModel, ConfigDict, Field
 
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
 
 
-class RuleType(str, Enum):
+class RuleType(StrEnum):
     diagnostic = "diagnostic"
     temporal = "temporal"
     math = "math"
     safety = "safety"
 
 
-class CriterionStatus(str, Enum):
+class CriterionStatus(StrEnum):
     found = "found"
     needs_review = "needs_review"
 
 
-class CaseStatus(str, Enum):
+class CaseStatus(StrEnum):
     processing = "processing"
     ready_for_review = "ready_for_review"
     exception = "exception"
@@ -63,8 +63,8 @@ class CriterionResult(BaseModel):
     status: CriterionStatus
     note: str
     doc_source: str = Field(alias="docSource", default="")
-    suggested_action: Optional[str] = Field(alias="suggestedAction", default=None)
-    workflow_plan: Optional[WorkflowPlan] = Field(alias="workflowPlan", default=None)
+    suggested_action: str | None = Field(alias="suggestedAction", default=None)
+    workflow_plan: WorkflowPlan | None = Field(alias="workflowPlan", default=None)
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -90,8 +90,8 @@ class ScenarioConfig(BaseModel):
     criteria_results: list[CriterionResult] = Field(alias="criteriaResults")
     citations: dict[str, Citation] = Field(default_factory=dict)
     drug_key: str = Field(alias="drugKey")
-    parent_config_id: Optional[str] = Field(alias="parentConfigId", default=None)
-    overridden_fields: Optional[list[OverriddenField]] = Field(
+    parent_config_id: str | None = Field(alias="parentConfigId", default=None)
+    overridden_fields: list[OverriddenField] | None = Field(
         alias="overriddenFields", default=None
     )
     # Injected by synthesis node — not from frontend
@@ -154,7 +154,7 @@ class ErrorEvent(BaseModel):
     retry_count: int = 0
 
 
-AppealEvent = Union[StepEvent, ChunkEvent, DoneEvent, ErrorEvent]
+AppealEvent = StepEvent | ChunkEvent | DoneEvent | ErrorEvent
 
 
 # ---------------------------------------------------------------------------

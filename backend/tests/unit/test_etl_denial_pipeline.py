@@ -8,7 +8,6 @@ from etl.denial_letter.file_detector import FileType, detect
 from etl.denial_letter.pipeline import process_denial_letter
 from models.schemas import AppealRequest
 
-
 # ---------------------------------------------------------------------------
 # file_detector
 # ---------------------------------------------------------------------------

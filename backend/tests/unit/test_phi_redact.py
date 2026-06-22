@@ -1,9 +1,7 @@
 """Unit tests for security.redact.redact_phi() — PHI scrubbing before Langfuse logging."""
 
-import pytest
 
 from security.redact import redact_phi
-
 
 # --- Positive cases: PHI should be removed ---
 

@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from agents.nodes.ingestion import run_ingestion
-from models.schemas import AppealRequest, PipelineState
+from models.schemas import AppealRequest
 
 
 def test_valid_request_produces_pipeline_state(base_appeal_request: AppealRequest) -> None:

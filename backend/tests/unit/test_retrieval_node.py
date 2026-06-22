@@ -1,6 +1,5 @@
 """Unit tests for agents/nodes/retrieval.py — PA lookup from fixture, no DB, no LLM."""
 
-import pytest
 
 from agents.nodes.retrieval import run_retrieval
 from models.schemas import PipelineState

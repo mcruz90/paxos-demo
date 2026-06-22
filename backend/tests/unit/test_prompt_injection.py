@@ -14,12 +14,9 @@ Prompt construction under test: agents.nodes.synthesis.build_prompt()
 
 from __future__ import annotations
 
-import pytest
-
 from agents.nodes.synthesis import build_prompt
 from models.schemas import AppealRequest, PipelineState
 from security.sanitize import PhantomLintResult, sanitize_extracted_text
-
 
 # ---------------------------------------------------------------------------
 # Helpers

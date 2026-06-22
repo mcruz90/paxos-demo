@@ -1,13 +1,11 @@
 """Unit tests for ICD-10, CPT, and HCPCS regex extraction (fhi/medical_code_extractor.py)."""
 
-import pytest
 
 from third_party.fhi.medical_code_extractor import (
     extract_dme_devices,
     extract_icd10_codes,
     extract_procedure_codes,
 )
-
 
 # ---------------------------------------------------------------------------
 # ICD-10 extraction

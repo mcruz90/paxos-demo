@@ -3,7 +3,6 @@
 import pytest
 
 from agents.nodes.synthesis import build_prompt, run_synthesis
-from models.schemas import PipelineState
 
 
 def test_build_prompt_wraps_denial_text_in_xml_delimiters(make_pipeline_state) -> None:
