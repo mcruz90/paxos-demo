@@ -1,13 +1,10 @@
 import { LayoutDashboard, Library, Activity, FileText, Users, AlertTriangle, Pencil, BarChart2, LineChart, ShieldCheck, Rocket, Boxes, Workflow, Sliders, Sun, Moon } from 'lucide-react'
-import { type View } from '../types'
+import { type View, type Role } from '../types'
 
-// Who owns each surface — made explicit in the chrome.
-// ClearAuth owns the technical/platform layers (Build, Scale); the client operates the
-// day-to-day surface (Operate); the manufacturer sees a read-only sponsor view.
 type Owner = 'Client' | 'Platform' | 'Sponsor'
 
 interface NavSection {
-  name: string
+  name: Role
   subtitle: string
   owner: Owner
   persona: string
@@ -16,7 +13,7 @@ interface NavSection {
 
 const SECTIONS: readonly NavSection[] = [
   {
-    name: 'Operate', subtitle: 'What the customer’s PA team uses', owner: 'Client', persona: 'PA Coordinator',
+    name: 'Operate', subtitle: "What the customer's PA team uses", owner: 'Client', persona: 'PA Coordinator',
     items: [
       ['portfolio',  LayoutDashboard, 'Case Queue'],
       ['evals',      BarChart2,       'Quality Report'],
@@ -48,10 +45,27 @@ const SECTIONS: readonly NavSection[] = [
   },
 ]
 
-const OWNER_CHIP: Record<Owner, string> = {
-  Client:   'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
-  Platform: 'text-violet-300 bg-violet-500/10 border-violet-500/20',
-  Sponsor:  'text-sky-300 bg-sky-500/10 border-sky-500/20',
+// Active state: colored bg + text per role; inactive: neutral
+const ROLE_ACTIVE: Record<Role, string> = {
+  Operate: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25',
+  Build:   'bg-violet-500/15 text-violet-300 border border-violet-500/25',
+  Scale:   'bg-violet-500/15 text-violet-300 border border-violet-500/25',
+  Sponsor: 'bg-sky-500/15 text-sky-300 border border-sky-500/25',
+}
+
+const ROLE_DOT: Record<Role, string> = {
+  Operate: 'bg-emerald-400',
+  Build:   'bg-violet-400',
+  Scale:   'bg-violet-400',
+  Sponsor: 'bg-sky-400',
+}
+
+// Top accent stripe on the sidebar header changes per active role
+const ROLE_TOP_BORDER: Record<Role, string> = {
+  Operate: 'border-t-2 border-emerald-500/50',
+  Build:   'border-t-2 border-violet-500/50',
+  Scale:   'border-t-2 border-violet-500/50',
+  Sponsor: 'border-t-2 border-sky-500/50',
 }
 
 const OWNER_LABEL: Record<Owner, string> = {
@@ -60,61 +74,80 @@ const OWNER_LABEL: Record<Owner, string> = {
   Sponsor:  'Manufacturer view',
 }
 
-export function Sidebar({ view, setView, onStartTour, theme, onToggleTheme }: { view: View; setView: (v: View) => void; onStartTour: () => void; theme: 'dark' | 'light'; onToggleTheme: () => void }) {
-  // The chrome follows the surface you're on — so Build/Scale don't read as the
-  // coordinator's. Lens = whichever section owns the active view. A case detail
-  // ('poc') is opened from the Operate queue, so it keeps the Operate lens.
-  const activeSectionName =
-    SECTIONS.find(s => s.items.some(([v]) => v === view))?.name
-    ?? (view === 'poc' ? 'Operate' : undefined)
-  const activeSection = SECTIONS.find(s => s.name === activeSectionName) ?? SECTIONS[0]
+export function Sidebar({
+  view, setView,
+  activeRole, onRoleChange,
+  onStartTour, theme, onToggleTheme,
+}: {
+  view: View
+  setView: (v: View) => void
+  activeRole: Role
+  onRoleChange: (r: Role) => void
+  onStartTour: () => void
+  theme: 'dark' | 'light'
+  onToggleTheme: () => void
+}) {
+  const activeSection = SECTIONS.find(s => s.name === activeRole) ?? SECTIONS[0]
 
   return (
     <aside className="w-60 shrink-0 bg-slate-900 border-r border-slate-800 flex flex-col">
-      <div className="px-5 py-5 border-b border-slate-800">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
+      {/* Logo — top accent stripe reflects the active role */}
+      <div className={`px-5 py-5 border-b border-slate-800 ${ROLE_TOP_BORDER[activeRole]}`}>
+        <button onClick={onStartTour} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity text-left w-full">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0">
             <ShieldCheck className="w-4 h-4 text-white" />
           </div>
           <div>
             <p className="text-sm font-semibold text-white leading-none">ClearAuth</p>
-            <p className="text-xs text-slate-500 mt-0.5">{activeSection.name} · {OWNER_LABEL[activeSection.owner]}</p>
+            <p className="text-xs text-slate-500 mt-0.5">Full PA lifecycle platform</p>
           </div>
-        </div>
+        </button>
       </div>
-      <nav className="flex-1 p-3 overflow-y-auto space-y-4">
-        {SECTIONS.map(({ name, subtitle, owner, items }) => (
-          <div
-            key={name}
-            className={`transition-opacity duration-300 ${activeSectionName && name !== activeSectionName ? 'opacity-40 hover:opacity-100' : ''}`}
-          >
-            <div className="px-3 mb-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold text-slate-300 uppercase tracking-wide">{name}</p>
-                <span className={`text-[9px] px-1.5 py-0.5 rounded-full border uppercase tracking-wide ${OWNER_CHIP[owner]}`}>{owner}</span>
-              </div>
-              <p className="text-[10px] text-slate-500 leading-tight">{subtitle}</p>
-            </div>
-            <div className="space-y-0.5">
-              {items.map(([v, Icon, label]) => (
-                <button
-                  key={v}
-                  id={v === 'library' ? 'tour-sidebar-library' : undefined}
-                  onClick={() => setView(v)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    view === v
-                      ? 'bg-slate-700/80 text-white font-medium'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
+
+      {/* Role switcher — 2×2 grid; clicking a role navigates to its default view */}
+      <div className="px-3 pt-3 pb-2 border-b border-slate-800">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-0.5 mb-2">Viewing as</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {SECTIONS.map(({ name }) => (
+            <button
+              key={name}
+              onClick={() => onRoleChange(name)}
+              className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${
+                activeRole === name
+                  ? ROLE_ACTIVE[name]
+                  : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800 border border-transparent'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ROLE_DOT[name]}`} />
+              {name}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-slate-500 mt-2.5 px-0.5 leading-snug">{activeSection.subtitle}</p>
+      </div>
+
+      {/* Nav — only the active role's items */}
+      <nav className="flex-1 p-3 overflow-y-auto">
+        <div className="space-y-0.5">
+          {activeSection.items.map(([v, Icon, label]) => (
+            <button
+              key={v}
+              id={v === 'library' ? 'tour-sidebar-library' : undefined}
+              onClick={() => setView(v)}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                view === v || (v === 'portfolio' && view === 'poc')
+                  ? 'bg-slate-700/80 text-white font-medium'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
+        </div>
       </nav>
+
+      {/* Footer — theme, tour, persona */}
       <div className="p-3 border-t border-slate-800 space-y-1">
         <button
           onClick={onToggleTheme}
@@ -130,7 +163,6 @@ export function Sidebar({ view, setView, onStartTour, theme, onToggleTheme }: { 
           <Activity className="w-4 h-4" />
           Guided Tour
         </button>
-        {/* Persona chip follows the lens — who operates the surface you're viewing */}
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
             <Users className="w-3.5 h-3.5 text-slate-400" />
@@ -144,10 +176,3 @@ export function Sidebar({ view, setView, onStartTour, theme, onToggleTheme }: { 
     </aside>
   )
 }
-
-// ---------------------------------------------------------------------------
-// View — Sponsor / Coverage Insights
-// Manufacturer persona. A drug sponsor does NOT operate a case queue — it funds
-// hubs/sites that do. This surface is read-only, de-identified aggregates only:
-// no patient records, no letters. PHI never crosses the sponsor boundary.
-// ---------------------------------------------------------------------------

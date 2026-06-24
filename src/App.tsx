@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Joyride, EVENTS, STATUS, ACTIONS } from 'react-joyride'
-import { type CaseStatus, type Client, type ScenarioConfig, type View } from './types'
+import { type CaseStatus, type Client, type ScenarioConfig, type View, type Role } from './types'
 import { initialClients, newCaseRef, scenarios } from './data/scenarios'
 import { JOYRIDE_STYLES, TOURS, type TourId, type TourStep } from './components/tour'
 import { LandingHub } from './components/LandingHub'
@@ -18,6 +18,40 @@ import { AutomationPolicyView } from './components/AutomationPolicyView'
 import { POCView } from './components/poc/POCView'
 import { LibraryView } from './components/LibraryView'
 
+// Maps each view to the role that owns it — used to keep the sidebar in sync
+// when tours or internal navigation jump across role boundaries.
+const VIEW_ROLE: Record<View, Role> = {
+  landing:      'Operate',
+  portfolio:    'Operate',
+  poc:          'Operate',
+  evals:        'Operate',
+  automation:   'Operate',
+  library:      'Build',
+  specs:        'Build',
+  instructions: 'Build',
+  rubric:       'Build',
+  failures:     'Build',
+  onboarding:   'Scale',
+  platform:     'Scale',
+  sponsor:      'Sponsor',
+}
+
+// Default first view for each role (used when switching roles via the role switcher)
+const ROLE_DEFAULT_VIEW: Record<Role, View> = {
+  Operate: 'portfolio',
+  Build:   'library',
+  Scale:   'onboarding',
+  Sponsor: 'sponsor',
+}
+
+// Tour id → which role it belongs to (so selecting a tour also sets the correct role)
+const TOUR_ROLE: Record<string, Role> = {
+  operate:  'Operate',
+  build:    'Build',
+  scale:    'Scale',
+  overview: 'Operate',
+}
+
 export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('light')
   useEffect(() => {
@@ -25,6 +59,7 @@ export default function App() {
   }, [theme])
 
   const [view, setView] = useState<View>('landing')
+  const [activeRole, setActiveRole] = useState<Role>('Operate')
   const [clients, setClients] = useState<Client[]>(initialClients)
   const [activeScenario, setActiveScenario] = useState<ScenarioConfig | null>(null)
   const [reviewMode, setReviewMode] = useState(false)
@@ -33,6 +68,15 @@ export default function App() {
   const [tourRunning, setTourRunning] = useState(false)
   const [tourStepIndex, setTourStepIndex] = useState(0)
   const instrStore = useInstructionStore()
+
+  // Switching roles navigates to that role's default first view
+  const handleRoleChange = (role: Role) => {
+    setActiveRole(role)
+    setView(ROLE_DEFAULT_VIEW[role])
+    setActiveScenario(null)
+    setReviewMode(false)
+    setOpenedCaseStatus(null)
+  }
   const addToPortfolio = (scenario: ScenarioConfig) => {
     const now = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     const name = scenario.clientType === 'patient'
@@ -71,9 +115,11 @@ export default function App() {
     setReviewMode(false)
     setOpenedCaseStatus(null)
     setView('portfolio')
+    setActiveRole('Operate')
   }
 
   // Apply a step's nav: make the right view (and case) active before the step shows.
+  // Also syncs activeRole so the sidebar reflects the correct role during tours.
   const applyTourNav = (nav?: TourStep['nav']) => {
     if (!nav) return
     if (nav.scenarioId) {
@@ -91,6 +137,7 @@ export default function App() {
       setOpenedCaseStatus(null)
     }
     setView(nav.view)
+    setActiveRole(VIEW_ROLE[nav.view])
   }
 
   const openTourHub = () => setView('landing')
@@ -103,6 +150,7 @@ export default function App() {
 
   const startTour = (id: TourId) => {
     setActiveTour(id)
+    setActiveRole(TOUR_ROLE[id] ?? 'Operate')
     applyTourNav(TOURS[id].steps[0]?.nav)
     setTourStepIndex(0)
     setTourRunning(true)
@@ -167,9 +215,9 @@ export default function App() {
           skipBeacon: true,
         }}
       />
-      <Sidebar view={view} setView={setView} onStartTour={openTourHub} theme={theme} onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} />
+      <Sidebar view={view} setView={setView} activeRole={activeRole} onRoleChange={handleRoleChange} onStartTour={openTourHub} theme={theme} onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} />
       {view === 'landing' && (
-        <LandingHub onStartTour={startTour} onSkip={() => setView('portfolio')} />
+        <LandingHub onStartTour={startTour} onRoleChange={handleRoleChange} />
       )}
       {view === 'portfolio' && (
         <PortfolioView clients={clients} onOpenCase={openCase} onStartTour={openTourHub} />

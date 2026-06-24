@@ -91,13 +91,13 @@ export function LibraryView({ setView }: {
   return (
     <div className="flex-1 overflow-auto">
       <div className="px-8 py-6 border-b border-slate-800">
-        <h1 className="text-xl font-bold text-white">Ontology Library</h1>
+        <h1 className="text-xl font-bold font-display text-white">Ontology Library</h1>
         <p className="text-sm text-slate-400 mt-0.5">
           The universal anatomy of a PA case — the schema every submission shares (initial request, appeal, or determination), regardless of drug or payer
         </p>
       </div>
 
-      <div className="p-8 space-y-10 max-w-6xl">
+      <div className="p-8 space-y-10">
 
         {/* Three-layer orientation */}
         <div className="flex items-start gap-3 px-4 py-3.5 bg-slate-800/50 border border-slate-700/60 rounded-xl">

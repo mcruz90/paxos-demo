@@ -29,7 +29,7 @@ export function SubmittedPanel() {
                     { k: 'timestamp',     v: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) },
                   ] as const).map(({ k, v }) => (
                     <div key={k} className="flex items-start gap-3 text-xs font-mono">
-                      <span className="text-slate-600 w-28 shrink-0">{k}</span>
+                      <span className="text-slate-600 w-36 shrink-0">{k}</span>
                       <span className="text-slate-300">{v}</span>
                     </div>
                   ))}
@@ -55,12 +55,12 @@ export function SubmittedPanel() {
                           <Clock className="w-3.5 h-3.5" />Time to therapy
                         </div>
                         <p className="text-2xl font-bold text-emerald-400">{scenario.paOutcome.timeToTherapy}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">From filing to approval — the patient can start without delay.</p>
+                        <p className="text-xs text-slate-500 mt-0.5">From filing to approval — the patient can start without delay.</p>
                       </div>
                       <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4">
                         <p className="text-xs text-slate-500 mb-1">Authorization</p>
                         <p className="text-sm font-mono text-slate-200 break-all">{scenario.paOutcome.determinationId}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">Valid 12 months · returned over Da Vinci PAS.</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Valid 12 months · returned over Da Vinci PAS.</p>
                       </div>
                     </div>
                   </div>
@@ -119,7 +119,7 @@ export function SubmittedPanel() {
                         { k: 'pmid',             v: scenario.round2Appeal?.guidelinePMID ? `https://pubmed.ncbi.nlm.nih.gov/${scenario.round2Appeal.guidelinePMID}` : '' },
                       ] as const).filter(({ v }) => v).map(({ k, v }) => (
                         <div key={k} className="flex items-start gap-3 text-xs font-mono">
-                          <span className="text-slate-600 w-28 shrink-0">{k}</span>
+                          <span className="text-slate-600 w-36 shrink-0">{k}</span>
                           <span className="text-slate-300">{v}</span>
                         </div>
                       ))}

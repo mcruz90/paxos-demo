@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Package } from 'lucide-react'
+import { Package, ChevronLeft } from 'lucide-react'
 import type { CaseStatus, ScenarioConfig, SimPhase } from '../../types'
 import { initialClients, newCaseRef } from '../../data/scenarios'
 import { getPipelineSteps } from './pipeline'
@@ -162,7 +162,16 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
   return (
     <div className="flex-1 overflow-auto">
       <div id="tour-pipeline-header" className="px-8 py-6 border-b border-slate-800">
-        <h1 className="text-xl font-bold text-white">
+        <button
+          onClick={onReset}
+          className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-3"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+          Case Queue
+          <span className="text-slate-700 mx-1">·</span>
+          <span className="text-slate-500">{scenario.drug}</span>
+        </button>
+        <h1 className="text-xl font-bold font-display text-white">
           {phase === 'review'    ? (isInitialPa ? 'Review PA Request' : 'Review Appeal Letter')
            : phase === 'submitted' ? (isInitialPa ? 'PA Request Filed' : 'Appeal Submitted')
            : 'Pipeline Execution'}
@@ -180,38 +189,66 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
         </p>
       </div>
 
-      <div className={`p-8 space-y-5 ${phase === 'review' || phase === 'round2_done' ? 'max-w-5xl' : 'max-w-3xl'}`}>
-        <div className="flex items-center gap-4 p-4 bg-slate-800/40 border border-slate-700/60 rounded-xl text-sm">
-          <Package className="w-5 h-5 text-slate-400 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <span className="text-white font-medium">{scenario.drug}</span>
-            <span className="text-slate-500 mx-2">·</span>
-            <span className="text-slate-400">{scenario.plan}</span>
+      {phase === 'review' || phase === 'round2_done' ? (
+        // Review phases: full-width — ReviewPanel has its own internal two-column
+        // layout (letter left, citations right) that benefits from the extra space.
+        <div className="p-8 space-y-5">
+          <div className="flex items-center gap-4 p-4 bg-slate-800/40 border border-slate-700/60 rounded-xl text-sm">
+            <Package className="w-5 h-5 text-slate-400 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <span className="text-white font-medium">{scenario.drug}</span>
+              <span className="text-slate-500 mx-2">·</span>
+              <span className="text-slate-400">{scenario.plan}</span>
+            </div>
+            <span className="text-xs text-slate-500">{scenario.criteriaResults.length} rules loaded</span>
           </div>
-          <span className="text-xs text-slate-500">{scenario.criteriaResults.length} rules loaded</span>
+          <CoverageResolutionLine scenarioId={scenario.id} />
+          {scenario.timeline && caseStatus && (
+            <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl px-5 py-4">
+              <p className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wide">Case Timeline</p>
+              <CaseTimeline events={scenario.timeline} />
+            </div>
+          )}
+          <PocProvider value={ctx}>
+            {phase === 'review' ? (isInitialPa ? <PaRequestReviewPanel /> : <ReviewPanel />) : <Round2DonePanel />}
+          </PocProvider>
+          <CaseTechnicalDetails scenario={scenario} />
         </div>
-
-        <CoverageResolutionLine scenarioId={scenario.id} />
-
-        {scenario.timeline && caseStatus && (
-          <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl px-5 py-4">
-            <p className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wide">Case Timeline</p>
-            <CaseTimeline events={scenario.timeline} />
+      ) : (
+        // All other phases: two-column — static context on the left, evolving
+        // action panel on the right. Timeline lives in the right column so it
+        // can lay out horizontally without being squeezed by the w-80 left rail.
+        <div className="p-8 flex gap-6 items-start">
+          <div className="w-80 shrink-0 space-y-4">
+            <div className="flex items-center gap-4 p-4 bg-slate-800/40 border border-slate-700/60 rounded-xl text-sm">
+              <Package className="w-5 h-5 text-slate-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-medium leading-snug">{scenario.drug}</p>
+                <p className="text-slate-400 text-xs mt-0.5">{scenario.plan}</p>
+              </div>
+              <span className="text-xs text-slate-500 shrink-0">{scenario.criteriaResults.length} rules</span>
+            </div>
+            <CoverageResolutionLine scenarioId={scenario.id} />
+            <CaseTechnicalDetails scenario={scenario} />
           </div>
-        )}
-        <PocProvider value={ctx}>
-          {phase === 'review' ? (isInitialPa ? <PaRequestReviewPanel /> : <ReviewPanel />)
-            : phase === 'submitted' ? <SubmittedPanel />
-            : phase === 'round2_loading' ? <Round2LoadingPanel />
-            : phase === 'round2_done' ? <Round2DonePanel />
-            : phase === 'round2_submitted' ? <Round2SubmittedPanel />
-            : phase === 'done' && hasExceptions ? <ExceptionsPanel />
-            : phase === 'done' ? <DonePanel />
-            : <PipelineStartPanel />}
-        </PocProvider>
-
-        <CaseTechnicalDetails scenario={scenario} />
-      </div>
+          <div className="flex-1 min-w-0 space-y-4">
+            {scenario.timeline && caseStatus && (
+              <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl px-5 py-4">
+                <p className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wide">Case Timeline</p>
+                <CaseTimeline events={scenario.timeline} />
+              </div>
+            )}
+            <PocProvider value={ctx}>
+              {phase === 'submitted' ? <SubmittedPanel />
+                : phase === 'round2_loading' ? <Round2LoadingPanel />
+                : phase === 'round2_submitted' ? <Round2SubmittedPanel />
+                : phase === 'done' && hasExceptions ? <ExceptionsPanel />
+                : phase === 'done' ? <DonePanel />
+                : <PipelineStartPanel />}
+            </PocProvider>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

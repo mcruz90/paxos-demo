@@ -78,7 +78,7 @@ export function SponsorView() {
       {/* Header */}
       <div className="px-8 py-6 border-b border-slate-800">
         <div className="flex items-center gap-2.5">
-          <h1 className="text-xl font-bold text-white">Coverage Insights</h1>
+          <h1 className="text-xl font-bold font-display text-white">Coverage Insights</h1>
           <span
             className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs bg-emerald-950/40 border border-emerald-500/30 text-emerald-300"
             title="Sponsor sees aggregate outcomes only — never patient records or letters. PHI does not cross this boundary."

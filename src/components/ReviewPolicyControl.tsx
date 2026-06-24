@@ -28,7 +28,7 @@ export function ReviewPolicyControl({ routineVolumePct, readOnly = false }: { ro
           <Sliders className="w-4 h-4 text-slate-400" />
           <h3 className="text-sm font-semibold text-slate-200">Auto-Processing Policy</h3>
         </div>
-        <span className="text-[10px] px-2 py-0.5 rounded-full border uppercase tracking-wide text-emerald-300 bg-emerald-500/10 border-emerald-500/20 whitespace-nowrap">
+        <span className="text-xs px-2 py-0.5 rounded-full border uppercase tracking-wide text-emerald-300 bg-emerald-500/10 border-emerald-500/20 whitespace-nowrap">
           Client self-serve
         </span>
       </div>
@@ -112,7 +112,7 @@ export function ReviewPolicyControl({ routineVolumePct, readOnly = false }: { ro
 
       <div className="flex items-start gap-2 px-3 py-2.5 bg-slate-900/40 border border-slate-700/50 rounded-lg">
         <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-        <p className="text-[11px] text-slate-500 leading-relaxed">
+        <p className="text-xs text-slate-500 leading-relaxed">
           <Send className="w-3 h-3 inline -mt-0.5 mr-0.5 text-slate-400" />
           The system assembles every case (builds the cart). A coordinator always sends — automation governs assembly and
           review depth, never the human authorization to transmit.

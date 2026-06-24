@@ -94,7 +94,7 @@ export function EvalDashboard() {
     <div className="flex-1 overflow-auto">
       <div className="px-8 py-6 border-b border-slate-800 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">
+          <h1 className="text-xl font-bold font-display text-white">
             {evalView === 'coordinator' ? 'Case Outcomes' : 'Pipeline Quality Report'}
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
@@ -122,7 +122,7 @@ export function EvalDashboard() {
       </div>
 
       {evalView === 'coordinator' ? (
-        <div className="px-8 py-6 space-y-8 max-w-6xl">
+        <div className="px-8 py-6 space-y-8">
 
           {/* Featured KPI — Time to Therapy (the client's #1 outcome) */}
           <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-xl p-5 flex items-start justify-between gap-6 flex-wrap">
@@ -254,7 +254,7 @@ export function EvalDashboard() {
 
         </div>
       ) : (
-        <div className="px-8 py-6 space-y-8 max-w-6xl">
+        <div className="px-8 py-6 space-y-8">
 
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/60 border border-slate-700/40">
             <Shield className="w-3.5 h-3.5 text-slate-500 shrink-0" />

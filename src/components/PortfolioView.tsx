@@ -38,12 +38,12 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
     .filter(g => g.rows.length > 0)
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto overflow-x-hidden">
       {/* Header */}
       <div className="px-8 py-6 border-b border-slate-800 flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-bold text-white">Case Queue</h1>
+            <h1 className="text-xl font-bold font-display text-white">Case Queue</h1>
             <span
               className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs bg-slate-800 border border-slate-700"
               title={`Operating as ${TENANT.name} — ${TENANT.type}. Cases sourced from ${TENANT.source}.`}
@@ -83,7 +83,8 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-white leading-snug">First time here?</p>
             <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-              ClearAuth is an AI-native prior-authorization platform spanning the full PA lifecycle — initial prior auths, appeals, and determinations. The guided tours are split by audience: <span className="text-emerald-300">Operate</span> (a prospective client), <span className="text-violet-300">Build</span> (evaluating the AI Lead), and <span className="text-sky-300">Scale</span> (an investor). Pick your path on the welcome screen.
+              ClearAuth is an AI-native prior-authorization platform spanning the full PA lifecycle — initial prior auths, appeals, and determinations. The guided tours are split by audience: <span className="text-emerald-300">Operate</span> (a prospective client), <span className="text-violet-300">Build</span> (evaluating the AI Lead), and <span className="text-sky-300">Scale</span> (an investor). Pick your path on the welcome screen.{' '}
+              <span className="text-slate-500">All patients, cases, and clinical data are fictional — this is a portfolio prototype, not a production system.</span>
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0 ml-2">

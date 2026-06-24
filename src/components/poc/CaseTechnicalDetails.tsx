@@ -26,7 +26,7 @@ export function CaseTechnicalDetails({ scenario }: { scenario: ScenarioConfig })
         <div className="flex items-center gap-2 flex-wrap">
           <Wrench className="w-4 h-4 text-slate-400" />
           <span className="text-sm font-medium text-slate-300">Technical details</span>
-          <span className="text-[10px] text-slate-500">for technical staff, support &amp; records</span>
+          <span className="text-xs text-slate-500">for technical staff, support &amp; records</span>
         </div>
         <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -35,7 +35,7 @@ export function CaseTechnicalDetails({ scenario }: { scenario: ScenarioConfig })
           {/* Pipeline & config */}
           <div className="px-4 py-3 space-y-1">
             <p className="text-xs font-medium text-slate-400 mb-1">Pipeline &amp; config</p>
-            <div className="text-[11px] font-mono text-slate-400 space-y-0.5">
+            <div className="text-xs font-mono text-slate-400 space-y-0.5">
               <div>engine: 4-node DAG · Ingestion → Retrieval → Synthesis → Gatekeeper</div>
               <div>config: <span className="text-slate-300">{scenario.configFile}</span></div>
             </div>
@@ -45,7 +45,7 @@ export function CaseTechnicalDetails({ scenario }: { scenario: ScenarioConfig })
           {cov && (
             <div className="px-4 py-3 space-y-1">
               <p className="text-xs font-medium text-slate-400 mb-1">Coverage resolution</p>
-              <div className="text-[11px] font-mono text-slate-400 space-y-0.5">
+              <div className="text-xs font-mono text-slate-400 space-y-0.5">
                 <div>pack: <span className="text-slate-300">{cov.pack} · {cov.version}</span> · eff. {cov.effective} · {cov.channel}</div>
                 <div>resolution: <span className="text-slate-300">{cov.status === 'synthesized' ? 'synthesized on demand' : 'registry hit'}</span></div>
                 <div className="font-sans text-slate-500">{cov.detail}</div>
@@ -70,14 +70,14 @@ export function CaseTechnicalDetails({ scenario }: { scenario: ScenarioConfig })
                   ))}
                 </div>
               </div>
-              <pre className="px-3 py-2.5 text-[11px] leading-relaxed font-mono text-slate-300 overflow-auto max-h-80 bg-slate-900/50 rounded-lg border border-slate-700/40">
+              <pre className="px-3 py-2.5 text-xs leading-relaxed font-mono text-slate-300 overflow-auto max-h-80 bg-slate-900/50 rounded-lg border border-slate-700/40">
                 {tab === 'fhir' ? payload.fhir : payload.x12}
               </pre>
             </div>
           )}
 
           <div className="px-4 py-2.5">
-            <p className="text-[11px] text-slate-500 leading-relaxed">
+            <p className="text-xs text-slate-500 leading-relaxed">
               Logged with the case for audit and support. Surfaced for technical Operate staff and ClearAuth support — e.g. diagnosing a transmission/network error on a submission. Not needed for routine review.
             </p>
           </div>

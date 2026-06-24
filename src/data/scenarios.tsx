@@ -488,8 +488,8 @@ export const TENANT = {
 // ---------------------------------------------------------------------------
 
 export const initialClients: Client[] = [
-  { id: 0, name: 'Case #PH-3098', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 17, 2026', scenarioId: 'novo-ozempic-initial', deadline: 'Due in 2 days',  urgency: 'soon'  },
   { id: 4, name: 'Case #PH-3101', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 5, 2026',  scenarioId: 'novo-ozempic-denied',  deadline: 'Due tomorrow',   urgency: 'soon'  },
+  { id: 0, name: 'Case #PH-3098', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 17, 2026', scenarioId: 'novo-ozempic-initial', deadline: 'Due in 2 days',  urgency: 'soon'  },
   { id: 1, name: 'Case #PH-3102', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 8, 2026',  scenarioId: 'novo-ozempic',         deadline: 'Due today',      urgency: 'today' },
   { id: 2, name: 'Case #PH-4201', drug: 'Omeprazole Susp.', categoryLabel: 'Gastroenterology', status: 'payer_response',   clientType: 'patient', lastUpdated: 'Jun 11, 2026', scenarioId: 'infant-omeprazole',    deadline: 'Due in 4 days',  urgency: 'later' },
   { id: 3, name: 'Case #PH-2847', drug: 'Ocaliva',          categoryLabel: 'Hepatology',        status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 9, 2026',  scenarioId: 'intercept-ocaliva',    deadline: 'Due today',      urgency: 'today' },

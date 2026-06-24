@@ -93,21 +93,21 @@ export function DonePanel() {
                             return cite ? (
                               <>
                                 <div className="flex items-start gap-3 text-xs font-mono">
-                                  <span className="text-slate-600 w-28 shrink-0">source_document</span>
+                                  <span className="text-slate-600 w-36 shrink-0">source_document</span>
                                   <span className="text-slate-300">{cite.source}</span>
                                 </div>
                                 <div className="flex items-start gap-3 text-xs font-mono">
-                                  <span className="text-slate-600 w-28 shrink-0">page_ref</span>
+                                  <span className="text-slate-600 w-36 shrink-0">page_ref</span>
                                   <span className="text-slate-300">{cite.page}</span>
                                 </div>
                                 <div className="flex items-start gap-3 text-xs font-mono">
-                                  <span className="text-slate-600 w-28 shrink-0">extracted_text</span>
+                                  <span className="text-slate-600 w-36 shrink-0">extracted_text</span>
                                   <span className="text-slate-400 font-sans italic leading-relaxed">&ldquo;{cite.text}&rdquo;</span>
                                 </div>
                               </>
                             ) : (
                               <div className="flex items-start gap-3 text-xs font-mono">
-                                <span className="text-slate-600 w-28 shrink-0">extracted_text</span>
+                                <span className="text-slate-600 w-36 shrink-0">extracted_text</span>
                                 <span className="text-slate-400 font-sans italic">Supporting documentation confirmed.</span>
                               </div>
                             )
