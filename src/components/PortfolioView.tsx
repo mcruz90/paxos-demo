@@ -1,14 +1,11 @@
 import { useState } from 'react'
-import { Activity, ChevronRight, Building2, User, Search, ShieldCheck } from 'lucide-react'
+import { Activity, ChevronRight, Building2, User, Search, ShieldCheck, X } from 'lucide-react'
 import { type CaseStatus, type Client, type Urgency } from '../types'
 import { getCaseStage, getCaseTier, TENANT } from '../data/scenarios'
 import { InfoHint, StageBadge, StatusBadge, TierBadge, DueBadge } from './ui'
 
-// Cases enter the queue automatically from the client's connected record (EHR/CRM)
-// — there is no manual "New Case". The list is grouped by the action a coordinator
-// must take, and within each group sorted by regulatory deadline.
 const ACTION_GROUPS: { status: CaseStatus; label: string; hint: string }[] = [
-  { status: 'exception',        label: 'Needs investigation', hint: 'AI hit a gap it can’t resolve — gather what’s missing' },
+  { status: 'exception',        label: 'Needs investigation', hint: "AI hit a gap it can't resolve — gather what's missing" },
   { status: 'payer_response',   label: 'Respond to payer',    hint: 'Counter-offer received — review and file the next round' },
   { status: 'ready_for_review', label: 'Review & approve',    hint: 'AI work complete — review and authorize the send' },
   { status: 'submitted',        label: 'Awaiting payer',      hint: 'Filed — no action needed until the payer responds' },
@@ -17,7 +14,11 @@ const ACTION_GROUPS: { status: CaseStatus; label: string; hint: string }[] = [
 
 const URGENCY_ORDER: Record<Urgency, number> = { today: 0, soon: 1, later: 2 }
 
-const GRID = 'grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_120px] gap-4'
+// Responsive grid: 4 cols default, +Stage/Tier at lg (1024px), +Category at xl (1280px)
+const GRID = 'grid grid-cols-[2fr_1fr_1fr_120px] lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_120px] xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_120px]'
+
+type StageFilter = 'all' | 'initial_pa' | 'appeal'
+type UrgencyFilter = 'all' | 'today' | 'soon'
 
 export function PortfolioView({ clients, onOpenCase, onStartTour }: {
   clients: Client[]
@@ -25,13 +26,23 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
   onStartTour: () => void
 }) {
   const [search, setSearch] = useState('')
+  const [filterStage, setFilterStage] = useState<StageFilter>('all')
+  const [filterUrgency, setFilterUrgency] = useState<UrgencyFilter>('all')
   const [showBanner, setShowBanner] = useState(true)
+
+  const hasActiveFilters = filterStage !== 'all' || filterUrgency !== 'all'
+  const clearFilters = () => { setFilterStage('all'); setFilterUrgency('all') }
 
   const actionableCount = clients.filter(c => ['ready_for_review', 'exception', 'payer_response'].includes(c.status)).length
   const submittedCount = clients.filter(c => c.status === 'submitted').length
 
   const q = search.toLowerCase()
-  const matches = clients.filter(c => [c.name, c.drug, c.categoryLabel].some(v => v.toLowerCase().includes(q)))
+  const matches = clients.filter(c => {
+    if (q && ![c.name, c.drug, c.categoryLabel].some(v => v.toLowerCase().includes(q))) return false
+    if (filterStage !== 'all' && getCaseStage(c) !== (filterStage === 'initial_pa' ? 'Initial PA' : 'Appeal')) return false
+    if (filterUrgency !== 'all' && c.urgency !== filterUrgency) return false
+    return true
+  })
   const byUrgency = (a: Client, b: Client) => URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency]
   const groups = ACTION_GROUPS
     .map(g => ({ ...g, rows: matches.filter(c => c.status === g.status).sort(byUrgency) }))
@@ -61,7 +72,6 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
             {submittedCount > 0 && <><span className="text-slate-700">·</span><span className="text-slate-500 text-xs">{submittedCount} awaiting payer</span></>}
           </p>
         </div>
-        {/* Auto-sync indicator — cases import automatically; no manual entry */}
         <div
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/40"
           title="Cases import automatically from Epic via FHIR Subscriptions the moment the record updates — no manual entry. Epic stays the source of truth; ClearAuth links the documents and writes the PA decision back."
@@ -74,7 +84,7 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
         </div>
       </div>
 
-      {/* Welcome banner — shown to first-time visitors */}
+      {/* Welcome banner */}
       {showBanner && (
         <div className="mx-8 mt-5 mb-1 flex items-start gap-3 px-4 py-3.5 bg-slate-800/50 border border-slate-700/50 rounded-xl">
           <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5">
@@ -106,32 +116,106 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
         </div>
       )}
 
-      {/* Search */}
+      {/* Search + filter chips */}
       <div className="px-8 pt-5 pb-2">
-        <div className="relative max-w-sm flex items-center gap-2">
-          <div className="relative flex-1">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Free-text search */}
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search clients, drugs, categories..."
-              className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+              className="pl-9 pr-3 py-2 w-64 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
+
+          <div className="h-5 w-px bg-slate-700/60" />
+
+          {/* Stage filter */}
+          <div className="flex items-center gap-1.5">
+            {([
+              { value: 'all',        label: 'All stages' },
+              { value: 'initial_pa', label: 'Initial PA' },
+              { value: 'appeal',     label: 'Appeal' },
+            ] as const).map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setFilterStage(value)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors border ${
+                  filterStage === value
+                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-300 hover:border-slate-600'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="h-5 w-px bg-slate-700/60" />
+
+          {/* Urgency filter */}
+          <div className="flex items-center gap-1.5">
+            {([
+              { value: 'all',   label: 'Any urgency' },
+              { value: 'today', label: 'Due today' },
+              { value: 'soon',  label: 'Due soon' },
+            ] as const).map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setFilterUrgency(value)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors border ${
+                  filterUrgency === value
+                    ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-300 hover:border-slate-600'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Clear all */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />Clear
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Case list — grouped by action needed, deadline-sorted within each group */}
+      {/* Case list */}
       <div className="px-8 py-4">
+        {/* Column headers — responsive: Category hidden < lg, Stage + Tier hidden < md */}
         <div className={`${GRID} px-4 py-2 mb-1`}>
-          {['Patient / Case', 'Drug', 'Category', 'Stage', 'Status', 'Review Tier', 'Due'].map(h => (
-            <span key={h} className={`text-xs font-medium text-slate-500 uppercase tracking-wide inline-flex items-center gap-1.5 ${h === 'Due' ? 'justify-end' : ''}`}>
-              {h}
-              {h === 'Stage' && <InfoHint text="Where the case sits in the PA lifecycle — Initial PA (a new prior-auth request being assembled and filed) or Appeal (contesting a payer denial)." wide />}
-              {h === 'Review Tier' && <InfoHint text="How much human oversight a case gets — Routine (AI resolves, quick approval), Complex (multi-round, closer review), or Exception (AI hit a gap and escalated to a person)." wide />}
-              {h === 'Due' && <InfoHint text="Regulatory turnaround deadline. Standard PA decisions run on a fixed clock (expedited cases are shorter); the queue sorts the most urgent first." wide />}
-            </span>
-          ))}
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+            Patient / Case
+          </span>
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+            Drug
+          </span>
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide hidden xl:inline-flex items-center gap-1.5">
+            Category
+          </span>
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide hidden lg:inline-flex items-center gap-1.5">
+            Stage
+            <InfoHint text="Where the case sits in the PA lifecycle — Initial PA (a new prior-auth request being assembled and filed) or Appeal (contesting a payer denial)." wide />
+          </span>
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+            Status
+          </span>
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide hidden lg:inline-flex items-center gap-1.5">
+            Review Tier
+            <InfoHint text="How much human oversight a case gets — Routine (AI resolves, quick approval), Complex (multi-round, closer review), or Exception (AI hit a gap and escalated to a person)." wide />
+          </span>
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide inline-flex items-center justify-end gap-1.5">
+            Due
+            <InfoHint text="Regulatory turnaround deadline. Standard PA decisions run on a fixed clock (expedited cases are shorter); the queue sorts the most urgent first." wide />
+          </span>
         </div>
 
         <div id="tour-portfolio-list">
@@ -146,7 +230,13 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
                 {group.rows.map(client => (
                   <div
                     key={client.id}
-                    id={client.scenarioId === 'novo-ozempic-initial' ? 'tour-case-initial-pa' : client.scenarioId === 'novo-ozempic' ? 'tour-case-ozempic' : client.scenarioId === 'infant-omeprazole' ? 'tour-case-infant' : client.scenarioId === 'intercept-ocaliva' ? 'tour-case-ocaliva' : undefined}
+                    id={
+                      client.scenarioId === 'novo-ozempic-initial' ? 'tour-case-initial-pa' :
+                      client.scenarioId === 'novo-ozempic'         ? 'tour-case-ozempic' :
+                      client.scenarioId === 'infant-omeprazole'    ? 'tour-case-infant' :
+                      client.scenarioId === 'intercept-ocaliva'    ? 'tour-case-ocaliva' :
+                      undefined
+                    }
                     onClick={() => onOpenCase(client.scenarioId, client.status)}
                     className={`${GRID} items-center px-4 py-3.5 rounded-xl border transition-all group bg-slate-800/30 hover:bg-slate-800/70 border-transparent hover:border-slate-700/60 cursor-pointer`}
                   >
@@ -157,10 +247,10 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
                       <span className="text-sm font-medium text-white truncate">{client.name}</span>
                     </div>
                     <span className="text-sm text-slate-300 truncate">{client.drug}</span>
-                    <span className="text-sm text-slate-400">{client.categoryLabel}</span>
-                    <StageBadge stage={getCaseStage(client)} />
+                    <span className="text-sm text-slate-400 hidden xl:block">{client.categoryLabel}</span>
+                    <span className="hidden lg:block"><StageBadge stage={getCaseStage(client)} /></span>
                     <StatusBadge status={client.status} />
-                    <TierBadge tier={getCaseTier(client)} />
+                    <span className="hidden lg:block"><TierBadge tier={getCaseTier(client)} /></span>
                     <div className="flex items-center justify-end gap-1.5">
                       <DueBadge deadline={client.deadline} urgency={client.urgency} />
                       <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-400 transition-colors shrink-0" />
@@ -171,7 +261,11 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
             </div>
           ))}
           {groups.length === 0 && (
-            <p className="text-center py-12 text-slate-500 text-sm">No cases match “{search}”</p>
+            <p className="text-center py-12 text-slate-500 text-sm">
+              {search || hasActiveFilters
+                ? 'No cases match the current filters'
+                : 'No cases in the queue'}
+            </p>
           )}
         </div>
       </div>
