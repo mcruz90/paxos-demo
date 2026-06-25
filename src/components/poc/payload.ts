@@ -7,7 +7,10 @@ import type { ScenarioConfig } from '../../types'
 // QuestionnaireResponse); the legacy EDI equivalent is an X12 278 review request.
 // Representative/illustrative — grounded in the scenario, not a validated bundle.
 
-const icd10 = (diagnosis: string) => diagnosis.match(/\(([^)]+)\)/)?.[1] ?? '—'
+// Match a valid ICD-10 code (letter + 2 digits + optional .digits) anywhere in
+// the string. Avoids extracting parenthesized abbreviations like "(PBC)" or
+// "(T2DM)" that share the same parenthesis format but aren't codes.
+const icd10 = (diagnosis: string) => diagnosis.match(/\b([A-Z]\d{2}\.?\d{0,4})\b/)?.[1] ?? ''
 
 export function buildPasPayload(scenario: ScenarioConfig): { fhir: string; x12: string } {
   const code = icd10(scenario.diagnosis)
@@ -61,7 +64,7 @@ export function buildPasPayload(scenario: ScenarioConfig): { fhir: string; x12: 
     `NM1*IL*1*DOE*JANE****MI*W123456789~`,
     `UM*HS*I*3*****Y~`,
     `DTP*472*D8*20260617~`,
-    `HI*ABK:${code.replace('.', '')}~`,
+    ...(code ? [`HI*ABK:${code.replace('.', '')}~`] : []),
     `SE*13*0001~`,
   ].join('\n')
 
