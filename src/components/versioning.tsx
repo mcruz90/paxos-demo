@@ -44,6 +44,9 @@ export function dimFails(d: DimResult): boolean {
 export function verdictOf(results: DimResult[]): 'clean' | 'blocked' {
   return results.some(d => dimFails(d)) ? 'blocked' : 'clean'
 }
+export function thresholdLabel(n: number): string {
+  return n === 1 ? '100%' : `≥ ${Math.round(n * 100)}%`
+}
 
 // Staged promotion — a clean sandbox pass earns a canary, not the whole fleet.
 export const ROLLOUT_STAGES = [
