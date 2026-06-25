@@ -42,3 +42,8 @@ backend/.env
 # Local utility scripts (not part of the project)
 extract.py
 brainstorm_transcript.md
+
+# Playwright / test artifacts
+test-results/
+playwright-report/
+e2e/__screens__/

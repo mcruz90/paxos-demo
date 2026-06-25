@@ -62,7 +62,7 @@ export function PlatformView({ setView }: { setView: (v: View) => void }) {
     <div className="flex-1 overflow-auto">
       <div className="px-8 py-6 border-b border-slate-800 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Platform Registry</h1>
+          <h1 className="text-xl font-bold font-display text-white">Platform Registry</h1>
           <p className="text-sm text-slate-400 mt-0.5">The centralized system of reusable components shared across every client deployment</p>
         </div>
         <div className="flex items-center gap-2">
@@ -73,7 +73,7 @@ export function PlatformView({ setView }: { setView: (v: View) => void }) {
         </div>
       </div>
 
-      <div className="px-8 py-6 space-y-8 max-w-6xl">
+      <div className="px-8 py-6 space-y-8">
 
         {/* Headline */}
         <div className="grid grid-cols-4 gap-4">

@@ -1,4 +1,4 @@
-import { CheckCircle, Users, Zap, ChevronRight, AlertTriangle, RotateCcw, Info, Stethoscope } from 'lucide-react'
+import { CheckCircle, Users, Zap, ChevronRight, AlertTriangle, XCircle, RotateCcw, Info, Stethoscope } from 'lucide-react'
 import { RuleTag } from '../ui'
 import { usePoc } from './PocContext'
 
@@ -55,10 +55,11 @@ export function ExceptionsPanel() {
                       const isPending      = pendingDispatch.includes(cr.rule.label)
                       const isOverriding   = pendingOverride === cr.rule.label
                       const overrideNote   = overrides[cr.rule.label]
-                      const borderClass    = overrideNote ? 'border-blue-500/25' :
-                                             isDispatched  ? 'border-emerald-500/20' :
-                                             isPending     ? 'border-amber-500/40' :
-                                                             'border-amber-500/20'
+                      const borderClass    = overrideNote       ? 'border-blue-500/25' :
+                                             isDispatched        ? 'border-emerald-500/20' :
+                                             isPending           ? 'border-amber-500/40' :
+                                             cr.status === 'conflict' ? 'border-red-500/35' :
+                                                                    'border-amber-500/20'
                       return (
                         <div key={i} className={`bg-slate-800/40 border rounded-xl overflow-hidden ${borderClass}`}>
                           {/* Card header */}
@@ -67,7 +68,9 @@ export function ExceptionsPanel() {
                               ? <CheckCircle className="w-4 h-4 text-blue-400 shrink-0" />
                               : isDispatched
                                 ? <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                                : <AlertTriangle className={`w-4 h-4 shrink-0 ${cr.status === 'conflict' ? 'text-red-400' : 'text-amber-400'}`} />}
+                                : cr.status === 'conflict'
+                                  ? <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+                                  : <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />}
                             <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                               <RuleTag type={cr.rule.type} />
                               <p className="text-sm text-white">{cr.rule.label}</p>
@@ -169,7 +172,7 @@ export function ExceptionsPanel() {
                             </div>
                           ) : cr.status === 'conflict' ? (
                             // Conflict state — contradictory sources surfaced, not silently resolved
-                            <div className="px-4 py-3 bg-red-950/20 space-y-1.5">
+                            <div className="px-4 pt-3 pb-5 bg-red-900/20 space-y-1.5">
                               <div className="flex items-start gap-3 text-xs font-mono">
                                 <span className="text-slate-600 w-28 shrink-0">status</span>
                                 <span className="text-red-400 font-bold tracking-wide">CONFLICT · sources disagree</span>
@@ -185,15 +188,15 @@ export function ExceptionsPanel() {
                                 <span className="text-slate-400 italic leading-relaxed">{cr.note}</span>
                               </div>
                               {cr.suggestedAction && (
-                                <div className="flex items-start gap-3 text-xs pt-2 mt-1 border-t border-slate-700/40">
-                                  <span className="font-mono text-slate-600 w-28 shrink-0 pt-0.5">resolution_path</span>
+                                <div className="flex items-start gap-3 text-xs pt-3 mt-3 border-t border-slate-700/40">
+                                  <span className="font-mono text-slate-600 w-36 shrink-0 pt-0.5">resolution_path</span>
                                   <span className="text-slate-300 leading-relaxed">{cr.suggestedAction}</span>
                                 </div>
                               )}
                             </div>
                           ) : (
                             // Default unresolved state
-                            <div className="px-4 py-3 bg-slate-900/30 space-y-1.5">
+                            <div className="px-4 pt-3 pb-5 bg-slate-900/30 space-y-1.5">
                               <div className="flex items-start gap-3 text-xs font-mono">
                                 <span className="text-slate-600 w-28 shrink-0">status</span>
                                 <span className="text-amber-400 font-bold tracking-wide">UNRESOLVED</span>
@@ -207,8 +210,8 @@ export function ExceptionsPanel() {
                                 <span className="text-slate-400 italic leading-relaxed">{cr.note}</span>
                               </div>
                               {cr.suggestedAction && (
-                                <div className="flex items-start gap-3 text-xs pt-2 mt-1 border-t border-slate-700/40">
-                                  <span className="font-mono text-slate-600 w-28 shrink-0 pt-0.5">resolution_path</span>
+                                <div className="flex items-start gap-3 text-xs pt-3 mt-3 border-t border-slate-700/40">
+                                  <span className="font-mono text-slate-600 w-36 shrink-0 pt-0.5">resolution_path</span>
                                   <span className="text-slate-300 leading-relaxed">{cr.suggestedAction}</span>
                                 </div>
                               )}

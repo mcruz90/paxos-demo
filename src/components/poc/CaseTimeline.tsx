@@ -8,7 +8,7 @@ export function CaseTimeline({ events }: { events: TimelineEvent[] }) {
       {events.map((ev, i) => (
         <Fragment key={i}>
           {i > 0 && (
-            <div className={`flex-1 h-px mt-[14px] min-w-3 ${
+            <div className={`flex-1 h-px mt-3.5 min-w-3 ${
               events[i - 1].status !== 'pending' ? 'bg-slate-600' : 'bg-slate-700'
             }`} />
           )}
@@ -27,9 +27,9 @@ export function CaseTimeline({ events }: { events: TimelineEvent[] }) {
               ev.status === 'flagged' ? 'text-amber-300' :
                                        'text-slate-500'
             }`}>{ev.label}</p>
-            <p className="text-[10px] text-slate-500 text-center leading-tight">{ev.date}</p>
+            <p className="text-xs text-slate-500 text-center leading-tight">{ev.date}</p>
             {ev.note && (
-              <p className="text-[10px] text-slate-500/70 text-center leading-tight">{ev.note}</p>
+              <p className="text-xs text-slate-500/70 text-center leading-tight">{ev.note}</p>
             )}
           </div>
         </Fragment>

@@ -106,7 +106,7 @@ export function EvalRubricView({ setView, onOpenCase }: { setView: (v: View) => 
     <div className="flex-1 overflow-auto">
       <div className="px-8 py-6 border-b border-slate-800 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Eval Rubric</h1>
+          <h1 className="text-xl font-bold font-display text-white">Eval Rubric</h1>
           <p className="text-sm text-slate-400 mt-0.5">
             How the eval harness was chosen, what it measures, and how it gates the <button onClick={() => setView('evals')} className="text-emerald-400 hover:underline">Quality Report</button> — every prompt or model change runs through this
           </p>
@@ -130,19 +130,19 @@ export function EvalRubricView({ setView, onOpenCase }: { setView: (v: View) => 
       </div>
 
       {tab === 'runs' && (
-        <div className="px-8 py-6 max-w-6xl">
+        <div className="px-8 py-6">
           <EvalRunResultsPanel onOpenCase={onOpenCase} />
         </div>
       )}
 
       {tab === 'history' && (
-        <div className="px-8 py-6 max-w-6xl">
+        <div className="px-8 py-6">
           <VersionHistoryPanel title="Eval Rubric" versions={vs.versions} latestVersion={vs.latest.version} editing={vs.editing} onRevert={v => vs.revertTo(v, computeRubricDeltas)} experiments={vs.experiments} />
         </div>
       )}
 
       {tab === 'rubric' && (
-      <div className="px-8 py-6 space-y-8 max-w-6xl">
+      <div className="px-8 py-6 space-y-8">
 
         <div className="flex items-center justify-end">
           <ArtifactControls version={vs.latest.version} editing={vs.editing} onToggleHistory={() => setTab('history')} onEdit={vs.startEdit} />
@@ -205,7 +205,7 @@ export function EvalRubricView({ setView, onOpenCase }: { setView: (v: View) => 
                 <div key={d.dimension} className="rounded-xl border border-violet-500/20 bg-violet-500/[0.05] p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <h3 className="text-sm font-semibold text-violet-200">{d.dimension}</h3>
-                    <span className="ml-auto font-mono text-[11px] text-slate-400">{d.grader} · {thresholdLabel(d.threshold)}</span>
+                    <span className="ml-auto font-mono text-xs text-slate-400">{d.grader} · {thresholdLabel(d.threshold)}</span>
                   </div>
                   <ul className="space-y-1.5">
                     {d.criteria!.map((c, i) => (
@@ -237,9 +237,9 @@ export function EvalRubricView({ setView, onOpenCase }: { setView: (v: View) => 
                   { label: 'Last calibrated', value: JUDGE_CALIBRATION.lastCalibrated, sub: JUDGE_CALIBRATION.recalibrateOn },
                 ].map(t => (
                   <div key={t.label} className="rounded-lg bg-slate-900/40 border border-slate-700/50 p-3">
-                    <p className="text-[11px] font-medium text-slate-400 mb-1.5 leading-snug">{t.label}</p>
+                    <p className="text-xs font-medium text-slate-400 mb-1.5 leading-snug">{t.label}</p>
                     <p className="text-xl font-bold font-mono text-violet-200 leading-none">{t.value}</p>
-                    <p className="text-[11px] text-slate-500 mt-1.5 leading-snug">{t.sub}</p>
+                    <p className="text-xs text-slate-500 mt-1.5 leading-snug">{t.sub}</p>
                   </div>
                 ))}
               </div>
@@ -277,8 +277,8 @@ export function EvalRubricView({ setView, onOpenCase }: { setView: (v: View) => 
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-slate-400 leading-relaxed">{c.exp}</p>
                     <div className="flex gap-1.5 mt-1">
-                      {c.tag === 'regression' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20">regression test</span>}
-                      {c.tag === 'guardrail' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">guardrail test</span>}
+                      {c.tag === 'regression' && <span className="text-xs px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20">regression test</span>}
+                      {c.tag === 'guardrail' && <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">guardrail test</span>}
                     </div>
                   </div>
                 </div>

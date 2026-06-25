@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
-import { Package } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { Package, ChevronLeft } from 'lucide-react'
 import type { CaseStatus, ScenarioConfig, SimPhase } from '../../types'
-import { initialClients } from '../../data/scenarios'
+import { initialClients, newCaseRef } from '../../data/scenarios'
 import { getPipelineSteps } from './pipeline'
 import { CaseTimeline } from './CaseTimeline'
 import { CoverageResolutionLine } from './coverage'
@@ -18,19 +18,13 @@ import { ExceptionsPanel } from './ExceptionsPanel'
 import { DonePanel } from './DonePanel'
 import { PipelineStartPanel } from './PipelineStartPanel'
 
-export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, caseStatus, tourRunning, round2TriggerPending, round2TourNode, onRound2Triggered, round2ContinuePending, onRound2Continued, onStartAppeal }: {
+export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, caseStatus, onStartAppeal }: {
   scenario: ScenarioConfig
   onReset: () => void
   onSaveToPortfolio?: () => void
   reviewMode?: boolean
   autoStart?: boolean
   caseStatus?: CaseStatus
-  tourRunning?: boolean
-  round2TriggerPending?: boolean
-  round2TourNode?: number
-  onRound2Triggered?: () => void
-  round2ContinuePending?: boolean
-  onRound2Continued?: () => void
   onStartAppeal?: (scenarioId: string) => void
 }) {
   const [phase, setPhase] = useState<SimPhase>(
@@ -45,8 +39,11 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
     // Tie the submission reference to the case identity when it's a known case,
     // so the audit trail's reference matches the queue's case number.
     const known = initialClients.find(c => c.scenarioId === scenario.id)?.name
-    return known ? known.replace('Case #', '') : `PH-${Math.floor(Math.random() * 9000) + 1000}`
+    return known ? known.replace('Case #', '') : newCaseRef()
   })
+  const executeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const round2IntervalRef  = useRef<ReturnType<typeof setInterval> | null>(null)
+
   const [traceOpen, setTraceOpen] = useState(true)
   const [hoveredCite, setHoveredCite] = useState<number | null>(null)
   const [editMode, setEditMode] = useState(false)
@@ -66,11 +63,13 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
 
   const handleRound2Execute = () => {
     setPhase('round2_loading'); setRound2StepIdx(0); setRound2TourIdx(0)
-    if (tourRunning) return  // tour drives nodes one-by-one via round2TourNode prop
     let i = 0
-    const iv = setInterval(() => {
+    round2IntervalRef.current = setInterval(() => {
       i++; setRound2StepIdx(i)
-      if (i >= pipelineSteps.length - 1) { clearInterval(iv) }
+      if (i >= pipelineSteps.length - 1) {
+        clearInterval(round2IntervalRef.current!)
+        round2IntervalRef.current = null
+      }
     }, 2500)
   }
 
@@ -107,9 +106,12 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
   const handleExecute = () => {
     setPhase('loading'); setStepIdx(0); setTourIdx(0)
     let i = 0
-    const iv = setInterval(() => {
+    executeIntervalRef.current = setInterval(() => {
       i++; setStepIdx(i)
-      if (i >= pipelineSteps.length - 1) { clearInterval(iv) }
+      if (i >= pipelineSteps.length - 1) {
+        clearInterval(executeIntervalRef.current!)
+        executeIntervalRef.current = null
+      }
     }, 2500)
   }
 
@@ -125,33 +127,14 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
     if (autoStart) handleExecute()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Tour-controlled Round 2: trigger execute when App signals pending
-  useEffect(() => {
-    if (round2TriggerPending && phase === 'submitted') {
-      handleRound2Execute()
-      onRound2Triggered?.()
-    }
-  }, [round2TriggerPending]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Tour-controlled Round 2: open letter screen when App advances past step 14
-  useEffect(() => {
-    if (round2ContinuePending && phase === 'round2_loading') {
-      setPhase('round2_done')
-      onRound2Continued?.()
-    }
-  }, [round2ContinuePending]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Tour-controlled Round 2: sync node index driven by App tour callback
-  useEffect(() => {
-    if (round2TourNode !== undefined && tourRunning) {
-      setRound2StepIdx(round2TourNode)
-      setRound2TourIdx(round2TourNode)
-    }
-  }, [round2TourNode]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => {
+    if (executeIntervalRef.current) clearInterval(executeIntervalRef.current)
+    if (round2IntervalRef.current)  clearInterval(round2IntervalRef.current)
+  }, [])
 
   const handleDownload = () => openAppealPdf(scenario)
 
-  const ctx: PocContextValue = {
+  const ctx = useMemo<PocContextValue>(() => ({
     scenario, onReset, onSaveToPortfolio, onStartAppeal, reviewMode, caseStatus,
     phase, setPhase, dispatched, pendingDispatch, acknowledged, setAcknowledged,
     appealRef, traceOpen, setTraceOpen, hoveredCite, setHoveredCite,
@@ -163,12 +146,32 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
     letterDate, pipelineSteps, unresolvedCriteria, satisfiedCriteria, allResolved,
     generateLetterBody, handleRound2Execute, confirmDispatch, cancelPendingDispatch,
     stagePendingDispatch, dispatchAll, applyOverride, handleExecute, handleDownload,
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [
+    scenario, onReset, onSaveToPortfolio, onStartAppeal, reviewMode, caseStatus,
+    phase, dispatched, pendingDispatch, acknowledged,
+    appealRef, traceOpen, hoveredCite,
+    editMode, editedBody,
+    round2StepIdx, round2TourIdx,
+    payerResponseResolution,
+    overrides, pendingOverride, overrideInput,
+    stepIdx, tourIdx,
+    letterDate, pipelineSteps, unresolvedCriteria, satisfiedCriteria, allResolved,
+  ])
 
   return (
     <div className="flex-1 overflow-auto">
       <div id="tour-pipeline-header" className="px-8 py-6 border-b border-slate-800">
-        <h1 className="text-xl font-bold text-white">
+        <button
+          onClick={onReset}
+          className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-3"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+          Case Queue
+          <span className="text-slate-700 mx-1">·</span>
+          <span className="text-slate-500">{scenario.drug}</span>
+        </button>
+        <h1 className="text-xl font-bold font-display text-white">
           {phase === 'review'    ? (isInitialPa ? 'Review PA Request' : 'Review Appeal Letter')
            : phase === 'submitted' ? (isInitialPa ? 'PA Request Filed' : 'Appeal Submitted')
            : 'Pipeline Execution'}
@@ -186,38 +189,66 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
         </p>
       </div>
 
-      <div className={`p-8 space-y-5 ${phase === 'review' || phase === 'round2_done' ? 'max-w-5xl' : 'max-w-3xl'}`}>
-        <div className="flex items-center gap-4 p-4 bg-slate-800/40 border border-slate-700/60 rounded-xl text-sm">
-          <Package className="w-5 h-5 text-slate-400 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <span className="text-white font-medium">{scenario.drug}</span>
-            <span className="text-slate-500 mx-2">·</span>
-            <span className="text-slate-400">{scenario.plan}</span>
+      {phase === 'review' || phase === 'round2_done' ? (
+        // Review phases: full-width — ReviewPanel has its own internal two-column
+        // layout (letter left, citations right) that benefits from the extra space.
+        <div className="p-8 space-y-5">
+          <div className="flex items-center gap-4 p-4 bg-slate-800/40 border border-slate-700/60 rounded-xl text-sm">
+            <Package className="w-5 h-5 text-slate-400 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <span className="text-white font-medium">{scenario.drug}</span>
+              <span className="text-slate-500 mx-2">·</span>
+              <span className="text-slate-400">{scenario.plan}</span>
+            </div>
+            <span className="text-xs text-slate-500">{scenario.criteriaResults.length} rules loaded</span>
           </div>
-          <span className="text-xs text-slate-500">{scenario.criteriaResults.length} rules loaded</span>
+          <CoverageResolutionLine scenarioId={scenario.id} />
+          {scenario.timeline && caseStatus && (
+            <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl px-5 py-4">
+              <p className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wide">Case Timeline</p>
+              <CaseTimeline events={scenario.timeline} />
+            </div>
+          )}
+          <PocProvider value={ctx}>
+            {phase === 'review' ? (isInitialPa ? <PaRequestReviewPanel /> : <ReviewPanel />) : <Round2DonePanel />}
+          </PocProvider>
+          <CaseTechnicalDetails scenario={scenario} />
         </div>
-
-        <CoverageResolutionLine scenarioId={scenario.id} />
-
-        {scenario.timeline && caseStatus && (
-          <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl px-5 py-4">
-            <p className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wide">Case Timeline</p>
-            <CaseTimeline events={scenario.timeline} />
+      ) : (
+        // All other phases: two-column — static context on the left, evolving
+        // action panel on the right. Timeline lives in the right column so it
+        // can lay out horizontally without being squeezed by the w-80 left rail.
+        <div className="p-8 flex gap-6 items-start">
+          <div className="flex-1 min-w-0 space-y-4">
+            {scenario.timeline && caseStatus && (
+              <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl px-5 py-4">
+                <p className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wide">Case Timeline</p>
+                <CaseTimeline events={scenario.timeline} />
+              </div>
+            )}
+            <PocProvider value={ctx}>
+              {phase === 'submitted' ? <SubmittedPanel />
+                : phase === 'round2_loading' ? <Round2LoadingPanel />
+                : phase === 'round2_submitted' ? <Round2SubmittedPanel />
+                : phase === 'done' && hasExceptions ? <ExceptionsPanel />
+                : phase === 'done' ? <DonePanel />
+                : <PipelineStartPanel />}
+            </PocProvider>
           </div>
-        )}
-        <PocProvider value={ctx}>
-          {phase === 'review' ? (isInitialPa ? <PaRequestReviewPanel /> : <ReviewPanel />)
-            : phase === 'submitted' ? <SubmittedPanel />
-            : phase === 'round2_loading' ? <Round2LoadingPanel />
-            : phase === 'round2_done' ? <Round2DonePanel />
-            : phase === 'round2_submitted' ? <Round2SubmittedPanel />
-            : phase === 'done' && hasExceptions ? <ExceptionsPanel />
-            : phase === 'done' ? <DonePanel />
-            : <PipelineStartPanel />}
-        </PocProvider>
-
-        <CaseTechnicalDetails scenario={scenario} />
-      </div>
+          <div className="w-80 shrink-0 space-y-4">
+            <div className="flex items-center gap-4 p-4 bg-slate-800/40 border border-slate-700/60 rounded-xl text-sm">
+              <Package className="w-5 h-5 text-slate-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-medium leading-snug">{scenario.drug}</p>
+                <p className="text-slate-400 text-xs mt-0.5">{scenario.plan}</p>
+              </div>
+              <span className="text-xs text-slate-500 shrink-0">{scenario.criteriaResults.length} rules</span>
+            </div>
+            <CoverageResolutionLine scenarioId={scenario.id} />
+            <CaseTechnicalDetails scenario={scenario} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

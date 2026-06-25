@@ -174,7 +174,7 @@ export function WorkflowSpecView() {
     <div className="flex-1 overflow-auto">
       <div className="px-8 py-6 border-b border-slate-800 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Workflow Spec</h1>
+          <h1 className="text-xl font-bold font-display text-white">Workflow Spec</h1>
           <p className="text-sm text-slate-400 mt-0.5">
             One spec per drug × payer policy pack. The synthesis pipeline extracts the rules from the payer policy; the AI Lead verifies and corrects them here — every change is eval-gated before it propagates.
           </p>
@@ -182,7 +182,7 @@ export function WorkflowSpecView() {
         <div className="flex items-center gap-2"><RoleChip layer="build" /><IllustrativeTag /></div>
       </div>
 
-      <div className="px-8 py-6 space-y-8 max-w-6xl">
+      <div className="px-8 py-6 space-y-8">
 
         {/* Pack selector */}
         <div className="flex items-center gap-2 flex-wrap">

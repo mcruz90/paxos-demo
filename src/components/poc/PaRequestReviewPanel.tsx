@@ -65,7 +65,7 @@ export function PaRequestReviewPanel() {
             </div>
 
             <div className="px-12 py-10 text-slate-900 text-sm leading-relaxed space-y-5">
-              <h1 className="text-base font-bold">Prior Authorization Request</h1>
+              <h1 className="text-lg font-bold font-display">Prior Authorization Request</h1>
 
               {/* Fixed meta — always from data */}
               <div className="text-xs text-slate-600 border-b border-slate-200 pb-4 space-y-1">

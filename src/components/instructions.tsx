@@ -319,7 +319,7 @@ export function AgentInstructionsView({ store }: { store: InstructionStore }) {
     <div className="flex-1 overflow-auto">
       <div className="px-8 py-6 border-b border-slate-800 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Agent Instructions</h1>
+          <h1 className="text-xl font-bold font-display text-white">Agent Instructions</h1>
           <p className="text-sm text-slate-400 mt-0.5">
             The instruction set behind each pipeline node — versioned, sandbox-tested, and fully auditable
           </p>
@@ -327,7 +327,7 @@ export function AgentInstructionsView({ store }: { store: InstructionStore }) {
         <div className="flex items-center gap-2"><RoleChip layer="build" /><IllustrativeTag /></div>
       </div>
 
-      <div className="px-8 py-6 space-y-6 max-w-6xl">
+      <div className="px-8 py-6 space-y-6">
         {/* The two non-negotiables of the AI layer, stated as first-class principles. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div className="flex items-start gap-3 px-4 py-3.5 bg-violet-500/[0.06] border border-violet-500/25 rounded-xl">

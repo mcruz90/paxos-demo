@@ -100,7 +100,7 @@ export function FailureReviewView({ setView, store }: { setView: (v: View) => vo
     <div className="flex-1 overflow-auto">
       <div className="px-8 py-6 border-b border-slate-800 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">{selected ? 'Failure Cluster' : 'Prod Health'}</h1>
+          <h1 className="text-xl font-bold font-display text-white">{selected ? 'Failure Cluster' : 'Prod Health'}</h1>
           <p className="text-sm text-slate-400 mt-0.5">
             {selected
               ? 'Investigate the failure mode, then remediate it once — for the whole cluster'
@@ -110,7 +110,7 @@ export function FailureReviewView({ setView, store }: { setView: (v: View) => vo
         <div className="flex items-center gap-2"><RoleChip layer="build" /><IllustrativeTag /></div>
       </div>
 
-      <div className="px-8 py-6 space-y-8 max-w-6xl">
+      <div className="px-8 py-6 space-y-8">
 
         {!selected ? (
           <>

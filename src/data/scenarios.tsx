@@ -1,4 +1,4 @@
-import { type CaseTier, type Client, type CriterionResult, type ScenarioConfig, type UniversalPrimitive } from '../types'
+import { type CaseTier, type CaseStatus, type Client, type CriterionResult, type ScenarioConfig, type UniversalPrimitive } from '../types'
 
 export const universalPrimitives: UniversalPrimitive[] = [
   {
@@ -488,8 +488,8 @@ export const TENANT = {
 // ---------------------------------------------------------------------------
 
 export const initialClients: Client[] = [
-  { id: 0, name: 'Case #PH-3098', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 17, 2026', scenarioId: 'novo-ozempic-initial', deadline: 'Due in 2 days',  urgency: 'soon'  },
   { id: 4, name: 'Case #PH-3101', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 5, 2026',  scenarioId: 'novo-ozempic-denied',  deadline: 'Due tomorrow',   urgency: 'soon'  },
+  { id: 0, name: 'Case #PH-3098', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 17, 2026', scenarioId: 'novo-ozempic-initial', deadline: 'Due in 2 days',  urgency: 'soon'  },
   { id: 1, name: 'Case #PH-3102', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 8, 2026',  scenarioId: 'novo-ozempic',         deadline: 'Due today',      urgency: 'today' },
   { id: 2, name: 'Case #PH-4201', drug: 'Omeprazole Susp.', categoryLabel: 'Gastroenterology', status: 'payer_response',   clientType: 'patient', lastUpdated: 'Jun 11, 2026', scenarioId: 'infant-omeprazole',    deadline: 'Due in 4 days',  urgency: 'later' },
   { id: 3, name: 'Case #PH-2847', drug: 'Ocaliva',          categoryLabel: 'Hepatology',        status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 9, 2026',  scenarioId: 'intercept-ocaliva',    deadline: 'Due today',      urgency: 'today' },
@@ -516,3 +516,20 @@ export type CaseStage = 'Initial PA' | 'Appeal'
 export function getCaseStage(client: Client): CaseStage {
   return scenarios[client.scenarioId]?.lifecycle === 'initial_pa' ? 'Initial PA' : 'Appeal'
 }
+
+/** Generates a random PH-NNNN case reference number (4 digits, 1000–9999). */
+export function newCaseRef(): string {
+  return `PH-${Math.floor(Math.random() * 9000) + 1000}`
+}
+
+/** Human-readable status label for the coordinator-facing queue and dashboard. */
+export const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
+  ready_for_review: 'Ready for Review',
+  payer_response:   'Awaiting Payer Response',
+  exception:        'Action Required',
+  processing:       'Processing',
+  submitted:        'Submitted',
+}
+
+/** Case names shown in the EvalDashboard active-pipeline strip (derived from initialClients). */
+export const PIPELINE_CASE_IDS = ['PH-3102', 'PH-4201', 'PH-2847'] as const

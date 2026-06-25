@@ -166,7 +166,7 @@ export function OnboardingView({ setView }: { setView: (v: View) => void }) {
     <div className="flex-1 overflow-auto">
       <div className="px-8 py-6 border-b border-slate-800 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Onboard a New Client</h1>
+          <h1 className="text-xl font-bold font-display text-white">Onboard a New Client</h1>
           <p className="text-sm text-slate-400 mt-0.5">
             Stand up a new customer by configuring reusable platform components — not by building a custom pipeline
           </p>
@@ -208,7 +208,7 @@ export function OnboardingView({ setView }: { setView: (v: View) => void }) {
         </div>
       </div>
 
-      <div className="px-8 py-6 max-w-6xl">
+      <div className="px-8 py-6">
 
         {/* Step 1 — Client Profile */}
         {stepIdx === 0 && (
@@ -382,7 +382,7 @@ export function OnboardingView({ setView }: { setView: (v: View) => void }) {
             <div className="pt-2">
               <p className="text-sm text-slate-400 mb-3">
                 ClearAuth sets a sensible default here at go-live; <span className="text-slate-300">{template.company} owns this policy</span> and
-                tunes it day-to-day in their own workspace (<button onClick={() => setView('automation')} className="text-emerald-400 hover:underline">Operate → Automation Policy</button>).
+                tunes it day-to-day in their own workspace (<button onClick={() => setView('automation')} className="text-teal-400 hover:underline">Operate → Automation Policy</button>).
                 Shown read-only below — how much routine volume to auto-assemble vs. review in depth.
               </p>
               <ReviewPolicyControl routineVolumePct={template.hitl.routine} readOnly />

@@ -236,7 +236,7 @@ const OVERVIEW_TOUR: TourStep[] = [
   },
 ]
 
-export type TourAccent = 'violet' | 'purple' | 'fuchsia' | 'slate'
+export type TourAccent = 'violet' | 'purple' | 'fuchsia' | 'slate' | 'teal'
 
 export interface TourMeta {
   id: TourId
@@ -254,12 +254,12 @@ export const TOURS: Record<TourId, TourMeta> = {
     steps: BUILD_TOUR,
   },
   operate: {
-    id: 'operate', label: 'Operate', audience: 'A prospective client', accent: 'purple',
+    id: 'operate', label: 'Operate', audience: 'A prospective client', accent: 'teal',
     blurb: 'A coordinator’s day: one queue across the PA lifecycle, three review tiers, and the human authorization gate. Initial PA → file; denial → appeal.',
     steps: OPERATE_TOUR,
   },
   scale: {
-    id: 'scale', label: 'Scale', audience: 'An investor or exec', accent: 'fuchsia',
+    id: 'scale', label: 'Scale', audience: 'An investor or exec', accent: 'violet',
     blurb: 'Why this is a platform, not a custom build: onboarding as configuration, a shared component registry, and the reuse economics.',
     steps: SCALE_TOUR,
   },
