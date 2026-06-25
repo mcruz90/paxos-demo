@@ -11,14 +11,14 @@ const TOUR_ICON: Record<TourId, IconType> = {
 
 const ACCENT: Record<string, { ring: string; icon: string; btn: string; chip: string }> = {
   violet:  { ring: 'hover:border-violet-500/60',  icon: 'bg-violet-500/15 text-violet-300',   btn: 'bg-emerald-500 hover:bg-emerald-600', chip: 'text-violet-400 bg-violet-500/15 border-violet-500/30' },
-  emerald: { ring: 'hover:border-emerald-500/60', icon: 'bg-emerald-500/15 text-emerald-300', btn: 'bg-emerald-600 hover:bg-emerald-500', chip: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30' },
+  teal:    { ring: 'hover:border-teal-500/60',    icon: 'bg-teal-500/15 text-teal-300',       btn: 'bg-teal-600 hover:bg-teal-500',       chip: 'text-teal-300 bg-teal-500/15 border-teal-500/30' },
   purple:  { ring: 'hover:border-purple-500/60',  icon: 'bg-purple-500/15 text-purple-300',   btn: 'bg-purple-600 hover:bg-purple-500',  chip: 'text-purple-200 bg-purple-500/15 border-purple-500/30' },
   sky:     { ring: 'hover:border-sky-500/60',     icon: 'bg-sky-500/15 text-sky-300',         btn: 'bg-sky-700 hover:bg-sky-600',        chip: 'text-sky-300 bg-sky-500/15 border-sky-500/30' },
 }
 
 const TOUR_CARDS: { id: TourId; accent: string; emphasized: boolean }[] = [
   { id: 'build',   accent: 'violet',  emphasized: true },
-  { id: 'operate', accent: 'emerald', emphasized: false },
+  { id: 'operate', accent: 'teal',    emphasized: false },
   { id: 'scale',   accent: 'purple',  emphasized: false },
 ]
 
@@ -38,7 +38,7 @@ export function LandingHub({ onStartTour, onRoleChange }: { onStartTour: (id: To
         </div>
         <p className="text-sm text-slate-400 leading-relaxed mb-8">
           The platform surfaces four roles:{' '}
-          <span className="text-emerald-300">Operate</span> (the coordinator's queue),{' '}
+          <span className="text-teal-300">Operate</span> (the coordinator's queue),{' '}
           <span className="text-violet-300">Build</span> (the AI Lead's control plane),{' '}
           <span className="text-purple-300">Scale</span> (how it extends across clients), and{' '}
           <span className="text-sky-300">Sponsor</span> (market access intelligence).{' '}

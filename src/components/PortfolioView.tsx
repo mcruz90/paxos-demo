@@ -93,7 +93,7 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-white leading-snug">First time here?</p>
             <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-              ClearAuth is an AI-native prior-authorization platform spanning the full PA lifecycle — initial prior auths, appeals, and determinations. The guided tours are split by audience: <span className="text-emerald-300">Operate</span> (a prospective client), <span className="text-violet-300">Build</span> (evaluating the AI Lead), and <span className="text-sky-300">Scale</span> (an investor). Pick your path on the welcome screen.{' '}
+              ClearAuth is an AI-native prior-authorization platform spanning the full PA lifecycle — initial prior auths, appeals, and determinations. The guided tours are split by audience: <span className="text-teal-300">Operate</span> (a prospective client), <span className="text-violet-300">Build</span> (evaluating the AI Lead), and <span className="text-sky-300">Scale</span> (an investor). Pick your path on the welcome screen.{' '}
               <span className="text-slate-500">All patients, cases, and clinical data are fictional — this is a portfolio prototype, not a production system.</span>
             </p>
           </div>
@@ -248,9 +248,9 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
                     </div>
                     <span className="text-sm text-slate-300 truncate">{client.drug}</span>
                     <span className="text-sm text-slate-400 hidden xl:block">{client.categoryLabel}</span>
-                    <span className="hidden lg:block"><StageBadge stage={getCaseStage(client)} /></span>
-                    <StatusBadge status={client.status} />
-                    <span className="hidden lg:block"><TierBadge tier={getCaseTier(client)} /></span>
+                    <div className="hidden lg:flex"><StageBadge stage={getCaseStage(client)} /></div>
+                    <div className="flex"><StatusBadge status={client.status} /></div>
+                    <div className="hidden lg:flex"><TierBadge tier={getCaseTier(client)} /></div>
                     <div className="flex items-center justify-end gap-1.5">
                       <DueBadge deadline={client.deadline} urgency={client.urgency} />
                       <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-400 transition-colors shrink-0" />

@@ -47,14 +47,14 @@ const SECTIONS: readonly NavSection[] = [
 
 // Active state: colored bg + text per role; inactive: neutral
 const ROLE_ACTIVE: Record<Role, string> = {
-  Operate: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25',
+  Operate: 'bg-teal-500/15 text-teal-300 border border-teal-500/25',
   Build:   'bg-violet-500/15 text-violet-300 border border-violet-500/25',
   Scale:   'bg-violet-500/15 text-violet-300 border border-violet-500/25',
   Sponsor: 'bg-sky-500/15 text-sky-300 border border-sky-500/25',
 }
 
 const ROLE_DOT: Record<Role, string> = {
-  Operate: 'bg-emerald-400',
+  Operate: 'bg-teal-400',
   Build:   'bg-violet-400',
   Scale:   'bg-violet-400',
   Sponsor: 'bg-sky-400',
@@ -62,7 +62,7 @@ const ROLE_DOT: Record<Role, string> = {
 
 // Top accent stripe on the sidebar header changes per active role
 const ROLE_TOP_BORDER: Record<Role, string> = {
-  Operate: 'border-t-2 border-emerald-500/50',
+  Operate: 'border-t-2 border-teal-500/50',
   Build:   'border-t-2 border-violet-500/50',
   Scale:   'border-t-2 border-violet-500/50',
   Sponsor: 'border-t-2 border-sky-500/50',
@@ -97,10 +97,7 @@ export function Sidebar({
           <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0">
             <ShieldCheck className="w-4 h-4 text-white" />
           </div>
-          <div>
-            <p className="text-sm font-semibold text-white leading-none">ClearAuth</p>
-            <p className="text-xs text-slate-500 mt-0.5">Full PA lifecycle platform</p>
-          </div>
+          <p className="text-sm font-semibold text-white">ClearAuth</p>
         </button>
       </div>
 

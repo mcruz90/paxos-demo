@@ -219,18 +219,6 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
         // action panel on the right. Timeline lives in the right column so it
         // can lay out horizontally without being squeezed by the w-80 left rail.
         <div className="p-8 flex gap-6 items-start">
-          <div className="w-80 shrink-0 space-y-4">
-            <div className="flex items-center gap-4 p-4 bg-slate-800/40 border border-slate-700/60 rounded-xl text-sm">
-              <Package className="w-5 h-5 text-slate-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-medium leading-snug">{scenario.drug}</p>
-                <p className="text-slate-400 text-xs mt-0.5">{scenario.plan}</p>
-              </div>
-              <span className="text-xs text-slate-500 shrink-0">{scenario.criteriaResults.length} rules</span>
-            </div>
-            <CoverageResolutionLine scenarioId={scenario.id} />
-            <CaseTechnicalDetails scenario={scenario} />
-          </div>
           <div className="flex-1 min-w-0 space-y-4">
             {scenario.timeline && caseStatus && (
               <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl px-5 py-4">
@@ -246,6 +234,18 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
                 : phase === 'done' ? <DonePanel />
                 : <PipelineStartPanel />}
             </PocProvider>
+          </div>
+          <div className="w-80 shrink-0 space-y-4">
+            <div className="flex items-center gap-4 p-4 bg-slate-800/40 border border-slate-700/60 rounded-xl text-sm">
+              <Package className="w-5 h-5 text-slate-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-medium leading-snug">{scenario.drug}</p>
+                <p className="text-slate-400 text-xs mt-0.5">{scenario.plan}</p>
+              </div>
+              <span className="text-xs text-slate-500 shrink-0">{scenario.criteriaResults.length} rules</span>
+            </div>
+            <CoverageResolutionLine scenarioId={scenario.id} />
+            <CaseTechnicalDetails scenario={scenario} />
           </div>
         </div>
       )}
