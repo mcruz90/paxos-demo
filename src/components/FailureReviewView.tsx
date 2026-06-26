@@ -40,9 +40,9 @@ export const FAILURE_CLUSTERS: FailureCluster[] = [
     proposedFix: 'Add a deterministic gatekeeper check: reject any safety-critical criterion not backed by explicit evidence.',
     proposedDraft: FIX_GATEKEEPER_SAFETY,
     sampleCases: [
-      { id: 'PH-5567', drug: 'Ocaliva', symptom: 'MTC-adjacent contraindication marked cleared on inferred evidence' },
+      { id: 'PH-5567', drug: 'Livdelzi', symptom: 'MTC-adjacent contraindication marked cleared on inferred evidence' },
       { id: 'PH-5571', drug: 'Ozempic', symptom: 'MEN2 history not explicitly ruled out, passed gate' },
-      { id: 'PH-5588', drug: 'Ocaliva', symptom: 'Decompensation flag inferred, not explicitly documented' },
+      { id: 'PH-5588', drug: 'Livdelzi', symptom: 'Decompensation flag inferred, not explicitly documented' },
     ],
   },
   {
@@ -71,7 +71,7 @@ export const FAILURE_CLUSTERS: FailureCluster[] = [
     proposedFix: 'On contradictory spans for one criterion, surface both sources and mark the criterion conflicted; route to human adjudication rather than silently selecting one. Missing evidence and contradictory evidence are handled as distinct states.',
     proposedDraft: FIX_RETRIEVAL_CONFLICT,
     sampleCases: [
-      { id: 'PH-2847', drug: 'Ocaliva', symptom: 'Consult says no decompensation; discharge summary documents ascites' },
+      { id: 'PH-2847', drug: 'Livdelzi', symptom: 'Consult says no decompensation; discharge summary documents ascites' },
       { id: 'PH-6012', drug: 'Humira', symptom: 'Two notes disagree on prior biologic trial duration' },
       { id: 'PH-6048', drug: 'Enbrel', symptom: 'Weight differs between intake and pharmacy record — changes dose math' },
     ],

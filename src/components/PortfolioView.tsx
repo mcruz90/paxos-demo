@@ -234,7 +234,7 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
                       client.scenarioId === 'novo-ozempic-initial' ? 'tour-case-initial-pa' :
                       client.scenarioId === 'novo-ozempic'         ? 'tour-case-ozempic' :
                       client.scenarioId === 'infant-omeprazole'    ? 'tour-case-infant' :
-                      client.scenarioId === 'intercept-ocaliva'    ? 'tour-case-ocaliva' :
+                      client.scenarioId === 'gilead-livdelzi'      ? 'tour-case-livdelzi' :
                       undefined
                     }
                     onClick={() => onOpenCase(client.scenarioId, client.status)}

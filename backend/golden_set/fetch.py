@@ -5,7 +5,7 @@ This is a run-once bootstrap, NOT a reproducible pipeline. Payer URLs rotate
 committed artifacts in golden/policies/ are the source of truth.
 
 Run from backend/:
-    python -m golden_set.fetch [--anchor ozempic_cigna|esomeprazole_uhc_pediatric|ocaliva_aetna_hepatology|all]
+    python -m golden_set.fetch [--anchor ozempic_cigna|esomeprazole_uhc_pediatric|livdelzi_cigna_hepatology|all]
     python -m golden_set.fetch --dry-run
 
 After the fetch:
@@ -41,18 +41,19 @@ ANCHOR_SOURCES: dict[str, dict[str, str]] = {
         "terms": "factual criteria extracted with citation; not redistributed verbatim",
     },
     "esomeprazole_uhc_pediatric": {
-        # NOTE: verify this PDF carries clinical criteria, not just a PA flag.
-        # If only a flag, locate the matching OptumRx coverage-determination doc.
         "url": (
-            "https://www.uhcprovider.com/content/dam/provider/docs/public/"
-            "prior-auth/pa-requirements/uhc-complete/UHC-Complete-1-1-26.pdf"
+            "https://www.uhcprovider.com/content/dam/provider/docs/public/resources/"
+            "pharmacy/step-therapy/Step-Therapy-Proton-Pump-Inhibitors.pdf"
         ),
         "format": "pdf",
         "terms": "factual criteria extracted with citation; not redistributed verbatim",
     },
-    "ocaliva_aetna_hepatology": {
-        "url": "https://www.aetna.com/products/rxnonmedicare/data/2025/Ocaliva_2029-A_SGM_P2024.html",
-        "format": "html",
+    "livdelzi_cigna_hepatology": {
+        "url": (
+            "https://static.cigna.com/assets/chcp/pdf/coveragePolicies/cnf/"
+            "cnf_877_coveragepositioncriteria_hepatology_livdelzi_pa.pdf"
+        ),
+        "format": "pdf",
         "terms": "factual criteria extracted with citation; not redistributed verbatim",
     },
 }
@@ -135,7 +136,7 @@ def run_anchor(anchor_id: str, out_dir: Path, dry_run: bool = False) -> None:
         )
     )
     manifest.save(manifest_path)
-    print(f"[{anchor_id}] provenance updated → {manifest_path}")
+    print(f"[{anchor_id}] provenance updated -> {manifest_path}")
 
 
 def main() -> None:

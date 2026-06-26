@@ -35,10 +35,10 @@ export const COVERAGE_RESOLUTION: Record<string, CoverageResolution> = {
     pack: 'omeprazole_uhc_pediatric', version: 'v2', effective: 'Apr 1, 2026',
     status: 'resolved', detail: 'Registry hit — this pack has resolved 38 prior cases across all clients.',
   },
-  'intercept-ocaliva': {
-    channel: 'pharmacy', bin: '004336', pcn: 'CVSH', group: 'AET5590',
-    pack: 'ocaliva_aetna_hepatology', version: 'v1', effective: 'Jun 9, 2026',
-    status: 'synthesized', detail: 'First case on this plan × drug platform-wide — pack synthesized from the Aetna PA policy and eval-gated before use. Now persisted for reuse.',
+  'gilead-livdelzi': {
+    channel: 'pharmacy', bin: '610415', pcn: 'ADV', group: 'CIGNA-PPO',
+    pack: 'livdelzi_cigna_hepatology', version: 'v1', effective: 'Jun 26, 2026',
+    status: 'synthesized', detail: 'First case on this plan × drug platform-wide — pack synthesized from the Cigna PA policy and eval-gated before use. Now persisted for reuse.',
   },
 }
 

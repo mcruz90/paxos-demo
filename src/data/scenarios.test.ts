@@ -10,7 +10,7 @@ const byScenario = (id: string): Client => {
 
 describe('getCaseTier', () => {
   it('maps exception status to the exception tier', () => {
-    expect(getCaseTier(byScenario('intercept-ocaliva'))).toBe('exception')
+    expect(getCaseTier(byScenario('gilead-livdelzi'))).toBe('exception')
   })
   it('maps payer_response status to the complex tier', () => {
     expect(getCaseTier(byScenario('infant-omeprazole'))).toBe('complex')

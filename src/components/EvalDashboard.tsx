@@ -83,7 +83,7 @@ export const DRUG_PERF: { drug: string; indication: string; category: string; ca
   { drug: 'Ozempic',          indication: 'Type 2 Diabetes',             category: 'Endocrinology',    cases: 4, approvalRate: 92,   trend: '↑', trendColor: 'text-emerald-400' },
   { drug: 'Ozempic',          indication: 'Weight management',           category: 'Endocrinology',    cases: 3, approvalRate: 78,   trend: '↓', trendColor: 'text-red-400' },
   { drug: 'Omeprazole Susp.', indication: 'Infant GERD',                 category: 'Gastroenterology', cases: 2, approvalRate: 84,   trend: '→', trendColor: 'text-slate-400' },
-  { drug: 'Ocaliva',          indication: 'Primary Biliary Cholangitis', category: 'Hepatology',       cases: 1, approvalRate: null, trend: '→', trendColor: 'text-slate-400' },
+  { drug: 'Livdelzi',         indication: 'Primary Biliary Cholangitis', category: 'Hepatology',       cases: 1, approvalRate: null, trend: '→', trendColor: 'text-slate-400' },
 ]
 
 

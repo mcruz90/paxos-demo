@@ -89,7 +89,7 @@ export const ONBOARDING_TEMPLATES: OnboardingTemplate[] = [
       { source: 'upload[].ocr_text',         canonical: 'denial_text',   confidence: 92 },
     ],
     policyPacks: [
-      { name: 'ocaliva_aetna_hepatology', category: 'Hepatology' },
+      { name: 'livdelzi_cigna_hepatology', category: 'Hepatology' },
     ],
     hitl: { routine: 45, complex: 35, exception: 20 },
     validation: { sampleCases: 8, reusePct: 91, timeEstimate: '~1 hour', netNew: 'CRM object field map only' },
@@ -112,7 +112,7 @@ export const ONBOARDING_TEMPLATES: OnboardingTemplate[] = [
     policyPacks: [
       { name: 'ozempic_cigna_base',       category: 'Endocrinology' },
       { name: 'omeprazole_uhc_pediatric', category: 'Gastroenterology' },
-      { name: 'ocaliva_aetna_hepatology', category: 'Hepatology' },
+      { name: 'livdelzi_cigna_hepatology', category: 'Hepatology' },
     ],
     hitl: { routine: 55, complex: 30, exception: 15 },
     validation: { sampleCases: 12, reusePct: 93, timeEstimate: '~2 hours', netNew: 'Epic FHIR resource map only' },

@@ -46,7 +46,7 @@ export const PACK_DRIFT: PackDrift[] = [
 export const PACK_PROVENANCE: Record<string, { channel: string; version: string; status: 'resolved' | 'synthesized'; detail: string }> = {
   'ozempic_cigna_base.json':       { channel: 'Pharmacy', version: 'v3', status: 'resolved',    detail: 'reused across 214 cases' },
   'omeprazole_uhc_pediatric.json': { channel: 'Pharmacy', version: 'v2', status: 'resolved',    detail: 'reused across 38 cases' },
-  'ocaliva_aetna_hepatology.json': { channel: 'Pharmacy', version: 'v1', status: 'synthesized', detail: 'synthesized on demand · Jun 9, 2026' },
+  'livdelzi_cigna_hepatology.json': { channel: 'Pharmacy', version: 'v1', status: 'synthesized', detail: 'synthesized on demand · Jun 9, 2026' },
 }
 
 

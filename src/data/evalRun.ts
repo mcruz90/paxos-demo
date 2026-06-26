@@ -20,7 +20,7 @@ export const SUITE_SIZE = 84
 
 // The real cases each failure points to (single source of truth for deep-links).
 const OMEPRAZOLE_CASE: CaseLink = { scenarioId: 'infant-omeprazole', status: 'payer_response', caseName: 'Case #PH-4201 · Omeprazole' }
-const OCALIVA_CASE: CaseLink    = { scenarioId: 'intercept-ocaliva', status: 'exception',      caseName: 'Case #PH-2847 · Ocaliva' }
+const LIVDELZI_CASE: CaseLink   = { scenarioId: 'gilead-livdelzi',   status: 'exception',      caseName: 'Case #PH-2847 · Livdelzi' }
 
 // Per-case graders, derived from the canonical rubric. Column order = rubric
 // order (grouped by method), the single source of truth for the test matrix.
@@ -78,14 +78,14 @@ const results: CaseEvalResult[] = [
 
   // FAIL — LLM-as-judge guideline coverage gap on the exception case. Cluster cl-safety.
   {
-    caseId: 'ocaliva-exception',
+    caseId: 'livdelzi-exception',
     tier: 'exception',
     metrics: [
       m(0, 1.0),
       m(1, 1.0),
       m(2, 0.91),
       m(3, 0.88),
-      { ...m(4, 0.62, 'LLM-as-judge (Guideline Coverage rubric): disease-severity criteria (Child-Pugh, MELD) are neither addressed nor cited because the source scores were never located. Rubric coverage = 5/8 criteria. The letter correctly routes to Exception rather than inferring severity — tracked as failure cluster cl-safety (clearance is never inferred, gatekeeper node).'), caseLink: OCALIVA_CASE },
+      { ...m(4, 0.62, 'LLM-as-judge (Guideline Coverage rubric): decompensation conflict and specialist-prescriber criterion are neither addressed nor cited because conflicting spans were not surfaced. Rubric coverage = 5/8 criteria. The letter correctly routes to Exception rather than resolving the conflict — tracked as failure cluster cl-safety (clearance is never inferred, gatekeeper node).'), caseLink: LIVDELZI_CASE },
       m(5, 0.86),
       m(6, 0.94),
       m(7, 0.97),
@@ -93,7 +93,7 @@ const results: CaseEvalResult[] = [
     overallPassed: false,
   },
 
-  cleanPass('ocaliva-safety-missing-mtc', 'exception', [1.0, 1.0, 0.94, 0.90, 0.92, 0.90, 0.96, 0.97]),
+  cleanPass('livdelzi-safety-decomp-resolved', 'exception', [1.0, 1.0, 0.94, 0.90, 0.92, 0.90, 0.96, 0.97]),
   cleanPass('mounjaro-routine',           'routine',   [1.0, 1.0, 0.97, 0.92, 0.96, 0.94, 0.98, 0.99]),
   cleanPass('humira-step-therapy',        'complex',   [1.0, 1.0, 0.92, 0.86, 0.93, 0.88, 0.95, 0.97]),
   cleanPass('enbrel-prior-biologic',      'complex',   [1.0, 1.0, 0.96, 0.91, 0.95, 0.93, 0.97, 0.98]),

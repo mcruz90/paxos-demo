@@ -1,0 +1,163 @@
+```yaml
+anchor_id: esomeprazole_uhc_pediatric
+source_url: https://www.uhcprovider.com/content/dam/provider/docs/public/resources/pharmacy/step-therapy/Step-Therapy-Proton-Pump-Inhibitors.pdf
+retrieved_date: 2026-06-25
+raw_sha256: 7a137ad0afaf388c54c9ce3aeb36b9bc3595ce08adcaffe80b73ca289de48754
+```
+
+ 
+© 2025 UnitedHealthcare Services Inc. 
+1 
+ 
+ 
+UnitedHealthcare Pharmacy 
+Clinical Pharmacy Programs 
+ 
+Program Number 
+2025 P 3035-15 
+Program 
+Step Therapy-Proton Pump Inhibitors (PPI) 
+Medication 
+Nexium® for suspension (esomeprazole), Prevacid® SoluTab™* 
+(lansoprazole), Zegerid®*for suspension (omeprazole and sodium 
+bicarbonate) 
+P&T Approval Date  
+8/2014, 8/2015, 1/2016, 3/2016, 4/2017, 5/2018, 3/2019, 1/2020, 
+3/2021, 3/2022, 3/2023, 4/2024, 5/2025 
+Effective Date  
+8/1/2025 
+ 
+1. 
+Background: 
+ 
+Proton Pump Inhibitors (PPIs) are FDA approved to treat a variety of conditions, including 
+duodenal ulcers, duodenal ulcers associated with Helicobacter pylori, gastric ulcers, erosive 
+esophagitis, Gastroesophageal reflux disease (GERD) in adults and children, hypersecretory 
+conditions such as Zollinger-Ellison syndrome, GERD-related laryngitis and to improve 
+pancreatic enzyme absorption in CF patients (not FDA approved indication).  
+ 
+Step Therapy programs are utilized to encourage the use of lower cost alternatives for certain 
+therapeutic classes. This program requires a member to try the lower cost PPIs before 
+coverage will be provided for Nexium suspension, Prevacid SoluTab* and Zegerid* 
+suspension.  Claims for Nexium suspension and lansoprazole orally disintegrating tablets 
+(generic Prevacid SoluTabs) will process automatically for patients under the age of 6.  
+  
+2. 
+Coverage Criteriaa: 
+ 
+A.   Authorization 
+ 
+1.   Nexium suspension and Prevacid SoluTabs* will be approved based on ONE of the 
+following criteria: 
+ 
+a. History of failure, contraindication, or intolerance to ALL of the following (list 
+reason for therapeutic failure, contraindication, or intolerance): 
+ 
+(1)  A prescription formulation of omeprazole 
+(2)  pantoprazole  
+(3)  rabeprazole 
+ 
+-OR- 
+ 
+b. Patient is unable to swallow a tablet or capsule dosage form due to one of the 
+following:  
+ 
+(1)  age 
+(2) oral/motor difficulties 
+(3) dysphagia 
+ 
+-OR- 
+
+ 
+© 2025 UnitedHealthcare Services Inc. 
+2 
+ 
+ 
+ 
+c. Patient utilizes a feeding tube for medication administration  
+ 
+2.   Zegerid suspension* will be approved based on the following criterion: 
+ 
+a.   History of failure, contraindication, or intolerance to BOTH of the following: 
+ 
+(1) Nexium Suspension (esomeprazole)  
+(2) lansoprazole orally disintegrating tablets (generic Prevacid SoluTabs) 
+ 
+Authorization will be issued for 12 months 
+ 
+a State mandates may apply.  Any federal regulatory requirements and the member specific 
+benefit plan coverage may also impact coverage criteria. Other policies and utilization 
+management programs may apply. 
+*Brand Prevacid Solutab and brand and generic Zegerid suspension are typically excluded from 
+coverage. 
+ 
+3. 
+Additional Clinical Rules: 
+ 
+• 
+Notwithstanding Coverage Criteria, UnitedHealthcare may approve initial and re-
+authorization based solely on previous claim/medication history, diagnosis codes (ICD-10) 
+and/or claim logic. Use of automated approval and re-approval processes varies by 
+program and/or therapeutic class. 
+• 
+Additional clinical rules may apply.. 
+ 
+4. 
+References: 
+ 
+1. Nexium [package insert].Wilmington, DE: AstraZeneca Pharmaceuticals LP.; July 2023.  
+2. Prevacid SoluTab [package insert]. Lexington, MA: Takeda Pharmaceuticals America; 
+August 2023.  
+3. Zegerid [package insert].  Bridgewater, NJ: Salix Pharmaceuticals, Inc.; July 2023.   
+Program 
+Step Therapy – PPI 
+Change Control 
+Date 
+Change 
+8/2014 
+New program. 
+8/2015 
+Annual Review. Removed the requirement one must try an OTC PPI 
+since those are not covered agents. Added Maryland Continuation of 
+Care.  
+1/2016 
+Added Zegerid suspension to criteria.  Updated criteria to allow 
+coverage when patient has a feeding tube. 
+3/2016 
+Updated step one medications for Zegerid. Updated background section 
+to remove Zegerid from statement that claims will process 
+automatically for patients under the age of six.  
+7/2016 
+Added Indiana and West Virginia coverage information. 
+11/2016 
+Administrative change.  Added California coverage information. 
+4/2017 
+Annual review. References updated. State mandate reference language 
+updated.  
+
+ 
+© 2025 UnitedHealthcare Services Inc. 
+3 
+ 
+ 
+5/2018 
+Annual review.  References updated. 
+3/2019 
+Annual review.  References updated.  
+1/2020 
+Updated to clarify pantoprazole alternatives. 
+3/2021 
+Annual review.  References updated. 
+3/2022 
+Annual review. No changes. 
+3/2023 
+Updated to note brand Prevacid Solutab is typically excluded.  
+Removed notation to that generic pantoprazole trial must be a non-
+Camber product.  References updated.  
+4/2024 
+Annual review.  References updated.  
+5/2025 
+Annual review.  Updated to note that additional clinical rules may 
+apply.   
+ 
+ 

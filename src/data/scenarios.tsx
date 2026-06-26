@@ -257,65 +257,39 @@ export const scenarios: Record<string, ScenarioConfig> = {
     ],
   },
 
-  // ── Ocaliva: PBC — exception case, disease severity docs missing ────────────
-  'intercept-ocaliva': {
-    id: 'intercept-ocaliva',
-    drugKey: 'ocaliva',
-    configFile: 'ocaliva_aetna_hepatology.json',
-    drug: 'Ocaliva (obeticholic acid)',
-    manufacturer: 'Intercept Pharmaceuticals',
-    plan: 'Aetna CVS Health PPO',
-    planId: 'AETNA-CVS-2024',
+  // ── Livdelzi: PBC — exception case, decompensation conflict + specialist not confirmed ──
+  'gilead-livdelzi': {
+    id: 'gilead-livdelzi',
+    drugKey: 'livdelzi',
+    configFile: 'livdelzi_cigna_hepatology.json',
+    drug: 'Livdelzi (seladelpar)',
+    manufacturer: 'Gilead Sciences',
+    plan: 'Cigna Healthcare PPO',
+    planId: 'CIGNA-COM-2025',
     categoryKey: 'hepatology',
     categoryLabel: 'Hepatology',
     diagnosis: 'Primary Biliary Cholangitis (PBC) — K75.89',
-    denialReason: 'Prior authorization criteria not met — disease severity documentation incomplete',
+    denialReason: 'Prior authorization criteria not met — decompensation history conflict unresolved and specialist prescriber not confirmed',
     clientType: 'patient',
     criteriaResults: [
       {
-        rule: { type: 'diagnostic', label: 'Confirmed PBC Diagnosis (AMA-positive + liver biopsy)' },
+        rule: { type: 'diagnostic', label: 'Confirmed PBC Diagnosis (≥2 of 3 AASLD criteria)' },
         status: 'found',
-        note: 'Page 1 — Hepatology consult 05/28/2026 confirms PBC. AMA-M2 titer: 1:640. Liver biopsy 04/15/2026: stage II–III fibrosis consistent with PBC.',
+        note: 'Page 1 — Hepatology consult 05/28/2026 confirms PBC. AMA-M2 titer: 1:640. Liver biopsy 04/15/2026: stage II–III fibrosis consistent with PBC. Meets 2 of 3 criteria: positive AMA + histologic evidence.',
         docSource: 'Hepatology Consult',
       },
       {
-        rule: { type: 'temporal', label: 'Inadequate Response to Ursodiol ≥12 Months (ALP > 1.67× ULN)' },
+        rule: { type: 'temporal', label: 'Inadequate Response to Ursodiol ≥12 Months' },
         status: 'found',
-        note: 'Page 3 — Ursodiol 13–15 mg/kg/day documented from Apr 2025. Labs Jun 5, 2026: ALP 312 U/L (ULN 187 U/L → 1.67× = 312.3 U/L). Threshold borderline met.',
+        note: 'Page 3 — Ursodiol 13–15 mg/kg/day documented from Apr 2025. Duration: 14 months. Prescriber attestation of inadequate response on file. ALP 312 U/L (ULN 187 U/L) at Jun 5, 2026.',
         docSource: 'Lab Report',
       },
       {
-        rule: { type: 'math', label: 'Child-Pugh Class A or B (Score ≤9 — Mild-to-Moderate Hepatic Impairment)' },
-        status: 'needs_review',
-        note: 'Child-Pugh score not documented in records provided. Required parameters: bilirubin, albumin, INR, ascites status, encephalopathy grade. Most recent labs are >90 days old.',
-        docSource: 'Missing',
-        suggestedAction: 'Request updated Child-Pugh assessment from treating hepatologist. Requires current labs (bilirubin, albumin, INR within 30 days) and clinical evaluation for ascites/encephalopathy.',
-        workflowPlan: {
-          action: 'Request Child-Pugh score calculation + current LFT panel from treating hepatologist',
-          recipient: 'Dr. [Hepatologist], Hepatology Dept',
-          channel: 'EHR secure message',
-          turnaround: '24–48 hours',
-        },
-      },
-      {
-        rule: { type: 'math', label: 'MELD Score < 15 (Ocaliva contraindicated in decompensated cirrhosis)' },
-        status: 'needs_review',
-        note: 'Current MELD score not calculable — creatinine, bilirubin, and INR values on file are dated May 2, 2026 (>30 days). Aetna requires labs within 30 days for MELD calculation.',
-        docSource: 'Missing',
-        suggestedAction: 'Order stat LFT panel (bilirubin, creatinine, INR) to calculate current MELD score. If MELD ≥15, Ocaliva is contraindicated — escalate to hepatologist for alternative therapy discussion.',
-        workflowPlan: {
-          action: 'Order stat LFT panel + INR for current MELD score calculation',
-          recipient: 'Ordering physician',
-          channel: 'EHR order entry',
-          turnaround: '24 hours',
-        },
-      },
-      {
-        rule: { type: 'safety', label: 'Decompensation Status (Ocaliva contraindicated if decompensated)' },
+        rule: { type: 'safety', label: 'No Current or Prior Hepatic Decompensation Event' },
         status: 'conflict',
-        note: 'Two source documents disagree on decompensation. The system will not silently pick one — a contradiction on a safety-critical criterion is escalated to a clinician to reconcile before the case can proceed.',
+        note: 'Two source documents disagree on decompensation. The system will not silently pick one — a contradiction on this absolute safety exclusion is escalated to a clinician to reconcile before the case can proceed.',
         docSource: 'Hepatology Consult p.1 ⚠ vs Discharge Summary p.2',
-        suggestedAction: 'Route to the treating hepatologist to reconcile the conflicting decompensation findings before the safety criterion can be scored.',
+        suggestedAction: 'Route to the treating hepatologist to reconcile the conflicting decompensation findings. New-onset ascites in the discharge summary, if confirmed, is an absolute contraindication to Livdelzi.',
         workflowPlan: {
           action: 'Reconcile conflicting decompensation findings between consult and discharge summary',
           recipient: 'Treating hepatologist',
@@ -327,42 +301,55 @@ export const scenarios: Record<string, ScenarioConfig> = {
           { source: 'Discharge Summary, p.2 (06/02/2026)', claim: 'Admitted for new-onset ascites — first decompensation event.' },
         ],
       },
+      {
+        rule: { type: 'diagnostic', label: 'Specialist Prescriber (Gastroenterologist / Hepatologist / Transplant Physician)' },
+        status: 'needs_review',
+        note: 'Prescribing physician specialty not confirmed in records provided. Cigna requires Livdelzi to be prescribed by or in consultation with a gastroenterologist, hepatologist, or liver transplant physician.',
+        docSource: 'Missing',
+        suggestedAction: 'Confirm prescriber specialty. If prescribing physician is not a GI/hepatology/transplant specialist, obtain a co-sign or consultation note from one.',
+        workflowPlan: {
+          action: 'Verify prescriber specialty and obtain consultation note if needed',
+          recipient: 'Prescribing physician office',
+          channel: 'Phone / fax',
+          turnaround: '24 hours',
+        },
+      },
     ],
     citations: {
-      'Confirmed PBC Diagnosis (AMA-positive + liver biopsy)':
+      'Confirmed PBC Diagnosis (≥2 of 3 AASLD criteria)':
         { source: 'Hepatology Consult', page: 'p. 1', text: 'AMA-M2 titer 1:640. Liver biopsy 04/15/2026: portal inflammation, bile duct damage, stage II–III fibrosis. Diagnosis: Primary Biliary Cholangitis.' },
-      'Inadequate Response to Ursodiol ≥12 Months (ALP > 1.67× ULN)':
-        { source: 'Lab Report', page: 'p. 3', text: 'ALP 312 U/L (ULN 187 U/L). Ursodiol therapy initiated April 2025 at 13 mg/kg/day. Duration: 14 months. ALP threshold (1.67× ULN = 312.3 U/L) borderline exceeded.' },
-      'Child-Pugh Class A or B (Score ≤9 — Mild-to-Moderate Hepatic Impairment)':
-        { source: 'Missing', page: '—', text: 'Documentation not found in records provided.' },
-      'MELD Score < 15 (Ocaliva contraindicated in decompensated cirrhosis)':
-        { source: 'Missing', page: '—', text: 'Current labs required for MELD calculation are >30 days old.' },
+      'Inadequate Response to Ursodiol ≥12 Months':
+        { source: 'Lab Report', page: 'p. 3', text: 'ALP 312 U/L (ULN 187 U/L). Ursodiol therapy initiated April 2025 at 13 mg/kg/day. Duration: 14 months. Prescriber attests inadequate response.' },
+      'No Current or Prior Hepatic Decompensation Event':
+        { source: 'Conflict', page: '—', text: 'Hepatology Consult (05/28): no decompensation. Discharge Summary (06/02): admitted for new-onset ascites.' },
+      'Specialist Prescriber (Gastroenterologist / Hepatologist / Transplant Physician)':
+        { source: 'Missing', page: '—', text: 'Prescriber specialty not documented in records provided.' },
     },
     configJson: `{
-  "policy_id": "ocaliva-aetna-hepatology-v1",
-  "target_drug": "obeticholic_acid",
-  "carrier": "aetna",
+  "policy_id": "livdelzi-cigna-hepatology-v1",
+  "target_drug": "seladelpar",
+  "carrier": "cigna",
   "diagnostic_rules": [
     { "condition_category": "Primary Biliary Cholangitis", "icd10": "K75.89",
-      "requires_ama_positive": true, "biopsy_confirmation": true }
+      "requires_2_of": ["elevated_alp", "ama_or_pbc_ana", "liver_biopsy"],
+      "specialist_required": ["gastroenterologist", "hepatologist", "liver_transplant_physician"] }
   ],
   "temporal_rules": [
     { "intervention_target": "ursodiol",
       "minimum_duration_days": 365, "allows_intolerance_bypass": true }
   ],
   "biomarker_rules": [
-    { "biomarker_name": "ALP", "operator": ">", "multiplier_of_uln": 1.67, "max_age_days": 90 },
-    { "biomarker_name": "MELD_score", "operator": "<", "absolute_threshold": 15, "max_age_days": 30 }
+    { "biomarker_name": "ALP", "operator": ">", "comparator": "ULN", "max_age_days": 90 }
   ],
   "safety_rules": [
-    { "condition_category": "Decompensated cirrhosis or Child-Pugh Class C",
-      "must_be_present": false }
+    { "condition_category": "Hepatic decompensation (ascites, varices, encephalopathy, coagulopathy)",
+      "must_be_present": false, "includes_history": true }
   ]
 }`,
     timeline: [
-      { label: 'PA Filed',      date: 'Jun 9, 2026', status: 'done'    as const, note: 'Aetna hepatology'     },
-      { label: 'Docs Missing',  date: 'Jun 9, 2026', status: 'flagged' as const, note: 'Child-Pugh + MELD'   },
-      { label: 'Coord. Action', date: 'Pending',      status: 'pending' as const, note: 'Gather severity docs' },
+      { label: 'PA Filed',        date: 'Jun 9, 2026', status: 'done'    as const, note: 'Cigna hepatology'         },
+      { label: 'Docs Conflict',   date: 'Jun 9, 2026', status: 'flagged' as const, note: 'Decompensation conflict'  },
+      { label: 'Coord. Action',   date: 'Pending',      status: 'pending' as const, note: 'Resolve + verify specialist' },
     ],
   },
 
@@ -492,7 +479,7 @@ export const initialClients: Client[] = [
   { id: 0, name: 'Case #PH-3098', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 17, 2026', scenarioId: 'novo-ozempic-initial', deadline: 'Due in 2 days',  urgency: 'soon'  },
   { id: 1, name: 'Case #PH-3102', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 8, 2026',  scenarioId: 'novo-ozempic',         deadline: 'Due today',      urgency: 'today' },
   { id: 2, name: 'Case #PH-4201', drug: 'Omeprazole Susp.', categoryLabel: 'Gastroenterology', status: 'payer_response',   clientType: 'patient', lastUpdated: 'Jun 11, 2026', scenarioId: 'infant-omeprazole',    deadline: 'Due in 4 days',  urgency: 'later' },
-  { id: 3, name: 'Case #PH-2847', drug: 'Ocaliva',          categoryLabel: 'Hepatology',        status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 9, 2026',  scenarioId: 'intercept-ocaliva',    deadline: 'Due today',      urgency: 'today' },
+  { id: 3, name: 'Case #PH-2847', drug: 'Livdelzi',         categoryLabel: 'Hepatology',        status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 9, 2026',  scenarioId: 'gilead-livdelzi',      deadline: 'Due today',      urgency: 'today' },
 ]
 
 

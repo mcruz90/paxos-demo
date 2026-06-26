@@ -18,8 +18,8 @@ export const WORKFLOW_PACKS: WorkflowPack[] = [
     rawPolicy: 'Coverage for GLP-1 receptor agonists (e.g., semaglutide) for type 2 diabetes mellitus requires an established T2DM diagnosis, a recent HbA1c demonstrating inadequate glycemic control, and a trial of metformin of adequate duration and dose unless contraindicated or not tolerated. Members with a personal or family history of medullary thyroid carcinoma or MEN2 are not eligible.',
   },
   {
-    id: 'ocaliva-aetna', drug: 'Ocaliva (obeticholic acid)', carrier: 'Aetna CVS Health · PBC', file: 'ocaliva_aetna_hepatology',
-    rawPolicy: 'Obeticholic acid is covered for primary biliary cholangitis confirmed by AMA positivity or compatible histology, in adults with an inadequate response to ursodeoxycholic acid after at least 12 months, or intolerance to UDCA. Disease severity (Child-Pugh, MELD) must be documented on current labs. Not covered in decompensated cirrhosis.',
+    id: 'livdelzi-cigna', drug: 'Livdelzi (seladelpar)', carrier: 'Cigna Healthcare · PBC', file: 'livdelzi_cigna_hepatology',
+    rawPolicy: 'Livdelzi (seladelpar) is covered for primary biliary cholangitis in combination with UDCA or as monotherapy for those unable to tolerate UDCA, when ≥2 of 3 AASLD biochemical response criteria remain unmet after ≥12 months of adequate UDCA therapy. No current or prior hepatic decompensation (absolute contraindication, including history). Prescriber must be a gastroenterologist, hepatologist, or transplant specialist.',
   },
   {
     id: 'omeprazole-uhc', drug: 'Omeprazole 2mg/mL Susp.', carrier: 'UnitedHealthcare · Infant GERD', file: 'omeprazole_uhc_pediatric',
@@ -53,28 +53,29 @@ export const WSPEC_OZEMPIC: WorkflowSpecData = {
   ],
 }
 
-export const WSPEC_OCALIVA: WorkflowSpecData = {
+export const WSPEC_LIVDELZI: WorkflowSpecData = {
   rules: [
-    { type: 'diagnostic', cond: 'Confirmed PBC — AMA-positive or compatible biopsy (K75.89)', crit: 'blocking', conf: 0.95 },
-    { type: 'temporal',   cond: 'Inadequate response to ursodiol ≥ 12 months (ALP > 1.67× ULN)', crit: 'blocking', conf: 0.79 },
-    { type: 'math',       cond: 'Child-Pugh Class A or B (score ≤ 9)', crit: 'blocking', conf: 0.93 },
-    { type: 'safety',     cond: 'MELD < 15 — not decompensated cirrhosis', crit: 'blocking', conf: 0.90 },
+    { type: 'diagnostic', cond: 'Confirmed PBC — AMA-positive or compatible biopsy, ≥2 of 3 AASLD criteria unmet (ALP > ULN, bili > 0.5× ULN, AST/ALT > 2.5× ULN)', crit: 'blocking', conf: 0.95 },
+    { type: 'temporal',   cond: 'UDCA ≥12 months inadequate response (AASLD criteria unmet) OR documented UDCA intolerance', crit: 'blocking', conf: 0.83 },
+    { type: 'safety',     cond: 'NO current or prior hepatic decompensation — absolute contraindication includes historical events', crit: 'blocking', conf: 0.88 },
+    { type: 'prescriber', cond: 'Specialist prescriber confirmed — GI / hepatologist / transplant medicine', crit: 'blocking', conf: 0.79 },
   ],
   edgeCases: [
-    { c: 'Child-Pugh parameters incomplete', h: 'needs_review → request updated hepatology assessment with current labs.' },
-    { c: 'MELD labs older than 30 days', h: 'needs_review → order a stat LFT panel before proceeding.' },
-    { c: 'ALP borderline at ~1.67× ULN', h: 'Document the trend; supporting inference allowed with citation.' },
-    { c: 'Signs of decompensation (ascites / encephalopathy)', h: 'Safety — never inferred; explicit documentation required or escalate.' },
+    { c: 'Prior decompensation event (resolved)', h: 'Safety — prior decompensation is an absolute contraindication per Cigna policy regardless of current status. Escalate to Exception.' },
+    { c: 'UDCA intolerance without 12-month trial', h: 'Intolerance path bypasses duration; documented adverse reaction required with citation.' },
+    { c: 'ALP borderline at or just above ULN', h: 'needs_review → confirm units and reference range; document lab trend with citation.' },
+    { c: 'Prescriber specialty not confirmed in referral', h: 'needs_review → request specialist attestation before filing.' },
   ],
   escalations: [
-    { trig: 'Disease-severity score missing or expired', to: 'Exception' },
-    { trig: 'MELD ≥ 15 (contraindication)', to: 'Exception' },
+    { trig: 'Prior decompensation event in record', to: 'Exception' },
+    { trig: 'Specialist prescriber not confirmed', to: 'Exception' },
+    { trig: 'AASLD response criteria count unclear', to: 'Complex' },
     { trig: 'Gatekeeper fails 3 retries', to: 'Exception' },
   ],
   reviewSteps: [
     { tier: 'Routine', d: 'Confirm summary + key citations · 1 click' },
     { tier: 'Complex', d: 'Coordinator reviews; clinical reviewer (PharmD/MD) co-signs the argument · may edit' },
-    { tier: 'Exception', d: 'Investigate · gather severity docs · clinical reviewer adjudicates before filing' },
+    { tier: 'Exception', d: 'Investigate · gather decompensation history + specialist docs · clinical reviewer adjudicates before filing' },
   ],
 }
 
@@ -105,7 +106,7 @@ export const WSPEC_OMEPRAZOLE: WorkflowSpecData = {
 
 export const WORKFLOW_HISTORY_BY_PACK: Record<string, VersionEntry<WorkflowSpecData>[]> = {
   'ozempic-cigna':  [{ version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 6, 2026', note: 'Initial spec from Cigna policy', deltas: ['Initial version'], snapshot: WSPEC_OZEMPIC }],
-  'ocaliva-aetna':  [{ version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 7, 2026', note: 'Initial spec from Aetna PBC policy', deltas: ['Initial version'], snapshot: WSPEC_OCALIVA }],
+  'livdelzi-cigna': [{ version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 26, 2026', note: 'Initial spec from Cigna Livdelzi PA policy (cnf_877)', deltas: ['Initial version'], snapshot: WSPEC_LIVDELZI }],
   'omeprazole-uhc': [{ version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 8, 2026', note: 'Initial spec from UHC pediatric policy', deltas: ['Initial version'], snapshot: WSPEC_OMEPRAZOLE }],
 }
 

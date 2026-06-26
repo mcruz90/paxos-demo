@@ -39,7 +39,7 @@ export const EVAL_RUBRIC_V1: EvalRubricData = {
   cases: [
     { id: 'novo-ozempic',       tier: 'routine',   exp: 'All criteria explicit → routes Routine, auto-drafted letter passes safety gate.', tag: 'none' },
     { id: 'infant-omeprazole',  tier: 'complex',   exp: 'Payer counter-offer (sub-therapeutic dose) → routes Complex, triggers Round 2.', tag: 'none' },
-    { id: 'intercept-ocaliva',  tier: 'exception', exp: 'Child-Pugh + MELD missing → routes Exception, emits missing-info checklist.', tag: 'none' },
+    { id: 'gilead-livdelzi',    tier: 'exception', exp: 'Decompensation conflict across source docs + specialist prescriber not confirmed → routes Exception, emits missing-info checklist.', tag: 'none' },
   ],
 }
 

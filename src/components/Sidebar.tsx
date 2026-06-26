@@ -97,7 +97,7 @@ export function Sidebar({
           <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0">
             <ShieldCheck className="w-4 h-4 text-white" />
           </div>
-          <p className="text-sm font-semibold text-white">ClearAuth</p>
+          <p className="text-sm font-semibold text-white">ClearAuth (Demo) </p>
         </button>
       </div>
 

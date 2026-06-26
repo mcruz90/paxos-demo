@@ -18,9 +18,9 @@ export interface SponsorBrand {
 
 export const SPONSOR_BRANDS: SponsorBrand[] = [
   {
-    id: 'intercept-ocaliva',
-    manufacturer: 'Intercept Pharmaceuticals',
-    drug: 'Ocaliva (obeticholic acid)',
+    id: 'gilead-livdelzi',
+    manufacturer: 'Gilead Sciences',
+    drug: 'Livdelzi (seladelpar)',
     approvalRate: 71, approvalTrend: 6,
     medianDaysToTherapy: 18, daysTrend: -4,
     sitesLive: 9, casesQuarter: 247,
