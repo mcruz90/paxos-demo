@@ -13,7 +13,7 @@ import sys
 import argparse
 import httpx
 
-from golden_set.fetch import ANCHORS
+from golden_set.fetch import ANCHOR_SOURCES as ANCHORS
 
 TIMEOUT = 15
 HEADERS = {

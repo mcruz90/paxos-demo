@@ -10,19 +10,19 @@ export interface WorkflowSpecData {
   reviewSteps: { tier: string; d: string }[]
 }
 
-export interface WorkflowPack { id: string; drug: string; carrier: string; file: string; rawPolicy: string }
+export interface WorkflowPack { id: string; drug: string; carrier: string; file: string; rawPolicy: string; market: 'commercial' | 'individual' | 'medicare_advantage' }
 
 export const WORKFLOW_PACKS: WorkflowPack[] = [
   {
-    id: 'ozempic-cigna', drug: 'Ozempic (semaglutide)', carrier: 'Cigna Connect 500 · T2DM', file: 'ozempic_cigna_base',
+    id: 'ozempic-cigna', drug: 'Ozempic (semaglutide)', carrier: 'Cigna Connect 500 · T2DM', file: 'ozempic_cigna_base', market: 'commercial',
     rawPolicy: 'Coverage for GLP-1 receptor agonists (e.g., semaglutide) for type 2 diabetes mellitus requires an established T2DM diagnosis, a recent HbA1c demonstrating inadequate glycemic control, and a trial of metformin of adequate duration and dose unless contraindicated or not tolerated. Members with a personal or family history of medullary thyroid carcinoma or MEN2 are not eligible.',
   },
   {
-    id: 'livdelzi-cigna', drug: 'Livdelzi (seladelpar)', carrier: 'Cigna Healthcare · PBC', file: 'livdelzi_cigna_hepatology',
+    id: 'livdelzi-cigna', drug: 'Livdelzi (seladelpar)', carrier: 'Cigna Healthcare · PBC', file: 'livdelzi_cigna_hepatology', market: 'commercial',
     rawPolicy: 'Livdelzi (seladelpar) is covered for primary biliary cholangitis in combination with UDCA or as monotherapy for those unable to tolerate UDCA, when ≥2 of 3 AASLD biochemical response criteria remain unmet after ≥12 months of adequate UDCA therapy. No current or prior hepatic decompensation (absolute contraindication, including history). Prescriber must be a gastroenterologist, hepatologist, or transplant specialist.',
   },
   {
-    id: 'omeprazole-uhc', drug: 'Omeprazole 2mg/mL Susp.', carrier: 'UnitedHealthcare · Infant GERD', file: 'omeprazole_uhc_pediatric',
+    id: 'omeprazole-uhc', drug: 'Omeprazole 2mg/mL Susp.', carrier: 'UnitedHealthcare · Infant GERD', file: 'omeprazole_uhc_pediatric', market: 'commercial',
     rawPolicy: 'Compounded omeprazole oral suspension is non-formulary; formulary tablet/capsule alternatives must be tried first unless contraindicated. Coverage for infants requires documented GERD with esophagitis and a trial of conservative measures. Dosing must follow standard protocol.',
   },
 ]
@@ -120,6 +120,17 @@ export function computeWorkflowDeltas(prev: WorkflowSpecData, next: WorkflowSpec
   return d.length ? d : ['No changes']
 }
 
+const MARKET_META: Record<string, { label: string; cls: string }> = {
+  commercial:        { label: 'Commercial',    cls: 'text-sky-400 bg-sky-500/10 border-sky-500/20' },
+  individual:        { label: 'Individual',    cls: 'text-violet-400 bg-violet-500/10 border-violet-500/20' },
+  medicare_advantage:{ label: 'Medicare Adv.', cls: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
+}
+
+export function MarketBadge({ market }: { market: string }) {
+  const m = MARKET_META[market] ?? { label: market, cls: 'text-slate-400 bg-slate-500/10 border-slate-500/20' }
+  return <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${m.cls}`}>{m.label}</span>
+}
+
 // Color the target tier so triage reads at a glance.
 const escTierCls = (to: string) =>
   to.startsWith('Exception') ? 'text-red-300 bg-red-500/10 border-red-500/20'
@@ -210,6 +221,7 @@ export function WorkflowSpecView() {
             <span className="text-white font-medium">{pack.drug}</span>
             <span className="text-slate-500">·</span>
             <span className="text-slate-400">{pack.carrier}</span>
+            <MarketBadge market={pack.market} />
             <span className="text-xs font-mono text-emerald-400 ml-1">{pack.file}</span>
           </div>
           <ArtifactControls version={latest.version} editing={editing} onToggleHistory={() => setShowHistory(s => !s)} onEdit={startEdit} />

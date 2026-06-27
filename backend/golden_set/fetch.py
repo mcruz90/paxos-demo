@@ -38,6 +38,7 @@ ANCHOR_SOURCES: dict[str, dict[str, str]] = {
             "cnf_360_coveragepositioncriteria_glucagon-like_peptide-1_agonists_pa.pdf"
         ),
         "format": "pdf",
+        "market": "commercial",
         "terms": "factual criteria extracted with citation; not redistributed verbatim",
     },
     "esomeprazole_uhc_pediatric": {
@@ -46,6 +47,7 @@ ANCHOR_SOURCES: dict[str, dict[str, str]] = {
             "pharmacy/step-therapy/Step-Therapy-Proton-Pump-Inhibitors.pdf"
         ),
         "format": "pdf",
+        "market": "commercial",
         "terms": "factual criteria extracted with citation; not redistributed verbatim",
     },
     "livdelzi_cigna_hepatology": {
@@ -54,6 +56,7 @@ ANCHOR_SOURCES: dict[str, dict[str, str]] = {
             "cnf_877_coveragepositioncriteria_hepatology_livdelzi_pa.pdf"
         ),
         "format": "pdf",
+        "market": "commercial",
         "terms": "factual criteria extracted with citation; not redistributed verbatim",
     },
 }

@@ -3,6 +3,7 @@ import { Upload, FileText, CheckCircle, Loader2, Users, ChevronRight, Building2,
 import { type IconType, type View } from '../types'
 import { RoleChip, IllustrativeTag } from './ui'
 import { ReviewPolicyControl } from './ReviewPolicyControl'
+import { MarketBadge } from './WorkflowSpecView'
 import { RUBRIC_DIMENSIONS, METHOD_LABEL, thresholdLabel } from '../data/evalRubric'
 
 export interface Connector {
@@ -45,7 +46,7 @@ export interface OnboardingTemplate {
   dataStory: string
   connectorIds: string[]
   fieldMappings: FieldMapping[]
-  policyPacks: { name: string; category: string }[]
+  policyPacks: { name: string; category: string; market: 'commercial' | 'individual' | 'medicare_advantage' }[]
   hitl: { routine: number; complex: number; exception: number }
   validation: { sampleCases: number; reusePct: number; timeEstimate: string; netNew: string }
 }
@@ -67,8 +68,8 @@ export const ONBOARDING_TEMPLATES: OnboardingTemplate[] = [
       { source: 'fax.classified_reason',     canonical: 'denial_reason', confidence: 88 },
     ],
     policyPacks: [
-      { name: 'ozempic_cigna_base', category: 'Endocrinology' },
-      { name: 'omeprazole_uhc_pediatric', category: 'Gastroenterology' },
+      { name: 'ozempic_cigna_base', category: 'Endocrinology', market: 'commercial' },
+      { name: 'omeprazole_uhc_pediatric', category: 'Gastroenterology', market: 'commercial' },
     ],
     hitl: { routine: 60, complex: 28, exception: 12 },
     validation: { sampleCases: 10, reusePct: 94, timeEstimate: '~45 min', netNew: 'App-JSON adapter mapping only' },
@@ -89,7 +90,7 @@ export const ONBOARDING_TEMPLATES: OnboardingTemplate[] = [
       { source: 'upload[].ocr_text',         canonical: 'denial_text',   confidence: 92 },
     ],
     policyPacks: [
-      { name: 'livdelzi_cigna_hepatology', category: 'Hepatology' },
+      { name: 'livdelzi_cigna_hepatology', category: 'Hepatology', market: 'commercial' },
     ],
     hitl: { routine: 45, complex: 35, exception: 20 },
     validation: { sampleCases: 8, reusePct: 91, timeEstimate: '~1 hour', netNew: 'CRM object field map only' },
@@ -110,9 +111,9 @@ export const ONBOARDING_TEMPLATES: OnboardingTemplate[] = [
       { source: 'fax.classified_reason',             canonical: 'denial_reason', confidence: 88 },
     ],
     policyPacks: [
-      { name: 'ozempic_cigna_base',       category: 'Endocrinology' },
-      { name: 'omeprazole_uhc_pediatric', category: 'Gastroenterology' },
-      { name: 'livdelzi_cigna_hepatology', category: 'Hepatology' },
+      { name: 'ozempic_cigna_base',        category: 'Endocrinology',    market: 'commercial' },
+      { name: 'omeprazole_uhc_pediatric',  category: 'Gastroenterology', market: 'commercial' },
+      { name: 'livdelzi_cigna_hepatology', category: 'Hepatology',        market: 'commercial' },
     ],
     hitl: { routine: 55, complex: 30, exception: 15 },
     validation: { sampleCases: 12, reusePct: 93, timeEstimate: '~2 hours', netNew: 'Epic FHIR resource map only' },
@@ -331,7 +332,10 @@ export function OnboardingView({ setView }: { setView: (v: View) => void }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-mono text-emerald-400">{p.name}</p>
-                    <p className="text-xs text-slate-500">{p.category}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-xs text-slate-500">{p.category}</p>
+                      <MarketBadge market={p.market} />
+                    </div>
                   </div>
                   <span className="text-xs text-emerald-300 inline-flex items-center gap-1.5 shrink-0"><CheckCircle className="w-4 h-4" />Registry hit</span>
                 </div>
