@@ -16,9 +16,12 @@ Proton Pump Inhibitors (PPIs) are FDA-approved for:
 - GERD in adults and children
 - Hypersecretory conditions (e.g., Zollinger-Ellison syndrome)
 - GERD-related laryngitis
-- Pancreatic enzyme absorption in cystic fibrosis patients *(not an FDA-approved indication)*
+- Improving Pancreatic enzyme absorption in cystic fibrosis patients *(not an FDA-approved indication)*
 
-Agents targeted by this step therapy program: **Nexium® for suspension (esomeprazole)**, Prevacid® SoluTab™ (lansoprazole ODT), Zegerid® for suspension (omeprazole/sodium bicarbonate).
+Agents targeted by this step therapy program:
+- **Nexium® for suspension (esomeprazole)**
+- Prevacid® SoluTab™ (lansoprazole ODT)
+- Zegerid® for suspension (omeprazole/sodium bicarbonate).
 
 ## Diagnostic Criteria
 

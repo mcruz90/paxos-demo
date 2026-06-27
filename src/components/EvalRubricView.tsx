@@ -202,7 +202,7 @@ export function EvalRubricView({ setView, onOpenCase }: { setView: (v: View) => 
             <p className="text-xs text-slate-500 mb-3">For subjective dimensions with no deterministic answer key, the AI Lead authors explicit pass criteria; an LLM grades each letter against them (HealthBench-style).</p>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {RUBRIC_DIMENSIONS.filter(d => d.criteria).map(d => (
-                <div key={d.dimension} className="rounded-xl border border-violet-500/20 bg-violet-500/[0.05] p-4">
+                <div key={d.dimension} className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <h3 className="text-sm font-semibold text-violet-200">{d.dimension}</h3>
                     <span className="ml-auto font-mono text-xs text-slate-400">{d.grader} · {thresholdLabel(d.threshold)}</span>
@@ -228,7 +228,7 @@ export function EvalRubricView({ setView, onOpenCase }: { setView: (v: View) => 
               <Stethoscope className="w-4 h-4 text-violet-400" />Is the Judge Trustworthy? <span className="text-violet-300 font-normal">· LLM-as-judge calibration</span>
             </h2>
             <p className="text-xs text-slate-500 mb-3">An LLM grader only gets to gate clinical letters if it agrees with clinicians. The judge is calibrated against a clinician panel on a labeled sample — and the ambiguous tail still goes to a human.</p>
-            <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.05] p-5">
+            <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-5">
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                 {[
                   { label: 'Judge ↔ clinician agreement', value: `${JUDGE_CALIBRATION.agreementPct}%`, sub: `on ${JUDGE_CALIBRATION.labeledLetters} labeled letters` },
