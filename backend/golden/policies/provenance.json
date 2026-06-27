@@ -32,6 +32,17 @@
       "markdown_sha256": "b0df2afaa8add39b8fea1a0aaa24f47e4fc81cbbafaa1374c2a2d8ed7d4370af",
       "terms": "factual criteria extracted with citation; not redistributed verbatim",
       "format": "pdf"
+    },
+    {
+      "anchor_id": "livdelzi_cigna_individual",
+      "source_url": "https://static.cigna.com/assets/chcp/pdf/coveragePolicies/pharmacy/ip_0711_coveragepositioncriteria_hepatology_livdelzi.pdf",
+      "retrieved_date": "2026-06-27",
+      "effective_date": "2026-01-15",
+      "market": "individual",
+      "source_pdf_sha256": "5978970de655ad3b8495177c421b4cd5016073fb3536bc28fa7908d8d05d3f57",
+      "note": "Reference source only — criteria identical to livdelzi_cigna_hepatology (commercial) at this date. No authored .md or golden-set anchor. Retained for auditability and market-dimension comparison.",
+      "terms": "factual criteria extracted with citation; not redistributed verbatim",
+      "format": "pdf"
     }
   ]
 }
