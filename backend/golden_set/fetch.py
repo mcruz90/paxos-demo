@@ -39,6 +39,7 @@ ANCHOR_SOURCES: dict[str, dict[str, str]] = {
         ),
         "format": "pdf",
         "market": "commercial",
+        "cigna_policy_tier": "nonformulary",
         "terms": "factual criteria extracted with citation; not redistributed verbatim",
     },
     "esomeprazole_uhc_pediatric": {
@@ -57,6 +58,7 @@ ANCHOR_SOURCES: dict[str, dict[str, str]] = {
         ),
         "format": "pdf",
         "market": "commercial",
+        "cigna_policy_tier": "nonformulary",
         "terms": "factual criteria extracted with citation; not redistributed verbatim",
     },
 }
