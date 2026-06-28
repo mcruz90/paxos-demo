@@ -9,8 +9,9 @@ Usage:
 Exit code 0 if all URLs return 2xx/3xx; non-zero if any fail.
 """
 
-import sys
 import argparse
+import sys
+
 import httpx
 
 from golden_set.fetch import ANCHOR_SOURCES as ANCHORS
