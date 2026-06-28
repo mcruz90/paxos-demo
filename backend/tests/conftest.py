@@ -8,6 +8,7 @@ import pytest
 
 from models.schemas import (
     AppealRequest,
+    ClientType,
     CriterionResult,
     CriterionStatus,
     PipelineState,
@@ -95,7 +96,7 @@ def base_scenario(criterion_found: CriterionResult) -> ScenarioConfig:
         categoryLabel="Type 2 Diabetes",
         diagnosis="Type 2 Diabetes Mellitus",
         denialReason="formulary alternatives available",
-        clientType="commercial",
+        clientType=ClientType.patient,
         criteriaResults=[criterion_found],
         drugKey="ozempic",
         company_names=["BlueCross BlueShield"],
@@ -119,7 +120,7 @@ def exception_scenario(
         categoryLabel="Type 2 Diabetes",
         diagnosis="Type 2 Diabetes Mellitus",
         denialReason="formulary alternatives available",
-        clientType="commercial",
+        clientType=ClientType.patient,
         criteriaResults=[criterion_found, criterion_needs_review],
         drugKey="ozempic",
         company_names=["BlueCross BlueShield"],

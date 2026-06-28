@@ -21,11 +21,15 @@ class RuleType(StrEnum):
     temporal = "temporal"
     math = "math"
     safety = "safety"
+    provider = "provider"
+    quantity = "quantity"
+    custom = "custom"
 
 
 class CriterionStatus(StrEnum):
     found = "found"
     needs_review = "needs_review"
+    conflict = "conflict"
 
 
 class CaseStatus(StrEnum):
@@ -33,6 +37,17 @@ class CaseStatus(StrEnum):
     ready_for_review = "ready_for_review"
     exception = "exception"
     submitted = "submitted"
+    payer_response = "payer_response"
+
+
+class ClientType(StrEnum):
+    medtech = "medtech"
+    patient = "patient"
+
+
+class CaseLifecycle(StrEnum):
+    initial_pa = "initial_pa"
+    appeal = "appeal"
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +73,16 @@ class Citation(BaseModel):
     text: str
 
 
+class ConflictSource(BaseModel):
+    """One side of a 'conflict' criterion — a source and the claim it asserts.
+
+    Surfaced (instead of silently picking one) when two documents disagree.
+    """
+
+    source: str
+    claim: str
+
+
 class CriterionResult(BaseModel):
     rule: Rule
     status: CriterionStatus
@@ -65,14 +90,80 @@ class CriterionResult(BaseModel):
     doc_source: str = Field(alias="docSource", default="")
     suggested_action: str | None = Field(alias="suggestedAction", default=None)
     workflow_plan: WorkflowPlan | None = Field(alias="workflowPlan", default=None)
+    # For status 'conflict': the contradictory source claims, surfaced rather than resolved.
+    conflict_sources: list[ConflictSource] | None = Field(alias="conflictSources", default=None)
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+class TimelineEvent(BaseModel):
+    label: str
+    date: str
+    note: str | None = None
+    status: Literal["done", "flagged", "pending"]
 
 
 class OverriddenField(BaseModel):
     label: str
     base: str
     override: str
+
+
+class PaRequired(BaseModel):
+    """CRD pre-check result: is a PA required for this drug × plan, and why."""
+
+    required: bool
+    basis: str
+
+
+class PaOutcome(BaseModel):
+    """Payer determination after a PAS submission (initial-PA lifecycle)."""
+
+    decision: Literal["approved", "pended", "denied"]
+    determination_id: str = Field(alias="determinationId")
+    time_to_therapy: str = Field(alias="timeToTherapy")
+    note: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class AppealHandoff(BaseModel):
+    """Initial-PA denial → appeal handoff: which appeal scenario to launch."""
+
+    scenario_id: str = Field(alias="scenarioId")
+    case_ref: str = Field(alias="caseRef")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class PayerResponseAnalysis(BaseModel):
+    response_type: Literal[
+        "partial_approval", "full_denial", "full_approval", "info_request"
+    ] = Field(alias="responseType")
+    ai_flag: str = Field(alias="aiFlag")
+    ai_rationale: str = Field(alias="aiRationale")
+    cta_accept: str = Field(alias="ctaAccept")
+    cta_dispute: str = Field(alias="ctaDispute")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class PayerCounterOffer(BaseModel):
+    date: str
+    summary: str
+    new_denial_reason: str = Field(alias="newDenialReason")
+    approved_dose: str = Field(alias="approvedDose")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class Round2Appeal(BaseModel):
+    key_argument: str = Field(alias="keyArgument")
+    guideline_ref: str = Field(alias="guidelineRef")
+    guideline_pmid: str = Field(alias="guidelinePMID")
+    required_dose: str = Field(alias="requiredDose")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ScenarioConfig(BaseModel):
@@ -86,13 +177,29 @@ class ScenarioConfig(BaseModel):
     category_label: str = Field(alias="categoryLabel")
     diagnosis: str
     denial_reason: str = Field(alias="denialReason")
-    client_type: str = Field(alias="clientType")
+    client_type: ClientType = Field(alias="clientType")
     criteria_results: list[CriterionResult] = Field(alias="criteriaResults")
     citations: dict[str, Citation] = Field(default_factory=dict)
+    config_json: str = Field(alias="configJson", default="")
     drug_key: str = Field(alias="drugKey")
     parent_config_id: str | None = Field(alias="parentConfigId", default=None)
     overridden_fields: list[OverriddenField] | None = Field(
         alias="overriddenFields", default=None
+    )
+    # Multi-round appeal support (optional — appeal scenarios only)
+    payer_counter_offer: PayerCounterOffer | None = Field(
+        alias="payerCounterOffer", default=None
+    )
+    round2_appeal: Round2Appeal | None = Field(alias="round2Appeal", default=None)
+    # Initial-PA lifecycle (optional — absent ⇒ this is an appeal scenario)
+    lifecycle: CaseLifecycle | None = None
+    pa_required: PaRequired | None = Field(alias="paRequired", default=None)
+    requested_therapy: str | None = Field(alias="requestedTherapy", default=None)
+    pa_outcome: PaOutcome | None = Field(alias="paOutcome", default=None)
+    appeal_handoff: AppealHandoff | None = Field(alias="appealHandoff", default=None)
+    timeline: list[TimelineEvent] | None = None
+    payer_response_analysis: PayerResponseAnalysis | None = Field(
+        alias="payerResponseAnalysis", default=None
     )
     # Injected by synthesis node — not from frontend
     company_names: list[str] = Field(default_factory=list)
