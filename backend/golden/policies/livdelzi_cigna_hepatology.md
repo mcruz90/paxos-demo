@@ -21,7 +21,7 @@ Approved under accelerated approval based on ALP reduction; improvement in survi
 
 <!-- cite: Policy Statement §1.A.ii, p. 2 -->
 
-Patient must have a confirmed PBC diagnosis, defined as meeting **at least two** of the following three criteria (AASLD 2018/2021 guidelines):
+- Patient must be at least 18 years old and have a confirmed PBC diagnosis, defined as meeting **at least two** of the following three criteria (AASLD 2018/2021 guidelines):
 
 1. Elevated alkaline phosphatase above the upper limit of normal (ULN) per laboratory reference values
 2. Positive anti-mitochondrial antibodies (AMA), or — if AMA-negative — PBC-specific auto-antibodies (sp100 or gp210)
