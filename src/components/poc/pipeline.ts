@@ -34,38 +34,38 @@ export function getPipelineSteps(scenario: ScenarioConfig): PipelineStep[] {
       },
     ]
   }
-  const isInfant = scenario.id === 'infant-omeprazole'
+  const isEsoSuspension = scenario.id === 'pediatric-esomeprazole'
   return [
     {
       label: 'Ingestion',
-      loadingText: isInfant
-        ? 'Parsing UHC denial for omeprazole suspension...'
+      loadingText: isEsoSuspension
+        ? 'Parsing UHC denial for esomeprazole (Nexium) suspension...'
         : `Parsing ${scenario.plan} denial for ${scenario.drug}...`,
-      explanation: isInfant
-        ? `Parsed the UnitedHealthcare denial for omeprazole oral suspension. Identified the denial as a formulary exception request — the payer requires step therapy with a tablet or H2 blocker before approving a compounded liquid. Extracted patient age (4 months), diagnosis (infantile GERD, K21.0), and the formulary alternative the payer cited.`
+      explanation: isEsoSuspension
+        ? `Parsed the UnitedHealthcare denial for Nexium (esomeprazole) for suspension. Identified the denial as a step-therapy requirement under UHC's Proton Pump Inhibitor program — the payer requires documented trial or intolerance of tablet PPIs (omeprazole, pantoprazole, rabeprazole) before covering a suspension. Extracted patient age (7 years), diagnosis (erosive GERD, K21.0), and the swallowing-limitation exception the policy allows.`
         : `Parsed the ${scenario.plan} denial for ${scenario.drug} (semaglutide). Identified the denial as a step therapy requirement: the payer claims insufficient documentation that the patient trialed Metformin before escalating to a GLP-1 agonist. Extracted drug, diagnosis (T2DM, E11.9), and the four PA criteria to satisfy.`,
     },
     {
       label: 'Retrieval',
-      loadingText: isInfant
-        ? 'Loading pediatric GI policy + FDA safety database...'
+      loadingText: isEsoSuspension
+        ? 'Loading UHC PPI step-therapy policy + speech-pathology records...'
         : `Loading ${scenario.plan} PA policy for GLP-1 agonists...`,
-      explanation: isInfant
-        ? `Loaded UHC's pediatric GI formulary criteria. Critically, also retrieved the FDA's April 2020 ranitidine (Zantac) market withdrawal notice — establishing that the payer's preferred H2 blocker alternative is no longer legally available in the US due to NDMA contamination. The step therapy path the payer requires does not exist.`
+      explanation: isEsoSuspension
+        ? `Loaded UHC's Proton Pump Inhibitor step-therapy criteria. The policy approves Nexium suspension on a documented swallowing limitation — oral/motor difficulty or dysphagia — as an explicit alternative to the three-drug tablet step therapy. Retrieved the patient's speech-language pathology evaluation documenting oral-motor dysphagia with aspiration risk, establishing the bypass the payer's denial overlooked.`
         : `Loaded ${scenario.plan}'s PA policy for GLP-1 agonists. Retrieved 4 criteria to satisfy: confirmed T2DM diagnosis, HbA1c ≥ 7.5% on current regimen, ≥ 90 days of Metformin at maximum tolerated dose, and no history of medullary thyroid carcinoma. Cross-referenced each against the patient's submitted records.`,
     },
     {
       label: 'Synthesis',
       loadingText: 'Drafting evidence-grounded appeal letter...',
-      explanation: isInfant
-        ? `Generated an appeal making two independent arguments that can't be simultaneously refuted: (1) the patient is 4 months old — solid tablet formulations are physically impossible to administer; (2) the formulary H2 alternative (ranitidine) was withdrawn by the FDA due to NDMA contamination and cannot be trialed. Cited NASPGHAN 2018 pediatric GERD guidelines (PMID 29470322) for dosing standards.`
+      explanation: isEsoSuspension
+        ? `Generated an appeal grounded in the policy's own step-therapy exception: (1) a speech-language pathology evaluation documents oral-motor dysphagia — the patient cannot safely swallow tablet or capsule PPIs, which UHC accepts as a step-therapy bypass; (2) endoscopy confirms LA Grade B erosive esophagitis (K21.0) requiring adequate acid suppression. Cited NASPGHAN/ESPGHAN 2018 pediatric GERD guidelines (PMID 29470322) for the dosing standard.`
         : `Generated an appeal letter grounded in all 4 PA criteria. Confirmed T2DM via endocrinology consult (HbA1c 8.2%, threshold 7.5%). Documented 112 consecutive days of Metformin 1000mg BID from pharmacy fill records — exceeding the 90-day threshold. Safety check clear. Every claim traces to a source document; no unsupported assertions.`,
     },
     {
       label: 'Gatekeeper',
       loadingText: 'Running deterministic validation (no LLM)...',
-      explanation: isInfant
-        ? `Ran 5 deterministic checks without any AI model: drug name present, infant age documented, FDA recall referenced, NASPGHAN PMID cited, letter length adequate. All passed. The appeal is ready for the PA Coordinator's review — a human is the final authority before anything is transmitted to the payer.`
+      explanation: isEsoSuspension
+        ? `Ran 5 deterministic checks without any AI model: drug name present, dysphagia documentation referenced, step-therapy denial addressed, NASPGHAN PMID cited, letter length adequate. All passed. The appeal is ready for the PA Coordinator's review — a human is the final authority before anything is transmitted to the payer.`
         : `Ran 5 deterministic checks without AI: drug name present, diagnosis referenced, step therapy denial addressed, all 4 criteria cited, minimum letter length met. All passed. The appeal is ready for the PA Coordinator's final review and authorization before submission to ${scenario.plan}.`,
     },
   ]

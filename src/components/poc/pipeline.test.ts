@@ -29,8 +29,8 @@ describe('getPipelineSteps', () => {
     expect(steps[0].explanation).not.toContain('CRD')
   })
 
-  it('uses the infant-specific FDA ranitidine framing', () => {
-    const steps = getPipelineSteps(scenarios['infant-omeprazole'])
-    expect(steps[1].explanation.toLowerCase()).toContain('ranitidine')
+  it('uses the pediatric PPI step-therapy / dysphagia framing', () => {
+    const steps = getPipelineSteps(scenarios['pediatric-esomeprazole'])
+    expect(steps[1].explanation.toLowerCase()).toContain('dysphagia')
   })
 })

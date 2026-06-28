@@ -62,7 +62,7 @@ export const FAILURE_CLUSTERS: FailureCluster[] = [
     proposedFix: 'Tighten retrieval: cap evidence spans on long records and re-verify each citation resolves to its source.',
     proposedDraft: FIX_RETRIEVAL_GROUNDING,
     sampleCases: [
-      { id: 'PH-4810', drug: 'Omeprazole Susp.', symptom: 'Citation span covers a full page; exact line ambiguous' },
+      { id: 'PH-4810', drug: 'Esomeprazole Susp.', symptom: 'Citation span covers a full page; exact line ambiguous' },
     ],
   },
   {

@@ -22,8 +22,8 @@ export const WORKFLOW_PACKS: WorkflowPack[] = [
     rawPolicy: 'Livdelzi (seladelpar) is covered for primary biliary cholangitis in combination with UDCA or as monotherapy for those unable to tolerate UDCA, when ≥2 of 3 AASLD biochemical response criteria remain unmet after ≥12 months of adequate UDCA therapy. No current or prior hepatic decompensation (absolute contraindication, including history). Prescriber must be a gastroenterologist, hepatologist, or transplant specialist.',
   },
   {
-    id: 'omeprazole-uhc', drug: 'Omeprazole 2mg/mL Susp.', carrier: 'UnitedHealthcare · Infant GERD', file: 'omeprazole_uhc_pediatric', market: 'commercial',
-    rawPolicy: 'Compounded omeprazole oral suspension is non-formulary; formulary tablet/capsule alternatives must be tried first unless contraindicated. Coverage for infants requires documented GERD with esophagitis and a trial of conservative measures. Dosing must follow standard protocol.',
+    id: 'esomeprazole-uhc', drug: 'Nexium (esomeprazole) Susp.', carrier: 'UnitedHealthcare · Pediatric GERD', file: 'esomeprazole_uhc_pediatric', market: 'commercial',
+    rawPolicy: 'Nexium (esomeprazole) for suspension is managed under UHC\'s PPI step-therapy program. Coverage requires documented trial or intolerance of tablet PPIs (omeprazole, pantoprazole, rabeprazole) OR a documented swallowing limitation (oral/motor difficulty, dysphagia). Claims auto-process with no PA for patients under age 6. Dosing per the pediatric label.',
   },
 ]
 
@@ -79,23 +79,23 @@ export const WSPEC_LIVDELZI: WorkflowSpecData = {
   ],
 }
 
-export const WSPEC_OMEPRAZOLE: WorkflowSpecData = {
+export const WSPEC_ESOMEPRAZOLE: WorkflowSpecData = {
   rules: [
-    { type: 'diagnostic', cond: 'GERD with esophagitis, endoscopy-confirmed (K21.0)', crit: 'blocking', conf: 0.96 },
-    { type: 'safety',     cond: 'Age ≤ 12 months — solid oral forms contraindicated; liquid required', crit: 'blocking', conf: 0.92 },
-    { type: 'temporal',   cond: 'Conservative therapy trial ≥ 2 weeks (positioning, thickened feeds)', crit: 'blocking', conf: 0.88 },
-    { type: 'safety',     cond: 'Formulary H2 alternative (ranitidine) unavailable — FDA withdrawal', crit: 'supporting', conf: 0.86 },
+    { type: 'diagnostic', cond: 'GERD with erosive esophagitis, endoscopy-confirmed (K21.0)', crit: 'blocking', conf: 0.96 },
+    { type: 'safety',     cond: 'Documented oral-motor dysphagia — tablet/capsule PPIs cannot be safely swallowed', crit: 'blocking', conf: 0.9 },
+    { type: 'temporal',   cond: 'Tablet PPI step therapy (omeprazole/pantoprazole/rabeprazole) OR documented swallowing-limitation bypass', crit: 'blocking', conf: 0.88 },
+    { type: 'temporal',   cond: 'Conservative therapy trial ≥ 2 weeks (dietary, positioning)', crit: 'supporting', conf: 0.86 },
   ],
   edgeCases: [
-    { c: 'Non-formulary compounded formulation', h: 'Requires formulary-exception justification (age-based contraindication to solid forms).' },
-    { c: 'Payer counter-offer with sub-therapeutic dose', h: 'Complex Round 2 → cite NASPGHAN 1 mg/kg/day dosing.' },
+    { c: 'Suspension requested despite age ≥ 6', h: 'Step therapy applies (under-6 auto-processes); needs step-therapy failure or swallowing-limitation bypass.' },
+    { c: 'Payer counter-offer with sub-therapeutic dose', h: 'Complex Round 2 → cite Nexium label / NASPGHAN 10–20mg dosing.' },
     { c: 'Weight-based dose derivable from chart', h: 'Supporting inference allowed; cite the weight and date.' },
-    { c: 'Age verification', h: 'Safety — explicit DOB required, never inferred.' },
+    { c: 'Age verification', h: 'Safety — explicit DOB required, never inferred (drives the under-6 auto-process rule).' },
   ],
   escalations: [
-    { trig: 'Non-formulary formulation requested', to: 'Complex' },
+    { trig: 'Step-therapy exception requested', to: 'Complex' },
     { trig: 'Payer counter-offer received', to: 'Complex (Round 2)' },
-    { trig: 'Authorized dose below guideline threshold', to: 'Complex' },
+    { trig: 'Authorized dose below labeled threshold', to: 'Complex' },
   ],
   reviewSteps: [
     { tier: 'Routine', d: 'Confirm summary + key citations · 1 click' },
@@ -107,7 +107,7 @@ export const WSPEC_OMEPRAZOLE: WorkflowSpecData = {
 export const WORKFLOW_HISTORY_BY_PACK: Record<string, VersionEntry<WorkflowSpecData>[]> = {
   'ozempic-cigna':  [{ version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 6, 2026', note: 'Initial spec from Cigna policy', deltas: ['Initial version'], snapshot: WSPEC_OZEMPIC }],
   'livdelzi-cigna': [{ version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 26, 2026', note: 'Initial spec from Cigna Livdelzi PA policy (cnf_877)', deltas: ['Initial version'], snapshot: WSPEC_LIVDELZI }],
-  'omeprazole-uhc': [{ version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 8, 2026', note: 'Initial spec from UHC pediatric policy', deltas: ['Initial version'], snapshot: WSPEC_OMEPRAZOLE }],
+  'esomeprazole-uhc': [{ version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 8, 2026', note: 'Initial spec from UHC PPI step-therapy policy', deltas: ['Initial version'], snapshot: WSPEC_ESOMEPRAZOLE }],
 }
 
 export function computeWorkflowDeltas(prev: WorkflowSpecData, next: WorkflowSpecData): string[] {

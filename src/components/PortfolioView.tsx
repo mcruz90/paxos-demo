@@ -233,7 +233,7 @@ export function PortfolioView({ clients, onOpenCase, onStartTour }: {
                     id={
                       client.scenarioId === 'novo-ozempic-initial' ? 'tour-case-initial-pa' :
                       client.scenarioId === 'novo-ozempic'         ? 'tour-case-ozempic' :
-                      client.scenarioId === 'infant-omeprazole'    ? 'tour-case-infant' :
+                      client.scenarioId === 'pediatric-esomeprazole' ? 'tour-case-infant' :
                       client.scenarioId === 'gilead-livdelzi'      ? 'tour-case-livdelzi' :
                       undefined
                     }

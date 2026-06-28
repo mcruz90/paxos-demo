@@ -140,7 +140,7 @@ export type IconType = React.ComponentType<{ className?: string }>
 export interface CaseLink {
   scenarioId: string
   status: CaseStatus
-  caseName: string          // e.g. "Case #PH-4201 · Omeprazole"
+  caseName: string          // e.g. "Case #PH-4201 · Esomeprazole"
 }
 
 // The evaluation methods that score the system (not competitors — they each

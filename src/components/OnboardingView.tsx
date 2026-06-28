@@ -69,7 +69,7 @@ export const ONBOARDING_TEMPLATES: OnboardingTemplate[] = [
     ],
     policyPacks: [
       { name: 'ozempic_cigna_base', category: 'Endocrinology', market: 'commercial' },
-      { name: 'omeprazole_uhc_pediatric', category: 'Gastroenterology', market: 'commercial' },
+      { name: 'esomeprazole_uhc_pediatric', category: 'Gastroenterology', market: 'commercial' },
     ],
     hitl: { routine: 60, complex: 28, exception: 12 },
     validation: { sampleCases: 10, reusePct: 94, timeEstimate: '~45 min', netNew: 'App-JSON adapter mapping only' },
@@ -112,7 +112,7 @@ export const ONBOARDING_TEMPLATES: OnboardingTemplate[] = [
     ],
     policyPacks: [
       { name: 'ozempic_cigna_base',        category: 'Endocrinology',    market: 'commercial' },
-      { name: 'omeprazole_uhc_pediatric',  category: 'Gastroenterology', market: 'commercial' },
+      { name: 'esomeprazole_uhc_pediatric',  category: 'Gastroenterology', market: 'commercial' },
       { name: 'livdelzi_cigna_hepatology', category: 'Hepatology',        market: 'commercial' },
     ],
     hitl: { routine: 55, complex: 30, exception: 15 },

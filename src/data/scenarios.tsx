@@ -353,105 +353,107 @@ export const scenarios: Record<string, ScenarioConfig> = {
     ],
   },
 
-  // ── Infant GERD: Omeprazole suspension — multi-round escalation demo ────────
-  'infant-omeprazole': {
-    id: 'infant-omeprazole',
-    drugKey: 'omeprazole',
-    configFile: 'omeprazole_uhc_pediatric.json',
-    drug: 'Omeprazole (Prilosec) 2mg/mL Oral Suspension',
-    manufacturer: 'Fagron Compounding Services',
+  // ── Pediatric GERD: Esomeprazole (Nexium) suspension — multi-round escalation demo ──
+  'pediatric-esomeprazole': {
+    id: 'pediatric-esomeprazole',
+    drugKey: 'esomeprazole',
+    configFile: 'esomeprazole_uhc_pediatric.json',
+    drug: 'Nexium (esomeprazole) 10mg for Oral Suspension',
+    manufacturer: 'AstraZeneca',
     plan: 'UnitedHealthcare Choice Plus',
     planId: 'UHC-CHOICE-2024',
     categoryKey: 'gastroenterology',
     categoryLabel: 'Gastroenterology',
-    diagnosis: 'Gastroesophageal Reflux Disease with Esophagitis — Infant (K21.0)',
-    denialReason: 'Non-formulary compounded formulation — tablet/capsule alternatives required, step therapy not documented',
+    diagnosis: 'Gastroesophageal Reflux Disease with Erosive Esophagitis — Pediatric (K21.0)',
+    denialReason: 'Step therapy not documented — tablet PPI trials (omeprazole, pantoprazole, rabeprazole) required before suspension; swallowing-limitation exception not established',
     clientType: 'patient',
     criteriaResults: [
       {
-        rule: { type: 'diagnostic', label: 'Confirmed GERD Diagnosis with Esophageal Involvement (K21.0)' },
+        rule: { type: 'diagnostic', label: 'Confirmed GERD Diagnosis with Erosive Esophagitis (K21.0)' },
         status: 'found',
         note: 'Page 1 — Pediatric GI consult 05/14/2026 confirms erosive GERD. Upper endoscopy (05/12/2026): Los Angeles Grade B esophagitis.',
         docSource: 'Pediatric GI Consult',
       },
       {
-        rule: { type: 'safety', label: 'Patient Age ≤12 Months — Solid Oral Dosage Forms Physically Contraindicated' },
+        rule: { type: 'safety', label: 'Documented Oral-Motor Dysphagia — Tablet/Capsule PPIs Cannot Be Safely Swallowed' },
         status: 'found',
-        note: 'Page 1 — D.O.B. 02/03/2026. Age 4 months. UHC formulary alternatives (omeprazole 20mg capsule, esomeprazole 20mg capsule) require intact swallowing — developmentally impossible at this age.',
-        docSource: 'Admission Record',
+        note: 'Page 2 — Speech-language pathology evaluation 05/02/2026 documents oral-motor dysphagia with aspiration risk on solid oral dosage forms. The UHC PPI policy accepts a swallowing limitation as an explicit step-therapy bypass.',
+        docSource: 'Speech-Language Pathology Evaluation',
       },
       {
-        rule: { type: 'safety', label: 'Ranitidine (Formulary H2 Alternative) — FDA Market Withdrawal, NDMA Contamination (April 2020)' },
+        rule: { type: 'temporal', label: 'Tablet PPI Step Therapy — Omeprazole Trial Aborted for Aspiration; Swallowing-Limitation Bypass Applies' },
         status: 'found',
-        note: 'Ranitidine (Zantac) withdrawn from US market April 1, 2020 per FDA request due to unacceptable NDMA contamination levels. Product unavailable — no trial possible.',
-        docSource: 'FDA MedWatch Safety Alert',
+        note: 'Page 3 — Prescription omeprazole tablet trial (04/2026) discontinued after 6 days due to documented choking/aspiration. Pantoprazole and rabeprazole not separately trialed — the swallowing-limitation bypass removes the three-drug requirement.',
+        docSource: 'Outpatient Visit Notes',
       },
       {
-        rule: { type: 'temporal', label: 'Non-Pharmacological Conservative Therapy Trial (Positioning, Thickened Feeds ≥2 Weeks)' },
+        rule: { type: 'temporal', label: 'Conservative Therapy Trial (Dietary/Positioning ≥2 Weeks)' },
         status: 'found',
-        note: 'Page 3 — 6-week visit (04/20/2026) documents positioning protocol and thickened feeds initiated at 4-week visit. 10-week follow-up confirms worsening despite ≥2 weeks of conservative management.',
+        note: 'Page 3 — Dietary and positioning measures documented from the 4-week visit. 10-week follow-up confirms persistent erosive disease despite ≥2 weeks of conservative management.',
         docSource: 'Outpatient Visit Notes',
       },
     ],
     citations: {
-      'Confirmed GERD Diagnosis with Esophageal Involvement (K21.0)': {
+      'Confirmed GERD Diagnosis with Erosive Esophagitis (K21.0)': {
         source: 'Pediatric GI Consult', page: 'p. 1',
         text: 'Endoscopy 05/12/2026 — Los Angeles Grade B esophagitis confirmed. Pediatric GI assessment: erosive GERD requiring PPI therapy. ICD-10 K21.0.',
       },
-      'Patient Age ≤12 Months — Solid Oral Dosage Forms Physically Contraindicated': {
-        source: 'Admission Record', page: 'p. 1',
-        text: 'D.O.B. 02/03/2026. Age at prescription: 4 months. Developmental stage: pre-solid foods. Administration of tablet or capsule formulations is not developmentally possible.',
+      'Documented Oral-Motor Dysphagia — Tablet/Capsule PPIs Cannot Be Safely Swallowed': {
+        source: 'Speech-Language Pathology Evaluation', page: 'p. 2',
+        text: 'SLP evaluation 05/02/2026 — oral-motor dysphagia with aspiration risk on solid oral dosage forms. Tablet and capsule administration is unsafe; a liquid formulation is required.',
       },
-      'Ranitidine (Formulary H2 Alternative) — FDA Market Withdrawal, NDMA Contamination (April 2020)': {
-        source: 'FDA MedWatch Safety Alert', page: 'April 1, 2020',
-        text: 'FDA requested immediate market withdrawal of all ranitidine products due to NDMA impurity exceeding acceptable limits. Product is no longer commercially available in the United States.',
-      },
-      'Non-Pharmacological Conservative Therapy Trial (Positioning, Thickened Feeds ≥2 Weeks)': {
+      'Tablet PPI Step Therapy — Omeprazole Trial Aborted for Aspiration; Swallowing-Limitation Bypass Applies': {
         source: 'Outpatient Visit Notes', page: 'p. 3',
-        text: '6-week visit 04/20/2026 — positioning guidance provided. Thickened feeds discussed. 10-week follow-up noted worsening regurgitation and feeding aversion despite measures.',
+        text: 'Omeprazole tablet trial 04/2026 discontinued after 6 days following witnessed choking/aspiration. Per UHC PPI policy, a documented swallowing limitation bypasses the three-drug tablet step therapy.',
+      },
+      'Conservative Therapy Trial (Dietary/Positioning ≥2 Weeks)': {
+        source: 'Outpatient Visit Notes', page: 'p. 3',
+        text: '4-week visit — dietary and positioning guidance provided. 10-week follow-up noted persistent regurgitation and erosive disease despite ≥2 weeks of measures.',
       },
     },
     payerCounterOffer: {
       date: 'Jun 10, 2026',
-      summary: 'Exception to non-formulary status granted for liquid formulation. Authorization approved for Omeprazole 2mg/mL oral suspension — however, approved dose is limited to 0.5 mg/kg/day for 30 days.',
-      newDenialReason: 'Dose exceeds standard protocol — authorization limited to 0.5 mg/kg/day',
-      approvedDose: '0.5 mg/kg/day (below evidence-based therapeutic threshold)',
+      summary: 'Step-therapy exception granted on the documented swallowing limitation. Authorization approved for Nexium (esomeprazole) for suspension — however, approved dose is limited to 10mg/day.',
+      newDenialReason: 'Dose limited to 10mg/day — patient weight (≥20kg) and erosive grade indicate 20mg/day',
+      approvedDose: '10mg/day (below the labeled dose for erosive esophagitis at this weight)',
     },
     round2Appeal: {
-      keyArgument: 'The authorized dose of 0.5 mg/kg/day falls below the minimum evidence-based therapeutic threshold for infantile erosive GERD. NASPGHAN/ESPGHAN 2018 joint clinical practice guidelines (PMID 29470322) recommend 0.7–1.4 mg/kg/day as the effective dosing range for infants with confirmed esophagitis. Approval at 0.5 mg/kg/day is predicted to provide insufficient acid suppression and does not meet the standard of care for this diagnosis.',
+      keyArgument: 'The authorized 10mg/day esomeprazole dose is sub-therapeutic for a ≥20kg child with confirmed LA Grade B erosive esophagitis. The Nexium pediatric prescribing information specifies 10–20mg once daily for erosive esophagitis in children 1–11 years, with 20mg indicated at ≥20kg and for healing of erosive disease. NASPGHAN/ESPGHAN 2018 pediatric GERD guidelines (PMID 29470322) likewise support full-dose PPI therapy for documented esophagitis. Approval at 10mg/day risks incomplete mucosal healing.',
       guidelineRef: 'Rosen R, et al. Pediatric Gastroesophageal Reflux Clinical Practice Guidelines: Joint Recommendations of NASPGHAN and ESPGHAN. J Pediatr Gastroenterol Nutr. 2018;66(3):516–554.',
       guidelinePMID: '29470322',
-      requiredDose: '1 mg/kg/day (NASPGHAN standard starting dose for infantile erosive GERD)',
+      requiredDose: '20mg/day (Nexium labeled dose for erosive esophagitis, child ≥20kg)',
     },
     timeline: [
-      { label: 'PA Filed',       date: 'May 28, 2026', status: 'done'    as const, note: 'Non-formulary liquid'  },
-      { label: 'Denial',         date: 'Jun 3, 2026',  status: 'done'    as const, note: 'Step therapy required' },
-      { label: 'Appeal Filed',   date: 'Jun 9, 2026',  status: 'done'    as const, note: 'Round 1 submitted'     },
-      { label: 'Payer Response', date: 'Jun 10, 2026', status: 'flagged' as const, note: 'Partial approval'      },
+      { label: 'PA Filed',       date: 'May 28, 2026', status: 'done'    as const, note: 'Suspension · step-therapy exception' },
+      { label: 'Denial',         date: 'Jun 3, 2026',  status: 'done'    as const, note: 'Step therapy required'              },
+      { label: 'Appeal Filed',   date: 'Jun 9, 2026',  status: 'done'    as const, note: 'Round 1 submitted'                 },
+      { label: 'Payer Response', date: 'Jun 10, 2026', status: 'flagged' as const, note: 'Partial approval'                  },
     ],
     payerResponseAnalysis: {
       responseType: 'partial_approval' as const,
-      aiFlag: 'Authorized dose (0.5 mg/kg/day) is below evidence-based therapeutic threshold',
-      aiRationale: "NASPGHAN/ESPGHAN 2018 guidelines (PMID 29470322) establish 0.7–1.4 mg/kg/day as the minimum effective range for infantile erosive GERD. At the authorized dose, acid suppression is predicted insufficient for this patient's confirmed Grade B esophagitis. Accepting may require a follow-up PA within 30 days.",
+      aiFlag: 'Authorized dose (10mg/day) is below the labeled dose for erosive esophagitis at this weight',
+      aiRationale: "The Nexium pediatric label and NASPGHAN/ESPGHAN 2018 guidance (PMID 29470322) support 20mg/day for a ≥20kg child with LA Grade B erosive esophagitis. At 10mg/day, mucosal healing is predicted incomplete. Accepting may require a follow-up PA within 30 days.",
       ctaAccept: 'Accept Partial Approval',
       ctaDispute: 'Dispute Dosing Restriction',
     },
     configJson: `{
-  "policy_id": "omeprazole-uhc-pediatric-v1",
-  "target_drug": "omeprazole",
+  "policy_id": "esomeprazole-uhc-pediatric-v1",
+  "target_drug": "esomeprazole",
   "carrier": "unitedhealthcare",
-  "formulary_class": "non_formulary_compounded",
-  "patient_age_rules": [
-    { "condition": "age_months <= 12", "tablet_contraindicated": true, "required_formulation": "oral_liquid" }
+  "formulary_class": "step_therapy_ppi_suspension",
+  "auto_process_rule": { "under_age": 6, "pa_required": false },
+  "step_therapy_rules": [
+    { "required_agents": ["omeprazole", "pantoprazole", "rabeprazole"], "form": "tablet_capsule", "logic": "all_of", "bypass": "swallowing_limitation" }
   ],
-  "formulary_alternative_exceptions": [
-    { "drug": "ranitidine", "exception_reason": "FDA_market_withdrawal_NDMA_April_2020", "status": "unavailable" }
+  "swallowing_limitation_bypass": [
+    { "reason": "oral_motor_difficulty", "accepted": true },
+    { "reason": "dysphagia", "accepted": true }
   ],
   "diagnostic_rules": [
     { "condition_category": "GERD", "icd10": "K21.0", "must_be_present": true }
   ],
   "conservative_therapy_rules": [
-    { "intervention": "positioning_thickened_feeds", "minimum_trial_weeks": 2, "allows_attestation_bypass": false }
+    { "intervention": "dietary_positioning", "minimum_trial_weeks": 2, "allows_attestation_bypass": false }
   ]
 }`,
   },
@@ -478,7 +480,7 @@ export const initialClients: Client[] = [
   { id: 4, name: 'Case #PH-3101', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 5, 2026',  scenarioId: 'novo-ozempic-denied',  deadline: 'Due tomorrow',   urgency: 'soon'  },
   { id: 0, name: 'Case #PH-3098', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 17, 2026', scenarioId: 'novo-ozempic-initial', deadline: 'Due in 2 days',  urgency: 'soon'  },
   { id: 1, name: 'Case #PH-3102', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 8, 2026',  scenarioId: 'novo-ozempic',         deadline: 'Due today',      urgency: 'today' },
-  { id: 2, name: 'Case #PH-4201', drug: 'Omeprazole Susp.', categoryLabel: 'Gastroenterology', status: 'payer_response',   clientType: 'patient', lastUpdated: 'Jun 11, 2026', scenarioId: 'infant-omeprazole',    deadline: 'Due in 4 days',  urgency: 'later' },
+  { id: 2, name: 'Case #PH-4201', drug: 'Esomeprazole Susp.', categoryLabel: 'Gastroenterology', status: 'payer_response',   clientType: 'patient', lastUpdated: 'Jun 11, 2026', scenarioId: 'pediatric-esomeprazole', deadline: 'Due in 4 days',  urgency: 'later' },
   { id: 3, name: 'Case #PH-2847', drug: 'Livdelzi',         categoryLabel: 'Hepatology',        status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 9, 2026',  scenarioId: 'gilead-livdelzi',      deadline: 'Due today',      urgency: 'today' },
 ]
 

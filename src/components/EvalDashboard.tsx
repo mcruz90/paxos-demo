@@ -47,7 +47,7 @@ export const EVAL_BY_CASE = [
   },
   {
     name: 'Case #PH-4201',
-    drug: 'Omeprazole Susp.',
+    drug: 'Esomeprazole Susp.',
     category: 'Gastroenterology',
     rounds: 2,
     coverage: 92,
@@ -82,7 +82,7 @@ export const PAYER_PERF = [
 export const DRUG_PERF: { drug: string; indication: string; category: string; cases: number; approvalRate: number | null; trend: string; trendColor: string }[] = [
   { drug: 'Ozempic',          indication: 'Type 2 Diabetes',             category: 'Endocrinology',    cases: 4, approvalRate: 92,   trend: '↑', trendColor: 'text-emerald-400' },
   { drug: 'Ozempic',          indication: 'Weight management',           category: 'Endocrinology',    cases: 3, approvalRate: 78,   trend: '↓', trendColor: 'text-red-400' },
-  { drug: 'Omeprazole Susp.', indication: 'Infant GERD',                 category: 'Gastroenterology', cases: 2, approvalRate: 84,   trend: '→', trendColor: 'text-slate-400' },
+  { drug: 'Esomeprazole Susp.', indication: 'Pediatric GERD',            category: 'Gastroenterology', cases: 2, approvalRate: 84,   trend: '→', trendColor: 'text-slate-400' },
   { drug: 'Livdelzi',         indication: 'Primary Biliary Cholangitis', category: 'Hepatology',       cases: 1, approvalRate: null, trend: '→', trendColor: 'text-slate-400' },
 ]
 

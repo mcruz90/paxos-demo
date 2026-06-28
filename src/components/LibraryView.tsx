@@ -33,10 +33,10 @@ export interface PackDrift {
 }
 export const PACK_DRIFT: PackDrift[] = [
   {
-    pack: 'omeprazole_uhc_pediatric.json',
+    pack: 'esomeprazole_uhc_pediatric.json',
     detected: 'Jun 16, 2026',
     source: 'NASPGHAN/ESPGHAN pediatric GERD dosing guidance revision',
-    summary: 'The infant omeprazole dosing range this pack encodes was superseded by an updated guideline. Packs citing the prior version are flagged until re-validated against current guidance.',
+    summary: 'The pediatric esomeprazole dosing range this pack encodes was superseded by an updated guideline. Packs citing the prior version are flagged until re-validated against current guidance.',
     affectedDeployments: 14,
     action: 'Affected deployments paused · re-validation queued against the eval suite',
   },
@@ -45,7 +45,7 @@ export const PACK_DRIFT: PackDrift[] = [
 // How each pack entered the shared registry — demo provenance keyed by config file.
 export const PACK_PROVENANCE: Record<string, { channel: string; version: string; status: 'resolved' | 'synthesized'; detail: string }> = {
   'ozempic_cigna_base.json':       { channel: 'Pharmacy', version: 'v3', status: 'resolved',    detail: 'reused across 214 cases' },
-  'omeprazole_uhc_pediatric.json': { channel: 'Pharmacy', version: 'v2', status: 'resolved',    detail: 'reused across 38 cases' },
+  'esomeprazole_uhc_pediatric.json': { channel: 'Pharmacy', version: 'v2', status: 'resolved',    detail: 'reused across 38 cases' },
   'livdelzi_cigna_hepatology.json': { channel: 'Pharmacy', version: 'v1', status: 'synthesized', detail: 'synthesized on demand · Jun 9, 2026' },
 }
 

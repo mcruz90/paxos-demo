@@ -30,9 +30,9 @@ export const COVERAGE_RESOLUTION: Record<string, CoverageResolution> = {
     pack: 'ozempic_cigna_base', version: 'v3', effective: 'Jan 1, 2026',
     status: 'resolved', detail: 'Registry hit — same pack the appeal (PH-3102) will reuse if this PA is denied. 215 prior cases across all clients.',
   },
-  'infant-omeprazole': {
+  'pediatric-esomeprazole': {
     channel: 'pharmacy', bin: '610502', pcn: 'UHC', group: 'CHOICE21',
-    pack: 'omeprazole_uhc_pediatric', version: 'v2', effective: 'Apr 1, 2026',
+    pack: 'esomeprazole_uhc_pediatric', version: 'v2', effective: 'Apr 1, 2026',
     status: 'resolved', detail: 'Registry hit — this pack has resolved 38 prior cases across all clients.',
   },
   'gilead-livdelzi': {
