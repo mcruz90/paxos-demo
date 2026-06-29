@@ -1,0 +1,218 @@
+{
+  "schema_version": "0.2",
+  "_note": "Canonical labeled dataset. backend/data/pa_requirements.json is seeded from this file. Never duplicate scenario data ad hoc in test files — import load_scenarios_fixture() instead.",
+  "scenarios": [
+    {
+      "scenario_id": "ozempic_cigna_clinical_pa",
+      "anchor_id": "ozempic_cigna",
+      "denial_type": "clinical_pa",
+      "drug": "Ozempic (semaglutide)",
+      "payer": "Cigna Connect 500 PPO",
+      "plan_id": "CIGNA-CNF360-2024",
+      "appeal_process_ref": "cigna_standard_appeal",
+      "policy_refs": ["ozempic_cigna"],
+      "submitted_codes": {
+        "icd10": ["E11.9", "Z79.85"],
+        "ndc": "00169-4149-11"
+      },
+      "policy_expected_codes": {
+        "icd10_secondary": ["Z79.85"],
+        "source_ref": "cigna_diabetes_coding_guidance_dec2025",
+        "source_text": "Z79.85: Long-term use of injectable non-insulin antidiabetic drugs (e.g., Ozempic®, Trulicity®, Victoza®, etc.)"
+      },
+      "discrepancy_signals": [],
+      "criteria": [
+        {
+          "key": "t2dm_diagnosis",
+          "label": "Type II Diabetes Mellitus confirmed",
+          "rule_type": "diagnostic",
+          "ground_truth_status": "found",
+          "evidence_summary": "HbA1c 8.2% on 03/14/2024; ICD-10 E11.9 documented since 2019; fasting glucose 187 mg/dL"
+        },
+        {
+          "key": "adult_age_threshold",
+          "label": "Patient age meets minimum threshold (18 years)",
+          "rule_type": "diagnostic",
+          "ground_truth_status": "found",
+          "evidence_summary": "DOB 03/14/1972; age 52 at time of request; Cigna Ozempic minimum age 18 years"
+        },
+        {
+          "key": "no_concomitant_glp1",
+          "label": "No concurrent GLP-1 or GLP-1/GIP agonist on active medication list",
+          "rule_type": "safety",
+          "ground_truth_status": "found",
+          "evidence_summary": "Active list reviewed 03/14/2024: metformin, lisinopril, atorvastatin — no other GLP-1/GIP agent"
+        },
+        {
+          "key": "indication_t2dm_only",
+          "label": "Indication limited to glycemic management in Type II Diabetes",
+          "rule_type": "custom",
+          "ground_truth_status": "needs_review",
+          "evidence_summary": "Chart includes BMI 33.2 kg/m2 and 'weight management goals discussed' note 01/10/2024; payer requires clarification that Ozempic is prescribed solely for T2DM glycemic control"
+        }
+      ],
+      "expected_outcome": {
+        "appealable": true,
+        "resolution_path": "appeal",
+        "primary_argument_key": "indication_t2dm_only",
+        "confidence": "high"
+      }
+    },
+    {
+      "scenario_id": "esomeprazole_uhc_pediatric_clinical_pa",
+      "anchor_id": "esomeprazole_uhc_pediatric",
+      "denial_type": "clinical_pa",
+      "drug": "Nexium for Oral Suspension (esomeprazole)",
+      "payer": "UnitedHealthcare Choice Plus",
+      "plan_id": "UHC-CHOICE-2024",
+      "appeal_process_ref": "uhc_standard_appeal",
+      "policy_refs": ["esomeprazole_uhc_pediatric"],
+      "submitted_codes": {
+        "icd10": ["K21.0"],
+        "ndc": "00186-4040-31"
+      },
+      "policy_expected_codes": {
+        "icd10_secondary": [],
+        "source_ref": "esomeprazole_uhc_pediatric",
+        "source_text": "K21.0: Gastro-esophageal reflux disease with oesophagitis"
+      },
+      "discrepancy_signals": [],
+      "criteria": [
+        {
+          "key": "gerd_diagnosis",
+          "label": "GERD or erosive esophagitis diagnosis documented",
+          "rule_type": "diagnostic",
+          "ground_truth_status": "found",
+          "evidence_summary": "Endoscopy 11/15/2023: Los Angeles Grade A esophagitis; ICD-10 K21.0 confirmed"
+        },
+        {
+          "key": "age_6_or_older",
+          "label": "Patient age 6 or older (auto-process exemption does not apply)",
+          "rule_type": "diagnostic",
+          "ground_truth_status": "found",
+          "evidence_summary": "DOB 09/22/2017; age 7 at time of request; step therapy criteria applicable"
+        },
+        {
+          "key": "ppi_step_therapy",
+          "label": "Documented failure of omeprazole, pantoprazole, and rabeprazole",
+          "rule_type": "temporal",
+          "ground_truth_status": "needs_review",
+          "evidence_summary": "Omeprazole 10 mg x 8 weeks failed (documented); pantoprazole and rabeprazole not documented; UHC requires failure of all three agents"
+        },
+        {
+          "key": "swallowing_limitation",
+          "label": "Documented oral-motor dysphagia or swallowing limitation",
+          "rule_type": "custom",
+          "ground_truth_status": "conflict",
+          "evidence_summary": "SLP 12/02/2023: dysphagia confirmed, cannot swallow tablets; vs. chart note 01/15/2024: 'tolerating crushed omeprazole without difficulty'"
+        }
+      ],
+      "expected_outcome": {
+        "appealable": true,
+        "resolution_path": "appeal",
+        "primary_argument_key": "swallowing_limitation",
+        "confidence": "high"
+      }
+    },
+    {
+      "scenario_id": "livdelzi_cigna_hepatology_clinical_pa",
+      "anchor_id": "livdelzi_cigna_hepatology",
+      "denial_type": "clinical_pa",
+      "drug": "Livdelzi (seladelpar)",
+      "payer": "Cigna Connect 500 PPO",
+      "plan_id": "CIGNA-CNF877-2024",
+      "appeal_process_ref": "cigna_standard_appeal",
+      "policy_refs": ["livdelzi_cigna_hepatology"],
+      "submitted_codes": {
+        "icd10": ["K83.01"],
+        "ndc": "00310-6064-30"
+      },
+      "policy_expected_codes": {
+        "icd10_secondary": [],
+        "source_ref": "livdelzi_cigna_hepatology",
+        "source_text": "K83.01: Primary sclerosing cholangitis (used here for Primary Biliary Cholangitis per clinical documentation)"
+      },
+      "discrepancy_signals": [],
+      "criteria": [
+        {
+          "key": "pbc_diagnosis",
+          "label": "Primary Biliary Cholangitis confirmed (ALP elevated, AMA positive)",
+          "rule_type": "diagnostic",
+          "ground_truth_status": "found",
+          "evidence_summary": "ALP 198 U/L (ref <115); AMA positive (titer 1:640); meets AASLD 2021 criteria (2 of 3 present)"
+        },
+        {
+          "key": "adult_age_18",
+          "label": "Patient age 18 or older",
+          "rule_type": "diagnostic",
+          "ground_truth_status": "found",
+          "evidence_summary": "DOB 11/07/1970; age 54 at time of request"
+        },
+        {
+          "key": "no_decompensation",
+          "label": "No current or prior hepatic decompensation",
+          "rule_type": "safety",
+          "ground_truth_status": "found",
+          "evidence_summary": "No ascites, variceal bleeding, or hepatic encephalopathy through 03/2024; MELD score 9"
+        },
+        {
+          "key": "specialist_prescriber",
+          "label": "Gastroenterologist or hepatologist prescriber",
+          "rule_type": "provider",
+          "ground_truth_status": "found",
+          "evidence_summary": "Dr. Samuel Okonkwo, MD — Hepatology; NPI 3456789012; board-certified"
+        },
+        {
+          "key": "udca_trial_duration",
+          "label": "UDCA therapy for 12 or more months with inadequate response",
+          "rule_type": "temporal",
+          "ground_truth_status": "needs_review",
+          "evidence_summary": "Ursodiol initiated 06/15/2023; duration at PA request (02/20/2024) ~8 months; ALP still elevated but 12-month minimum not yet reached"
+        }
+      ],
+      "expected_outcome": {
+        "appealable": true,
+        "resolution_path": "appeal",
+        "primary_argument_key": "udca_trial_duration",
+        "confidence": "medium"
+      }
+    },
+    {
+      "scenario_id": "ozempic_cigna_coding_error",
+      "anchor_id": "ozempic_cigna",
+      "denial_type": "coding_error",
+      "drug": "Ozempic (semaglutide)",
+      "payer": "Cigna Connect 500 PPO",
+      "plan_id": "CIGNA-CNF360-2024",
+      "appeal_process_ref": "cigna_standard_appeal",
+      "policy_refs": ["ozempic_cigna", "cigna_diabetes_coding_guidance_dec2025"],
+      "submitted_codes": {
+        "icd10": ["E11.9"],
+        "ndc": "00169-4149-11"
+      },
+      "policy_expected_codes": {
+        "icd10_secondary": ["Z79.85"],
+        "source_ref": "cigna_diabetes_coding_guidance_dec2025",
+        "source_text": "Z79.85: Long-term use of injectable non-insulin antidiabetic drugs (e.g., Ozempic®, Trulicity®, Victoza®, etc.)"
+      },
+      "discrepancy_signals": [
+        {
+          "signal_id": "missing_z7985",
+          "observation": "Z79.85 is absent from submitted ICD-10 codes",
+          "policy_statement": "Cigna Diabetes Mellitus Coding Guidance (Dec 2025) lists Z79.85 for 'long-term use of injectable non-insulin antidiabetic drugs (e.g., Ozempic®, Trulicity®, Victoza®, etc.)'",
+          "source_ref": "cigna_diabetes_coding_guidance_dec2025",
+          "likelihood": "high",
+          "human_action_required": true,
+          "suggested_action_type": "review_coding_accuracy"
+        }
+      ],
+      "criteria": [],
+      "expected_outcome": {
+        "appealable": false,
+        "resolution_path": "corrected_claim_resubmission",
+        "primary_argument_key": null,
+        "confidence": "high"
+      }
+    }
+  ]
+}
