@@ -13,7 +13,7 @@ import pytest
 
 # These imports fail (ImportError) until 0.C implementation is in place — intentional.
 from golden_set.documents import GeneratedDocuments, generate_documents
-from golden_set.identities import IDENTITY_POOL
+from golden_set.identities import IDENTITY_POOL, get_identity
 from golden_set.markers import SYNTHETIC_MARKER
 from golden_set.pdf import render_denial_letter_pdf
 from golden_set.seeds import PROFILES, SEEDS
@@ -232,9 +232,9 @@ def test_identity_pool_npi_is_ten_digits() -> None:
 
 
 def test_pool_patient_name_in_generated_denial_letter() -> None:
-    """Patient name from IDENTITY_POOL must appear verbatim in the generated denial letter."""
+    """Patient name from pool must appear verbatim in the generated denial letter."""
     for anchor_id, seed in SEEDS.items():
-        expected_name = IDENTITY_POOL[seed.identity_index].patient_name
+        expected_name = get_identity(anchor_id).patient_name
         doc = generate_documents(seed, PROFILES[anchor_id])
         assert expected_name in doc.denial_letter_text, (
             f"Patient name {expected_name!r} not found in denial letter for {anchor_id}"
@@ -242,9 +242,9 @@ def test_pool_patient_name_in_generated_denial_letter() -> None:
 
 
 def test_pool_member_id_in_generated_denial_letter() -> None:
-    """Member ID from IDENTITY_POOL must appear verbatim in the generated denial letter."""
+    """Member ID from pool must appear verbatim in the generated denial letter."""
     for anchor_id, seed in SEEDS.items():
-        expected_id = IDENTITY_POOL[seed.identity_index].member_id
+        expected_id = get_identity(anchor_id).member_id
         doc = generate_documents(seed, PROFILES[anchor_id])
         assert expected_id in doc.denial_letter_text, (
             f"Member ID {expected_id!r} not found in denial letter for {anchor_id}"
@@ -252,9 +252,9 @@ def test_pool_member_id_in_generated_denial_letter() -> None:
 
 
 def test_pool_prescriber_npi_in_generated_denial_letter() -> None:
-    """Prescriber NPI from IDENTITY_POOL must appear in the generated denial letter."""
+    """Prescriber NPI from pool must appear in the generated denial letter."""
     for anchor_id, seed in SEEDS.items():
-        expected_npi = IDENTITY_POOL[seed.identity_index].prescriber_npi
+        expected_npi = get_identity(anchor_id).prescriber_npi
         doc = generate_documents(seed, PROFILES[anchor_id])
         assert expected_npi in doc.denial_letter_text, (
             f"Prescriber NPI {expected_npi!r} not found in denial letter for {anchor_id}"
@@ -273,11 +273,10 @@ def test_patient_context_attached_to_generated_doc() -> None:
 
 
 def test_patient_context_name_matches_pool() -> None:
-    """PatientContext.patient_name must match the pool entry for the anchor's identity_index."""
-
+    """PatientContext.patient_name must match the pool entry keyed by anchor_id."""
     for anchor_id, seed in SEEDS.items():
         doc = generate_documents(seed, PROFILES[anchor_id])
-        expected = IDENTITY_POOL[seed.identity_index].patient_name
+        expected = get_identity(anchor_id).patient_name
         assert doc.patient_context.patient_name == expected
 
 

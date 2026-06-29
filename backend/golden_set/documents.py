@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from golden_set.identities import IDENTITY_POOL, PatientIdentity
+from golden_set.identities import PatientIdentity, get_identity
 from golden_set.markers import SYNTHETIC_BANNER
 from golden_set.seeds import AnchorSeed, CriterionSpec, ScenarioProfile
 from golden_set.templates import (
@@ -154,7 +154,7 @@ def generate_documents(
     Deterministic: same *seed* + *profile* + *date* always produce byte-identical output.
     No random state. No LLM calls on the default path.
     """
-    ident = IDENTITY_POOL[seed.identity_index]
+    ident = get_identity(seed.anchor_id)
     patient_context = _identity_to_context(ident)
     denial_letter = _render_denial_letter(seed, profile, ident, date)
     clinical_snippets = [_render_snippet(c, ident, date) for c in profile.criteria]

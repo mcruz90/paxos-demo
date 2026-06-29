@@ -22,7 +22,7 @@ class AnchorSeed:
     diagnosis: str      # Human-readable, no digits (ETL _DIAGNOSIS_RE limitation)
     denial_reason: str  # No periods (ETL _DENIAL_REASON_RE stops at ".")
     icd_code: str       # ICD-10 alphanumeric, e.g. "E11.9"
-    identity_index: int  # Index into IDENTITY_POOL
+    # Identity is resolved by anchor_id from golden/identities.json — no fragile index.
 
 
 @dataclass(frozen=True)
@@ -63,7 +63,6 @@ SEEDS: dict[str, AnchorSeed] = {
             "concurrent obesity documentation may indicate weight-loss use outside policy scope"
         ),
         icd_code="E11.9",
-        identity_index=0,
     ),
     "esomeprazole_uhc_pediatric": AnchorSeed(
         anchor_id="esomeprazole_uhc_pediatric",
@@ -76,7 +75,6 @@ SEEDS: dict[str, AnchorSeed] = {
             "swallowing limitation documentation conflicts with clinical chart notes"
         ),
         icd_code="K21.0",
-        identity_index=1,
     ),
     "livdelzi_cigna_hepatology": AnchorSeed(
         anchor_id="livdelzi_cigna_hepatology",
@@ -89,7 +87,6 @@ SEEDS: dict[str, AnchorSeed] = {
             "prescriber attestation of at least twelve continuous months required"
         ),
         icd_code="K83.01",
-        identity_index=2,
     ),
 }
 

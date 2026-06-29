@@ -1,21 +1,26 @@
-"""Fixed synthetic-identity pool for golden-set document generation.
+"""Synthetic-identity pool — loaded from backend/golden/identities.json.
 
-Every name, date, ID, and address in this file is invented and has no
-connection to any real person.  The pool is intentionally small (3 entries —
-one per anchor) so Phase 0.E can exhaustively allowlist every PII-shaped
-token that may appear in the synthetic corpus.
+To add a new identity: append an entry to identities.json matching the
+PatientIdentity fields.  No Python edits required.
 
-Adding entries: add a new PatientIdentity, bump the pool list, and update
-the allowlists POOL_NAMES / POOL_MEMBER_IDS / POOL_NPIS below.
+Every name, date, ID, and address is invented — not derived from any real
+person.  The pool is closed: Phase-0.E compliance asserts every PII-shaped
+token in the corpus maps to an entry here.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+
+from pydantic import TypeAdapter
+
+_POOL_PATH = Path(__file__).parent.parent / "golden" / "identities.json"
 
 
 @dataclass(frozen=True)
 class PatientIdentity:
+    anchor_id: str             # stable key — matches the seed's anchor_id
     patient_name: str
     patient_dob: str           # YYYY-MM-DD
     patient_sex: str           # "M" | "F"
@@ -29,50 +34,41 @@ class PatientIdentity:
     prescriber_phone: str
 
 
-IDENTITY_POOL: list[PatientIdentity] = [
-    # index 0 — Ozempic/Cigna — adult T2DM patient, endocrinologist
-    PatientIdentity(
-        patient_name="Marcus T. Halverson",
-        patient_dob="1972-03-14",
-        patient_sex="M",
-        member_id="CGN00123456",
-        group_id="GRP-78001",
-        patient_address="4821 Ridgecrest Drive, Columbus, OH 43215",
-        prescriber_name="Dr. Priya Ananthakrishnan, MD",
-        prescriber_npi="1234567890",
-        prescriber_specialty="Endocrinology",
-        prescriber_address="300 Commerce Way, Columbus, OH 43214",
-        prescriber_phone="(614) 555-0177",
-    ),
-    # index 1 — Esomeprazole/UHC — pediatric GERD patient (age 7), pediatric GI
-    PatientIdentity(
-        patient_name="Jordan R. Peterman",
-        patient_dob="2017-09-22",
-        patient_sex="M",
-        member_id="UHC88542190",
-        group_id="GRP-40052",
-        patient_address="112 Maple Terrace Lane, Raleigh, NC 27601",
-        prescriber_name="Dr. Yolanda Ekwueme, MD",
-        prescriber_npi="2345678901",
-        prescriber_specialty="Pediatric Gastroenterology",
-        prescriber_address="700 Pediatric Plaza, Raleigh, NC 27603",
-        prescriber_phone="(919) 555-0244",
-    ),
-    # index 2 — Livdelzi/Cigna — adult PBC patient (female), hepatologist
-    PatientIdentity(
-        patient_name="Diane K. Rourke",
-        patient_dob="1970-11-07",
-        patient_sex="F",
-        member_id="CGN00987654",
-        group_id="GRP-78014",
-        patient_address="29 Birchwood Court, Portland, OR 97201",
-        prescriber_name="Dr. Samuel Okonkwo, MD",
-        prescriber_npi="3456789012",
-        prescriber_specialty="Hepatology",
-        prescriber_address="1200 Medical Center Drive, Portland, OR 97239",
-        prescriber_phone="(503) 555-0381",
-    ),
-]
+_adapter: TypeAdapter[list[PatientIdentity]] = TypeAdapter(list[PatientIdentity])
+
+
+def _load_pool() -> list[PatientIdentity]:
+    try:
+        return _adapter.validate_json(_POOL_PATH.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError(
+            f"Cannot load identity pool from {_POOL_PATH}: {exc}"
+        ) from exc
+
+
+IDENTITY_POOL: list[PatientIdentity] = _load_pool()
+
+_POOL_BY_ANCHOR: dict[str, PatientIdentity] = {
+    ident.anchor_id: ident for ident in IDENTITY_POOL
+}
+
+
+def get_identity(anchor_id: str) -> PatientIdentity:
+    """Return the PatientIdentity for *anchor_id*.
+
+    Raises KeyError with a clear message if the anchor_id is not in the pool.
+    To add a new identity: append an entry to backend/golden/identities.json.
+    """
+    try:
+        return _POOL_BY_ANCHOR[anchor_id]
+    except KeyError:
+        known = sorted(_POOL_BY_ANCHOR)
+        raise KeyError(
+            f"No identity found for anchor_id={anchor_id!r}. "
+            f"Known anchor_ids: {known}. "
+            f"Add an entry to {_POOL_PATH}."
+        ) from None
+
 
 # ---------------------------------------------------------------------------
 # Closed allowlists for the Phase 0.E compliance scan.
@@ -86,7 +82,6 @@ POOL_NAMES: frozenset[str] = frozenset(
     for token in (
         ident.patient_name,
         ident.prescriber_name,
-        # Name fragments for substring scanning
         *ident.patient_name.split(),
         *ident.prescriber_name.replace("Dr. ", "").replace(", MD", "").split(),
     )
