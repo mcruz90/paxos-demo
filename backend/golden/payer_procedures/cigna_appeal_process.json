@@ -1,0 +1,219 @@
+{
+  "schema_version": "1.0",
+  "payer_id": "cigna",
+  "procedure_id": "cigna_standard_appeal",
+  "display_name": "Cigna Healthcare Provider Appeal & Dispute Process",
+  "source_url": "https://www.cigna.com/health-care-providers/coverage-and-claims/appeals-disputes",
+  "retrieved_date": "2026-06-29",
+  "effective_date": null,
+  "staleness_flag_after_days": 90,
+  "_staleness_note": "If today's date exceeds retrieved_date + staleness_flag_after_days, re-verify source_url before use in production.",
+  "_future_api_note": "Schema designed to align with Da Vinci Coverage Requirements Discovery (CRD) FHIR IG shapes. When Cigna exposes FHIR appeal process endpoints under CMS-0057-F, this file should be populated from the API response rather than hand-authored.",
+  "regional_exceptions": [
+    {
+      "state": "CA",
+      "note": "California providers are subject to a separate set of policies and procedures. Verify at CignaforHCP.com before using this file for CA claims."
+    }
+  ],
+  "contact": {
+    "general_phone": "1-800-882-4462",
+    "pharmacy_phone": "1-800-753-2851",
+    "online_portals": ["CignaforHCP.com", "Provider.Evernorth.com"]
+  },
+  "required_form": {
+    "name": "Request for Health Care Provider Payment Review",
+    "format": "PDF",
+    "instructions": "Select the appropriate appeal type checkbox before submitting. Available on CignaforHCP.com."
+  },
+  "stages": [
+    {
+      "stage_id": "informal_resolution",
+      "name": "Informal Resolution",
+      "sequence": 1,
+      "description": "Initial contact with Cigna Customer Service. Attempt before submitting a written appeal — may resolve without formal filing.",
+      "deadline_days": null,
+      "deadline_basis": null,
+      "submission_channels": [
+        {
+          "channel": "phone",
+          "contact": "1-800-882-4462"
+        }
+      ],
+      "payer_response_days": null,
+      "required_documentation": []
+    },
+    {
+      "stage_id": "internal_appeal",
+      "name": "Internal Appeal",
+      "sequence": 2,
+      "description": "Formal written appeal to Cigna National Appeals Unit (NAU). Primary recourse for provider-initiated disputes.",
+      "deadline_days": 180,
+      "deadline_basis": "date_of_initial_payment_or_denial_notice",
+      "submission_channels": [
+        {
+          "channel": "mail",
+          "routing_rules": [
+            {
+              "condition": "plan_indicator IN ['GWH-Cigna', 'G']",
+              "address": {
+                "name": "Cigna Healthcare Inc. National Appeals Unit",
+                "po_box": "PO Box 188062",
+                "city": "Chattanooga",
+                "state": "TN",
+                "zip": "37422"
+              }
+            },
+            {
+              "condition": "service_administered_by == 'evicore'",
+              "address": {
+                "name": "EviCore Claim Appeals",
+                "po_box": "PO Box 5620",
+                "city": "Hartford",
+                "state": "CT",
+                "zip": "06102"
+              }
+            },
+            {
+              "condition": "service_administered_by == 'express_scripts'",
+              "address": {
+                "name": "Express Scripts",
+                "po_box": "PO Box 66588",
+                "city": "St. Louis",
+                "state": "MO",
+                "zip": "63166-6588"
+              },
+              "fax": "877-852-4070"
+            },
+            {
+              "condition": "default",
+              "address": {
+                "name": "Cigna Healthcare Inc. NAO",
+                "po_box": "PO Box 188011",
+                "city": "Chattanooga",
+                "state": "TN",
+                "zip": "37422"
+              }
+            }
+          ]
+        },
+        {
+          "channel": "online_portal",
+          "portals": ["CignaforHCP.com", "Provider.Evernorth.com"],
+          "restriction": "Coding edit disputes only. Requires authorized user account."
+        }
+      ],
+      "payer_response_days": 60,
+      "payer_notification_deadline_business_days": 75,
+      "required_documentation": [
+        "Original EOB, EOP, or information request letter",
+        "Supporting medical documentation (e.g., operative reports, medical records relevant to the denial)",
+        "Completed 'Request for Health Care Provider Payment Review' form with appeal type checkbox selected"
+      ],
+      "documentation_exceptions": [
+        {
+          "condition": "denial_type == 'precertification' AND no_eob_eop_issued",
+          "exception": "No supporting documentation required"
+        }
+      ]
+    },
+    {
+      "stage_id": "external_review_iro",
+      "name": "External Review — Independent Review Organization (IRO)",
+      "sequence": 3,
+      "description": "Available for medical necessity and experimental/investigational denials. Requires patient/enrollee approval before provider can request.",
+      "deadline_days": null,
+      "deadline_basis": null,
+      "submission_channels": [],
+      "payer_response_days": null,
+      "required_documentation": [
+        "Patient or enrollee written consent/approval"
+      ],
+      "applicable_denial_types": ["medical_necessity", "experimental_investigational"]
+    },
+    {
+      "stage_id": "arbitration",
+      "name": "Arbitration",
+      "sequence": 4,
+      "description": "Final binding dispute resolution. Only available if the provider's contract with Cigna includes an arbitration provision.",
+      "deadline_days": 365,
+      "deadline_basis": "date_of_final_internal_review_decision_letter",
+      "submission_channels": [
+        {
+          "channel": "arbitration_service",
+          "contact": "American Health Lawyers Association ADR Service"
+        }
+      ],
+      "payer_response_days": null,
+      "required_documentation": [],
+      "precondition": "Provider agreement must include an arbitration provision"
+    }
+  ],
+  "denial_type_routing": {
+    "_note": "Determines which party (provider vs. customer/enrollee) is the primary appellant for each denial type. Providers cannot appeal customer-only denials directly.",
+    "precertification_pre_service": {
+      "primary_appellant": "customer",
+      "provider_can_appeal": false,
+      "recommended_path": "Advise patient to file customer appeal; provider may submit supporting documentation"
+    },
+    "precertification_not_obtained": {
+      "primary_appellant": "provider",
+      "provider_can_appeal": true,
+      "recommended_stage": "internal_appeal"
+    },
+    "claim_reimbursement": {
+      "primary_appellant": "provider",
+      "provider_can_appeal": true,
+      "recommended_stage": "internal_appeal"
+    },
+    "benefit_exclusion_or_limitation": {
+      "primary_appellant": "customer",
+      "provider_can_appeal": false,
+      "recommended_path": "Advise patient to file customer appeal"
+    },
+    "medical_necessity": {
+      "primary_appellant": "either",
+      "provider_can_appeal": true,
+      "iro_eligible": true,
+      "recommended_stage": "internal_appeal",
+      "escalation": "external_review_iro"
+    },
+    "experimental_investigational": {
+      "primary_appellant": "either",
+      "provider_can_appeal": true,
+      "iro_eligible": true,
+      "recommended_stage": "internal_appeal",
+      "escalation": "external_review_iro"
+    },
+    "coding_edit": {
+      "primary_appellant": "provider",
+      "provider_can_appeal": true,
+      "recommended_stage": "internal_appeal",
+      "online_reconsideration_available": true,
+      "online_reconsideration_portals": ["CignaforHCP.com", "Provider.Evernorth.com"]
+    }
+  },
+  "carc_rarc_mapping": {
+    "_note": "EDI 835 Claim Adjustment Reason Codes (CARC) and Remittance Advice Remark Codes (RARC) that indicate appeal eligibility. Enables future automated denial_type classification from real remittance data without free-text parsing.",
+    "_status": "stub — populate from Cigna 835 companion guide when available",
+    "examples": [
+      {
+        "carc": "50",
+        "description": "Non-covered — not deemed medically necessary by payer",
+        "maps_to_denial_type": "medical_necessity",
+        "provider_can_appeal": true
+      },
+      {
+        "carc": "4",
+        "description": "Service code inconsistent with modifier, or required modifier missing",
+        "maps_to_denial_type": "coding_edit",
+        "provider_can_appeal": true
+      },
+      {
+        "carc": "97",
+        "description": "Payment included in another service/procedure",
+        "maps_to_denial_type": "bundling_edit",
+        "provider_can_appeal": true
+      }
+    ]
+  }
+}
