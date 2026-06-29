@@ -166,6 +166,27 @@ class Round2Appeal(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class PatientContext(BaseModel):
+    """Synthetic patient + prescriber demographics for letter headers.
+
+    In the golden set these values come from the closed IDENTITY_POOL
+    (synthetic-by-construction, never real PHI).  In production this is the
+    one legitimate PHI sink; everything else must pass through redact_phi().
+    """
+
+    patient_name: str
+    patient_dob: str           # YYYY-MM-DD
+    patient_sex: str           # "M" | "F"
+    member_id: str
+    group_id: str
+    patient_address: str
+    prescriber_name: str
+    prescriber_npi: str        # 10-digit string (fake in golden set)
+    prescriber_specialty: str
+    prescriber_address: str
+    prescriber_phone: str
+
+
 class ScenarioConfig(BaseModel):
     id: str
     config_file: str = Field(alias="configFile")

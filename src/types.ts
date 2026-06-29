@@ -42,6 +42,20 @@ export interface TimelineEvent {
   status: 'done' | 'flagged' | 'pending'
 }
 
+export interface PatientContext {
+  patientName: string
+  patientDob: string        // YYYY-MM-DD
+  patientSex: string        // "M" | "F"
+  memberId: string
+  groupId: string
+  patientAddress: string
+  prescriberName: string
+  prescriberNpi: string     // 10-digit string (fake in golden set)
+  prescriberSpecialty: string
+  prescriberAddress: string
+  prescriberPhone: string
+}
+
 export interface ScenarioConfig {
   id: string
   configFile: string
@@ -57,6 +71,8 @@ export interface ScenarioConfig {
   criteriaResults: CriterionResult[]
   citations: Record<string, { source: string; page: string; text: string }>
   configJson: string
+  // Optional — present when the scenario was generated from the golden-set pipeline
+  patientContext?: PatientContext
   // Config hierarchy
   drugKey: string            // groups same drug across carrier configs
   parentConfigId?: string    // if set, this config is a plan-specific override of the parent
