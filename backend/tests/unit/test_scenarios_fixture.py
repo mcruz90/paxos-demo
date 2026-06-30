@@ -250,3 +250,26 @@ def test_all_discrepancy_signals_require_human_action() -> None:
                 f"scenario={scenario.scenario_id!r} signal={sig.signal_id!r}: "
                 "human_action_required must be True"
             )
+
+
+# ── CANONICAL LOADER GUARD ────────────────────────────────────────────────────
+
+
+def test_load_raises_validation_error_on_malformed_json(tmp_path: Path) -> None:
+    """load_scenarios_fixture must raise pydantic.ValidationError — not a bare except — on bad JSON.
+
+    This guards that the loader fails fast and typed, never swallows parse errors.
+    """
+    from pydantic import ValidationError
+
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not valid json", encoding="utf-8")
+    with pytest.raises(ValidationError):
+        load_scenarios_fixture(path=bad)
+
+
+def test_load_raises_on_missing_file(tmp_path: Path) -> None:
+    """load_scenarios_fixture must propagate FileNotFoundError when the path does not exist."""
+    missing = tmp_path / "does_not_exist.json"
+    with pytest.raises(FileNotFoundError):
+        load_scenarios_fixture(path=missing)
