@@ -25,10 +25,10 @@ export const COVERAGE_RESOLUTION: Record<string, CoverageResolution> = {
     pack: 'ozempic_cigna_base', version: 'v3', effective: 'Jan 1, 2026',
     status: 'resolved', detail: 'Registry hit — same pack as the Ozempic appeal, reused for this initial PA. 215 prior cases across all clients.',
   },
-  'novo-ozempic-denied': {
+  'novo-ozempic-docgap': {
     channel: 'pharmacy', bin: '004336', pcn: 'ADV', group: 'RX8294',
     pack: 'ozempic_cigna_base', version: 'v3', effective: 'Jan 1, 2026',
-    status: 'resolved', detail: 'Registry hit — same pack the appeal (PH-3102) will reuse if this PA is denied. 215 prior cases across all clients.',
+    status: 'resolved', detail: 'Registry hit — same pack reused for this pre-submission documentation gap case. Prescriber attestation pending before PAS filing. 215 prior cases across all clients.',
   },
   'pediatric-esomeprazole': {
     channel: 'pharmacy', bin: '610502', pcn: 'UHC', group: 'CHOICE21',

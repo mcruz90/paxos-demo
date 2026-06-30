@@ -108,6 +108,13 @@ const ozempicCriteria: CriterionResult[] = [
     status: 'needs_review',
     note: 'Chart includes BMI 33.2 kg/m² and notation "weight management goals discussed" from 01/10/2024 visit. Cigna cnf_360 excludes weight-loss use — payer requests prescriber attestation that Ozempic is prescribed solely for T2DM glycemic control.',
     docSource: 'Office Visit Notes',
+    suggestedAction: 'Obtain a brief prescriber attestation confirming Ozempic is prescribed for T2DM glycemic control (not weight management). The BMI documentation alone does not displace the T2DM indication; a single-sentence clinical rationale from the endocrinologist is sufficient.',
+    workflowPlan: {
+      action: 'Request prescriber attestation: Ozempic prescribed for T2DM glycemic control only (not weight loss / obesity management)',
+      recipient: 'Prescriber (Endocrinology)',
+      channel: 'EHR task / fax to clinic',
+      turnaround: '2 business days',
+    },
   },
 ]
 
@@ -221,13 +228,14 @@ export const scenarios: Record<string, ScenarioConfig> = {
     ],
   },
 
-  // ── Ozempic family: Cigna initial PA — denied → appeal loop (A-T2) ───────────
-  // The PH-3102 patient's EARLIER stage. The PA is assembled with all four criteria
-  // satisfied and filed via PAS; Cigna denies it on a step-therapy technicality.
-  // The denied determination offers "Start appeal", which hands off to the existing
-  // novo-ozempic appeal (PH-3102) on the same patient's evidence — closing the loop.
-  'novo-ozempic-denied': {
-    id: 'novo-ozempic-denied',
+  // ── Ozempic family: Cigna initial PA — pre-submission documentation gap ───────
+  // PH-3101: AI assembled the PA request from the chart and detected an unresolved
+  // required item before submission — the indication criterion (T2DM-only) is
+  // needs_review because the chart includes a BMI note + "weight management goals
+  // discussed". The request is NOT filed; a prescriber attestation is dispatched
+  // first. Once received, PAS submission proceeds without further denial risk.
+  'novo-ozempic-docgap': {
+    id: 'novo-ozempic-docgap',
     drugKey: 'ozempic',
     configFile: 'ozempic_cigna_base.json',
     drug: 'Ozempic (semaglutide)',
@@ -237,7 +245,7 @@ export const scenarios: Record<string, ScenarioConfig> = {
     categoryKey: 'endocrinology',
     categoryLabel: 'Endocrinology',
     diagnosis: 'Type 2 Diabetes Mellitus (E11.9)',
-    denialReason: 'Indication not confirmed as limited to T2DM glycemic control — chart documents BMI 33.2 and weight management goals, which may indicate weight-loss use excluded under cnf_360',
+    denialReason: 'Pre-submission documentation gap: prescriber attestation of T2DM-only indication required — chart BMI 33.2 and weight management note must be clarified before PA request can be filed',
     clientType: 'patient',
     lifecycle: 'initial_pa',
     paRequired: {
@@ -248,18 +256,10 @@ export const scenarios: Record<string, ScenarioConfig> = {
     criteriaResults: ozempicCriteria,
     citations: ozempicCitations,
     configJson: ozempicCignaConfigJson,
-    paOutcome: {
-      decision: 'denied',
-      determinationId: 'DENY-CIGNA-5582',
-      timeToTherapy: '—',
-      note: "Cigna denied the request, citing insufficient documentation that Ozempic is prescribed for T2DM glycemic control rather than weight management. Chart BMI of 33.2 and a 'weight management goals discussed' note triggered payer scrutiny. This is a contestable denial — prescriber attestation of the T2DM indication supports a clear appeal.",
-    },
-    appealHandoff: { scenarioId: 'novo-ozempic', caseRef: 'PH-3102' },
     timeline: [
-      { label: 'Order Received', date: 'Jun 3, 2026', status: 'done'    as const, note: 'Rx from Epic'           },
-      { label: 'PA Required',    date: 'Jun 3, 2026', status: 'done'    as const, note: 'CRD: PA needed'         },
-      { label: 'Request Filed',  date: 'Jun 5, 2026', status: 'done'    as const, note: 'PAS submission'         },
-      { label: 'Denial',         date: 'Jun 8, 2026', status: 'flagged' as const, note: 'Indication disputed'    },
+      { label: 'Order Received',    date: 'Jun 3, 2026', status: 'done'    as const, note: 'Rx from Epic'                 },
+      { label: 'PA Required',       date: 'Jun 3, 2026', status: 'done'    as const, note: 'CRD: PA needed'               },
+      { label: 'Documentation Gap', date: 'Jun 5, 2026', status: 'flagged' as const, note: 'Indication attestation needed' },
     ],
   },
 
@@ -483,7 +483,7 @@ export const TENANT = {
 // ---------------------------------------------------------------------------
 
 export const initialClients: Client[] = [
-  { id: 4, name: 'Case #PH-3101', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 5, 2026',  scenarioId: 'novo-ozempic-denied',  deadline: 'Due tomorrow',   urgency: 'soon'  },
+  { id: 4, name: 'Case #PH-3101', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 5, 2026',  scenarioId: 'novo-ozempic-docgap',  deadline: 'Due tomorrow',   urgency: 'soon'  },
   { id: 0, name: 'Case #PH-3098', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 17, 2026', scenarioId: 'novo-ozempic-initial', deadline: 'Due in 2 days',  urgency: 'soon'  },
   { id: 1, name: 'Case #PH-3102', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 8, 2026',  scenarioId: 'novo-ozempic',         deadline: 'Due today',      urgency: 'today' },
   { id: 2, name: 'Case #PH-4201', drug: 'Esomeprazole Susp.', categoryLabel: 'Gastroenterology', status: 'payer_response',   clientType: 'patient', lastUpdated: 'Jun 11, 2026', scenarioId: 'pediatric-esomeprazole', deadline: 'Due in 4 days',  urgency: 'later' },
@@ -500,6 +500,7 @@ export const initialClients: Client[] = [
 
 export function getCaseTier(client: Client): CaseTier {
   if (client.status === 'exception') return 'exception'
+  if (client.status === 'awaiting_documentation') return 'complex'
   if (client.status === 'payer_response') return 'complex'
   return 'routine'
 }
@@ -519,11 +520,12 @@ export function newCaseRef(): string {
 
 /** Human-readable status label for the coordinator-facing queue and dashboard. */
 export const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
-  ready_for_review: 'Ready for Review',
-  payer_response:   'Awaiting Payer Response',
-  exception:        'Action Required',
-  processing:       'Processing',
-  submitted:        'Submitted',
+  ready_for_review:       'Ready for Review',
+  payer_response:         'Awaiting Payer Response',
+  exception:              'Action Required',
+  awaiting_documentation: 'Awaiting Documentation',
+  processing:             'Processing',
+  submitted:              'Submitted',
 }
 
 /** Case names shown in the EvalDashboard active-pipeline strip (derived from initialClients). */

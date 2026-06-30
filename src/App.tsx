@@ -235,6 +235,13 @@ export default function App() {
               ? undefined
               : () => addToPortfolio(activeScenario)
           }
+          onDispatchComplete={() => {
+            setClients(prev => prev.map(c =>
+              c.scenarioId === activeScenario.id && c.status === 'exception'
+                ? { ...c, status: 'awaiting_documentation' as CaseStatus }
+                : c
+            ))
+          }}
         />
       )}
       {view === 'library' && (

@@ -18,7 +18,7 @@ import { ExceptionsPanel } from './ExceptionsPanel'
 import { DonePanel } from './DonePanel'
 import { PipelineStartPanel } from './PipelineStartPanel'
 
-export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, caseStatus, onStartAppeal }: {
+export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, caseStatus, onStartAppeal, onDispatchComplete }: {
   scenario: ScenarioConfig
   onReset: () => void
   onSaveToPortfolio?: () => void
@@ -26,13 +26,21 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
   autoStart?: boolean
   caseStatus?: CaseStatus
   onStartAppeal?: (scenarioId: string) => void
+  onDispatchComplete?: () => void
 }) {
   const [phase, setPhase] = useState<SimPhase>(
     reviewMode && (caseStatus === 'submitted' || caseStatus === 'payer_response') ? 'submitted' :
     reviewMode ? 'done' :
     'idle'
   )
-  const [dispatched, setDispatched] = useState<string[]>([])
+  const [dispatched, setDispatched] = useState<string[]>(() => {
+    if (caseStatus === 'awaiting_documentation') {
+      return scenario.criteriaResults
+        .filter(cr => cr.status === 'needs_review' || cr.status === 'conflict')
+        .map(cr => cr.rule.label)
+    }
+    return []
+  })
   const [pendingDispatch, setPendingDispatch] = useState<string[]>([])
   const [acknowledged, setAcknowledged] = useState(false)
   const [appealRef] = useState(() => {
@@ -41,8 +49,9 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
     const known = initialClients.find(c => c.scenarioId === scenario.id)?.name
     return known ? known.replace('Case #', '') : newCaseRef()
   })
-  const executeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const round2IntervalRef  = useRef<ReturnType<typeof setInterval> | null>(null)
+  const executeIntervalRef        = useRef<ReturnType<typeof setInterval> | null>(null)
+  const round2IntervalRef         = useRef<ReturnType<typeof setInterval> | null>(null)
+  const dispatchCompleteCalledRef = useRef(false)
 
   const [traceOpen, setTraceOpen] = useState(true)
   const [hoveredCite, setHoveredCite] = useState<number | null>(null)
@@ -92,7 +101,7 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
   }
   const dispatchAll = () => {
     const remaining = unresolvedCriteria
-      .filter(cr => !dispatched.includes(cr.rule.label) && !overrides[cr.rule.label])
+      .filter(cr => !dispatched.includes(cr.rule.label) && !overrides[cr.rule.label] && cr.workflowPlan)
     setPendingDispatch(prev => [...new Set([...prev, ...remaining.map(cr => cr.rule.label)])])
   }
   const applyOverride = (ruleLabel: string) => {
@@ -131,6 +140,13 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
     if (executeIntervalRef.current) clearInterval(executeIntervalRef.current)
     if (round2IntervalRef.current)  clearInterval(round2IntervalRef.current)
   }, [])
+
+  useEffect(() => {
+    if (allResolved && !dispatchCompleteCalledRef.current && onDispatchComplete) {
+      dispatchCompleteCalledRef.current = true
+      onDispatchComplete()
+    }
+  }, [allResolved, onDispatchComplete])
 
   const handleDownload = () => openAppealPdf(scenario)
 

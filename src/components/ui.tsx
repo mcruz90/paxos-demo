@@ -79,11 +79,12 @@ export function StageBadge({ stage }: { stage: 'Initial PA' | 'Appeal' }) {
 
 export function StatusBadge({ status }: { status: CaseStatus }) {
   const config: Record<CaseStatus, { label: string; className: string }> = {
-    processing:       { label: 'Processing',        className: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-    ready_for_review: { label: 'Ready for Review',  className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-    exception:        { label: 'Exception',         className: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    submitted:        { label: 'Submitted',         className: 'bg-slate-600/30 text-slate-400 border-slate-600/30' },
-    payer_response:   { label: 'Payer Response',    className: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
+    processing:             { label: 'Processing',             className: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+    ready_for_review:       { label: 'Ready for Review',       className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    exception:              { label: 'Exception',              className: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    awaiting_documentation: { label: 'Awaiting Documentation', className: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
+    submitted:              { label: 'Submitted',              className: 'bg-slate-600/30 text-slate-400 border-slate-600/30' },
+    payer_response:         { label: 'Payer Response',         className: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
   }
   const { label, className } = config[status]
   return (

@@ -5,11 +5,12 @@ import { getCaseStage, getCaseTier, TENANT } from '../data/scenarios'
 import { InfoHint, StageBadge, StatusBadge, TierBadge, DueBadge } from './ui'
 
 const ACTION_GROUPS: { status: CaseStatus; label: string; hint: string }[] = [
-  { status: 'exception',        label: 'Needs investigation', hint: "AI hit a gap it can't resolve — gather what's missing" },
-  { status: 'payer_response',   label: 'Respond to payer',    hint: 'Counter-offer received — review and file the next round' },
-  { status: 'ready_for_review', label: 'Review & approve',    hint: 'AI work complete — review and authorize the send' },
-  { status: 'submitted',        label: 'Awaiting payer',      hint: 'Filed — no action needed until the payer responds' },
-  { status: 'processing',       label: 'Importing from Epic', hint: 'Syncing from the connected record' },
+  { status: 'exception',              label: 'Needs investigation',    hint: "AI hit a gap it can't resolve — gather what's missing" },
+  { status: 'payer_response',         label: 'Respond to payer',       hint: 'Counter-offer received — review and file the next round' },
+  { status: 'ready_for_review',       label: 'Review & approve',       hint: 'AI work complete — review and authorize the send' },
+  { status: 'awaiting_documentation', label: 'Awaiting documentation', hint: 'Document request sent — waiting for provider response' },
+  { status: 'submitted',              label: 'Awaiting payer',         hint: 'Filed — no action needed until the payer responds' },
+  { status: 'processing',             label: 'Importing from Epic',    hint: 'Syncing from the connected record' },
 ]
 
 const URGENCY_ORDER: Record<Urgency, number> = { today: 0, soon: 1, later: 2 }

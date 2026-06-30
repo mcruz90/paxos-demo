@@ -5,7 +5,7 @@ export type ClientType = 'medtech' | 'patient'
 export type RuleType = 'diagnostic' | 'temporal' | 'math' | 'safety' | 'provider' | 'quantity' | 'custom'
 export type SimPhase = 'idle' | 'loading' | 'done' | 'review' | 'submitted' | 'round2_loading' | 'round2_done' | 'round2_submitted'
 export type CriterionStatus = 'found' | 'needs_review' | 'conflict'
-export type CaseStatus = 'processing' | 'ready_for_review' | 'exception' | 'submitted' | 'payer_response'
+export type CaseStatus = 'processing' | 'ready_for_review' | 'exception' | 'awaiting_documentation' | 'submitted' | 'payer_response'
 // Lifecycle stage a case represents. 'initial_pa' = assemble & transmit a new
 // prior-auth request (Da Vinci CRD → DTR → PAS). 'appeal' = contest a prior
 // denial. Absent on a scenario ⇒ 'appeal' (the original demo scenarios).

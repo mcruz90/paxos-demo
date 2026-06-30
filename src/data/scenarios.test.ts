@@ -23,7 +23,7 @@ describe('getCaseTier', () => {
 describe('getCaseStage', () => {
   it('labels an initial_pa scenario as Initial PA', () => {
     expect(getCaseStage(byScenario('novo-ozempic-initial'))).toBe('Initial PA')
-    expect(getCaseStage(byScenario('novo-ozempic-denied'))).toBe('Initial PA')
+    expect(getCaseStage(byScenario('novo-ozempic-docgap'))).toBe('Initial PA')
   })
   it('labels a non-initial scenario as Appeal', () => {
     expect(getCaseStage(byScenario('novo-ozempic'))).toBe('Appeal')
