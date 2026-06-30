@@ -40,8 +40,8 @@ export const FAILURE_CLUSTERS: FailureCluster[] = [
     proposedFix: 'Add a deterministic gatekeeper check: reject any safety-critical criterion not backed by explicit evidence.',
     proposedDraft: FIX_GATEKEEPER_SAFETY,
     sampleCases: [
-      { id: 'PH-5567', drug: 'Livdelzi', symptom: 'MTC-adjacent contraindication marked cleared on inferred evidence' },
-      { id: 'PH-5571', drug: 'Ozempic', symptom: 'MEN2 history not explicitly ruled out, passed gate' },
+      { id: 'PH-5567', drug: 'Livdelzi', symptom: 'Decompensation flag inferred from ambiguous chart note, not explicitly documented' },
+      { id: 'PH-5571', drug: 'Ozempic', symptom: 'No concomitant GLP-1 not explicitly cleared in chart — absence inferred from incomplete med list, passed gate' },
       { id: 'PH-5588', drug: 'Livdelzi', symptom: 'Decompensation flag inferred, not explicitly documented' },
     ],
   },
@@ -51,8 +51,8 @@ export const FAILURE_CLUSTERS: FailureCluster[] = [
     proposedFix: 'Adopt the evidence-sufficiency policy: a supporting criterion may be satisfied by explicit statement OR well-supported inference (recording the basis); never infer a safety-critical clearance.',
     proposedDraft: FIX_SYNTHESIS_OVERCAUTION,
     sampleCases: [
-      { id: 'PH-3102', drug: 'Ozempic', symptom: 'Metformin duration derivable from refills, flagged needs_review' },
-      { id: 'PH-3140', drug: 'Ozempic', symptom: 'HbA1c trend implied by serial labs, flagged needs_review' },
+      { id: 'PH-3102', drug: 'Ozempic', symptom: 'Patient age derivable from DOB in referral header, flagged needs_review' },
+      { id: 'PH-3140', drug: 'Ozempic', symptom: 'T2DM diagnosis derivable from ICD code + labs in chart, flagged needs_review' },
       { id: 'PH-3199', drug: 'Mounjaro', symptom: 'Step therapy derivable from claims history, escalated' },
     ],
   },

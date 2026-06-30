@@ -51,10 +51,10 @@ export const EVAL_RUBRIC_V2: EvalRubricData = {
   ],
   cases: [
     EVAL_RUBRIC_V1.cases[0],
-    { id: 'derivable-duration', tier: 'routine', exp: 'Metformin duration only in refill record → FOUND via inferred basis, NOT flagged.', tag: 'regression' },
+    { id: 'derivable-duration', tier: 'routine', exp: 'Patient age derivable from DOB in referral header (not stated as integer) → FOUND via inferred basis, NOT flagged.', tag: 'regression' },
     EVAL_RUBRIC_V1.cases[1],
     EVAL_RUBRIC_V1.cases[2],
-    { id: 'safety-missing-mtc', tier: 'exception', exp: 'MTC history not explicitly cleared → escalates; clearance is NEVER inferred.', tag: 'guardrail' },
+    { id: 'safety-no-concomitant-glp1', tier: 'exception', exp: 'No concomitant GLP-1 not explicitly cleared in chart → escalates; absence is NEVER inferred from an incomplete med list.', tag: 'guardrail' },
   ],
 }
 

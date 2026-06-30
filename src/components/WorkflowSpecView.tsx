@@ -15,7 +15,7 @@ export interface WorkflowPack { id: string; drug: string; carrier: string; file:
 export const WORKFLOW_PACKS: WorkflowPack[] = [
   {
     id: 'ozempic-cigna', drug: 'Ozempic (semaglutide)', carrier: 'Cigna Connect 500 · T2DM', file: 'ozempic_cigna_base', market: 'commercial',
-    rawPolicy: 'Coverage for GLP-1 receptor agonists (e.g., semaglutide) for type 2 diabetes mellitus requires an established T2DM diagnosis, a recent HbA1c demonstrating inadequate glycemic control, and a trial of metformin of adequate duration and dose unless contraindicated or not tolerated. Members with a personal or family history of medullary thyroid carcinoma or MEN2 are not eligible.',
+    rawPolicy: 'Ozempic (semaglutide) and other GLP-1 agonists are covered for confirmed type 2 diabetes mellitus in members age 18 and older. No HbA1c threshold or prior oral diabetes medication trial is required. Concomitant use with another GLP-1 or GLP-1/GIP agonist is not covered. Weight-loss use (without T2DM) is not covered — agents indicated for obesity management (Wegovy, Saxenda, Zepbound) fall under a separate policy.',
   },
   {
     id: 'livdelzi-cigna', drug: 'Livdelzi (seladelpar)', carrier: 'Cigna Healthcare · PBC', file: 'livdelzi_cigna_hepatology', market: 'commercial',
@@ -29,20 +29,21 @@ export const WORKFLOW_PACKS: WorkflowPack[] = [
 
 export const WSPEC_OZEMPIC: WorkflowSpecData = {
   rules: [
-    { type: 'diagnostic', cond: 'T2DM (E11.x) established and documented', crit: 'blocking', conf: 0.98 },
-    { type: 'math',       cond: 'HbA1c ≥ 7.5% within last 180 days', crit: 'blocking', conf: 0.82 },
-    { type: 'temporal',   cond: 'Metformin ≥ 90 consecutive days at max tolerated dose', crit: 'supporting', conf: 0.94 },
-    { type: 'safety',     cond: 'NO personal/family history of MTC or MEN2', crit: 'blocking', conf: 0.97 },
+    { type: 'diagnostic', cond: 'T2DM (E11.x) confirmed — ICD code or specialist documentation required', crit: 'blocking', conf: 0.98 },
+    { type: 'diagnostic', cond: 'Patient age ≥ 18 years', crit: 'blocking', conf: 0.99 },
+    { type: 'safety',     cond: 'NO concomitant GLP-1 or GLP-1/GIP agonist (Wegovy, Trulicity, Mounjaro, Saxenda, Zepbound) on active list', crit: 'blocking', conf: 0.96 },
+    { type: 'custom',     cond: 'Indication confirmed as T2DM glycemic control — not weight loss / obesity management', crit: 'blocking', conf: 0.81 },
   ],
   edgeCases: [
-    { c: 'Metformin intolerance / contraindication documented', h: 'Temporal rule bypassed — criterion satisfied via intolerance path (eGFR < 30, GI intolerance).' },
-    { c: 'Trial duration derivable from refill records but not stated', h: 'Satisfied via inferred evidence basis (supporting criticality only). Cite the refill record.' },
-    { c: 'HbA1c result older than 180 days', h: 'needs_review → request a current lab before proceeding.' },
-    { c: 'Safety criterion (MTC/MEN2) not explicitly cleared', h: 'Never inferred. Absence must be explicitly documented or the case escalates.' },
+    { c: 'BMI or weight-management note in chart (T2DM confirmed)', h: 'needs_review → obtain prescriber attestation that Ozempic is prescribed for T2DM glycemic control, not obesity. BMI documentation alone does not displace the T2DM indication.' },
+    { c: 'Patient on Rybelsus (oral semaglutide) AND requesting Ozempic injection', h: 'Safety — concomitant same-class agent; must not have both active. Confirm discontinuation before approval.' },
+    { c: 'Age documented only in referral header (not stated as integer)', h: 'Supported by explicit statement; cite the referral. Never inferred from graduation year or other indirect markers.' },
+    { c: 'T1DM diagnosis present in chart alongside T2DM history', h: 'Escalate to Exception — Cigna policy explicitly excludes T1DM; mixed-diagnosis chart requires clinical clarification before filing.' },
   ],
   escalations: [
-    { trig: 'Supporting criterion unsupported / contradictory', to: 'Complex' },
-    { trig: 'Safety criterion not explicitly cleared', to: 'Exception' },
+    { trig: 'Weight-management documentation without prescriber clarification of T2DM indication', to: 'Complex' },
+    { trig: 'Concomitant GLP-1 or GLP-1/GIP agonist not explicitly cleared', to: 'Exception' },
+    { trig: 'T1DM documented in chart (T2DM use excluded by policy)', to: 'Exception' },
     { trig: 'Gatekeeper fails 3 retries', to: 'Exception' },
     { trig: 'Payer counter-offer received', to: 'Complex (Round 2)' },
   ],

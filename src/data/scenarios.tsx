@@ -57,63 +57,69 @@ const ozempicCignaConfigJson = `{
   "policy_id": "ozempic-cigna-base-v1",
   "target_drug": "semaglutide",
   "carrier": "cigna",
+  "policy_ref": "cnf_360",
   "diagnostic_rules": [
-    { "condition_category": "Type 2 Diabetes Mellitus", "must_be_present": true }
-  ],
-  "biomarker_rules": [
-    { "biomarker_name": "HbA1c", "operator": ">=",
-      "absolute_threshold": 7.5, "max_age_days": 180 }
-  ],
-  "temporal_rules": [
-    { "intervention_target": "Metformin",
-      "minimum_duration_days": 90, "allows_intolerance_bypass": true }
+    { "condition_category": "Type 2 Diabetes Mellitus", "must_be_present": true },
+    { "condition_category": "Patient age", "operator": ">=", "threshold": 18, "unit": "years" }
   ],
   "safety_rules": [
-    { "condition_category": "Medullary Thyroid Carcinoma (MTC) or MEN2",
-      "must_be_present": false }
+    { "condition_category": "Concomitant GLP-1 or GLP-1/GIP agonist",
+      "must_be_present": false,
+      "examples": ["Wegovy", "Trulicity", "Mounjaro", "Saxenda", "Zepbound"] }
+  ],
+  "custom_rules": [
+    { "rule_id": "indication_t2dm_only",
+      "description": "Indication must be T2DM glycemic control; weight-loss use is not covered under this policy (Wegovy/Saxenda/Zepbound are governed by a separate obesity-management policy)" }
   ]
 }`
 
 // One patient's evidence, shared across the PH-3101 (denied initial PA) → PH-3102
 // (appeal) journey. The initial PA is filed with all four criteria satisfied;
-// Cigna denies it on a step-therapy technicality; the appeal asserts the very same
-// documented evidence. Single source of truth so both stages can't drift apart.
+// Cigna denies it on an indication-clarification technicality (BMI + weight-management
+// note triggers payer scrutiny); the appeal asserts the very same documented evidence.
+// Single source of truth so both stages can't drift apart.
+//
+// cnf_360 criteria (no HbA1c threshold, no metformin step therapy, no MTC gate):
+//   1. Confirmed T2DM diagnosis
+//   2. Patient age ≥ 18
+//   3. No concomitant GLP-1 or GLP-1/GIP agonist
+//   4. Indication limited to T2DM glycemic control (not weight loss) — needs_review
 const ozempicCriteria: CriterionResult[] = [
   {
     rule: { type: 'diagnostic', label: 'Confirmed Diagnosis: Type 2 Diabetes Mellitus (T2DM)' },
     status: 'found',
-    note: 'Page 1 — Endocrinology consult confirms T2DM with HbA1c trend documented over 18 months.',
+    note: 'Page 1 — Endocrinology consult confirms T2DM (E11.9), established 2021. ICD-10 documented in chart since 2019; fasting glucose 187 mg/dL confirming active disease.',
     docSource: 'Specialist Consult (Endocrinology)',
   },
   {
-    rule: { type: 'math', label: 'HbA1c >= 7.5% on Current Oral Regimen' },
+    rule: { type: 'diagnostic', label: 'Patient Age ≥ 18 Years (Ozempic Minimum Age Threshold)' },
     status: 'found',
-    note: 'Page 4 — HbA1c 8.2% (03/14/2024). Threshold ≥7.5%. Criterion satisfied.',
-    docSource: 'Lab Report',
+    note: 'Page 1 — Patient DOB 03/14/1972; age 52 at time of request. Cigna cnf_360 minimum age 18 years met.',
+    docSource: 'Specialist Consult (Endocrinology)',
   },
   {
-    rule: { type: 'temporal', label: 'Metformin Therapy >= 90 Consecutive Days at Maximum Tolerated Dose' },
+    rule: { type: 'safety', label: 'No Concomitant GLP-1 or GLP-1/GIP Agonist on Active Medication List' },
     status: 'found',
-    note: 'Page 3 — Pharmacy refill record confirms Metformin 1000mg BID for 112 consecutive days prior to referral. 90-day threshold satisfied.',
-    docSource: 'Pharmacy Records',
+    note: 'Page 3 — Current medication list reviewed 03/14/2024: metformin 1000mg BID, lisinopril 10mg, atorvastatin 40mg. No other GLP-1 or GLP-1/GIP agonist (Wegovy, Trulicity, Mounjaro, Saxenda, Zepbound) on active list.',
+    docSource: 'Medication List',
   },
   {
-    rule: { type: 'safety', label: 'NO Personal or Family History of Medullary Thyroid Carcinoma (MTC)' },
-    status: 'found',
-    note: 'Page 2 — Oncology history review negative for MTC. No family history of MEN2 syndrome documented.',
-    docSource: 'Medical History',
+    rule: { type: 'custom', label: 'Indication Confirmed as T2DM Glycemic Control (Not Weight Loss)' },
+    status: 'needs_review',
+    note: 'Chart includes BMI 33.2 kg/m² and notation "weight management goals discussed" from 01/10/2024 visit. Cigna cnf_360 excludes weight-loss use — payer requests prescriber attestation that Ozempic is prescribed solely for T2DM glycemic control.',
+    docSource: 'Office Visit Notes',
   },
 ]
 
 const ozempicCitations: ScenarioConfig['citations'] = {
   'Confirmed Diagnosis: Type 2 Diabetes Mellitus (T2DM)':
-    { source: 'Specialist Consult (Endocrinology)', page: 'p. 1', text: 'Endocrinology consult 02/08/2024 — T2DM established 2021. HbA1c trend: 7.9% → 8.2% over 18 months.' },
-  'HbA1c >= 7.5% on Current Oral Regimen':
-    { source: 'Lab Report', page: 'p. 4', text: 'Lab report 03/14/2024 — HbA1c: 8.2% (threshold ≥7.5%). Result confirmed.' },
-  'Metformin Therapy >= 90 Consecutive Days at Maximum Tolerated Dose':
-    { source: 'Pharmacy Records', page: 'p. 3', text: 'Pharmacy refill record confirms Metformin 1000mg BID — 112 consecutive days prior to referral.' },
-  'NO Personal or Family History of Medullary Thyroid Carcinoma (MTC)':
-    { source: 'Medical History', page: 'p. 2', text: 'Oncology history — No personal or family history of MTC or MEN2 syndrome. Thyroid ultrasound negative.' },
+    { source: 'Specialist Consult (Endocrinology)', page: 'p. 1', text: 'Endocrinology consult 02/08/2024 — T2DM (E11.9) established 2021. ICD-10 on file since 2019. Fasting glucose 187 mg/dL confirming active disease.' },
+  'Patient Age ≥ 18 Years (Ozempic Minimum Age Threshold)':
+    { source: 'Specialist Consult (Endocrinology)', page: 'p. 1', text: 'Patient DOB 03/14/1972 — age 52 at time of request (03/14/2024). Cigna GLP-1 policy minimum age 18 years met.' },
+  'No Concomitant GLP-1 or GLP-1/GIP Agonist on Active Medication List':
+    { source: 'Medication List', page: 'p. 3', text: 'Active medication list 03/14/2024: metformin 1000mg BID, lisinopril 10mg, atorvastatin 40mg. No GLP-1 or GLP-1/GIP agonist active.' },
+  'Indication Confirmed as T2DM Glycemic Control (Not Weight Loss)':
+    { source: 'Office Visit Notes', page: 'p. 2', text: 'Office visit 01/10/2024 — BMI 33.2 kg/m². Note: "weight management goals discussed." Prescriber attestation required confirming T2DM glycemic control as sole indication for Ozempic.' },
 }
 
 export const scenarios: Record<string, ScenarioConfig> = {
@@ -129,14 +135,14 @@ export const scenarios: Record<string, ScenarioConfig> = {
     categoryKey: 'endocrinology',
     categoryLabel: 'Endocrinology',
     diagnosis: 'Type 2 Diabetes Mellitus (E11.9)',
-    denialReason: 'Step therapy requirements not met — metformin trial documentation insufficient',
+    denialReason: 'Indication not confirmed as limited to T2DM glycemic control — chart documents BMI 33.2 and weight management goals, which may indicate weight-loss use excluded under cnf_360',
     clientType: 'patient',
     criteriaResults: ozempicCriteria,
     citations: ozempicCitations,
     configJson: ozempicCignaConfigJson,
     timeline: [
-      { label: 'PA Filed',      date: 'Jun 5, 2026',  status: 'done'    as const, note: 'Cigna step therapy'    },
-      { label: 'Denial',        date: 'Jun 8, 2026',  status: 'done'    as const, note: 'Step therapy not met'  },
+      { label: 'PA Filed',      date: 'Jun 5, 2026',  status: 'done'    as const, note: 'Cigna GLP-1 review'    },
+      { label: 'Denial',        date: 'Jun 8, 2026',  status: 'done'    as const, note: 'Indication unclear'    },
       { label: 'Coord. Review', date: 'Pending',       status: 'pending' as const, note: 'Appeal letter drafted' },
     ],
   },
@@ -161,7 +167,7 @@ export const scenarios: Record<string, ScenarioConfig> = {
     lifecycle: 'initial_pa',
     paRequired: {
       required: true,
-      basis: "CRD pre-check: Cigna requires prior authorization for GLP-1 agonists under CIGNA-C500-2024 (formulary step-therapy tier). PA required for semaglutide — proceed to assemble the request.",
+      basis: "CRD pre-check: Cigna requires prior authorization for GLP-1 agonists under CIGNA-C500-2024 (nonformulary GLP-1 tier, cnf_360). PA required for semaglutide — proceed to assemble the request.",
     },
     requestedTherapy: 'Ozempic (semaglutide) 0.5 mg subcutaneous once weekly — 90-day supply, 3 refills',
     criteriaResults: [
@@ -172,33 +178,33 @@ export const scenarios: Record<string, ScenarioConfig> = {
         docSource: 'Specialist Consult (Endocrinology)',
       },
       {
-        rule: { type: 'math', label: 'HbA1c >= 7.5% on Current Oral Regimen' },
+        rule: { type: 'diagnostic', label: 'Patient Age ≥ 18 Years (Ozempic Minimum Age Threshold)' },
         status: 'found',
-        note: 'Page 4 — HbA1c 8.6% (06/02/2026). Threshold ≥7.5%. Criterion satisfied.',
-        docSource: 'Lab Report',
+        note: 'Page 1 — Patient DOB 08/22/1985; age 40 at time of request. Cigna cnf_360 minimum age 18 years met.',
+        docSource: 'Specialist Consult (Endocrinology)',
       },
       {
-        rule: { type: 'temporal', label: 'Metformin Therapy >= 90 Consecutive Days at Maximum Tolerated Dose' },
+        rule: { type: 'safety', label: 'No Concomitant GLP-1 or GLP-1/GIP Agonist on Active Medication List' },
         status: 'found',
-        note: 'Page 3 — Pharmacy refill record confirms Metformin 1000mg BID for 134 consecutive days. 90-day threshold satisfied.',
-        docSource: 'Pharmacy Records',
+        note: 'Page 3 — Medication list reviewed 06/12/2026: metformin 500mg BID, empagliflozin 10mg. No GLP-1 or GLP-1/GIP agonist on active list.',
+        docSource: 'Medication List',
       },
       {
-        rule: { type: 'safety', label: 'NO Personal or Family History of Medullary Thyroid Carcinoma (MTC)' },
+        rule: { type: 'custom', label: 'Indication Confirmed as T2DM Glycemic Control (Not Weight Loss)' },
         status: 'found',
-        note: 'Page 2 — Oncology history review negative for MTC. No family history of MEN2 syndrome documented.',
-        docSource: 'Medical History',
+        note: 'Page 2 — Prescriber attestation on file: Ozempic prescribed for T2DM glycemic control per ADA 2024 guidelines. No obesity-management indication documented.',
+        docSource: 'Office Visit Notes',
       },
     ],
     citations: {
       'Confirmed Diagnosis: Type 2 Diabetes Mellitus (T2DM)':
-        { source: 'Specialist Consult (Endocrinology)', page: 'p. 1', text: 'Endocrinology consult 06/12/2026 — T2DM established 2022. HbA1c trend: 8.1% → 8.6% over 12 months on oral therapy.' },
-      'HbA1c >= 7.5% on Current Oral Regimen':
-        { source: 'Lab Report', page: 'p. 4', text: 'Lab report 06/02/2026 — HbA1c: 8.6% (threshold ≥7.5%). Result confirmed.' },
-      'Metformin Therapy >= 90 Consecutive Days at Maximum Tolerated Dose':
-        { source: 'Pharmacy Records', page: 'p. 3', text: 'Pharmacy refill record confirms Metformin 1000mg BID — 134 consecutive days prior to this order.' },
-      'NO Personal or Family History of Medullary Thyroid Carcinoma (MTC)':
-        { source: 'Medical History', page: 'p. 2', text: 'Oncology history — No personal or family history of MTC or MEN2 syndrome. Thyroid ultrasound negative.' },
+        { source: 'Specialist Consult (Endocrinology)', page: 'p. 1', text: 'Endocrinology consult 06/12/2026 — T2DM (E11.9) established 2022. HbA1c trend: 8.1% → 8.6% over 12 months on oral therapy.' },
+      'Patient Age ≥ 18 Years (Ozempic Minimum Age Threshold)':
+        { source: 'Specialist Consult (Endocrinology)', page: 'p. 1', text: 'Patient DOB 08/22/1985 — age 40 at time of request (06/2026). Cigna GLP-1 policy minimum age 18 years met.' },
+      'No Concomitant GLP-1 or GLP-1/GIP Agonist on Active Medication List':
+        { source: 'Medication List', page: 'p. 3', text: 'Active medication list 06/12/2026: metformin 500mg BID, empagliflozin 10mg. No GLP-1 or GLP-1/GIP agonist active.' },
+      'Indication Confirmed as T2DM Glycemic Control (Not Weight Loss)':
+        { source: 'Office Visit Notes', page: 'p. 2', text: 'Prescriber attestation 06/12/2026 — Ozempic prescribed for T2DM glycemic control per ADA 2024 guidelines. No weight-management indication documented.' },
     },
     configJson: ozempicCignaConfigJson,
     paOutcome: {
@@ -231,12 +237,12 @@ export const scenarios: Record<string, ScenarioConfig> = {
     categoryKey: 'endocrinology',
     categoryLabel: 'Endocrinology',
     diagnosis: 'Type 2 Diabetes Mellitus (E11.9)',
-    denialReason: 'Step therapy requirements not met — metformin trial documentation insufficient',
+    denialReason: 'Indication not confirmed as limited to T2DM glycemic control — chart documents BMI 33.2 and weight management goals, which may indicate weight-loss use excluded under cnf_360',
     clientType: 'patient',
     lifecycle: 'initial_pa',
     paRequired: {
       required: true,
-      basis: "CRD pre-check: Cigna requires prior authorization for GLP-1 agonists under CIGNA-C500-2024 (formulary step-therapy tier). PA required for semaglutide — proceed to assemble the request.",
+      basis: "CRD pre-check: Cigna requires prior authorization for GLP-1 agonists under CIGNA-C500-2024 (nonformulary GLP-1 tier, cnf_360). PA required for semaglutide — proceed to assemble the request.",
     },
     requestedTherapy: 'Ozempic (semaglutide) 0.5 mg subcutaneous once weekly — 90-day supply, 3 refills',
     criteriaResults: ozempicCriteria,
@@ -246,14 +252,14 @@ export const scenarios: Record<string, ScenarioConfig> = {
       decision: 'denied',
       determinationId: 'DENY-CIGNA-5582',
       timeToTherapy: '—',
-      note: "Cigna denied the request, asserting the metformin step-therapy trial was insufficiently documented — despite 112 consecutive days of pharmacy fills already on file. This is a contestable denial on documentation grounds, not a clinical one: the evidence supports an appeal.",
+      note: "Cigna denied the request, citing insufficient documentation that Ozempic is prescribed for T2DM glycemic control rather than weight management. Chart BMI of 33.2 and a 'weight management goals discussed' note triggered payer scrutiny. This is a contestable denial — prescriber attestation of the T2DM indication supports a clear appeal.",
     },
     appealHandoff: { scenarioId: 'novo-ozempic', caseRef: 'PH-3102' },
     timeline: [
-      { label: 'Order Received', date: 'Jun 3, 2026', status: 'done'    as const, note: 'Rx from Epic'          },
-      { label: 'PA Required',    date: 'Jun 3, 2026', status: 'done'    as const, note: 'CRD: PA needed'        },
-      { label: 'Request Filed',  date: 'Jun 5, 2026', status: 'done'    as const, note: 'PAS submission'        },
-      { label: 'Denial',         date: 'Jun 8, 2026', status: 'flagged' as const, note: 'Step therapy disputed' },
+      { label: 'Order Received', date: 'Jun 3, 2026', status: 'done'    as const, note: 'Rx from Epic'           },
+      { label: 'PA Required',    date: 'Jun 3, 2026', status: 'done'    as const, note: 'CRD: PA needed'         },
+      { label: 'Request Filed',  date: 'Jun 5, 2026', status: 'done'    as const, note: 'PAS submission'         },
+      { label: 'Denial',         date: 'Jun 8, 2026', status: 'flagged' as const, note: 'Indication disputed'    },
     ],
   },
 

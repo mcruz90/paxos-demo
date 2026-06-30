@@ -45,8 +45,8 @@ export const SPONSOR_BRANDS: SponsorBrand[] = [
     medianDaysToTherapy: 11, daysTrend: -2,
     sitesLive: 22, casesQuarter: 1840,
     denialReasons: [
-      { reason: 'Step therapy — metformin trial insufficient', pct: 44 },
-      { reason: 'HbA1c threshold not documented',              pct: 22 },
+      { reason: 'Indication not confirmed as T2DM-only — weight management documentation', pct: 44 },
+      { reason: 'Concomitant GLP-1 or GLP-1/GIP agent on active list',                   pct: 22 },
       { reason: 'Quantity / dose limit',                       pct: 18 },
       { reason: 'Other / administrative',                      pct: 16 },
     ],
