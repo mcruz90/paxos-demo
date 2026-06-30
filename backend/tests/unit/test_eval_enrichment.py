@@ -33,7 +33,7 @@ def test_grounding_ref_requires_doc_ref() -> None:
     from evals.fixtures.schema import GroundingRef
 
     with pytest.raises((ValidationError, TypeError)):
-        GroundingRef()  # doc_ref required
+        GroundingRef()  # type: ignore[call-arg]  # intentional: doc_ref is required
 
 
 def test_grounding_ref_section_and_line_range_are_optional() -> None:
@@ -79,12 +79,13 @@ def test_grounding_ref_round_trips_json() -> None:
 
 def test_scenario_criterion_accepts_grounding_field() -> None:
     from evals.fixtures.schema import GroundingRef, ScenarioCriterion
+    from models.schemas import CriterionStatus, RuleType
 
     crit = ScenarioCriterion(
         key="t2dm_diagnosis",
         label="Type II Diabetes Mellitus confirmed",
-        rule_type="diagnostic",
-        ground_truth_status="found",
+        rule_type=RuleType.diagnostic,
+        ground_truth_status=CriterionStatus.found,
         evidence_summary="HbA1c 8.2%",
         grounding=GroundingRef(
             doc_ref="clinical_00_t2dm_diagnosis.txt",
@@ -98,12 +99,13 @@ def test_scenario_criterion_accepts_grounding_field() -> None:
 
 def test_scenario_criterion_grounding_is_optional() -> None:
     from evals.fixtures.schema import ScenarioCriterion
+    from models.schemas import CriterionStatus, RuleType
 
     crit = ScenarioCriterion(
         key="t2dm_diagnosis",
         label="Type II Diabetes Mellitus confirmed",
-        rule_type="diagnostic",
-        ground_truth_status="found",
+        rule_type=RuleType.diagnostic,
+        ground_truth_status=CriterionStatus.found,
         evidence_summary="HbA1c 8.2%",
         # no grounding field
     )

@@ -1,0 +1,89 @@
+[
+  {
+    "anchor_id": "ozempic_cigna",
+    "_note": "Commercial primary + Medicaid secondary (COB). Medicaid is payer of last resort per statute — always secondary regardless of PA decision. Copay-card exclusion: Medicaid enrollment bars manufacturer card even as secondary.",
+    "primary": {
+      "payer": "Cigna Connect 500 PPO",
+      "plan_type": "commercial",
+      "plan_id": "CIGNA-CNF360-2024",
+      "member_id": "CGN00123456",
+      "group_id": "GRP-78001",
+      "bin": "004336",
+      "pcn": "CIGNA",
+      "effective_date": "2024-01-01"
+    },
+    "secondary": {
+      "payer": "Ohio Medicaid (ODM)",
+      "plan_type": "medicaid",
+      "plan_id": "OH-MEDICAID-2024",
+      "member_id": "ODM88310472",
+      "group_id": "",
+      "bin": "610524",
+      "pcn": "OHMCD",
+      "effective_date": "2022-06-01"
+    },
+    "cob_type": "medicaid_last_resort",
+    "financials": {
+      "deductible": 500.0,
+      "deductible_met": 312.50,
+      "oop_max": 2500.0,
+      "oop_met": 312.50,
+      "coinsurance_pct": 20.0
+    }
+  },
+  {
+    "anchor_id": "livdelzi_cigna_hepatology",
+    "_note": "Commercial primary (Cigna, patient plan) + commercial secondary (Aetna, spouse employer plan). Birthday-rule COB: plan of the insured whose birthday falls earliest in the calendar year is primary. Medicare Advantage would be government for copay purposes even if commercially administered — not present here.",
+    "primary": {
+      "payer": "Cigna Connect 500 PPO",
+      "plan_type": "commercial",
+      "plan_id": "CIGNA-CNF877-2024",
+      "member_id": "CGN00987654",
+      "group_id": "GRP-78014",
+      "bin": "004336",
+      "pcn": "CIGNA",
+      "effective_date": "2024-01-01"
+    },
+    "secondary": {
+      "payer": "Aetna Select PPO",
+      "plan_type": "commercial",
+      "plan_id": "AETNA-SEL-2024",
+      "member_id": "AET77490113",
+      "group_id": "GRP-AETNA-022",
+      "bin": "011333",
+      "pcn": "AETNARX",
+      "effective_date": "2024-01-01"
+    },
+    "cob_type": "birthday_rule",
+    "financials": {
+      "deductible": 1000.0,
+      "deductible_met": 875.00,
+      "oop_max": 5000.0,
+      "oop_met": 875.00,
+      "coinsurance_pct": 20.0
+    }
+  },
+  {
+    "anchor_id": "esomeprazole_uhc_pediatric",
+    "_note": "Single commercial coverage — no COB. Baseline scenario. Government-primary scenario (Medicaid primary + commercial secondary) is NOT represented here: we have only sourced commercial PA policies; a government-primary anchor requires its own sourced policy document (future work).",
+    "primary": {
+      "payer": "UnitedHealthcare Choice Plus",
+      "plan_type": "commercial",
+      "plan_id": "UHC-CHOICE-2024",
+      "member_id": "UHC88542190",
+      "group_id": "GRP-40052",
+      "bin": "610591",
+      "pcn": "MEDCO",
+      "effective_date": "2024-01-01"
+    },
+    "secondary": null,
+    "cob_type": null,
+    "financials": {
+      "deductible": 1500.0,
+      "deductible_met": 450.00,
+      "oop_max": 3000.0,
+      "oop_met": 450.00,
+      "coinsurance_pct": 30.0
+    }
+  }
+]

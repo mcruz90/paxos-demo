@@ -54,7 +54,7 @@ def test_coverage_accepts_valid_plan_type(plan_type: str) -> None:
 
     c = Coverage(
         payer="Test Payer",
-        plan_type=plan_type,
+        plan_type=plan_type,  # type: ignore[arg-type]
         plan_id="PLAN-001",
         member_id="MBR12345",
         group_id="GRP-001",
@@ -71,7 +71,7 @@ def test_coverage_rejects_invalid_plan_type() -> None:
     with pytest.raises(ValidationError):
         Coverage(
             payer="Test Payer",
-            plan_type="government",  # not in the allowed set
+            plan_type="government",  # type: ignore[arg-type]  # not in the allowed set
             plan_id="PLAN-001",
             member_id="MBR12345",
             group_id="GRP-001",
@@ -104,7 +104,7 @@ def test_hub_client_rejects_invalid_type() -> None:
         HubClient(
             client_id="hub-001",
             name="Acme Health Hub",
-            type="pharmacy",  # invalid — not in ClientType
+            type="pharmacy",  # type: ignore[arg-type]  # invalid — not in ClientType
             letterhead_name="Acme Health Hub, LLC",
         )
 
