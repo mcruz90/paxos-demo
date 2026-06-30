@@ -86,7 +86,9 @@ SEEDS: dict[str, AnchorSeed] = {
             "inadequate documentation of UDCA trial duration; "
             "prescriber attestation of at least twelve continuous months required"
         ),
-        icd_code="K83.01",
+        # K74.3 = Primary Biliary Cholangitis (PBC).
+        # K83.01 = Primary SCLEROSING Cholangitis — a different disease; corrected here.
+        icd_code="K74.3",
     ),
 }
 
