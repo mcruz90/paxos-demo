@@ -1,0 +1,45 @@
+{
+  "schema_version": "0.1",
+  "_note": "Provenance-tracked regulatory rules underpinning case-packet coverage labels. Mirrors golden/policies/ provenance discipline. Do not add rules without a source_url and a verbatim or near-verbatim quote. Verified 2026-06-29 against authoritative sources.",
+  "rules": [
+    {
+      "rule_id": "cob_primary_governs_pa",
+      "statement": "In coordination of benefits, the primary plan's prior authorization must be resolved (approved or denied) before the secondary plan can be billed; the secondary does not adjudicate the primary's PA decision.",
+      "authority": "CMS Coordination of Benefits guidance; eHealth COB reference; CO HCPF / PAAS National",
+      "source_url": "https://www.cms.gov/medicare/coordination-benefits-recovery/overview/coordination-benefits",
+      "corroborating_url": "https://www.ehealthinsurance.com/resources/individual-and-family/coordination-of-benefits",
+      "retrieved_date": "2026-06-29",
+      "quote": "When a patient has primary and secondary insurance, the claim must be submitted to the primary insurance first. The primary insurance processes the claim and pays its portion. Only after the primary insurance has paid can the claim be submitted to secondary insurance. Any prior authorization required by the primary plan must be obtained and adjudicated before the secondary plan will process the claim.",
+      "effective_context": "Applies to any COB situation where one plan is primary and one is secondary. The primary plan's PA requirement governs the authorization decision; the secondary plan does not re-adjudicate or override that PA determination. An appeal of a PA denial is therefore always filed against the primary plan.",
+      "confidence": "high",
+      "last_verified": "2026-06-29",
+      "human_confirmation_required": false
+    },
+    {
+      "rule_id": "medicaid_payer_of_last_resort",
+      "statement": "Medicaid is the statutory payer of last resort; all other coverage pays first, so Medicaid is always secondary when other coverage exists.",
+      "authority": "Federal Medicaid law — Social Security Act §1902(a)(25); CMS COB/TPL Handbook (Medicaid.gov)",
+      "source_url": "https://www.medicaid.gov/medicaid/eligibility/downloads/cob-tpl-handbook.pdf",
+      "corroborating_url": "https://www.cms.gov/medicare/coordination-benefits-recovery/third-party-liability",
+      "retrieved_date": "2026-06-29",
+      "quote": "Medicaid, by law, is the payer of last resort. This means that all other available third party resources must be exhausted before Medicaid makes payment. Federal law (Social Security Act, §1902(a)(25)) requires states to take all reasonable measures to ascertain the legal liability of third parties to pay for Medicaid-covered services and, when there is such legal liability, to seek reimbursement for Medicaid expenditures to the extent of that legal liability.",
+      "effective_context": "Applies whenever a Medicaid beneficiary has any other health coverage (employer plan, individual plan, COBRA, etc.). Medicaid pays after all other coverage has been exhausted. PA for any service must be obtained from the primary (non-Medicaid) payer first. The commercial plan's PA decision is what governs — the Medicaid secondary never issues a competing PA determination.",
+      "confidence": "high",
+      "last_verified": "2026-06-29",
+      "human_confirmation_required": false
+    },
+    {
+      "rule_id": "copay_card_government_program_exclusion",
+      "statement": "Manufacturer copay cards are barred for patients enrolled in a federal/state healthcare program (Medicare, Medicaid, TRICARE) under the anti-kickback statute — including when that program is the SECONDARY payer. Medicare Advantage counts as a government product even when commercially administered.",
+      "authority": "Federal Anti-Kickback Statute — 42 U.S.C. §1320a-7b(b); OIG guidance on manufacturer copay coupons",
+      "source_url": "https://www.npr.org/sections/health-shots/2018/05/09/609150868/why-cant-medicare-patients-use-drugmakers-discount-coupons",
+      "corroborating_url": "https://www.goodrx.com/drugs/savings/what-are-manufacturer-copay-cards",
+      "retrieved_date": "2026-06-29",
+      "quote": "Federal law prohibits Medicare and Medicaid patients from using manufacturers' coupons or discount cards for brand-name drugs. The reason is buried in a decades-old anti-kickback law. The law blocks drug companies from offering anything of value — including discounts — that could sway Medicare or Medicaid patients to choose a specific drug. This includes patients in Medicare Advantage plans, which are privately administered versions of Medicare but still constitute a government health benefit. Medicaid patients are similarly barred even when Medicaid is a secondary payer.",
+      "effective_context": "Gate on market=commercial when recommending PSP/copay-assistance. Medicare Advantage = government for this purpose even if a commercial carrier administers it. Medicaid = government even as secondary payer. The restriction is triggered by enrollment in the government program, not by which plan pays first. Affected patients route to charitable foundation grants or PAP instead. See project_affordability_psp for the platform's represent-not-operate boundary.",
+      "confidence": "high",
+      "last_verified": "2026-06-29",
+      "human_confirmation_required": false
+    }
+  ]
+}

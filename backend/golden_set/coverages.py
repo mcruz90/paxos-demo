@@ -27,12 +27,17 @@ _POOL_PATH = Path(__file__).parent.parent / "golden" / "coverage_pool.json"
 class CoverageRecord(CoverageInfo):
     """Per-anchor entry in coverage_pool.json.
 
-    Extends CoverageInfo with anchor_id so the loader can build the lookup table.
-    The _note field in the JSON is silently ignored by Pydantic (extra fields
-    allowed for forward compatibility with annotations).
+    Extends CoverageInfo with anchor_id and rule_refs (regulatory citations) so
+    the loader can build the lookup table and callers can trace coverage labels
+    back to their authoritative regulatory sources.
+    The _note field in the JSON is silently ignored (extra fields allowed).
     """
 
     anchor_id: str
+    # Regulatory rule_ids from golden/regulatory/rules.json that underpin this
+    # coverage assignment (e.g. medicaid_payer_of_last_resort for the Medicaid
+    # secondary in ozempic_cigna).
+    rule_refs: list[str] = []
 
     model_config = {"extra": "ignore"}
 
@@ -61,12 +66,7 @@ def load_coverage_pool() -> list[CoverageRecord]:
     return _COVERAGE_POOL
 
 
-def get_coverage(anchor_id: str) -> CoverageInfo:
-    """Return the CoverageInfo for *anchor_id*.
-
-    Raises KeyError with a clear message if the anchor_id is not in the pool.
-    To add a new anchor: append an entry to backend/golden/coverage_pool.json.
-    """
+def _lookup(anchor_id: str) -> CoverageRecord:
     try:
         return _POOL_BY_ANCHOR[anchor_id]
     except KeyError:
@@ -76,6 +76,23 @@ def get_coverage(anchor_id: str) -> CoverageInfo:
             f"Known anchor_ids: {known}. "
             f"Add an entry to {_POOL_PATH}."
         ) from None
+
+
+def get_coverage(anchor_id: str) -> CoverageInfo:
+    """Return the CoverageInfo for *anchor_id* (coverage context only).
+
+    Use get_coverage_record() when you also need rule_refs.
+    """
+    return _lookup(anchor_id)
+
+
+def get_coverage_record(anchor_id: str) -> CoverageRecord:
+    """Return the full CoverageRecord for *anchor_id*, including rule_refs.
+
+    CoverageRecord extends CoverageInfo with the regulatory citations (rule_refs)
+    that underpin the coverage assignment.
+    """
+    return _lookup(anchor_id)
 
 
 # ---------------------------------------------------------------------------

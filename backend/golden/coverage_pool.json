@@ -2,6 +2,11 @@
   {
     "anchor_id": "ozempic_cigna",
     "_note": "Commercial primary + Medicaid secondary (COB). Medicaid is payer of last resort per statute — always secondary regardless of PA decision. Copay-card exclusion: Medicaid enrollment bars manufacturer card even as secondary.",
+    "rule_refs": [
+      "cob_primary_governs_pa",
+      "medicaid_payer_of_last_resort",
+      "copay_card_government_program_exclusion"
+    ],
     "primary": {
       "payer": "Cigna Connect 500 PPO",
       "plan_type": "commercial",
@@ -34,6 +39,9 @@
   {
     "anchor_id": "livdelzi_cigna_hepatology",
     "_note": "Commercial primary (Cigna, patient plan) + commercial secondary (Aetna, spouse employer plan). Birthday-rule COB: plan of the insured whose birthday falls earliest in the calendar year is primary. Medicare Advantage would be government for copay purposes even if commercially administered — not present here.",
+    "rule_refs": [
+      "cob_primary_governs_pa"
+    ],
     "primary": {
       "payer": "Cigna Connect 500 PPO",
       "plan_type": "commercial",
@@ -66,6 +74,7 @@
   {
     "anchor_id": "esomeprazole_uhc_pediatric",
     "_note": "Single commercial coverage — no COB. Baseline scenario. Government-primary scenario (Medicaid primary + commercial secondary) is NOT represented here: we have only sourced commercial PA policies; a government-primary anchor requires its own sourced policy document (future work).",
+    "rule_refs": [],
     "primary": {
       "payer": "UnitedHealthcare Choice Plus",
       "plan_type": "commercial",

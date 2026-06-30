@@ -1,0 +1,36 @@
+{
+  "schema_version": "0.1",
+  "_note": "Manifest of authoritative sources for regulatory rules in rules.json. Mirrors golden/policies/provenance.json discipline: one record per rule, with source URL, corroborating URLs, and retrieval metadata. Retrieved 2026-06-29. These are the first provenance-tracked regulatory-rule records in the corpus (see project_regulatory_grounding memory).",
+  "records": [
+    {
+      "rule_id": "cob_primary_governs_pa",
+      "primary_source": "CMS — Coordination of Benefits overview",
+      "source_url": "https://www.cms.gov/medicare/coordination-benefits-recovery/overview/coordination-benefits",
+      "corroborating_urls": [
+        "https://www.ehealthinsurance.com/resources/individual-and-family/coordination-of-benefits"
+      ],
+      "retrieved_date": "2026-06-29",
+      "note": "CMS is the primary authoritative source for Medicare COB rules. The eHealth article corroborates the primary-first adjudication principle and makes explicit that the primary plan's PA requirement must be satisfied before the secondary can process the claim."
+    },
+    {
+      "rule_id": "medicaid_payer_of_last_resort",
+      "primary_source": "CMS COB/TPL Handbook — Medicaid.gov",
+      "source_url": "https://www.medicaid.gov/medicaid/eligibility/downloads/cob-tpl-handbook.pdf",
+      "corroborating_urls": [
+        "https://www.cms.gov/medicare/coordination-benefits-recovery/third-party-liability"
+      ],
+      "retrieved_date": "2026-06-29",
+      "note": "Statutory basis: Social Security Act §1902(a)(25). The Medicaid.gov COB/TPL Handbook is the operational CMS guidance document for state Medicaid agencies on payer-of-last-resort enforcement. The quote is near-verbatim from standard CMS COB/TPL guidance language."
+    },
+    {
+      "rule_id": "copay_card_government_program_exclusion",
+      "primary_source": "NPR Health Shots — AKS copay coupon explainer (published 2018-05-09)",
+      "source_url": "https://www.npr.org/sections/health-shots/2018/05/09/609150868/why-cant-medicare-patients-use-drugmakers-discount-coupons",
+      "corroborating_urls": [
+        "https://www.goodrx.com/drugs/savings/what-are-manufacturer-copay-cards"
+      ],
+      "retrieved_date": "2026-06-29",
+      "note": "NPR article is the most accessible plain-language explanation of the Anti-Kickback Statute (42 U.S.C. §1320a-7b(b)) copay-card restriction for government-program enrollees. Covers both Medicare (including Medicare Advantage as a government product) and Medicaid as secondary payer. GoodRx article corroborates the commercial-only gate on copay card eligibility."
+    }
+  ]
+}
