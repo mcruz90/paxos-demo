@@ -35,6 +35,9 @@ jobs:
       - name: Run pip-audit (supply chain check)
         working-directory: backend
         run: uv run pip-audit --desc || true
+      - name: Golden-set PHI + fixture-integrity scan
+        working-directory: backend
+        run: uv run pytest tests/unit/test_golden_compliance.py -v --tb=short
       - name: Run unit + contract tests
         working-directory: backend
         run: uv run pytest tests/unit tests/contract -v --tb=short

@@ -34,7 +34,7 @@ from pathlib import Path
 
 import pytest
 
-from golden_set.coverages import POOL_BINS, POOL_COVERAGE_MEMBER_IDS, POOL_PCNS
+from golden_set.coverages import POOL_COVERAGE_MEMBER_IDS
 from golden_set.identities import IDENTITY_POOL, POOL_DOBS, POOL_MEMBER_IDS, POOL_NPIS
 from golden_set.markers import SYNTHETIC_MARKER
 
