@@ -274,7 +274,7 @@ export const scenarios: Record<string, ScenarioConfig> = {
     planId: 'CIGNA-COM-2025',
     categoryKey: 'hepatology',
     categoryLabel: 'Hepatology',
-    diagnosis: 'Primary Biliary Cholangitis (PBC) — K75.89',
+    diagnosis: 'Primary Biliary Cholangitis (PBC) — K74.3',
     denialReason: 'Prior authorization criteria not met — decompensation history conflict unresolved and specialist prescriber not confirmed',
     clientType: 'patient',
     criteriaResults: [
@@ -336,7 +336,7 @@ export const scenarios: Record<string, ScenarioConfig> = {
   "target_drug": "seladelpar",
   "carrier": "cigna",
   "diagnostic_rules": [
-    { "condition_category": "Primary Biliary Cholangitis", "icd10": "K75.89",
+    { "condition_category": "Primary Biliary Cholangitis", "icd10": "K74.3",
       "requires_2_of": ["elevated_alp", "ama_or_pbc_ana", "liver_biopsy"],
       "specialist_required": ["gastroenterologist", "hepatologist", "liver_transplant_physician"] }
   ],
