@@ -17,10 +17,9 @@ import json
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
-from evals.fixtures.schema import EvalScenario, ScenariosFixture, load_scenarios_fixture
-from models.schemas import CriterionStatus, RuleType
+from evals.fixtures.schema import ScenariosFixture, load_scenarios_fixture
+from models.schemas import CriterionStatus
 
 _FIXTURE_PATH = (
     Path(__file__).parent.parent.parent / "evals" / "fixtures" / "scenarios.json"
