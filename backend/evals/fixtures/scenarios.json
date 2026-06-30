@@ -1,6 +1,6 @@
 {
   "schema_version": "0.3",
-  "_note": "Canonical labeled dataset. backend/data/pa_requirements.json is seeded from this file. Never duplicate scenario data ad hoc in test files — import load_scenarios_fixture() instead.",
+  "_note": "SYNTHETIC — NO PHI — Canonical labeled dataset. backend/data/pa_requirements.json is seeded from this file. Never duplicate scenario data ad hoc in test files — import load_scenarios_fixture() instead.",
   "scenarios": [
     {
       "scenario_id": "ozempic_cigna_clinical_pa",

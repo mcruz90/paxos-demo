@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "payer_id": "uhc",
+  "procedure_id": "uhc_standard_appeal",
+  "display_name": "UnitedHealthcare Provider Appeal Process",
+  "source_url": "https://www.uhcprovider.com/en/claims-payments-billing/claim-appeals.html",
+  "retrieved_date": "2026-06-30",
+  "effective_date": null,
+  "staleness_flag_after_days": 90,
+  "_staleness_note": "If today's date exceeds retrieved_date + staleness_flag_after_days, re-verify source_url before use in production.",
+  "_status": "stub — structural fields only; stages not yet populated. Re-verify and expand before Sprint 1 UHC appeal routing.",
+  "_future_api_note": "Schema designed to align with Da Vinci Coverage Requirements Discovery (CRD) FHIR IG shapes. When UHC exposes FHIR appeal endpoints under CMS-0057-F, populate from API rather than hand-authored.",
+  "contact": {
+    "provider_services_phone": "1-877-842-3210",
+    "online_portals": ["UHCprovider.com", "Link (UHC provider portal)"]
+  },
+  "stages": [],
+  "denial_type_routing": {
+    "_note": "stub — populate from UHC provider manual or FHIR CRD endpoint in Sprint 1"
+  }
+}
