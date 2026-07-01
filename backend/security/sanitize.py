@@ -78,6 +78,16 @@ _INJECTION_PATTERNS: list[re.Pattern[str]] = [
 ]
 
 # ---------------------------------------------------------------------------
+# PhantomLint PDF content-stream patterns
+# ---------------------------------------------------------------------------
+
+# PDF fill color operator: "1 1 1 rg" sets the non-stroking (fill) color
+# to white. Variants include integer 1 or float 1.0 per channel.
+_WHITE_FILL_RE = re.compile(r"1(?:\.0*)?\s+1(?:\.0*)?\s+1(?:\.0*)?\s+rg")
+# PDF text show operators: Tj (single string), TJ (array), ' and "
+_TEXT_SHOW_RE = re.compile(r"\bTj\b|\bTJ\b")
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -161,14 +171,6 @@ def ocr_consistency_check(pdf_bytes: bytes) -> PhantomLintResult:
             content = page.read_contents().decode("latin-1", errors="replace")
         except Exception:
             continue
-
-        # PDF fill color operator: "1 1 1 rg" sets the non-stroking (fill) color
-        # to white. Variants include integer 1 or float 1.0 per channel.
-        _WHITE_FILL_RE = re.compile(
-            r"1(?:\.0*)?\s+1(?:\.0*)?\s+1(?:\.0*)?\s+rg"
-        )
-        # PDF text show operators: Tj (single string), TJ (array), ' and "
-        _TEXT_SHOW_RE = re.compile(r"\bTj\b|\bTJ\b")
 
         if _WHITE_FILL_RE.search(content) and _TEXT_SHOW_RE.search(content):
             # White color was set AND text was drawn — likely hidden content.
