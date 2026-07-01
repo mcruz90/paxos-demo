@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from evals.fixtures.schema import EvalScenario, ScenarioCriterion
+from golden_set.templates import render_minimal_denial
 from models.schemas import (
     AppealRequest,
     ClientType,
@@ -125,16 +126,13 @@ def _derive_denial_reason(scenario: EvalScenario) -> str:
     return "Prior authorization requirements not met"
 
 
-def _derive_denial_text(scenario: EvalScenario) -> str:
+def _derive_denial_text(scenario: EvalScenario, reason: str) -> str:
     """Synthesize a minimal denial text suitable for the synthesis prompt context."""
-    reason = _derive_denial_reason(scenario)
-    return (
-        f"PRIOR AUTHORIZATION DETERMINATION\n"
-        f"{scenario.payer}\n\n"
-        f"DETERMINATION: DENIED\n\n"
-        f"Authorization for {scenario.drug} has been denied.\n"
-        f"Reason: {reason}\n\n"
-        f"[Synthetic document — scenario {scenario.scenario_id}]"
+    return render_minimal_denial(
+        payer=scenario.payer,
+        drug=scenario.drug,
+        reason=reason,
+        scenario_id=scenario.scenario_id,
     )
 
 
@@ -151,13 +149,14 @@ def eval_scenario_to_appeal_request(eval_scenario: EvalScenario) -> AppealReques
     """
     _guard_not_redteam(eval_scenario)
     meta = _require_meta(eval_scenario.anchor_id)
+    denial_reason = _derive_denial_reason(eval_scenario)
 
     return AppealRequest(
         scenario_id=_normalize_scenario_id(eval_scenario.scenario_id),
         drug=eval_scenario.drug,
         diagnosis=meta.diagnosis,
-        denial_text=_derive_denial_text(eval_scenario)[:5000],
-        denial_reason=_derive_denial_reason(eval_scenario)[:500],
+        denial_text=_derive_denial_text(eval_scenario, denial_reason)[:5000],
+        denial_reason=denial_reason[:500],
         plan=eval_scenario.payer,
         plan_id=eval_scenario.plan_id,
         criteria_results=[_criterion_to_result(c) for c in eval_scenario.criteria],

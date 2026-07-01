@@ -24,16 +24,18 @@ test('PH-3098 initial PA: sidebar keeps Operate focus, approve → file → appr
   await page.screenshot({ path: 'e2e/__screens__/case-approved.png', fullPage: true })
 })
 
-test('PH-3101 denied PA hands off into the appeal flow', async ({ page }) => {
+test('PH-3101 pre-submission doc gap: dispatch resolves the exception', async ({ page }) => {
   await skipToQueue(page)
   await page.getByText('Case #PH-3101').click()
 
-  await page.getByRole('button', { name: /Approve & File PA Request/ }).click()
-  await page.getByRole('checkbox').check()
-  await page.getByRole('button', { name: /Confirm & File PA Request/ }).click()
+  // Opening an 'exception' case goes straight to the Exception Report —
+  // the doc gap was caught before the PA request was ever filed.
+  await expect(page.getByText(/Exception Report/)).toBeVisible()
 
-  // Denied → Start Appeal → lands in the appeal flow on the same case
-  await expect(page.getByText(/Payer Determination.*Denied/)).toBeVisible()
-  await page.getByRole('button', { name: /Start Appeal/ }).click()
-  await expect(page.getByRole('button', { name: /Approve & Submit Appeal/ })).toBeVisible()
+  // Dispatch the one unresolved criterion (prescriber attestation request)
+  await page.getByRole('button', { name: /Dispatch Workflow/ }).click()
+  await page.getByRole('button', { name: /Confirm & Dispatch/ }).click()
+
+  // All unresolved criteria dispatched → case moves to the documentation queue
+  await expect(page.getByText(/Workflows Dispatched/)).toBeVisible()
 })

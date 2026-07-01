@@ -21,19 +21,23 @@ def _auth_headers() -> dict:
 
 
 def _valid_payload() -> dict:
+    """Payload anchored to the golden Cigna Ozempic pack (CIGNA-CNF360-2024) —
+    keep in sync with the ozempic_cigna_clinical_pa scenario so plan_id actually
+    resolves via _BY_PLAN_ID instead of silently falling through to the
+    drug-alias fallback."""
     return {
-        "scenario_id": "novo-ozempic-t2dm",
+        "scenario_id": "ozempic-cigna-clinical-pa",
         "drug": "Ozempic (semaglutide)",
         "diagnosis": "Type 2 Diabetes Mellitus",
         "denial_text": (
             "Authorization for Ozempic has been denied. "
-            "Formulary alternatives are available and should be tried first."
+            "Indication not confirmed as limited to T2DM glycemic control."
         ),
-        "denial_reason": "formulary alternatives available",
-        "plan": "BlueCross PPO",
-        "plan_id": "BCBS-PPO-2024",
+        "denial_reason": "indication not confirmed as limited to T2DM glycemic control",
+        "plan": "Cigna Connect 500 PPO",
+        "plan_id": "CIGNA-CNF360-2024",
         "criteria_results": [],
-        "company_names": ["BlueCross BlueShield"],
+        "company_names": ["Cigna"],
     }
 
 

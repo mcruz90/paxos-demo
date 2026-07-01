@@ -57,6 +57,9 @@ _fixture = load_scenarios_fixture()
 _OZEMPIC_SCENARIO: EvalScenario = next(
     s for s in _fixture.scenarios if s.scenario_id == "ozempic_cigna_clinical_pa"
 )
+_LIVDELZI_SCENARIO: EvalScenario = next(
+    s for s in _fixture.scenarios if s.scenario_id == "livdelzi_cigna_hepatology_clinical_pa"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +91,7 @@ def mock_llm() -> MockLLMBackend:
 
 # Eager derivation (function-level is fine; adapter calls are pure and cheap)
 _BASE_SCENARIO_CONFIG: ScenarioConfig = eval_scenario_to_scenario_config(_OZEMPIC_SCENARIO)
+_EXCEPTION_SCENARIO_CONFIG: ScenarioConfig = eval_scenario_to_scenario_config(_LIVDELZI_SCENARIO)
 
 # Pull found / needs_review criteria once from the derived config
 _FOUND_CRITERIA = [
@@ -122,10 +126,13 @@ def base_scenario() -> ScenarioConfig:
 def exception_scenario() -> ScenarioConfig:
     """Scenario with at least one needs_review criterion (triggers exception path).
 
-    Uses the full golden ozempic_cigna config — it has 3 'found' + 1 'needs_review',
-    satisfying the contract of 'at least one non-found criterion'.
+    Derived from the golden livdelzi_cigna_hepatology scenario — a distinct
+    anchor from base_scenario (Ozempic/Cigna) so tests requesting both fixtures
+    exercise genuinely different data, not the same object twice. Has 3 'found'
+    + 1 'needs_review' (UDCA trial duration), satisfying the contract of
+    'at least one non-found criterion'.
     """
-    return _BASE_SCENARIO_CONFIG
+    return _EXCEPTION_SCENARIO_CONFIG
 
 
 # ---------------------------------------------------------------------------

@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+import pytest
+
+import agents.nodes.retrieval as retrieval
 from agents.nodes.retrieval import run_retrieval
+from errors import ETLParseError
 from models.schemas import (
     AppealRequest,
     CriterionResult,
@@ -164,3 +171,46 @@ def test_retrieval_state_purity() -> None:
     original_pa = original["pa_context"]
     _ = run_retrieval(original)
     assert original["pa_context"] == original_pa
+
+
+# ---------------------------------------------------------------------------
+# _load_requirements() error handling — malformed pack must raise ETLParseError,
+# not a bare KeyError (validated via Pydantic before use per CLAUDE.md)
+# ---------------------------------------------------------------------------
+
+
+def test_load_requirements_raises_etl_parse_error_on_missing_field(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A pack missing a required field (plan_id) must raise ETLParseError, not KeyError."""
+    bad_file = tmp_path / "pa_requirements.json"
+    bad_file.write_text(
+        json.dumps(
+            {
+                "packs": {
+                    "broken_pack": {
+                        # "plan_id" intentionally omitted
+                        "criteria_text": "some criteria",
+                        "drug_aliases": ["somedrug"],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(retrieval, "_REQUIREMENTS_PATH", bad_file)
+
+    with pytest.raises(ETLParseError):
+        retrieval._load_requirements()
+
+
+def test_load_requirements_raises_etl_parse_error_on_malformed_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Invalid JSON syntax must raise ETLParseError."""
+    bad_file = tmp_path / "pa_requirements.json"
+    bad_file.write_text("{not valid json", encoding="utf-8")
+    monkeypatch.setattr(retrieval, "_REQUIREMENTS_PATH", bad_file)
+
+    with pytest.raises(ETLParseError):
+        retrieval._load_requirements()

@@ -106,6 +106,19 @@ function goldenClinicalPaFor(anchorId: string): GoldenScenario {
 // ---------------------------------------------------------------------------
 
 describe('Anchor-join parity: golden scenarios.json ↔ frontend scenarios.tsx', () => {
+  it('ANCHOR_JOIN covers every clinical_pa anchor in the golden set (fails closed on drift)', () => {
+    // If a new anchor is added on the backend without a matching ANCHOR_JOIN
+    // entry here, this must fail loudly instead of the new anchor silently
+    // skipping every check below.
+    const goldenAnchors = new Set(
+      _golden.scenarios
+        .filter((s) => s.denial_type === 'clinical_pa')
+        .map((s) => s.anchor_id),
+    )
+    const joinedAnchors = new Set(ANCHOR_JOIN.map((a) => a.anchorId))
+    expect(joinedAnchors).toEqual(goldenAnchors)
+  })
+
   for (const { anchorId, frontendKey, configFile } of ANCHOR_JOIN) {
     const golden = goldenClinicalPaFor(anchorId)
     const fe = scenarios[frontendKey]

@@ -152,3 +152,22 @@ def render_criteria_section(criteria_lines: list[str]) -> str:
 
 def criteria_denial_line(label: str, note: str) -> str:
     return _CRITERIA_UNMET_LINE.format(label=label, note=note)
+
+
+# ---------------------------------------------------------------------------
+# Minimal denial skeleton — for contexts without full patient/prescriber
+# identity (e.g. evals.fixtures_adapter, which adapts EvalScenario labels
+# that carry no PatientContext). Shares the DETERMINATION/Reason skeleton
+# with DENIAL_LETTER above, minus the identity and banner fields.
+# ---------------------------------------------------------------------------
+
+
+def render_minimal_denial(payer: str, drug: str, reason: str, scenario_id: str) -> str:
+    return (
+        f"PRIOR AUTHORIZATION DETERMINATION\n"
+        f"{payer}\n\n"
+        f"DETERMINATION: DENIED\n\n"
+        f"Authorization for {drug} has been denied.\n"
+        f"Reason: {reason}\n\n"
+        f"[Synthetic document — scenario {scenario_id}]"
+    )

@@ -17,10 +17,27 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from pydantic import BaseModel, TypeAdapter, ValidationError
+
 from errors import ETLParseError
 from models.schemas import PipelineState
 
 _REQUIREMENTS_PATH = Path(__file__).parent.parent.parent / "data" / "pa_requirements.json"
+
+
+class _PaPack(BaseModel):
+    """Shape of one entry in pa_requirements.json's 'packs' object.
+
+    Validated up front so a malformed pack raises ETLParseError (a typed,
+    diagnosable error) instead of a bare KeyError deep in dict access.
+    """
+
+    plan_id: str
+    criteria_text: str
+    drug_aliases: list[str]
+
+
+_PacksAdapter = TypeAdapter(dict[str, _PaPack])
 
 _GENERIC_CONTEXT = (
     "PA Requirements — General:\n"
@@ -38,22 +55,25 @@ def _load_requirements() -> tuple[dict[str, str], dict[str, str]]:
         (by_plan_id, by_drug_alias) — both map a key to a criteria_text string.
 
     Raises:
-        ETLParseError: If the JSON file is malformed.
+        ETLParseError: If the JSON file is malformed or a pack is missing a
+            required field (plan_id, criteria_text, drug_aliases).
         FileNotFoundError: If the file is missing (propagated — fail fast).
     """
     try:
         raw = json.loads(_REQUIREMENTS_PATH.read_text(encoding="utf-8"))
+        packs = _PacksAdapter.validate_python(raw["packs"])
     except json.JSONDecodeError as exc:
         raise ETLParseError(f"pa_requirements.json is malformed: {exc}") from exc
+    except (KeyError, ValidationError) as exc:
+        raise ETLParseError(f"pa_requirements.json has an invalid pack: {exc}") from exc
 
     by_plan_id: dict[str, str] = {}
     by_drug_alias: dict[str, str] = {}
 
-    for pack in raw["packs"].values():
-        text: str = pack["criteria_text"]
-        by_plan_id[pack["plan_id"]] = text
-        for alias in pack["drug_aliases"]:
-            by_drug_alias.setdefault(alias.lower(), text)
+    for pack in packs.values():
+        by_plan_id[pack.plan_id] = pack.criteria_text
+        for alias in pack.drug_aliases:
+            by_drug_alias.setdefault(alias.lower(), pack.criteria_text)
 
     return by_plan_id, by_drug_alias
 
