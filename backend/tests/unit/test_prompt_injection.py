@@ -14,6 +14,8 @@ Prompt construction under test: agents.nodes.synthesis.build_prompt()
 
 from __future__ import annotations
 
+import re
+
 from agents.nodes.synthesis import build_prompt
 from models.schemas import AppealRequest, PipelineState
 from security.sanitize import PhantomLintResult, sanitize_extracted_text
@@ -163,6 +165,23 @@ def test_closing_tag_in_denial_text_does_not_escape_xml_context(base_appeal_requ
     # The system block outside XML context must not appear before the XML section
     assert "<denial_letter>" in prompt
     assert "<pa_requirements>" in prompt
+
+
+# ---------------------------------------------------------------------------
+# Regex patterns must be module-level, not recompiled per page (perf)
+# ---------------------------------------------------------------------------
+
+
+def test_phantomlint_regex_patterns_are_module_level() -> None:
+    """_WHITE_FILL_RE and _TEXT_SHOW_RE must be compiled once at import time,
+    alongside the other regex constants — not recompiled on every page inside
+    ocr_consistency_check's loop (backend-security-debt item 6)."""
+    import security.sanitize as sanitize_module
+
+    assert hasattr(sanitize_module, "_WHITE_FILL_RE"), "_WHITE_FILL_RE must be a module-level constant"
+    assert hasattr(sanitize_module, "_TEXT_SHOW_RE"), "_TEXT_SHOW_RE must be a module-level constant"
+    assert isinstance(sanitize_module._WHITE_FILL_RE, re.Pattern)
+    assert isinstance(sanitize_module._TEXT_SHOW_RE, re.Pattern)
 
 
 # ---------------------------------------------------------------------------
