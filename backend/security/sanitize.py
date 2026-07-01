@@ -14,7 +14,6 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
-from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -131,13 +130,16 @@ def sanitize_extracted_text(text: str) -> SanitizeResult:
     return SanitizeResult(clean_text=clean, suspicious=suspicious, reason=reason)
 
 
-def ocr_consistency_check(pdf_path: Path) -> PhantomLintResult:
+def ocr_consistency_check(pdf_bytes: bytes) -> PhantomLintResult:
     """PhantomLint-style check: detect white (invisible) text in a PDF.
 
     Inspects the raw PDF content stream for white fill-color operators
     (``1 1 1 rg`` and variants) followed by text-drawing commands. This is
     more reliable across PyMuPDF versions than parsing span color integers
     from the rawdict format.
+
+    Takes raw PDF bytes directly (never spooled to disk) since the input may
+    contain PHI.
 
     Requires PyMuPDF (``fitz``).
     """
@@ -148,7 +150,7 @@ def ocr_consistency_check(pdf_path: Path) -> PhantomLintResult:
             has_hidden_content=False, confidence=0.0, details="fitz not available"
         )
 
-    doc = fitz.open(str(pdf_path))
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     found_hidden = False
     details = ""
 

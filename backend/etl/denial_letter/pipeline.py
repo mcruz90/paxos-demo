@@ -78,20 +78,10 @@ def _check_security_hold(raw_bytes: bytes, file_type: FileType) -> tuple[bool, s
     if file_type != FileType.pdf:
         return False, ""
 
-    import pathlib
-    import tempfile
-
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-        tmp.write(raw_bytes)
-        tmp_path = pathlib.Path(tmp.name)
-
-    try:
-        result = ocr_consistency_check(tmp_path)
-        if result.has_hidden_content:
-            return True, f"Hidden text detected ({result.details})"
-        return False, ""
-    finally:
-        tmp_path.unlink(missing_ok=True)
+    result = ocr_consistency_check(raw_bytes)
+    if result.has_hidden_content:
+        return True, f"Hidden text detected ({result.details})"
+    return False, ""
 
 
 def process_denial_letter(raw_bytes: bytes, filename: str) -> AppealRequest:
