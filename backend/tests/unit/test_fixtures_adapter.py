@@ -23,7 +23,6 @@ from evals.fixtures_adapter import (
 )
 from models.schemas import AppealRequest, CriterionStatus, ScenarioConfig
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

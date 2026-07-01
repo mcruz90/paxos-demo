@@ -18,12 +18,11 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import fs from 'fs'
-import path from 'path'
 import { scenarios } from './scenarios'
+import goldenRaw from '../../backend/evals/fixtures/scenarios.json'
 
 // ---------------------------------------------------------------------------
-// Load the golden scenarios fixture (backend JSON, read from filesystem)
+// Load the golden scenarios fixture (static JSON import via Vite bundler)
 // ---------------------------------------------------------------------------
 
 interface GoldenCriteria {
@@ -61,14 +60,7 @@ interface GoldenFixture {
   scenarios: GoldenScenario[]
 }
 
-const _BACKEND_FIXTURE_PATH = path.resolve(
-  __dirname,
-  '../../backend/evals/fixtures/scenarios.json',
-)
-
-const _golden: GoldenFixture = JSON.parse(
-  fs.readFileSync(_BACKEND_FIXTURE_PATH, 'utf-8'),
-)
+const _golden = goldenRaw as unknown as GoldenFixture
 
 // ---------------------------------------------------------------------------
 // Canonical anchor → frontend scenario key mapping

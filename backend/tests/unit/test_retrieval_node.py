@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-import pytest
-
 from agents.nodes.retrieval import run_retrieval
-from models.schemas import AppealRequest, CriterionResult, CriterionStatus, PipelineState, Rule, RuleType
-
+from models.schemas import (
+    AppealRequest,
+    CriterionResult,
+    CriterionStatus,
+    PipelineState,
+    Rule,
+    RuleType,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
