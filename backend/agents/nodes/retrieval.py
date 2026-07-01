@@ -1,42 +1,26 @@
-"""agents/nodes/retrieval.py — PA requirement lookup.
+"""agents/nodes/retrieval.py — PA requirement lookup from data/pa_requirements.json.
 
 Node contract: (PipelineState) -> PipelineState
-Pure function — no DB calls, no LLM calls in Phase 0.
+Pure function — no DB calls, no LLM calls.
 
-Phase 0 uses an in-memory fixture. Phase 1 will replace this with a
-Qdrant vector store lookup once the ETL pipeline seeds the index.
+Resolution order (Sprint 1):
+  1. Exact plan_id match (most specific — identifies the payer policy).
+  2. Drug alias substring match on request.drug (fallback when plan_id unknown).
+  3. Generic fallback — never raises.
+
+Sprint 5 hook: extend to (BIN/PCN/Group + market + tier) via golden/coverage_pool.json.
+See _S5_COVERAGE_HOOK comment in data/pa_requirements.json.
 """
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+from errors import ETLParseError
 from models.schemas import PipelineState
 
-# ---------------------------------------------------------------------------
-# In-memory PA requirement fixtures (Phase 0 — no DB)
-#
-# Keyed by drug name fragment (lowercase) for flexible matching.
-# Phase 1: replace with vector store retrieval seeded from
-#   evals/fixtures/scenarios.json → data/pa_requirements.json
-# ---------------------------------------------------------------------------
-
-_PA_REQUIREMENTS: dict[str, str] = {
-    "ozempic": (
-        "PA Requirements — Ozempic (semaglutide) / BlueCross PPO:\n"
-        "1. Confirmed diagnosis of Type 2 Diabetes Mellitus (ICD-10 E11.x).\n"
-        "2. HbA1c ≥ 7.0% documented within the past 6 months.\n"
-        "3. Step therapy: patient must have tried and failed at least two "
-        "formulary alternatives (e.g. metformin, a sulfonylurea) with "
-        "documented clinical records.\n"
-        "4. Prescriber must be an endocrinologist or internal medicine physician.\n"
-        "5. Quantity limit: 4 pens per 28 days."
-    ),
-    "semaglutide": (
-        "PA Requirements — semaglutide (Ozempic/Wegovy) / BlueCross PPO:\n"
-        "1. Confirmed T2DM diagnosis or BMI ≥ 30 for obesity indication.\n"
-        "2. Step therapy required: documented failure of ≥2 formulary agents.\n"
-        "3. Prescriber specialty: endocrinology or internal medicine."
-    ),
-}
+_REQUIREMENTS_PATH = Path(__file__).parent.parent.parent / "data" / "pa_requirements.json"
 
 _GENERIC_CONTEXT = (
     "PA Requirements — General:\n"
@@ -47,25 +31,60 @@ _GENERIC_CONTEXT = (
 )
 
 
-def run_retrieval(state: PipelineState) -> PipelineState:
-    """Look up the PA requirements for the requested drug and populate *pa_context*.
-
-    Matching is performed against the drug name in the request (case-insensitive
-    substring search). Falls back to a generic context for unknown drugs —
-    never raises.
-
-    Args:
-        state: Current pipeline state with an initialized :class:`AppealRequest`.
+def _load_requirements() -> tuple[dict[str, str], dict[str, str]]:
+    """Load pa_requirements.json and build plan_id and drug-alias lookup dicts.
 
     Returns:
-        Updated state with ``pa_context`` populated.
+        (by_plan_id, by_drug_alias) — both map a key to a criteria_text string.
+
+    Raises:
+        ETLParseError: If the JSON file is malformed.
+        FileNotFoundError: If the file is missing (propagated — fail fast).
     """
+    try:
+        raw = json.loads(_REQUIREMENTS_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ETLParseError(f"pa_requirements.json is malformed: {exc}") from exc
+
+    by_plan_id: dict[str, str] = {}
+    by_drug_alias: dict[str, str] = {}
+
+    for pack in raw["packs"].values():
+        text: str = pack["criteria_text"]
+        by_plan_id[pack["plan_id"]] = text
+        for alias in pack["drug_aliases"]:
+            by_drug_alias.setdefault(alias.lower(), text)
+
+    return by_plan_id, by_drug_alias
+
+
+_BY_PLAN_ID, _BY_DRUG_ALIAS = _load_requirements()
+
+
+def run_retrieval(state: PipelineState) -> PipelineState:
+    """Look up PA requirements and populate *pa_context*.
+
+    Resolution order: exact plan_id → drug alias substring → generic fallback.
+    Never raises; always returns a non-empty pa_context string.
+
+    Args:
+        state: Current pipeline state with an initialized AppealRequest.
+
+    Returns:
+        Updated state with ``pa_context`` populated. Input state is not mutated.
+    """
+    plan_id = state["request"].plan_id
     drug_lower = state["request"].drug.lower()
 
-    pa_context = _GENERIC_CONTEXT
-    for key, requirements in _PA_REQUIREMENTS.items():
-        if key in drug_lower:
-            pa_context = requirements
-            break
+    pa_context = _BY_PLAN_ID.get(plan_id)
+
+    if pa_context is None:
+        for alias, text in _BY_DRUG_ALIAS.items():
+            if alias in drug_lower:
+                pa_context = text
+                break
+
+    if pa_context is None:
+        pa_context = _GENERIC_CONTEXT
 
     return {**state, "pa_context": pa_context}

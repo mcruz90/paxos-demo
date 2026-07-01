@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "_note": "PA criteria sourced from golden/policies/*.md — those .md files are the authoritative criteria source. scenarios.json references packs via policy_refs; scenarios do NOT duplicate criteria text.",
+  "_s5_coverage_hook": "Sprint 5 extends resolution to (BIN/PCN/Group + market + tier) via golden/coverage_pool.json. S1 resolves by plan_id (exact) then drug_key substring. When extending: add a coverage_key field per pack and build a BIN/PCN/Group→coverage_key lookup alongside the existing plan_id index.",
+  "packs": {
+    "ozempic_cigna": {
+      "anchor_id": "ozempic_cigna",
+      "drug_key": "ozempic",
+      "drug_aliases": ["ozempic", "semaglutide"],
+      "plan_id": "CIGNA-CNF360-2024",
+      "payer": "Cigna",
+      "drug": "Ozempic (semaglutide)",
+      "source_policy": "golden/policies/ozempic_cigna.md",
+      "criteria_text": "PA Requirements — Ozempic (semaglutide) / Cigna Connect 500 PPO (cnf_360)\nSource: Cigna GLP-1 Agonists PA Policy (cnf_360); last revised 05/06/2026.\n\nCriteria (all must be met):\n1. Confirmed diagnosis of Type 2 Diabetes Mellitus (T2DM) — ICD-10 E11.x.\n2. Patient age >= 18 years at time of request (Ozempic injection and tablets).\n3. Indication limited to glycemic management in T2DM. Weight-loss use is excluded; Ozempic prescribed for obesity/weight management (not T2DM) is out of scope. Payer may request prescriber attestation when chart documents BMI or weight-management goals alongside T2DM.\n4. No concomitant GLP-1 or GLP-1/GIP agonist on the active medication list (including weight-management agents Wegovy, Saxenda, Zepbound).\n\nNote: No HbA1c threshold is stated in this policy. No prior metformin or oral antidiabetic step therapy is required. Approval period: 1 year.\n\nConditions not covered: Type 1 DM; prediabetes without T2DM diagnosis; metabolic syndrome without T2DM; concomitant GLP-1/GIP agonist use."
+    },
+    "esomeprazole_uhc_pediatric": {
+      "anchor_id": "esomeprazole_uhc_pediatric",
+      "drug_key": "esomeprazole",
+      "drug_aliases": ["esomeprazole", "nexium", "nexium suspension"],
+      "plan_id": "UHC-CHOICE-2024",
+      "payer": "UnitedHealthcare",
+      "drug": "Nexium for Oral Suspension (esomeprazole)",
+      "source_policy": "golden/policies/esomeprazole_uhc_pediatric.md",
+      "criteria_text": "PA Requirements — Nexium suspension (esomeprazole) / UnitedHealthcare (Step Therapy Program 2025 P 3035-15)\nSource: UHC Step Therapy Proton Pump Inhibitors, effective 08/01/2025.\n\nCriteria — coverage on ONE of the following pathways:\nA. PPI Step therapy failure: Documented failure, contraindication, or intolerance to ALL THREE of:\n   1. A prescription formulation of omeprazole\n   2. Pantoprazole\n   3. Rabeprazole\n   Reason must be provided for each agent.\n\nB. Swallowing limitation: Patient is unable to swallow a tablet or capsule due to age, oral/motor difficulties, or dysphagia.\n\nC. Feeding tube: Medications administered via feeding tube.\n\nPediatric auto-process rule: Patients under age 6 — no PA required. Step therapy applies for ages 6 and older.\n\nApproval period: 12 months."
+    },
+    "livdelzi_cigna_hepatology": {
+      "anchor_id": "livdelzi_cigna_hepatology",
+      "drug_key": "livdelzi",
+      "drug_aliases": ["livdelzi", "seladelpar"],
+      "plan_id": "CIGNA-CNF877-2024",
+      "payer": "Cigna",
+      "drug": "Livdelzi (seladelpar)",
+      "source_policy": "golden/policies/livdelzi_cigna_hepatology.md",
+      "criteria_text": "PA Requirements — Livdelzi (seladelpar) / Cigna (cnf_877)\nSource: Cigna Hepatology – Livdelzi PA Policy (cnf_877); effective 08/13/2025.\n\nCriteria (all must be met):\n1. Confirmed PBC diagnosis in adult (age >= 18): at least 2 of 3 AASLD criteria:\n   a. ALP elevated above ULN per lab reference values\n   b. Positive AMA, or PBC-specific auto-antibodies (sp100 or gp210) if AMA-negative\n   c. Histologic evidence from liver biopsy (not required if both a and b are met)\n2. Specialist prescriber: gastroenterologist, hepatologist, or liver transplant physician.\n3. UDCA step therapy — ONE of:\n   a. Ursodiol therapy for >= 12 months with inadequate response (prescriber attestation)\n   b. Patient unable to tolerate ursodiol (prescriber attestation)\n4. No current or prior hepatic decompensation (ascites, variceal bleeding, hepatic encephalopathy, coagulopathy) — absolute contraindication for both initial and renewal.\n\nConditions not covered: alcoholic liver disease; MASLD/NAFLD/MASH/NASH; concomitant Ocaliva (obeticholic acid) or Iqirvo (elafibranor) use.\nAuthorization periods: 6 months initial, 12 months continuation (continuation requires demonstrated response + no decompensation)."
+    }
+  }
+}
