@@ -1,4 +1,15 @@
-"""Shared pytest fixtures: MockLLMBackend and per-scenario ScenarioConfig instances."""
+"""Shared pytest fixtures derived from the golden set — single source of truth.
+
+All scenario/criteria fixtures are derived from evals/fixtures/scenarios.json
+via the adapter in evals/fixtures_adapter.py.  No hardcoded BlueCross/BCBS
+data remains here; that drift was deferred from Sprint 0.A and is cleared
+by this Slice-5 refactor.
+
+Fixture names are STABLE across refactors so downstream tests don't churn:
+    criterion_found, criterion_needs_review,
+    base_scenario, exception_scenario,
+    base_appeal_request, make_pipeline_state, mock_llm
+"""
 
 from __future__ import annotations
 
@@ -6,19 +17,23 @@ from collections.abc import AsyncIterator
 
 import pytest
 
+from evals.fixtures.schema import EvalScenario, load_scenarios_fixture
+from evals.fixtures_adapter import (
+    eval_scenario_to_appeal_request,
+    eval_scenario_to_scenario_config,
+)
 from models.schemas import (
     AppealRequest,
-    ClientType,
     CriterionResult,
     CriterionStatus,
     PipelineState,
-    Rule,
-    RuleType,
     ScenarioConfig,
 )
 
 # ---------------------------------------------------------------------------
-# Hardcoded minimal appeal text that passes all structural gatekeeper checks
+# Hardcoded minimal appeal text that passes all structural gatekeeper checks.
+# Must mention "Ozempic (semaglutide)" and "Type 2 Diabetes Mellitus" since
+# base_scenario is the ozempic_cigna golden anchor.
 # ---------------------------------------------------------------------------
 
 MOCK_APPEAL_TEXT = (
@@ -31,6 +46,16 @@ MOCK_APPEAL_TEXT = (
     "in the attached clinical notes.\n\n"
     "We request urgent reconsideration. Please contact our office with any "
     "additional information required.\n\nSincerely,\nClinical Team"
+)
+
+
+# ---------------------------------------------------------------------------
+# Golden set — load once at import time (cheap: ~0.1 ms, no network)
+# ---------------------------------------------------------------------------
+
+_fixture = load_scenarios_fixture()
+_OZEMPIC_SCENARIO: EvalScenario = next(
+    s for s in _fixture.scenarios if s.scenario_id == "ozempic_cigna_clinical_pa"
 )
 
 
@@ -58,73 +83,71 @@ def mock_llm() -> MockLLMBackend:
 
 
 # ---------------------------------------------------------------------------
-# Minimal ScenarioConfig fixture (mirrors the novo-ozempic frontend scenario)
+# ScenarioConfig + criteria fixtures derived from golden ozempic_cigna scenario
 # ---------------------------------------------------------------------------
+
+# Eager derivation (function-level is fine; adapter calls are pure and cheap)
+_BASE_SCENARIO_CONFIG: ScenarioConfig = eval_scenario_to_scenario_config(_OZEMPIC_SCENARIO)
+
+# Pull found / needs_review criteria once from the derived config
+_FOUND_CRITERIA = [
+    cr for cr in _BASE_SCENARIO_CONFIG.criteria_results
+    if cr.status == CriterionStatus.found
+]
+_NEEDS_REVIEW_CRITERIA = [
+    cr for cr in _BASE_SCENARIO_CONFIG.criteria_results
+    if cr.status == CriterionStatus.needs_review
+]
 
 
 @pytest.fixture
 def criterion_found() -> CriterionResult:
-    return CriterionResult(
-        rule=Rule(type=RuleType.diagnostic, label="Type 2 Diabetes Mellitus"),
-        status=CriterionStatus.found,
-        note="ICD-10 E11.9 documented in chart",
-        docSource="chart:page-1",
-    )
+    """First 'found' criterion from the golden ozempic_cigna scenario."""
+    return _FOUND_CRITERIA[0]
 
 
 @pytest.fixture
 def criterion_needs_review() -> CriterionResult:
-    return CriterionResult(
-        rule=Rule(type=RuleType.temporal, label="Failed 2 formulary alternatives"),
-        status=CriterionStatus.needs_review,
-        note="Only 1 alternative documented",
-        docSource="chart:page-2",
-        suggestedAction="Obtain prior treatment documentation",
-    )
+    """The 'needs_review' criterion from the golden ozempic_cigna scenario."""
+    return _NEEDS_REVIEW_CRITERIA[0]
 
 
 @pytest.fixture
-def base_scenario(criterion_found: CriterionResult) -> ScenarioConfig:
-    return ScenarioConfig(
-        id="novo-ozempic-t2dm",
-        configFile="novo-ozempic.json",
-        drug="Ozempic (semaglutide)",
-        manufacturer="Novo Nordisk",
-        plan="BlueCross PPO",
-        planId="BCBS-PPO-2024",
-        categoryKey="diabetes",
-        categoryLabel="Type 2 Diabetes",
-        diagnosis="Type 2 Diabetes Mellitus",
-        denialReason="formulary alternatives available",
-        clientType=ClientType.patient,
-        criteriaResults=[criterion_found],
-        drugKey="ozempic",
-        company_names=["BlueCross BlueShield"],
-    )
+def base_scenario() -> ScenarioConfig:
+    """ScenarioConfig for Ozempic/Cigna, derived from the golden set (4 criteria)."""
+    return _BASE_SCENARIO_CONFIG
 
 
 @pytest.fixture
-def exception_scenario(
-    criterion_found: CriterionResult,
-    criterion_needs_review: CriterionResult,
-) -> ScenarioConfig:
-    """A scenario with at least one needs_review criterion — triggers exception path."""
-    return ScenarioConfig(
-        id="novo-ozempic-exception",
-        configFile="novo-ozempic.json",
-        drug="Ozempic (semaglutide)",
-        manufacturer="Novo Nordisk",
-        plan="BlueCross PPO",
-        planId="BCBS-PPO-2024",
-        categoryKey="diabetes",
-        categoryLabel="Type 2 Diabetes",
-        diagnosis="Type 2 Diabetes Mellitus",
-        denialReason="formulary alternatives available",
-        clientType=ClientType.patient,
-        criteriaResults=[criterion_found, criterion_needs_review],
-        drugKey="ozempic",
-        company_names=["BlueCross BlueShield"],
-    )
+def exception_scenario() -> ScenarioConfig:
+    """Scenario with at least one needs_review criterion (triggers exception path).
+
+    Uses the full golden ozempic_cigna config — it has 3 'found' + 1 'needs_review',
+    satisfying the contract of 'at least one non-found criterion'.
+    """
+    return _BASE_SCENARIO_CONFIG
+
+
+# ---------------------------------------------------------------------------
+# AppealRequest fixture
+# ---------------------------------------------------------------------------
+
+_BASE_APPEAL_REQUEST: AppealRequest = eval_scenario_to_appeal_request(_OZEMPIC_SCENARIO)
+
+
+@pytest.fixture
+def base_appeal_request() -> AppealRequest:
+    """AppealRequest for Ozempic/Cigna, derived from the golden set.
+
+    plan_id is CIGNA-CNF360-2024 (the canonical Cigna cnf_360 pack).
+    retrieval.py resolves this to the correct Cigna Ozempic PA criteria.
+    """
+    return _BASE_APPEAL_REQUEST
+
+
+# ---------------------------------------------------------------------------
+# Pipeline state factory
+# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -153,21 +176,3 @@ def make_pipeline_state(base_appeal_request: AppealRequest):
             "errors": errors or [],
         }
     return _make
-
-
-@pytest.fixture
-def base_appeal_request(base_scenario: ScenarioConfig) -> AppealRequest:
-    return AppealRequest(
-        scenario_id="novo-ozempic-t2dm",
-        drug="Ozempic (semaglutide)",
-        diagnosis="Type 2 Diabetes Mellitus",
-        denial_text=(
-            "After careful review, authorization for Ozempic has been denied. "
-            "Formulary alternatives are available and should be tried first."
-        ),
-        denial_reason="formulary alternatives available",
-        plan="BlueCross PPO",
-        plan_id="BCBS-PPO-2024",
-        criteria_results=base_scenario.criteria_results,
-        company_names=["BlueCross BlueShield"],
-    )
