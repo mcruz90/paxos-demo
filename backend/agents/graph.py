@@ -10,6 +10,7 @@ Retries the synthesis→gatekeeper cycle up to MAX_RETRIES times.
 from __future__ import annotations
 
 import hashlib
+import logging
 from collections.abc import AsyncIterator
 
 from agents.nodes.gatekeeper import run_gatekeeper
@@ -27,6 +28,8 @@ from models.schemas import (
 )
 
 MAX_RETRIES = 3
+
+logger = logging.getLogger(__name__)
 
 
 async def run_pipeline(
@@ -73,7 +76,8 @@ async def run_pipeline(
             # Structural evaluation scores (deterministic, no LLM)
             try:
                 scores = eval_structural(full_text, request)  # type: ignore[arg-type]
-            except Exception:
+            except Exception as e:
+                logger.warning("eval_structural failed: %s", e)
                 scores = {}
 
             ref = hashlib.sha256(full_text.encode()).hexdigest()[:12]
