@@ -58,3 +58,28 @@ def test_all_api_routes_require_auth(client: TestClient) -> None:
     for route in api_routes:
         response = client.post(route, json={})
         assert response.status_code == 401, f"{route} returned {response.status_code} without auth"
+
+
+def test_token_comparison_uses_constant_time_compare(client: TestClient, monkeypatch) -> None:
+    """Token check must use hmac.compare_digest (constant-time), not `!=`, to avoid a
+    timing side-channel that leaks API_SECRET_KEY byte-by-byte (backend-security-debt item 3)."""
+    import hmac as hmac_module
+
+    import main
+
+    calls: list[tuple[str, str]] = []
+    real_compare_digest = hmac_module.compare_digest
+
+    def spy_compare_digest(a, b):
+        calls.append((a, b))
+        return real_compare_digest(a, b)
+
+    monkeypatch.setattr(main.hmac, "compare_digest", spy_compare_digest)
+
+    client.post(
+        "/api/appeal/generate",
+        json={},
+        headers={"Authorization": "Bearer wrong-token"},
+    )
+
+    assert calls, "hmac.compare_digest was never called — token compared with a non-constant-time operator"
