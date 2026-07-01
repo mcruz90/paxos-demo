@@ -105,3 +105,30 @@ async def test_gatekeeper_retry_emits_error_after_max_retries(
 
     error_event = next(e for e in events if isinstance(e, ErrorEvent))
     assert error_event.retry_count == 3
+
+
+@pytest.mark.asyncio
+async def test_eval_structural_failure_is_logged_not_silently_swallowed(
+    base_appeal_request: AppealRequest, monkeypatch, caplog
+) -> None:
+    """A bug in eval_structural (e.g. AttributeError from a schema change) must be
+    logged, not silently swallowed into an empty structural_scores dict that's
+    indistinguishable from a genuine zero score (backend-security-debt item 5)."""
+    import agents.graph as graph_module
+
+    def _boom(full_text, request):
+        raise AttributeError("simulated eval_structural bug")
+
+    monkeypatch.setattr(graph_module, "eval_structural", _boom)
+
+    done = None
+    with caplog.at_level("WARNING"):
+        async for event in run_pipeline(base_appeal_request, llm_backend=MockLLMBackend()):
+            if isinstance(event, DoneEvent):
+                done = event
+
+    assert done is not None
+    assert done.structural_scores == {}
+    assert any("eval_structural" in record.message for record in caplog.records), (
+        "Expected a warning log mentioning eval_structural failure"
+    )
