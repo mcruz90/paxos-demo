@@ -191,7 +191,8 @@ def test_livdelzi_criteria_rule_types_preserved() -> None:
 def test_appeal_request_scenario_id_matches_eval_scenario_id() -> None:
     scenario = _get("ozempic_cigna_clinical_pa")
     req = eval_scenario_to_appeal_request(scenario)
-    assert req.scenario_id == scenario.scenario_id
+    # underscores normalized to hyphens: AppealRequest.scenario_id pattern is ^[a-z0-9\-]+$
+    assert req.scenario_id == scenario.scenario_id.replace("_", "-")
 
 
 def test_scenario_config_id_matches_eval_scenario_id() -> None:
