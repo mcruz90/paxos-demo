@@ -126,7 +126,9 @@ def process_denial_letter(raw_bytes: bytes, filename: str) -> AppealRequest:
     clean_text = sanitized.clean_text
 
     # --- Security hold detection ---
-    security_hold, security_reason = _check_security_hold(raw_bytes, file_type)
+    pdf_hold, pdf_reason = _check_security_hold(raw_bytes, file_type)
+    security_hold = sanitized.suspicious or pdf_hold
+    security_reason = "; ".join(filter(None, [sanitized.reason if sanitized.suspicious else "", pdf_reason]))
 
     # --- Field extraction ---
     drug_match = _DRUG_RE.search(clean_text)

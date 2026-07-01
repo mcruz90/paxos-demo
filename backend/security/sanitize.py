@@ -119,13 +119,14 @@ def sanitize_extracted_text(text: str) -> SanitizeResult:
             suspicious = True
             reason = reason or "possible unicode homoglyph substitution"
 
-    # 5. Known injection phrases
-    if not suspicious:
-        for pattern in _INJECTION_PATTERNS:
-            if pattern.search(clean):
-                suspicious = True
-                reason = f"injection pattern detected: {pattern.pattern[:40]}"
-                break
+    # 5. Known injection phrases — always checked, even if already flagged above,
+    #    so a combined attack (e.g. bidi override + injection phrase) surfaces both.
+    for pattern in _INJECTION_PATTERNS:
+        if pattern.search(clean):
+            injection_reason = f"injection pattern detected: {pattern.pattern[:40]}"
+            suspicious = True
+            reason = "; ".join(filter(None, [reason, injection_reason]))
+            break
 
     return SanitizeResult(clean_text=clean, suspicious=suspicious, reason=reason)
 
