@@ -14,6 +14,7 @@ LLM backend selection: controlled by the LLM_BACKEND environment variable.
 
 from __future__ import annotations
 
+import hmac
 import os
 from collections.abc import AsyncIterator
 
@@ -58,7 +59,7 @@ async def auth_middleware(request: Request, call_next):
             )
         token = auth_header[len("Bearer "):]
         secret = _get_secret_key()
-        if not secret or token != secret:
+        if not secret or not hmac.compare_digest(token, secret):
             return JSONResponse(
                 {"detail": "Invalid API key"},
                 status_code=401,
