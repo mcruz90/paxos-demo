@@ -11,9 +11,12 @@ Handles:
 
 from __future__ import annotations
 
+import logging
 import re
 import unicodedata
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -162,6 +165,7 @@ def ocr_consistency_check(pdf_bytes: bytes) -> PhantomLintResult:
 
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     found_hidden = False
+    confidence = 0.0
     details = ""
 
     for page_num in range(len(doc)):
@@ -169,8 +173,19 @@ def ocr_consistency_check(pdf_bytes: bytes) -> PhantomLintResult:
         # Read the raw content stream for this page
         try:
             content = page.read_contents().decode("latin-1", errors="replace")
-        except Exception:
-            continue
+        except Exception as exc:
+            # In a security check, a page we cannot inspect is itself a signal —
+            # silently skipping it would let a crafted page bypass the scan.
+            # Conservative direction: flag for human review rather than pass.
+            logger.warning(
+                "ocr_consistency_check: page %d content stream unreadable: %s",
+                page_num + 1,
+                exc,
+            )
+            found_hidden = True
+            confidence = 0.5
+            details = f"page {page_num + 1} content stream unreadable"
+            break
 
         if _WHITE_FILL_RE.search(content) and _TEXT_SHOW_RE.search(content):
             # White color was set AND text was drawn — likely hidden content.
@@ -180,11 +195,14 @@ def ocr_consistency_check(pdf_bytes: bytes) -> PhantomLintResult:
             text_match = _TEXT_SHOW_RE.search(content, white_match.start())  # type: ignore[union-attr]
             if text_match:
                 found_hidden = True
+                confidence = 0.9
                 details = f"white fill color + text draw operator on page {page_num + 1}"
                 break
 
     doc.close()
 
     if found_hidden:
-        return PhantomLintResult(has_hidden_content=True, confidence=0.9, details=details)
+        return PhantomLintResult(
+            has_hidden_content=True, confidence=confidence, details=details
+        )
     return PhantomLintResult(has_hidden_content=False, confidence=0.0)
