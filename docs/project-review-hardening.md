@@ -149,18 +149,21 @@ updater); the graph streams chunks and calls `apply_synthesis`. Dead
 CLAUDE.md DRY rule: prompt templates live in `agents/prompts.py` or
 `third_party/fhi/prompt_templates.py`, never inline in a node. Moved.
 
-### chore-11. Six declared dependencies with zero imports
+### chore-11. Unused declared dependencies
 
 **File:** `backend/pyproject.toml`
 
-`langgraph`, `langchain-core`, `langfuse`, `loguru`, `slowapi`,
-`pydantic-settings` were declared but never imported — pure supply-chain
-surface, and `langfuse` is exactly the telemetry-in-a-PHI-codebase case the
+`langgraph`, `langchain-core`, `langfuse`, `slowapi`, `pydantic-settings`
+were declared with zero imports anywhere — pure supply-chain surface, and
+`langfuse` is exactly the telemetry-in-a-PHI-codebase case the
 dependency-security rules exist for. Moved to the existing "deferred"
 comment block (the same treatment dspy/qdrant already had); re-adding
-requires the standard pre-install check. `python-dotenv` was also unused, but
-the README's `.env` workflow depends on it — kept and actually wired
-(`load_dotenv()` in `main.py`) so the documented quick start works.
+requires the standard pre-install check. Two survivors, both verified:
+`loguru` looked unused but is imported by `third_party/fhi/generate_appeal.py`
+(the fork has its own imports — always grep `third_party/` before pruning);
+`python-dotenv` was unused but the README's `.env` workflow depends on it, so
+it was kept and actually wired (`load_dotenv()` in `main.py`). `pip-audit`
+clean after relock.
 
 **LangGraph note:** README/pitch say "LangGraph DAG"; the code is a
 hand-rolled async pipeline. Decision deferred to S3 (TierRouter is where
