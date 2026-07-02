@@ -38,6 +38,13 @@ async def run_pipeline(
 ) -> AsyncIterator[AppealEvent]:
     """Execute the appeal generation pipeline and yield SSE events.
 
+    Boundary contract: every stream terminates with a ``done`` or ``error``
+    event — a node exception must never propagate out of this generator,
+    because SSE headers are already sent and the client would see a bare
+    disconnect with no event. This is the one deliberate broad catch in the
+    pipeline: it converts failures at the API boundary, it does not hide them
+    (full detail is logged server-side; the client gets a generic message).
+
     Args:
         request: A fully-validated :class:`AppealRequest`.
         llm_backend: LLM backend implementing ``generate`` and
@@ -47,6 +54,23 @@ async def run_pipeline(
         :class:`StepEvent`, :class:`ChunkEvent`, :class:`DoneEvent`,
         or :class:`ErrorEvent` objects.
     """
+    try:
+        async for event in _run_pipeline_inner(request, llm_backend):
+            yield event
+    except Exception:
+        # Log identifiers only — never request/letter text (PHI rule).
+        logger.exception("pipeline failed for scenario_id=%s", request.scenario_id)
+        yield ErrorEvent(
+            message="Appeal generation failed due to an internal error.",
+            retry_count=0,
+        )
+
+
+async def _run_pipeline_inner(
+    request: AppealRequest,
+    llm_backend,
+) -> AsyncIterator[AppealEvent]:
+    """Pipeline body: security gate → ingestion → retrieval → synthesis/gatekeeper loop."""
     # --- security hold enforcement (before any node runs) ---
     # The ETL sets security_hold when a source document is flagged (injection
     # phrases, bidi chars, hidden PDF text). A held request must never reach
