@@ -9,21 +9,28 @@ Prior authorization lifecycle platform for Account Managers — initial PA submi
 ```
 React Frontend (Vite + Tailwind)
         │
-        │  POST /api/appeal/generate  (SSE stream)
+        │  POST /api/appeal/generate  (SSE stream; every stream ends with done|error)
         ▼
-FastAPI Backend  ──► LangGraph 4-node DAG
+FastAPI Backend  ──► 4-node pipeline (LangGraph-style; library adoption decided with S3 TierRouter)
         │                   │
+        │           [0] Security gate  security_hold requests never reach the LLM
         │           [1] Ingestion      validates AppealRequest → PipelineState
-        │           [2] Retrieval      loads PA requirements → context block
+        │           [2] Retrieval      resolves PA pack (plan_id → drug alias → generic;
+        │                              resolution path recorded for audit)
         │           [3] Synthesis      LLM → streamed appeal letter
         │           [4] Gatekeeper     deterministic rules → pass | retry | error
         │                              (retries up to 3×)
         │
-        ├──► LLM Backend  (pluggable — Ollama, Groq, or any OpenAI-compatible endpoint;
-        │                  model selection is per-node, not global)
-        ├──► Langfuse     (self-hosted; trace + eval scores per run)
-        └──► ETL          denial letter → AppealRequest  (Tesseract OCR + PyMuPDF + DSPy)
+        ├──► LLM Backend  (provider-neutral: ml.llm_backend.LLMBackend Protocol.
+        │                  Implemented today: mock, groq — with timeout, bounded
+        │                  retries, circuit breaker. Provider selection is open;
+        │                  adding one = one module in ml/ + one factory branch.)
+        └──► ETL          denial letter → AppealRequest  (Tesseract OCR + PyMuPDF;
+                          sanitization + hidden-text scan set security_hold)
 ```
+
+Planned (not yet wired): Langfuse tracing (PHI-redacted), DSPy EHR extraction,
+Qdrant policy store — see the Roadmap.
 
 The demo branch UI runs on 6 built-in fixture scenarios. Connect a local backend for live LLM generation in the POC view.
 
@@ -52,14 +59,13 @@ Set `VITE_API_KEY` in the frontend `.env` to match `API_SECRET_KEY`.
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `API_SECRET_KEY` | Yes | — | Bearer token for all `/api/*` routes |
-| `LLM_BACKEND` | No | `ollama` | `ollama` (local) or `groq` (cloud) |
-| `OLLAMA_MODEL` | No | `llama3.1:8b` | Model name |
-| `OLLAMA_HOST` | No | `http://localhost:11434` | Ollama server URL |
+| `LLM_BACKEND` | Yes | — (no default) | `mock` (deterministic, no network) or `groq`. The provider decision is deliberately open — unset fails fast listing the options |
 | `GROQ_API_KEY` | If `LLM_BACKEND=groq` | — | Groq API key |
-| `GROQ_MODEL` | No | `llama-3.3-70b-versatile` | Groq model name |
-| `LANGFUSE_PUBLIC_KEY` | No | — | Langfuse observability |
-| `LANGFUSE_SECRET_KEY` | No | — | Langfuse observability |
-| `LANGFUSE_HOST` | No | — | Self-hosted Langfuse URL (required if Langfuse keys set) |
+| `GROQ_MODEL` | No | `llama3-8b-8192` | Groq model name |
+| `LLM_TIMEOUT_SECONDS` | No | `30` | Per-request timeout for remote LLM providers |
+
+(Ollama and Langfuse variables will be documented when those integrations land
+— see the Roadmap.)
 
 ## Running Tests
 
@@ -67,15 +73,17 @@ Set `VITE_API_KEY` in the frontend `.env` to match `API_SECRET_KEY`.
 cd backend
 uv run pytest tests/unit tests/contract      # fast, no LLM
 uv run pytest tests/integration              # MockLLMBackend, no network
-uv run python -m evals.run_evals --scenario novo-ozempic --tier structural  # live LLM
+npm test                                     # frontend vitest (from repo root)
 ```
+
+A live-LLM eval CLI (`evals/run_evals.py`) is planned for Sprint 4.
 
 ## Roadmap
 
 | Milestone | Status |
 |---|---|
 | Demo UI — 6 fixture scenarios, full lifecycle UX, eval dashboard, guided tour | ✅ `demo` branch |
-| Live backend — LangGraph DAG, FastAPI SSE, HITL overrides, eval harness | ✅ `main` branch |
+| Live backend — 4-node pipeline, FastAPI SSE, HITL overrides, eval harness | ✅ `main` branch |
 | Data layer — Qdrant policy store, DSPy EHR extractor, denial letter ETL | In progress |
 | Security & compliance — Presidio PHI redaction, PostgreSQL audit log | Planned |
 | PA transmission — ePA rails (NCPDP/Da Vinci), payer submissions, determination tracking | Planned |
