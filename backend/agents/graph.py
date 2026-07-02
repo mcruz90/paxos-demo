@@ -47,6 +47,18 @@ async def run_pipeline(
         :class:`StepEvent`, :class:`ChunkEvent`, :class:`DoneEvent`,
         or :class:`ErrorEvent` objects.
     """
+    # --- security hold enforcement (before any node runs) ---
+    # The ETL sets security_hold when a source document is flagged (injection
+    # phrases, bidi chars, hidden PDF text). A held request must never reach
+    # the LLM — this is the single downstream enforcement point for that flag.
+    if request.security_hold:
+        reason = request.security_reason or "suspicious content detected in source document"
+        yield ErrorEvent(
+            message=f"Request blocked by security hold: {reason}",
+            retry_count=0,
+        )
+        return
+
     # --- ingestion ---
     yield StepEvent(step="ingestion", label="Validating request…")
     state = run_ingestion(request)
