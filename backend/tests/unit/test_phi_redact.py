@@ -43,6 +43,25 @@ def test_ssn_pattern_redacted() -> None:
     assert "123-45-6789" not in result
 
 
+def test_middle_initial_name_redacted() -> None:
+    """'First M. Last' names must be scrubbed — the golden-set prescriber pool
+    uses middle initials, which the two-word pattern misses (Sprint 0 flagged
+    this as debt item 7; project-review-hardening item 7 closes it)."""
+    text = "Prescriber John Q. Public ordered the medication."
+    result = redact_phi(text)
+    assert "John Q. Public" not in result
+    assert "Public" not in result
+
+
+def test_middle_initial_without_period_redacted() -> None:
+    """'First M Last' (no period after the initial) must also be scrubbed."""
+    text = "Patient Mary J Smith was denied Ozempic."
+    result = redact_phi(text)
+    assert "Mary J Smith" not in result
+    assert "Smith" not in result
+    assert "Ozempic" in result
+
+
 # --- Negative cases: clinical text must not be altered ---
 
 
