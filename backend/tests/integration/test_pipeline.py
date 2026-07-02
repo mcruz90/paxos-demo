@@ -108,6 +108,51 @@ async def test_gatekeeper_retry_emits_error_after_max_retries(
 
 
 @pytest.mark.asyncio
+async def test_security_hold_request_never_reaches_llm(
+    base_appeal_request: AppealRequest,
+) -> None:
+    """A request carrying security_hold=True (set by the ETL when injection /
+    hidden content is detected) must terminate with an ErrorEvent BEFORE any
+    LLM call — detection without enforcement is not a security hold
+    (project-review-hardening item 1)."""
+
+    class SpyBackend:
+        model_name = "spy"
+
+        def __init__(self) -> None:
+            self.called = False
+
+        async def generate_stream(self, prompt):
+            self.called = True
+            yield "should never be emitted"
+
+        async def generate(self, prompt):
+            self.called = True
+            return "should never be emitted"
+
+    held = base_appeal_request.model_copy(
+        update={
+            "security_hold": True,
+            "security_reason": "injection pattern detected: ignore\\s+previous",
+        }
+    )
+    spy = SpyBackend()
+
+    events = []
+    async for event in run_pipeline(held, llm_backend=spy):
+        events.append(event)
+
+    event_types = [e.event for e in events]
+    assert "error" in event_types, f"Expected 'error' in {event_types}"
+    assert "done" not in event_types
+    assert "chunk" not in event_types, "No LLM output may be streamed for a held request"
+    assert spy.called is False, "LLM backend must never be invoked for a held request"
+
+    error_event = next(e for e in events if isinstance(e, ErrorEvent))
+    assert "security hold" in error_event.message.lower()
+
+
+@pytest.mark.asyncio
 async def test_eval_structural_failure_is_logged_not_silently_swallowed(
     base_appeal_request: AppealRequest, monkeypatch, caplog
 ) -> None:
