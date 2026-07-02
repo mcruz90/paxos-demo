@@ -164,6 +164,51 @@ def test_retrieval_falls_back_to_drug_alias_when_plan_unknown() -> None:
     assert "ozempic" in ctx or "semaglutide" in ctx
 
 
+# ---------------------------------------------------------------------------
+# NEW — resolution path must be recorded, not invisible (hardening item 5).
+# A letter generated from the generic fallback is a materially different
+# artifact (no payer-specific criteria); audit + tier routing need the signal.
+# ---------------------------------------------------------------------------
+
+
+def test_retrieval_records_plan_id_resolution_path() -> None:
+    """Exact plan_id hit → pa_resolution == 'plan_id'."""
+    updated = run_retrieval(_state(_ozempic_cigna_request()))
+    assert updated["pa_resolution"] == "plan_id"
+
+
+def test_retrieval_records_drug_alias_resolution_path() -> None:
+    """Unknown plan_id but known drug → pa_resolution == 'drug_alias'."""
+    req = AppealRequest(
+        scenario_id="ozempic-unknown-plan",
+        drug="Ozempic (semaglutide)",
+        diagnosis="Type 2 Diabetes Mellitus",
+        denial_text="Authorization denied.",
+        denial_reason="step therapy",
+        plan="SomePPO",
+        plan_id="UNKNOWN-PLAN-2099",
+        criteria_results=[],
+    )
+    updated = run_retrieval(_state(req))
+    assert updated["pa_resolution"] == "drug_alias"
+
+
+def test_retrieval_records_generic_resolution_path() -> None:
+    """No pack resolves → pa_resolution == 'generic' (the silent-fallback case)."""
+    req = AppealRequest(
+        scenario_id="unknownia-xyzab",
+        drug="Unknownia (xyzab)",
+        diagnosis="Rare Syndrome X",
+        denial_text="Authorization denied.",
+        denial_reason="formulary not covered",
+        plan="Some PPO",
+        plan_id="SOME-PPO-2024",
+        criteria_results=[],
+    )
+    updated = run_retrieval(_state(req))
+    assert updated["pa_resolution"] == "generic"
+
+
 def test_retrieval_state_purity() -> None:
     """run_retrieval must not mutate the input state — it returns a new dict."""
     req = _ozempic_cigna_request()

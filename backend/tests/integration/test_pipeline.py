@@ -80,6 +80,19 @@ async def test_done_event_contains_structural_scores(base_appeal_request: Appeal
 
 
 @pytest.mark.asyncio
+async def test_done_event_reports_pa_resolution(base_appeal_request: AppealRequest) -> None:
+    """DoneEvent must surface which retrieval resolution path fired so the
+    audit trail can distinguish a payer-specific letter from a generic-fallback
+    letter (project-review-hardening item 5)."""
+    done = None
+    async for event in run_pipeline(base_appeal_request, llm_backend=MockLLMBackend()):
+        if isinstance(event, DoneEvent):
+            done = event
+    assert done is not None
+    assert done.pa_resolution == "plan_id"
+
+
+@pytest.mark.asyncio
 async def test_gatekeeper_retry_emits_error_after_max_retries(
     base_appeal_request: AppealRequest,
 ) -> None:
