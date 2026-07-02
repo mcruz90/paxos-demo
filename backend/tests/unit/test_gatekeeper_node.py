@@ -10,6 +10,7 @@ def _state_with_text(base_appeal_request, appeal_text: str) -> PipelineState:
     return {
         "request": base_appeal_request,
         "pa_context": "",
+        "pa_resolution": "plan_id",
         "appeal_text": appeal_text,
         "model_name": "mock",
         "passed_gatekeeper": False,

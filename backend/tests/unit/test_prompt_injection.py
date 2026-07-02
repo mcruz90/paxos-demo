@@ -29,6 +29,7 @@ def _state(base_appeal_request: AppealRequest, denial_text: str, pa_context: str
     return {
         "request": base_appeal_request.model_copy(update={"denial_text": denial_text}),
         "pa_context": pa_context or "PA requirements: step therapy required.",
+        "pa_resolution": "plan_id",
         "appeal_text": "",
         "model_name": "",
         "passed_gatekeeper": False,

@@ -261,6 +261,10 @@ class AppealRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+# Which retrieval resolution path produced the PA context ("" before retrieval).
+PaResolution = Literal["plan_id", "drug_alias", "generic", ""]
+
+
 class StepEvent(BaseModel):
     event: Literal["step"] = "step"
     step: str
@@ -277,10 +281,9 @@ class DoneEvent(BaseModel):
     model: str
     ref: str
     structural_scores: dict[str, float] = Field(default_factory=dict)
-    # Which retrieval resolution path produced the PA context — a generic-
-    # fallback letter is a materially different artifact from a payer-specific
-    # one, and the audit trail must be able to tell them apart.
-    pa_resolution: Literal["plan_id", "drug_alias", "generic", ""] = ""
+    # A generic-fallback letter is a materially different artifact from a
+    # payer-specific one; the audit trail must be able to tell them apart.
+    pa_resolution: PaResolution = ""
 
 
 class ErrorEvent(BaseModel):
@@ -300,8 +303,8 @@ AppealEvent = StepEvent | ChunkEvent | DoneEvent | ErrorEvent
 class PipelineState(TypedDict):
     request: AppealRequest
     pa_context: str
-    # Set by retrieval: "plan_id" | "drug_alias" | "generic" ("" before retrieval)
-    pa_resolution: str
+    # Set by retrieval ("" before retrieval runs)
+    pa_resolution: PaResolution
     appeal_text: str
     model_name: str
     passed_gatekeeper: bool

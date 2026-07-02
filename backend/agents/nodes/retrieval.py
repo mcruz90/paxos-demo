@@ -20,7 +20,7 @@ from pathlib import Path
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from errors import ETLParseError
-from models.schemas import PipelineState
+from models.schemas import PaResolution, PipelineState
 
 _REQUIREMENTS_PATH = Path(__file__).parent.parent.parent / "data" / "pa_requirements.json"
 
@@ -97,7 +97,7 @@ def run_retrieval(state: PipelineState) -> PipelineState:
     drug_lower = state["request"].drug.lower()
 
     pa_context = _BY_PLAN_ID.get(plan_id)
-    pa_resolution = "plan_id"
+    pa_resolution: PaResolution = "plan_id"
 
     if pa_context is None:
         pa_resolution = "drug_alias"

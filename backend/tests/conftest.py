@@ -26,6 +26,7 @@ from models.schemas import (
     AppealRequest,
     CriterionResult,
     CriterionStatus,
+    PaResolution,
     PipelineState,
     ScenarioConfig,
 )
@@ -168,7 +169,7 @@ def make_pipeline_state(base_appeal_request: AppealRequest):
     def _make(
         appeal_text: str = "",
         pa_context: str = "PA requirements: step therapy required.",
-        pa_resolution: str = "plan_id",
+        pa_resolution: PaResolution = "plan_id",
         model_name: str = "",
         passed_gatekeeper: bool = False,
         retry_count: int = 0,
