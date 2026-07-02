@@ -36,6 +36,8 @@ class CaseStatus(StrEnum):
     processing = "processing"
     ready_for_review = "ready_for_review"
     exception = "exception"
+    # Pre-submission doc gap — distinct from a payer denial (PH-3101 flow).
+    awaiting_documentation = "awaiting_documentation"
     submitted = "submitted"
     payer_response = "payer_response"
 
