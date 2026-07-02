@@ -19,6 +19,14 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\bPH-\d+\b"), "[REDACTED]"),
     # Date of birth: MM/DD/YYYY
     (re.compile(r"\b\d{1,2}/\d{1,2}/\d{4}\b"), "[REDACTED]"),
+    # Middle-initial proper names: "First M. Last" / "First M Last".
+    # Must run BEFORE the two-word pattern — otherwise the two-word pattern
+    # never matches across the initial and the name survives (Sprint 0 gap,
+    # golden-set prescriber pool uses middle initials).
+    (
+        re.compile(r"\b[A-Z][a-z]{1,20}\s+[A-Z]\.?\s+[A-Z][a-z]{1,20}\b"),
+        "[REDACTED]",
+    ),
     # Two-word proper names: "Firstname Lastname" (both Title Case, letters only).
     # This pattern is intentionally conservative — drug names and ICD codes
     # won't match because they contain digits, parens, or are single tokens.
