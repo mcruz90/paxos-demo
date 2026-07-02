@@ -1,7 +1,9 @@
 """agents/nodes/synthesis.py — LLM appeal generation node.
 
-Node contract: (PipelineState, llm_backend) -> PipelineState
-The llm_backend is dependency-injected so tests can pass MockLLMBackend.
+Node contract: build_prompt(state) -> prompt; apply_synthesis(state, text,
+model) -> state. The graph orchestrator streams tokens (it must interleave
+SSE ChunkEvents) and calls both — all synthesis logic lives here, none in
+the graph.
 
 Security: untrusted text (denial_text, pa_context) is always wrapped in
 XML delimiters inside the prompt — never string-interpolated raw.
@@ -53,29 +55,30 @@ def build_prompt(state: PipelineState) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Node
+# State update
 # ---------------------------------------------------------------------------
 
 
-async def run_synthesis(state: PipelineState, llm_backend) -> PipelineState:
-    """Generate the appeal text using *llm_backend*.
+def apply_synthesis(
+    state: PipelineState, appeal_text: str, model_name: str
+) -> PipelineState:
+    """Pure state updater: record the generated appeal text and model name.
 
-    Calls ``llm_backend.generate(prompt)`` (non-streaming) and stores the
-    result in ``state["appeal_text"]``. The gatekeeper node evaluates the
-    result after this node completes.
+    The graph orchestrator owns the streaming loop (it must interleave SSE
+    ChunkEvents with token arrival); this function owns what "synthesis
+    completed" means for state, so the node logic has exactly one home and
+    the tested path is the production path.
 
     Args:
         state: Pipeline state after retrieval.
-        llm_backend: Any object implementing ``generate(prompt: str) -> str``
-            and ``model_name: str``. Injected by the graph orchestrator.
+        appeal_text: The fully-collected LLM output.
+        model_name: The backend's model identifier.
 
     Returns:
-        Updated state with ``appeal_text`` and ``model_name`` populated.
+        Updated state. Input state is not mutated.
     """
-    prompt = build_prompt(state)
-    appeal_text = await llm_backend.generate(prompt)
     return {
         **state,
         "appeal_text": appeal_text,
-        "model_name": llm_backend.model_name,
+        "model_name": model_name,
     }

@@ -16,7 +16,7 @@ from collections.abc import AsyncIterator
 from agents.nodes.gatekeeper import run_gatekeeper
 from agents.nodes.ingestion import run_ingestion
 from agents.nodes.retrieval import run_retrieval
-from agents.nodes.synthesis import build_prompt
+from agents.nodes.synthesis import apply_synthesis, build_prompt
 from evals.appeal_evals import eval_structural
 from models.schemas import (
     AppealEvent,
@@ -103,7 +103,7 @@ async def _run_pipeline_inner(
             yield ChunkEvent(text=chunk)
 
         full_text = "".join(collected)
-        state = {**state, "appeal_text": full_text, "model_name": llm_backend.model_name}
+        state = apply_synthesis(state, full_text, llm_backend.model_name)
 
         # --- gatekeeper ---
         state = run_gatekeeper(state)
