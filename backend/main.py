@@ -20,6 +20,7 @@ import os
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -31,6 +32,10 @@ if TYPE_CHECKING:
     from ml.llm_backend import LLMBackend
 
 logger = logging.getLogger(__name__)
+
+# Load .env for local dev (README quick start). Does NOT override variables
+# already set in the environment, so CI/production env wins.
+load_dotenv()
 
 # ---------------------------------------------------------------------------
 # App
