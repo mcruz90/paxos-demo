@@ -11,19 +11,12 @@ XML delimiters inside the prompt — never string-interpolated raw.
 
 from __future__ import annotations
 
+from agents.prompts import APPEAL_PROMPT_TEMPLATE, APPEAL_SYSTEM_INSTRUCTIONS
 from models.schemas import PipelineState
 
 # ---------------------------------------------------------------------------
 # Prompt construction
 # ---------------------------------------------------------------------------
-
-_SYSTEM_INSTRUCTIONS = (
-    "You are a clinical appeals specialist writing a formal prior authorization "
-    "appeal letter on behalf of a prescribing physician. "
-    "The letter must be professional, evidence-based, and cite the specific "
-    "clinical criteria from the payer's PA policy. "
-    "Do not introduce yourself as an AI. Write the letter directly."
-)
 
 
 def build_prompt(state: PipelineState) -> str:
@@ -31,6 +24,7 @@ def build_prompt(state: PipelineState) -> str:
 
     Untrusted content (denial_text, pa_context) is enclosed in XML tags to
     prevent prompt injection — the model sees them as data, not instructions.
+    Prompt copy lives in agents/prompts.py; this node only fills the slots.
 
     Args:
         state: Pipeline state after ingestion and retrieval nodes.
@@ -39,18 +33,14 @@ def build_prompt(state: PipelineState) -> str:
         A fully-formatted prompt string ready for the LLM backend.
     """
     request = state["request"]
-    pa_context = state["pa_context"]
 
-    return (
-        f"{_SYSTEM_INSTRUCTIONS}\n\n"
-        f"Drug: {request.drug}\n"
-        f"Diagnosis: {request.diagnosis}\n"
-        f"Plan: {request.plan}\n\n"
-        f"<pa_requirements>\n{pa_context}\n</pa_requirements>\n\n"
-        f"<denial_letter>\n{request.denial_text}\n</denial_letter>\n\n"
-        "Write a formal prior authorization appeal letter addressing the denial reason. "
-        "Cite the clinical evidence and PA criteria directly. "
-        "Begin the letter with 'Dear Medical Director,'"
+    return APPEAL_PROMPT_TEMPLATE.format(
+        system_instructions=APPEAL_SYSTEM_INSTRUCTIONS,
+        drug=request.drug,
+        diagnosis=request.diagnosis,
+        plan=request.plan,
+        pa_context=state["pa_context"],
+        denial_text=request.denial_text,
     )
 
 
