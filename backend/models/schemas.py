@@ -1,7 +1,8 @@
 """Pydantic schemas — single source of truth for all data contracts.
 
-These types mirror the TypeScript types in src/App.tsx. Any change here
-must be reflected there and vice versa.
+These types mirror the TypeScript types in src/types.ts. Any change here
+must be reflected there and vice versa — tests/unit/test_schema_parity.py
+pins the enum shapes to the frontend unions.
 """
 
 from __future__ import annotations
