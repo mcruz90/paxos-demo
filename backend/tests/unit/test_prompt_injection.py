@@ -138,6 +138,37 @@ def test_phantomlint_clean_pdf_passes(tmp_path) -> None:
     assert result.has_hidden_content is False
 
 
+def test_phantomlint_unreadable_page_flags_suspicious(monkeypatch) -> None:
+    """A page whose content stream cannot be read must be flagged, not silently
+    skipped — a crafted page that breaks read_contents() would otherwise bypass
+    the hidden-text scan entirely (project-review-hardening item 6)."""
+    import fitz
+
+    from security.sanitize import ocr_consistency_check
+
+    class _BrokenPage:
+        def read_contents(self):
+            raise RuntimeError("corrupt content stream")
+
+    class _FakeDoc:
+        def __len__(self) -> int:
+            return 1
+
+        def __getitem__(self, i):
+            return _BrokenPage()
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(fitz, "open", lambda *a, **k: _FakeDoc())
+
+    result: PhantomLintResult = ocr_consistency_check(b"%PDF-1.4 fake")
+    assert result.has_hidden_content is True, (
+        "Unreadable page must flag the document for review, not be skipped"
+    )
+    assert "unreadable" in result.details.lower()
+
+
 # ---------------------------------------------------------------------------
 # build_prompt() — injection inside XML delimiters
 # ---------------------------------------------------------------------------
