@@ -153,6 +153,40 @@ async def test_security_hold_request_never_reaches_llm(
 
 
 @pytest.mark.asyncio
+async def test_node_exception_terminates_stream_with_error_event(
+    base_appeal_request: AppealRequest, monkeypatch, caplog
+) -> None:
+    """SSE headers are sent before the pipeline runs, so a node exception must
+    surface as a terminal ErrorEvent — never propagate out of the generator
+    (which drops the connection with no event at all). Detail stays in the
+    server log; the client gets a generic message
+    (project-review-hardening item 2)."""
+    import agents.graph as graph_module
+
+    def _boom(state):
+        raise RuntimeError("simulated node failure: internal detail")
+
+    monkeypatch.setattr(graph_module, "run_retrieval", _boom)
+
+    events = []
+    with caplog.at_level("ERROR"):
+        async for event in run_pipeline(base_appeal_request, llm_backend=MockLLMBackend()):
+            events.append(event)
+
+    assert events, "Stream must emit events, not die silently"
+    assert events[-1].event == "error", f"Stream must terminate with 'error', got {events[-1].event}"
+    assert "done" not in [e.event for e in events]
+
+    error_event = next(e for e in events if isinstance(e, ErrorEvent))
+    assert "internal detail" not in error_event.message, (
+        "Exception internals must not leak to the client"
+    )
+    assert any("pipeline" in r.message.lower() for r in caplog.records), (
+        "Failure must be logged server-side"
+    )
+
+
+@pytest.mark.asyncio
 async def test_eval_structural_failure_is_logged_not_silently_swallowed(
     base_appeal_request: AppealRequest, monkeypatch, caplog
 ) -> None:
