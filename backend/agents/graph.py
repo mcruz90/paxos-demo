@@ -121,6 +121,7 @@ async def _run_pipeline_inner(
                 model=state["model_name"],
                 ref=ref,
                 structural_scores=scores,
+                pa_resolution=state.get("pa_resolution", ""),
             )
             return
 

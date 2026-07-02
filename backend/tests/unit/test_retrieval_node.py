@@ -28,6 +28,7 @@ def _state(request: AppealRequest) -> PipelineState:
     return {
         "request": request,
         "pa_context": "",
+        "pa_resolution": "",
         "appeal_text": "",
         "model_name": "",
         "passed_gatekeeper": False,

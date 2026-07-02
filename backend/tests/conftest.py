@@ -168,6 +168,7 @@ def make_pipeline_state(base_appeal_request: AppealRequest):
     def _make(
         appeal_text: str = "",
         pa_context: str = "PA requirements: step therapy required.",
+        pa_resolution: str = "plan_id",
         model_name: str = "",
         passed_gatekeeper: bool = False,
         retry_count: int = 0,
@@ -176,6 +177,7 @@ def make_pipeline_state(base_appeal_request: AppealRequest):
         return {
             "request": base_appeal_request,
             "pa_context": pa_context,
+            "pa_resolution": pa_resolution,
             "appeal_text": appeal_text,
             "model_name": model_name,
             "passed_gatekeeper": passed_gatekeeper,

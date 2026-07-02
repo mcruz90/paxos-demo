@@ -97,8 +97,10 @@ def run_retrieval(state: PipelineState) -> PipelineState:
     drug_lower = state["request"].drug.lower()
 
     pa_context = _BY_PLAN_ID.get(plan_id)
+    pa_resolution = "plan_id"
 
     if pa_context is None:
+        pa_resolution = "drug_alias"
         for alias, text in _BY_DRUG_ALIAS.items():
             if alias in drug_lower:
                 pa_context = text
@@ -106,5 +108,6 @@ def run_retrieval(state: PipelineState) -> PipelineState:
 
     if pa_context is None:
         pa_context = _GENERIC_CONTEXT
+        pa_resolution = "generic"
 
-    return {**state, "pa_context": pa_context}
+    return {**state, "pa_context": pa_context, "pa_resolution": pa_resolution}
