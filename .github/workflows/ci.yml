@@ -8,7 +8,7 @@ on:
 
 jobs:
   frontend-check:
-    name: Frontend (tsc + build)
+    name: Frontend (vitest + tsc + build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,6 +17,9 @@ jobs:
           node-version: "24"
           cache: "npm"
       - run: npm ci
+      # Vitest includes the anchor-join parity guard (scenarios_parity.test.ts)
+      # — drift gates must actually gate, not run only on developer machines.
+      - run: npm test
       - run: npm run build
 
   backend-unit:
@@ -32,9 +35,11 @@ jobs:
       - name: Install dependencies
         working-directory: backend
         run: uv sync --group dev
+      # Supply-chain gate — a finding fails the build (no `|| true` escape
+      # hatch; CLAUDE.md Dependency Security).
       - name: Run pip-audit (supply chain check)
         working-directory: backend
-        run: uv run pip-audit --desc || true
+        run: uv run pip-audit --desc
       - name: Golden-set PHI + fixture-integrity scan
         working-directory: backend
         run: uv run pytest tests/unit/test_golden_compliance.py -v --tb=short
@@ -77,6 +82,6 @@ jobs:
         working-directory: backend
         run: uv run mypy . --ignore-missing-imports
 
-# NOTE: evals/run_evals.py is NOT in CI — it requires a live LLM and costs tokens.
-# Run manually: uv run python -m evals.run_evals --scenario novo-ozempic --tier structural
-# Or trigger via workflow_dispatch once GROQ_API_KEY secret is configured.
+# NOTE: the live-LLM eval CLI (planned as evals/run_evals.py, Sprint 4) will not
+# run in CI — it needs a live LLM and costs tokens. Run manually, or via
+# workflow_dispatch once a provider is selected and its API key secret exists.
