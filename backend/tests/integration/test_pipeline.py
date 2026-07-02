@@ -153,6 +153,35 @@ async def test_security_hold_request_never_reaches_llm(
 
 
 @pytest.mark.asyncio
+async def test_production_mock_backend_passes_gatekeeper_for_any_scenario() -> None:
+    """The production mock (ml/mock_backend.py, LLM_BACKEND=mock) must produce a
+    letter that passes the gatekeeper for ANY golden scenario, not just Ozempic.
+    A scenario-blind mock fails the gatekeeper's drug/diagnosis checks 3× and
+    errors for every non-Ozempic case — Sprint 2 initial-PA scenarios would trip
+    this immediately (project-review-hardening item 4)."""
+    from evals.fixtures.schema import load_scenarios_fixture
+    from evals.fixtures_adapter import eval_scenario_to_appeal_request
+    from ml.mock_backend import MockLLMBackend as ProductionMock
+
+    fixture = load_scenarios_fixture()
+    livdelzi = next(
+        s for s in fixture.scenarios
+        if s.scenario_id == "livdelzi_cigna_hepatology_clinical_pa"
+    )
+    request = eval_scenario_to_appeal_request(livdelzi)
+
+    events = []
+    async for event in run_pipeline(request, llm_backend=ProductionMock()):
+        events.append(event)
+
+    event_types = [e.event for e in events]
+    assert "done" in event_types, (
+        f"Production mock must pass the gatekeeper for {request.drug!r}; got {event_types}"
+    )
+    assert "error" not in event_types
+
+
+@pytest.mark.asyncio
 async def test_node_exception_terminates_stream_with_error_event(
     base_appeal_request: AppealRequest, monkeypatch, caplog
 ) -> None:
