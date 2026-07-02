@@ -17,3 +17,11 @@ class ContextWindowError(Exception):
 
 class RefusalDetectedError(Exception):
     """Raised when LLM output is detected as a refusal rather than an appeal."""
+
+
+class LLMUnavailableError(Exception):
+    """Raised when the LLM provider is short-circuited after repeated failures.
+
+    Fail-fast signal: the circuit breaker is open, the degraded dependency is
+    not being hammered, retry after the cooldown.
+    """

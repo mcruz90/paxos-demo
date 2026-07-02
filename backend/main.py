@@ -15,15 +15,22 @@ LLM backend selection: controlled by the LLM_BACKEND environment variable.
 from __future__ import annotations
 
 import hmac
+import logging
 import os
 from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from agents.graph import run_pipeline
-from models.schemas import AppealEvent, AppealRequest
+from models.schemas import AppealEvent, AppealRequest, ErrorEvent
+
+if TYPE_CHECKING:
+    from ml.llm_backend import LLMBackend
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # App
@@ -80,12 +87,24 @@ def _get_secret_key() -> str:
 
 
 # ---------------------------------------------------------------------------
-# LLM backend factory
+# LLM backend factory — provider selection is the ONLY place a provider is
+# named. The pipeline codes against ml.llm_backend.LLMBackend (Protocol);
+# adding a provider = one new module in ml/ + one branch here.
+# The provider decision is deliberately open, so there is no silent default.
 # ---------------------------------------------------------------------------
 
-def _build_llm_backend():
+_AVAILABLE_BACKENDS = ("mock", "groq")
+
+
+def _build_llm_backend() -> LLMBackend:
     """Instantiate the LLM backend selected by the LLM_BACKEND env var."""
-    backend_name = os.environ.get("LLM_BACKEND", "groq").lower()
+    backend_name = os.environ.get("LLM_BACKEND", "").lower()
+
+    if not backend_name:
+        raise ValueError(
+            "LLM_BACKEND is not set. No provider is defaulted — set LLM_BACKEND "
+            f"to one of: {', '.join(_AVAILABLE_BACKENDS)}."
+        )
 
     if backend_name == "mock":
         from ml.mock_backend import MockLLMBackend
@@ -94,34 +113,13 @@ def _build_llm_backend():
     if backend_name == "groq":
         # Lazy import so groq package errors only surface at runtime,
         # not on import (allows CI lint to run without GROQ_API_KEY).
-        from groq import AsyncGroq  # type: ignore[import]
+        from ml.groq_backend import GroqBackend
+        return GroqBackend(api_key=os.environ["GROQ_API_KEY"])
 
-        class _GroqBackend:
-            model_name = os.environ.get("GROQ_MODEL", "llama3-8b-8192")
-
-            def __init__(self) -> None:
-                self._client = AsyncGroq(api_key=os.environ["GROQ_API_KEY"])
-
-            async def generate_stream(self, prompt: str):
-                stream = await self._client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt}],
-                    model=self.model_name,
-                    stream=True,
-                )
-                async for chunk in stream:
-                    delta = chunk.choices[0].delta.content or ""
-                    if delta:
-                        yield delta
-
-            async def generate(self, prompt: str) -> str:
-                chunks = []
-                async for chunk in self.generate_stream(prompt):
-                    chunks.append(chunk)
-                return "".join(chunks)
-
-        return _GroqBackend()
-
-    raise ValueError(f"Unknown LLM_BACKEND: {backend_name!r}. Use 'mock' or 'groq'.")
+    raise ValueError(
+        f"Unknown LLM_BACKEND: {backend_name!r}. "
+        f"Available: {', '.join(_AVAILABLE_BACKENDS)}."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +132,16 @@ def _sse_line(event: AppealEvent) -> str:
 
 
 async def _stream_events(request: AppealRequest) -> AsyncIterator[str]:
-    llm_backend = _build_llm_backend()
+    # SSE headers are already sent when this generator runs — a construction
+    # failure must surface as an error event, never a bare disconnect.
+    try:
+        llm_backend = _build_llm_backend()
+    except Exception:
+        logger.exception("LLM backend construction failed")
+        yield _sse_line(
+            ErrorEvent(message="Server LLM backend is not configured.", retry_count=0)
+        )
+        return
     async for event in run_pipeline(request, llm_backend=llm_backend):
         yield _sse_line(event)
 

@@ -116,11 +116,18 @@ shared backend interface, and the client had **no timeout, no bounded retry,
 no short-circuit** — all three are explicit CLAUDE.md requirements ("External
 APIs can be down").
 
-**Fix:** `ml/llm_backend.py` defines the `LLMBackend` Protocol;
-`ml/groq_backend.py` implements it with an explicit request timeout, the
-SDK's bounded exponential-backoff retries, and a consecutive-failure
-circuit breaker (fail fast during cooldown instead of hammering a degraded
-dependency). `main.py`'s factory just selects an implementation.
+**Fix:** `ml/llm_backend.py` defines the `LLMBackend` Protocol — the
+provider-neutral contract the pipeline codes against. **No provider is
+committed:** the user is still evaluating LLM providers, so `main.py`'s
+factory has no silent default (`LLM_BACKEND` must be set explicitly; unset
+fails fast listing the options). Groq is just one implementation file
+(`ml/groq_backend.py`) alongside `ml/mock_backend.py`; adding
+Ollama/OpenAI/Anthropic later = one new module + one factory branch, zero
+changes to `agents/`. The Groq implementation carries the required
+resilience: explicit request timeout, the SDK's bounded exponential-backoff
+retries, and a shared `CircuitBreaker` (fail fast during cooldown instead of
+hammering a degraded dependency). Backend-construction failure inside the
+SSE generator now yields an `error` event instead of a bare disconnect.
 
 ### refactor-9. The tested synthesis node was dead code
 
