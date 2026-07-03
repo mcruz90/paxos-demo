@@ -37,6 +37,15 @@ logger = logging.getLogger(__name__)
 # already set in the environment, so CI/production env wins.
 load_dotenv()
 
+# langsmith is a mandatory transitive of langchain-core (LangGraph, ADR-0001),
+# and its tracing uploads payloads to LangChain's hosted SaaS when enabled via
+# env vars. In a PHI codebase that must be a deliberate code change, never a
+# stray env var on a deploy host — hard-disable it after load_dotenv() so it
+# overrides .env and inherited environment alike. (Planned observability is
+# self-hosted Langfuse; see the deferred block in pyproject.toml.)
+os.environ["LANGSMITH_TRACING"] = "false"
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
+
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------

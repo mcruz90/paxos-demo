@@ -25,6 +25,15 @@ dependencies = [
   "pytesseract>=0.3.13",
   "pymupdf>=1.24",
   "python-dateutil>=2.9",
+  # Orchestrator (ADR-0001, re-added Sprint 2 Slice 0 via the pre-install check).
+  # langchain-core >=1.3.3 fixes CVE-2026-44843 (CVSS 8.2); langgraph-checkpoint
+  # >=3.0 is an explicit transitive floor for CVE-2025-67644 (SQL injection in
+  # the sqlite checkpointer — not installed, floor pinned per CLAUDE.md anyway).
+  # NOTE: langchain-core hard-requires langsmith (LangChain's SaaS tracing SDK);
+  # it is inert without env opt-in, and main.py force-disables it (PHI rule).
+  "langgraph>=1.2.7,<2.0",
+  "langchain-core>=1.3.3,<2.0.0",
+  "langgraph-checkpoint>=3.0",
 ]
 
 [dependency-groups]
@@ -43,8 +52,6 @@ dev = [
 # "dspy-ai>=2.4"              # ETL-3: EHR entity extraction (Phase 1 Milestone 1.3)
 # "sentence-transformers>=3"  # ETL-2: chunk embeddings for Qdrant
 # "qdrant-client>=1.10"       # ETL-2: vector store (Phase 1 Milestone 1.2)
-# "langgraph>=0.2"            # COMMITTED orchestrator (ADR-0001) — re-add at Sprint 2 Slice 0 via pre-install check
-# "langchain-core>=1.3.3,<2.0.0"  # with langgraph; >=1.3.3 fixes CVE-2026-44843 (CVSS 8.2)
 # "langfuse>=2.0"             # observability — re-vet its network calls before re-adding (PHI codebase)
 # "slowapi>=0.1"              # rate limiting — wire when the API is internet-facing
 # "pydantic-settings>=2.5"    # typed settings — env vars are read via os.environ today
