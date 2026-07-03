@@ -1,10 +1,13 @@
-"""agents/graph.py — LangGraph-style pipeline orchestrator.
+"""agents/graph.py — LangGraph StateGraph pipeline orchestrator (ADR-0001).
 
 Runs the 4-node DAG:
     ingestion → retrieval → synthesis → gatekeeper
 
-Emits SSE-compatible AppealEvent objects as an async generator.
-Retries the synthesis→gatekeeper cycle up to MAX_RETRIES times.
+as a ``StateGraph(PipelineState)``. The synthesis→gatekeeper cycle retries up
+to MAX_RETRIES times via a conditional edge. SSE-compatible AppealEvent
+objects are emitted through LangGraph's custom stream channel, so
+``run_pipeline`` keeps its public signature and event contract from the
+interim hand-rolled implementation.
 """
 
 from __future__ import annotations
@@ -12,6 +15,11 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections.abc import AsyncIterator
+from typing import cast
+
+from langchain_core.runnables import RunnableConfig
+from langgraph.config import get_stream_writer
+from langgraph.graph import END, START, StateGraph
 
 from agents.nodes.gatekeeper import run_gatekeeper
 from agents.nodes.ingestion import run_ingestion
@@ -24,12 +32,132 @@ from models.schemas import (
     ChunkEvent,
     DoneEvent,
     ErrorEvent,
+    PipelineState,
     StepEvent,
 )
 
 MAX_RETRIES = 3
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Graph nodes — thin wrappers around the pure node functions in agents/nodes/.
+# Wrappers own event emission (via the custom stream writer) and nothing else;
+# all pipeline logic stays in the node modules. Node functions are resolved as
+# module globals at call time, not captured at graph build time, so tests can
+# monkeypatch them on this module.
+# ---------------------------------------------------------------------------
+
+
+async def _ingestion_node(state: PipelineState) -> PipelineState:
+    writer = get_stream_writer()
+    writer(StepEvent(step="ingestion", label="Validating request…"))
+    return run_ingestion(state["request"])
+
+
+async def _retrieval_node(state: PipelineState) -> PipelineState:
+    writer = get_stream_writer()
+    writer(StepEvent(step="retrieval", label="Retrieving PA requirements…"))
+    return run_retrieval(state)
+
+
+async def _synthesis_node(state: PipelineState, config: RunnableConfig) -> PipelineState:
+    writer = get_stream_writer()
+    writer(StepEvent(step="synthesis", label="Generating appeal letter…"))
+
+    llm_backend = config["configurable"]["llm_backend"]
+
+    # Stream tokens while also collecting the full text
+    prompt = build_prompt(state)
+    collected: list[str] = []
+    async for chunk in llm_backend.generate_stream(prompt):
+        collected.append(chunk)
+        writer(ChunkEvent(text=chunk))
+
+    return apply_synthesis(state, "".join(collected), llm_backend.model_name)
+
+
+async def _gatekeeper_node(state: PipelineState) -> PipelineState:
+    state = run_gatekeeper(state)
+    if not state["passed_gatekeeper"]:
+        state = {**state, "retry_count": state["retry_count"] + 1}
+    return state
+
+
+async def _finalize_node(state: PipelineState) -> PipelineState:
+    writer = get_stream_writer()
+    full_text = state["appeal_text"]
+
+    # Structural evaluation scores (deterministic, no LLM)
+    try:
+        scores = eval_structural(full_text, state["request"])  # type: ignore[arg-type]
+    except Exception as e:
+        logger.warning("eval_structural failed: %s", e)
+        scores = {}
+
+    ref = hashlib.sha256(full_text.encode()).hexdigest()[:12]
+    writer(
+        DoneEvent(
+            model=state["model_name"],
+            ref=ref,
+            structural_scores=scores,
+            pa_resolution=state["pa_resolution"],
+        )
+    )
+    return state
+
+
+async def _exhausted_node(state: PipelineState) -> PipelineState:
+    writer = get_stream_writer()
+    writer(
+        ErrorEvent(
+            message=(
+                "Appeal generation failed after "
+                f"{MAX_RETRIES} attempts. "
+                + (state["errors"][-1] if state.get("errors") else "Quality checks did not pass.")
+            ),
+            retry_count=MAX_RETRIES,
+        )
+    )
+    return state
+
+
+def _after_gatekeeper(state: PipelineState) -> str:
+    """Conditional edge: pass → finalize; fail → retry synthesis or give up."""
+    if state["passed_gatekeeper"]:
+        return "finalize"
+    if state["retry_count"] < MAX_RETRIES:
+        return "synthesis"
+    return "exhausted"
+
+
+def _build_graph() -> StateGraph:
+    graph: StateGraph = StateGraph(PipelineState)
+    graph.add_node("ingestion", _ingestion_node)
+    graph.add_node("retrieval", _retrieval_node)
+    graph.add_node("synthesis", _synthesis_node)
+    graph.add_node("gatekeeper", _gatekeeper_node)
+    graph.add_node("finalize", _finalize_node)
+    graph.add_node("exhausted", _exhausted_node)
+
+    graph.add_edge(START, "ingestion")
+    graph.add_edge("ingestion", "retrieval")
+    graph.add_edge("retrieval", "synthesis")
+    graph.add_edge("synthesis", "gatekeeper")
+    graph.add_conditional_edges(
+        "gatekeeper",
+        _after_gatekeeper,
+        {"finalize": "finalize", "synthesis": "synthesis", "exhausted": "exhausted"},
+    )
+    graph.add_edge("finalize", END)
+    graph.add_edge("exhausted", END)
+    return graph
+
+
+# Compiled once at import; stateless across runs (no checkpointer), so each
+# invocation gets its own isolated PipelineState (ACID §Isolation).
+_PIPELINE = _build_graph().compile()
 
 
 async def run_pipeline(
@@ -55,8 +183,26 @@ async def run_pipeline(
         or :class:`ErrorEvent` objects.
     """
     try:
-        async for event in _run_pipeline_inner(request, llm_backend):
-            yield event
+        # --- security hold enforcement (before any node runs) ---
+        # The ETL sets security_hold when a source document is flagged
+        # (injection phrases, bidi chars, hidden PDF text). A held request must
+        # never reach the LLM — this is the single downstream enforcement point
+        # for that flag.
+        if request.security_hold:
+            reason = request.security_reason or "suspicious content detected in source document"
+            yield ErrorEvent(
+                message=f"Request blocked by security hold: {reason}",
+                retry_count=0,
+            )
+            return
+
+        config: RunnableConfig = {"configurable": {"llm_backend": llm_backend}}
+        async for event in _PIPELINE.astream(
+            {"request": request}, config=config, stream_mode="custom"
+        ):
+            # stream_mode="custom" yields exactly what the node wrappers wrote,
+            # which is always an AppealEvent; the astream stub types it loosely.
+            yield cast(AppealEvent, event)
     except Exception:
         # Log identifiers only — never request/letter text (PHI rule).
         logger.exception("pipeline failed for scenario_id=%s", request.scenario_id)
@@ -64,76 +210,3 @@ async def run_pipeline(
             message="Appeal generation failed due to an internal error.",
             retry_count=0,
         )
-
-
-async def _run_pipeline_inner(
-    request: AppealRequest,
-    llm_backend,
-) -> AsyncIterator[AppealEvent]:
-    """Pipeline body: security gate → ingestion → retrieval → synthesis/gatekeeper loop."""
-    # --- security hold enforcement (before any node runs) ---
-    # The ETL sets security_hold when a source document is flagged (injection
-    # phrases, bidi chars, hidden PDF text). A held request must never reach
-    # the LLM — this is the single downstream enforcement point for that flag.
-    if request.security_hold:
-        reason = request.security_reason or "suspicious content detected in source document"
-        yield ErrorEvent(
-            message=f"Request blocked by security hold: {reason}",
-            retry_count=0,
-        )
-        return
-
-    # --- ingestion ---
-    yield StepEvent(step="ingestion", label="Validating request…")
-    state = run_ingestion(request)
-
-    # --- retrieval ---
-    yield StepEvent(step="retrieval", label="Retrieving PA requirements…")
-    state = run_retrieval(state)
-
-    # --- synthesis + gatekeeper loop ---
-    for attempt in range(MAX_RETRIES):
-        yield StepEvent(step="synthesis", label="Generating appeal letter…")
-
-        # Stream tokens while also collecting the full text
-        prompt = build_prompt(state)
-        collected: list[str] = []
-        async for chunk in llm_backend.generate_stream(prompt):
-            collected.append(chunk)
-            yield ChunkEvent(text=chunk)
-
-        full_text = "".join(collected)
-        state = apply_synthesis(state, full_text, llm_backend.model_name)
-
-        # --- gatekeeper ---
-        state = run_gatekeeper(state)
-
-        if state["passed_gatekeeper"]:
-            # Structural evaluation scores (deterministic, no LLM)
-            try:
-                scores = eval_structural(full_text, request)  # type: ignore[arg-type]
-            except Exception as e:
-                logger.warning("eval_structural failed: %s", e)
-                scores = {}
-
-            ref = hashlib.sha256(full_text.encode()).hexdigest()[:12]
-            yield DoneEvent(
-                model=state["model_name"],
-                ref=ref,
-                structural_scores=scores,
-                pa_resolution=state["pa_resolution"],
-            )
-            return
-
-        # Gatekeeper failed — prepare for retry
-        state = {**state, "retry_count": attempt + 1}
-
-    # All retries exhausted
-    yield ErrorEvent(
-        message=(
-            "Appeal generation failed after "
-            f"{MAX_RETRIES} attempts. "
-            + (state["errors"][-1] if state.get("errors") else "Quality checks did not pass.")
-        ),
-        retry_count=MAX_RETRIES,
-    )
