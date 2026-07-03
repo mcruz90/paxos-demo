@@ -55,6 +55,7 @@ def test_pa_ingestion_initializes_zero_state() -> None:
     assert state["outcome"] is None
     assert state["appeal_handoff"] is None
     assert state["submission_ref"] == ""
+    assert state["pend_cycles"] == 0
     assert state["errors"] == []
 
 

@@ -14,9 +14,14 @@ import pytest
 
 from agents.initial_pa_graph import run_initial_pa_pipeline
 from models.schemas import (
+    CriterionResult,
+    CriterionStatus,
     ErrorEvent,
     InitialPaDoneEvent,
     InitialPaRequest,
+    PaDecision,
+    Rule,
+    RuleType,
     StepEvent,
 )
 
@@ -135,3 +140,68 @@ async def test_every_stream_ends_with_done_or_error() -> None:
     for request in (_ozempic_request(), _no_pa_request()):
         events = await _collect(request)
         assert events[-1].event in {"done", "error"}
+
+
+# ---------------------------------------------------------------------------
+# Slice 3 — PAS rail + determination (approved / pended loop / denied→handoff)
+# ---------------------------------------------------------------------------
+
+
+def _criterion(status: CriterionStatus) -> CriterionResult:
+    return CriterionResult(
+        rule=Rule(type=RuleType.diagnostic, label="Type 2 Diabetes Mellitus"),
+        status=status,
+        note="E11.9 documented",
+    )
+
+
+@pytest.mark.asyncio
+async def test_approved_path_runs_full_rail_flow() -> None:
+    """All-found evidence → crd_check → assemble → pas_submit → determination
+    → done(approved), with a PAS submission_ref from the stub rail."""
+    events = await _collect(
+        _ozempic_request(criteria_results=[_criterion(CriterionStatus.found)])
+    )
+    step_names = [e.step for e in events if isinstance(e, StepEvent)]
+    assert step_names == ["crd_check", "assemble", "pas_submit", "determination"]
+
+    done = events[-1]
+    assert isinstance(done, InitialPaDoneEvent)
+    assert done.outcome is not None
+    assert done.outcome.decision is PaDecision.approved
+    assert done.submission_ref.startswith("PAS-")
+    assert done.appeal_handoff is None
+
+
+@pytest.mark.asyncio
+async def test_pended_loop_re_runs_determination_then_resolves() -> None:
+    """needs_review evidence → payer pends → the loop re-enters determination
+    (bounded) and the stub resolves it — per the pended loop in
+    05-state-lifecycle.md."""
+    events = await _collect(
+        _ozempic_request(criteria_results=[_criterion(CriterionStatus.needs_review)])
+    )
+    step_names = [e.step for e in events if isinstance(e, StepEvent)]
+    assert step_names.count("determination") == 2, f"steps: {step_names}"
+    assert step_names.count("pas_submit") == 1, "a pend must not re-submit the PA"
+
+    done = events[-1]
+    assert isinstance(done, InitialPaDoneEvent)
+    assert done.outcome is not None
+    assert done.outcome.decision is PaDecision.approved
+
+
+@pytest.mark.asyncio
+async def test_denied_path_hands_off_to_appeal() -> None:
+    """Conflicting evidence → denied → the done event carries the
+    AppealHandoff pointer continuing the same case_ref. The appeal itself is
+    NOT auto-launched — human-gated."""
+    events = await _collect(
+        _ozempic_request(criteria_results=[_criterion(CriterionStatus.conflict)])
+    )
+    done = events[-1]
+    assert isinstance(done, InitialPaDoneEvent)
+    assert done.outcome is not None
+    assert done.outcome.decision is PaDecision.denied
+    assert done.appeal_handoff is not None
+    assert done.appeal_handoff.case_ref == "PA-2026-0847"
