@@ -58,19 +58,22 @@ classDiagram
         turnaround: str
     }
     class AuditRecord {
+        correlation_id: str
+        idempotency_key: str  case_id:aN — ADR-0009
+        lifecycle: CaseLifecycle
+        case_ref: str
         scenario_id: str
-        drug: str
-        plan: str
-        denial_reason: str
-        timestamp: str
-        duration_ms: int
-        model_name: str
-        prompt_tokens: int
-        completion_tokens: int
-        appeal_text_hash: str
+        drug, plan, denial_reason
+        timestamp, duration_ms
+        outcome: done|error
+        model_name: str  "" for no-LLM initial-PA
+        prompt_tokens, completion_tokens
+        artifact_ref: str  letter hash | PAS ref
         gatekeeper_passed: bool
         retry_count: int
         structural_eval_scores: dict
+        pa_resolution: PaResolution
+        provenance: AuditProvenance
     }
     class ScenarioConfig {
         id, drug, manufacturer, plan, plan_id
@@ -132,10 +135,14 @@ Notes:
   (`pa_required`, `requested_therapy`, `pa_outcome`, `appeal_handoff`,
   `payer_response_analysis`) and multi-round appeal fields
   (`payer_counter_offer`, `round2_appeal`).
-- **`AuditRecord`** is defined but not yet written anywhere — the pre-DB
-  in-memory audit list and its provenance fields (AI-as-is vs
-  gatekeeper-corrected vs human-edited) are Sprint 2 wiring; durable
-  persistence is the PostgreSQL milestone
+- **`AuditRecord`** is **written at both pipeline boundaries since S2
+  Slice 4** ([ADR-0009](adr/0009-idempotency-key-and-audit-writes.md)):
+  every run — done or error, either lifecycle, including security holds —
+  writes exactly one record to the in-memory store (`audit/store.py`)
+  before the terminal SSE event, idempotent on `idempotency_key` =
+  `case_id:aN`. `provenance` is `as_is` for all boundary writes today
+  (gatekeeper-corrected / human-edited paths arrive in S3/S4). Durable
+  persistence remains the PostgreSQL milestone
   ([10-roadmap-traceability.md](10-roadmap-traceability.md)).
 
 ## SSE events (discriminated union `AppealEvent`)
@@ -269,6 +276,7 @@ adapted per consumer, never duplicated (CLAUDE.md DRY).
 | `CaseStatus` | processing, ready_for_review, exception, awaiting_documentation, submitted, payer_response | schemas.py ↔ types.ts (parity: hard-3) |
 | `CaseLifecycle` | initial_pa, appeal | schemas.py ↔ types.ts (parity-tested since S2 Slice 1) |
 | `PaDecision` | approved, pended, denied | schemas.py ↔ types.ts (parity: S2 Slice 1); `PaOutcome.decision` |
+| `AuditProvenance` | as_is, gatekeeper_corrected, human_edited | schemas.py ↔ types.ts (parity: S2 Slice 4); `AuditRecord.provenance` |
 | `RuleType` | diagnostic, temporal, math, safety, provider, quantity, custom | schemas.py ↔ types.ts |
 | `CriterionStatus` | found, needs_review, conflict | schemas.py ↔ types.ts |
 | `ClientType` | medtech, patient | schemas.py ↔ types.ts |

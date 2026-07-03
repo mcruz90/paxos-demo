@@ -33,6 +33,7 @@ rejected, not coerced):
 | `plan_id` | str | ≤ 100 chars |
 | `criteria_results` | `CriterionResult[]` | see [03-domain-model.md](03-domain-model.md) |
 | `company_names` | str[] | optional, default `[]` |
+| `attempt` | int ≥ 1 | default 1 — deliberate-resubmission counter; part of the audit idempotency key ([ADR-0009](adr/0009-idempotency-key-and-audit-writes.md)). A transport retry reuses it; bump it to refile on purpose |
 | `security_hold`, `security_reason` | bool, str | ETL-set; default `False`/`""` — clients shouldn't send them |
 
 **Response:** `200` with `Content-Type: text/event-stream`,
@@ -97,7 +98,9 @@ each `synthesis` step event.
     "criteria_cited": 0.0,
     "min_length": 1.0
   },
-  "pa_resolution": "plan_id"
+  "pa_resolution": "plan_id",
+  "retry_count": 0,
+  "correlation_id": "ozempic-cigna-clinical-pa:a1"
 }
 ```
 
@@ -108,12 +111,19 @@ each `synthesis` step event.
 - `pa_resolution` — `"plan_id" | "drug_alias" | "generic"` (or `""`):
   which retrieval path produced the PA context. `generic` means the letter
   cites no payer-specific criteria — downstream review should weight that.
+- `retry_count` (S2 Slice 4, additive) — gatekeeper retries that preceded
+  the pass.
+- `correlation_id` (S2 Slice 4, additive) — the logical run's ID, equal to
+  the AuditRecord's ([ADR-0009](adr/0009-idempotency-key-and-audit-writes.md)).
 
 ### `error` — failure terminal
 
 ```json
-{"event": "error", "message": "…", "retry_count": 0}
+{"event": "error", "message": "…", "retry_count": 0, "correlation_id": "…"}
 ```
+
+`correlation_id` is `""` only for pre-pipeline failures (backend
+construction in `main.py`).
 
 | Cause | `message` shape | `retry_count` |
 | --- | --- | --- |
@@ -124,9 +134,11 @@ each `synthesis` step event.
 
 **Terminal-event guarantee:** every stream ends with exactly one `done` or
 `error` ([ADR-0006](adr/0006-sse-streaming-transport.md)). A connection that
-drops without one is a transport failure — safe to retry. (Idempotency keys
-for retried submissions arrive with the AuditRecord wiring — see
-[10-roadmap-traceability.md](10-roadmap-traceability.md).)
+drops without one is a transport failure — **safe to retry: the retried
+request reuses the same `attempt`, maps onto the same idempotency key, and
+never double-writes the audit trail**
+([ADR-0009](adr/0009-idempotency-key-and-audit-writes.md)). Exactly one
+`AuditRecord` is written per run, before the terminal event is emitted.
 
 ## HTTP status codes
 
