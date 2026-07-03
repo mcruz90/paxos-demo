@@ -41,17 +41,49 @@ rejected, not coerced):
 before the pipeline runs — application failures are in-stream `error`
 events, not HTTP status codes.
 
-### Initial-PA lifecycle route — **spec-first, route lands in S2 Slice 5**
+### `POST /api/pa/submit` — initial-PA lifecycle (S2 Slice 5)
 
-The request/event schemas exist as of S2 Slice 1
-(`InitialPaRequest`, `InitialPaDoneEvent`, `InitialPaEvent` in
-[schemas.py](../../backend/models/schemas.py)); no route serves them yet.
-Contract the Slice 5 endpoint will honor: Bearer auth like every `/api/*`
-route; SSE with the same terminal guarantee (`done`|`error`); `step` events
-for the initial-PA nodes; **no `chunk` events** (no LLM in this path); the
-`done` payload is `InitialPaDoneEvent` (CRD result, determination,
-appeal-handoff pointer when denied) rather than the appeal `DoneEvent`.
-This section becomes the route's full spec when Slice 5 lands.
+Runs CRD check → assemble → PAS submit (stub rail) → determination as SSE.
+**Auth:** same Bearer middleware as every `/api/*` route. **No LLM in this
+path** — the route serves without `LLM_BACKEND` set, and the stream never
+carries `chunk` events.
+
+**Request body:** `InitialPaRequest` — strict-mode Pydantic, deliberately
+NOT an `AppealRequest` extension (no denial fields):
+
+| Field | Type | Constraint |
+| --- | --- | --- |
+| `scenario_id` | str | ≤ 64 chars, `^[a-z0-9\-]+$` |
+| `case_ref` | str | ≤ 64 chars, `^[A-Za-z0-9\-]*$`, default `""` — client case reference; the idempotency/correlation case identity ([ADR-0009](adr/0009-idempotency-key-and-audit-writes.md)); falls back to `scenario_id` |
+| `drug`, `diagnosis`, `plan`, `requested_therapy` | str | ≤ 200 chars |
+| `plan_id` | str | ≤ 100 chars |
+| `criteria_results` | `CriterionResult[]` | chart evidence attached to the submission |
+| `attempt` | int ≥ 1 | default 1 — see ADR-0009 |
+| `security_hold`, `security_reason` | bool, str | ETL-set; enforced at the pipeline gate before any node |
+
+**Events:** `step` (`crd_check`, `assemble`, `pas_submit`, `determination` —
+`determination` repeats on a pend cycle; `assemble` onward skipped when the
+CRD early-exits), then exactly one terminal:
+
+```json
+{
+  "event": "done",
+  "pa_required": {"required": true, "basis": "Payer PA policy on file for plan CIGNA-CNF360-2024 covering Ozempic (semaglutide)."},
+  "outcome": {"decision": "approved", "determinationId": "DET-PAS-…-1", "timeToTherapy": "3 business days (stub rail)", "note": "…"},
+  "appeal_handoff": null,
+  "submission_ref": "PAS-…",
+  "pa_resolution": "plan_id",
+  "correlation_id": "PA-2026-0847:a1"
+}
+```
+
+- `outcome` is `null` ⇔ the CRD early-exited (`pa_required.required` false —
+  no submission was made).
+- `appeal_handoff` is present iff `outcome.decision == "denied"` — a
+  **pointer** (`scenarioId`, `caseRef`); the appeal is never auto-launched.
+- `error` terminal: same shape as the appeal route's.
+- Every run writes exactly one `AuditRecord` before the terminal event
+  (lifecycle `initial_pa`, `artifact_ref` = `submission_ref`).
 
 ## SSE wire format
 
