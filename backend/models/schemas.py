@@ -301,6 +301,26 @@ class InitialPaRequest(BaseModel):
     security_reason: str = ""
 
 
+class PaSubmission(BaseModel):
+    """Canonical structured PA request assembled by the pa_assembly node (S2).
+
+    Canonical shape only: the PAS/X12-278 rail shape is produced by the rail
+    adapter (adapter pattern — canonical in, rail shape out; engine code never
+    branches on payer or rail format).
+    """
+
+    case_ref: str
+    scenario_id: str
+    drug: str
+    diagnosis: str
+    plan_id: str
+    requested_therapy: str
+    # Chart evidence attached to the submission.
+    criteria_evidence: list[CriterionResult]
+    # The payer criteria the submission addresses (CRD-resolved).
+    pa_context: str
+
+
 # ---------------------------------------------------------------------------
 # SSE event types (discriminated union)
 # ---------------------------------------------------------------------------
@@ -380,6 +400,26 @@ class PipelineState(TypedDict):
     model_name: str
     passed_gatekeeper: bool
     retry_count: int
+    errors: list[str]
+
+
+class InitialPaState(TypedDict):
+    """State for the initial-PA StateGraph (S2) — the full lifecycle shape,
+    spec-first: crd_check/pa_assembly fill the top group (Slice 2);
+    pas_submit/determination fill the bottom group (Slice 3)."""
+
+    request: InitialPaRequest
+    # Set by crd_check (None before it runs)
+    pa_required: PaRequired | None
+    pa_context: str
+    pa_resolution: PaResolution
+    # Set by pa_assembly
+    submission: PaSubmission | None
+    # Set by pas_submit ("" before the stub rail assigns one)
+    submission_ref: str
+    # Set by determination
+    outcome: PaOutcome | None
+    appeal_handoff: AppealHandoff | None
     errors: list[str]
 
 

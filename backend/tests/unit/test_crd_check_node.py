@@ -9,13 +9,15 @@ file and the pipeline early-exits with required=False.
 
 from __future__ import annotations
 
+from typing import Any
+
 from agents.nodes.crd_check import derive_pa_required, run_crd_check
 from agents.nodes.pa_ingestion import run_pa_ingestion
 from models.schemas import InitialPaRequest, PaRequired
 
 
-def _request(**overrides) -> InitialPaRequest:
-    kwargs = {
+def _request(**overrides: Any) -> InitialPaRequest:
+    kwargs: dict[str, Any] = {
         "scenario_id": "novo-ozempic-initial",
         "case_ref": "PA-2026-0847",
         "drug": "Ozempic (semaglutide)",

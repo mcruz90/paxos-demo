@@ -8,6 +8,8 @@ run_initial_pa_pipeline takes no backend.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from agents.initial_pa_graph import run_initial_pa_pipeline
@@ -19,8 +21,8 @@ from models.schemas import (
 )
 
 
-def _ozempic_request(**overrides) -> InitialPaRequest:
-    kwargs = {
+def _ozempic_request(**overrides: Any) -> InitialPaRequest:
+    kwargs: dict[str, Any] = {
         "scenario_id": "novo-ozempic-initial",
         "case_ref": "PA-2026-0847",
         "drug": "Ozempic (semaglutide)",
