@@ -46,6 +46,7 @@ classDiagram
         suggested_action: str?
         workflow_plan: WorkflowPlan?
         conflict_sources: ConflictSource[]?
+        confidence: float? 0..1 — None = not assessed (S3 Slice 1)
     }
     class Rule {
         type: RuleType
@@ -119,6 +120,15 @@ Notes:
   (`AppealHandoff.case_ref`) and the source of the Slice 4 idempotency key
   (falls back to `scenario_id` when empty). The `security_hold` pair carries
   over so the pipeline gate enforces it for both lifecycles.
+- **`CriterionResult.confidence`** (S3 Slice 1, spec-first) is the 0–1
+  confidence that the finding is correct **and complete enough to act on
+  without human input** — the signal the S3 TierRouter bands route against
+  (≥0.95 routine, 0.70–0.94 complex, <0.70 exception). `None` means "not
+  assessed" and routes to exception — the default is honest, never an
+  implicit 1.0. Golden labels: `ScenarioCriterion.confidence` is *required*
+  (scenarios.json 0.4); the labeling rubric lives on the field in
+  `evals/fixtures/schema.py`. Distinct from `ExpectedOutcome.confidence`,
+  which is the qualitative case-level appeal-strength label.
 - **`PipelineState`** is the LangGraph-shaped TypedDict every node maps over.
   It is per-run and never shared (CLAUDE.md ACID §Isolation).
 - **`InitialPaState`** (S2 Slice 2) is the initial-PA graph's TypedDict —
