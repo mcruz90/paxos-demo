@@ -114,17 +114,20 @@ I/O once at module load):
 `run_initial_pa_pipeline(request)` in
 [backend/agents/initial_pa_graph.py](../../backend/agents/initial_pa_graph.py)
 is a second `StateGraph` (over `InitialPaState`) for the initial-PA
-lifecycle: `pa_ingestion → crd_check → [PA required?] → pa_assembly → …`,
-with a conditional early exit to `finalize` when no PA requirement is on
-file. **No LLM backend parameter — this path never invokes a model**; its
-event union has no `chunk` member. Slice 3 inserts `pas_submit` +
-`determination` between assembly and finalize.
+lifecycle: `pa_ingestion → crd_check → [PA required?] → pa_assembly →
+pas_submit → determination ⟲ → finalize`, with a conditional early exit
+when no PA requirement is on file and a bounded pended self-loop on
+determination (a pend re-enters determination only — it never re-submits).
+**No LLM backend parameter — this path never invokes a model**; its event
+union has no `chunk` member.
 
 | Node | Contract | Does |
 | --- | --- | --- |
 | [pa_ingestion.py](../../backend/agents/nodes/pa_ingestion.py) | `(InitialPaRequest) → InitialPaState` | Initializes state to zero values |
 | [crd_check.py](../../backend/agents/nodes/crd_check.py) | `(InitialPaState) → InitialPaState` | `derive_pa_required` (pure rule): registry hit ⇒ required with basis; miss ⇒ `required=False` "no PA requirement on file". **Stub CRD — the registry stands in for the payer's CRD endpoint and fails open on registry gaps**; a real payer query replaces the lookup |
-| [pa_assembly.py](../../backend/agents/nodes/pa_assembly.py) | `build_submission(request, pa_context) → PaSubmission` | Canonical structured PA request; PAS/X12-278 rail shape is the Slice 3 adapter's job |
+| [pa_assembly.py](../../backend/agents/nodes/pa_assembly.py) | `build_submission(request, pa_context) → PaSubmission` | Canonical structured PA request; the rail shape is the adapter's job |
+| [pas_submit.py](../../backend/agents/nodes/pas_submit.py) | `(InitialPaState) → InitialPaState` | Transmits via [etl/pas_rail/adapter.py](../../backend/etl/pas_rail/adapter.py) — canonical in, X12-278 shape out, deterministic `submission_ref` (a retry never mints a second rail identity). Rail-accurate: appeals never ride PAS |
+| [determination.py](../../backend/agents/nodes/determination.py) | `derive_determination(evidence, pend_cycles, ref) → PaOutcome` | Deterministic evidence-based stub: all-found ⇒ approved; empty/needs_review ⇒ pended (bounded loop, `MAX_PEND_CYCLES=1`); conflict ⇒ denied ⇒ `make_appeal_handoff` pointer (human-gated, never auto-launches the appeal) |
 
 The registry lookup itself (plan_id → drug-alias → generic + validated pack
 loader) lives in

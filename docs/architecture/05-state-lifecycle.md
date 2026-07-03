@@ -97,12 +97,11 @@ Retry semantics: only the **synthesis → gatekeeper** pair retries
 by design cannot fail — generic fallback). `retry_count` rides along in
 `PipelineState` and is reported on the terminal `ErrorEvent`.
 
-## Initial-PA pipeline run — one request (S2, in progress)
+## Initial-PA pipeline run — one request (S2)
 
 Source: [backend/agents/initial_pa_graph.py](../../backend/agents/initial_pa_graph.py).
 Same terminal guarantee as the appeal run (`done` | `error`); no LLM, no
-chunks. As of Slice 2 the run implements the top of the `initial_pa`
-lifecycle above:
+chunks. The run implements the `initial_pa` lifecycle above end-to-end:
 
 ```mermaid
 stateDiagram-v2
@@ -112,12 +111,23 @@ stateDiagram-v2
     pa_ingestion --> crd_check
     crd_check --> done_event : PA not required (registry miss — early exit)
     crd_check --> pa_assembly : PA required
-    pa_assembly --> done_event : (Slice 3 inserts pas_submit → determination here)
+    pa_assembly --> pas_submit : canonical PaSubmission → rail adapter
+    pas_submit --> determination
+    determination --> determination : pended (bounded — never re-submits)
+    determination --> done_event : approved / denied (+ appealHandoff pointer)
     pa_ingestion --> error_event : unhandled exception (broad catch)
     crd_check --> error_event : unhandled exception (broad catch)
     done_event --> [*]
     error_event --> [*]
 ```
+
+**Stub determination semantics** (deterministic, evidence-based — a real
+determination arrives asynchronously on the rail): non-empty evidence all
+`found` → approved; empty or any `needs_review` → pended, resolving after
+one bounded pend cycle (`MAX_PEND_CYCLES = 1`, stub assumes the info request
+was answered); any `conflict` → denied → `AppealHandoff` pointer carrying
+`case_ref`. **The appeal is never auto-launched** — the handoff is a
+pointer; launching it is a separate human-gated request.
 
 **Stub CRD semantics:** the pa_requirements registry stands in for the
 payer's CRD endpoint — a registry miss reads as "no PA required", which
