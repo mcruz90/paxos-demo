@@ -14,7 +14,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from models.schemas import CaseLifecycle, CaseStatus, PaDecision, RuleType
+from models.schemas import (
+    AuditProvenance,
+    CaseLifecycle,
+    CaseStatus,
+    PaDecision,
+    RuleType,
+)
 
 _TYPES_TS = Path(__file__).resolve().parents[3] / "src" / "types.ts"
 
@@ -63,5 +69,16 @@ def test_pa_decision_matches_frontend_union() -> None:
     backend = {member.value for member in PaDecision}
     assert backend == frontend, (
         f"PaDecision drift — backend-only: {backend - frontend}, "
+        f"frontend-only: {frontend - backend}"
+    )
+
+
+def test_audit_provenance_matches_frontend_union() -> None:
+    """AuditProvenance (S2 Slice 4) — AI-accountability provenance on every
+    audit entry. New enum ⇒ types.ts mirror + parity coverage."""
+    frontend = _ts_union_values("AuditProvenance")
+    backend = {member.value for member in AuditProvenance}
+    assert backend == frontend, (
+        f"AuditProvenance drift — backend-only: {backend - frontend}, "
         f"frontend-only: {frontend - backend}"
     )
