@@ -53,11 +53,13 @@ def test_pa_decision_values() -> None:
 def test_pa_outcome_decision_is_pa_decision() -> None:
     """PaOutcome.decision is the PaDecision enum, not a loose string — Slice 3
     determination handling branches on it."""
-    outcome = PaOutcome(
-        decision="denied",
-        determinationId="DET-001",
-        timeToTherapy="—",
-        note="Step therapy not satisfied.",
+    outcome = PaOutcome.model_validate(
+        {
+            "decision": "denied",
+            "determinationId": "DET-001",
+            "timeToTherapy": "—",
+            "note": "Step therapy not satisfied.",
+        }
     )
     assert outcome.decision is PaDecision.denied
 
@@ -142,7 +144,7 @@ def test_initial_pa_done_event_denied_carries_handoff() -> None:
     done = InitialPaDoneEvent(
         pa_required=PaRequired(required=True, basis="Formulary tier 3"),
         outcome=PaOutcome(
-            decision="denied",
+            decision=PaDecision.denied,
             determinationId="DET-002",
             timeToTherapy="—",
             note="Denied — step therapy.",

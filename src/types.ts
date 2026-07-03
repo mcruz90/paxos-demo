@@ -10,6 +10,9 @@ export type CaseStatus = 'processing' | 'ready_for_review' | 'exception' | 'awai
 // prior-auth request (Da Vinci CRD → DTR → PAS). 'appeal' = contest a prior
 // denial. Absent on a scenario ⇒ 'appeal' (the original demo scenarios).
 export type CaseLifecycle = 'initial_pa' | 'appeal'
+// Payer determination decision on an initial-PA submission. Mirrors backend
+// PaDecision (schemas.py) — parity-tested in test_schema_parity.py.
+export type PaDecision = 'approved' | 'pended' | 'denied'
 
 export interface Rule {
   type: RuleType
@@ -90,7 +93,7 @@ export interface ScenarioConfig {
   // Payer determination after the PAS submission. 'approved' is the happy path;
   // 'denied' hands off to the appeal flow (Workstream A-T2).
   paOutcome?: {
-    decision: 'approved' | 'pended' | 'denied'
+    decision: PaDecision
     determinationId: string
     timeToTherapy: string   // headline KPI — filing → approval turnaround
     note: string

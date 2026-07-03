@@ -53,6 +53,19 @@ class CaseLifecycle(StrEnum):
     appeal = "appeal"
 
 
+class PaDecision(StrEnum):
+    """Payer determination decision on an initial-PA submission (S2 Slice 1).
+
+    The initial-PA lifecycle branches on this: approved ends the flow,
+    pended loops back to determination, denied hands off to the appeal
+    pipeline (05-state-lifecycle.md).
+    """
+
+    approved = "approved"
+    pended = "pended"
+    denied = "denied"
+
+
 # ---------------------------------------------------------------------------
 # Domain models
 # ---------------------------------------------------------------------------
@@ -122,7 +135,7 @@ class PaRequired(BaseModel):
 class PaOutcome(BaseModel):
     """Payer determination after a PAS submission (initial-PA lifecycle)."""
 
-    decision: Literal["approved", "pended", "denied"]
+    decision: PaDecision
     determination_id: str = Field(alias="determinationId")
     time_to_therapy: str = Field(alias="timeToTherapy")
     note: str
@@ -256,6 +269,38 @@ class AppealRequest(BaseModel):
     security_reason: str = ""
 
 
+class InitialPaRequest(BaseModel):
+    """Strict-validated HTTP request body for the initial-PA lifecycle (S2).
+
+    Deliberately NOT an AppealRequest extension (Sprint 2 standing rule): an
+    initial PA precedes any payer decision, so there is no denial to quote,
+    and the flow it drives (CRD check → assemble → PAS submit → determination)
+    is a different artifact on a different transmission rail
+    (05-state-lifecycle.md).
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    scenario_id: Annotated[str, Field(max_length=64, pattern=r"^[a-z0-9\-]+$")]
+    # Client-side case reference the PA is filed under (e.g. "PA-2026-0847").
+    # A denied PA's appeal continues this reference (AppealHandoff.case_ref),
+    # and Slice 4 derives the audit idempotency key from it; falls back to
+    # scenario_id when empty.
+    case_ref: Annotated[str, Field(max_length=64, pattern=r"^[A-Za-z0-9\-]*$")] = ""
+    drug: Annotated[str, Field(max_length=200)]
+    diagnosis: Annotated[str, Field(max_length=200)]
+    plan: Annotated[str, Field(max_length=200)]
+    plan_id: Annotated[str, Field(max_length=100)]
+    # The therapy the structured PA request asks the payer to authorize.
+    requested_therapy: Annotated[str, Field(max_length=200)]
+    criteria_results: list[CriterionResult]
+    # Set by ETL pipeline when hidden/suspicious content is detected in source
+    # documents. Same detection flag as AppealRequest — the pipeline gate is
+    # the single enforcement point for both lifecycles.
+    security_hold: bool = False
+    security_reason: str = ""
+
+
 # ---------------------------------------------------------------------------
 # SSE event types (discriminated union)
 # ---------------------------------------------------------------------------
@@ -293,6 +338,32 @@ class ErrorEvent(BaseModel):
 
 
 AppealEvent = StepEvent | ChunkEvent | DoneEvent | ErrorEvent
+
+
+class InitialPaDoneEvent(BaseModel):
+    """Success terminal for the initial-PA stream (S2 Slice 1, spec-first).
+
+    Same ``done``/``error`` contract as the appeal stream — every stream ends
+    with exactly one of them — but lifecycle-shaped payload: the CRD result,
+    the payer determination (absent when the CRD early-exits with "PA not
+    required"), and the appeal handoff pointer when denied. Launching the
+    appeal stays a separate, human-gated request.
+    """
+
+    event: Literal["done"] = "done"
+    pa_required: PaRequired
+    # None ⇔ CRD early exit (pa_required.required is False) — no submission.
+    outcome: PaOutcome | None = None
+    # Present iff outcome.decision is denied.
+    appeal_handoff: AppealHandoff | None = None
+    # PAS rail submission reference ("" until the stub rail assigns one, Slice 3).
+    submission_ref: str = ""
+    # Which retrieval path produced the PA criteria (audit-relevant, hard-5).
+    pa_resolution: PaResolution = ""
+
+
+# The initial-PA stream never emits chunks: there is no LLM in this path.
+InitialPaEvent = StepEvent | InitialPaDoneEvent | ErrorEvent
 
 
 # ---------------------------------------------------------------------------
