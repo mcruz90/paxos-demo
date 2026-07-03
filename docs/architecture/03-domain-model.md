@@ -287,15 +287,13 @@ adapted per consumer, never duplicated (CLAUDE.md DRY).
 | `CaseLifecycle` | initial_pa, appeal | schemas.py ↔ types.ts (parity-tested since S2 Slice 1) |
 | `PaDecision` | approved, pended, denied | schemas.py ↔ types.ts (parity: S2 Slice 1); `PaOutcome.decision` |
 | `AuditProvenance` | as_is, gatekeeper_corrected, human_edited | schemas.py ↔ types.ts (parity: S2 Slice 4); `AuditRecord.provenance` |
+| `CaseTier` | routine, complex, exception | schemas.py ↔ types.ts (parity: S3 Slice 2); assigned by `agents/nodes/tier_router.py` — deterministic, never an LLM; `PipelineState.tier` (None until the node runs) |
 | `RuleType` | diagnostic, temporal, math, safety, provider, quantity, custom | schemas.py ↔ types.ts |
 | `CriterionStatus` | found, needs_review, conflict | schemas.py ↔ types.ts |
 | `ClientType` | medtech, patient | schemas.py ↔ types.ts |
 | `EvalDimension` | coverage, structure, safety, claim_citation, over_caution | evals/fixtures/schema.py (frontend rubric uses hyphenated twins) |
 | `FileType` | pdf, image, text | etl/denial_letter/file_detector.py |
-| Frontend-only | `View`, `Role`, `SimPhase`, `Urgency`, `CaseTier` (routine/complex/exception), `EvalMethodology` | src/types.ts |
-
-`CaseTier` is frontend-only today; it becomes a backend concept when the
-TierRouter lands ([ADR-0001](adr/0001-langgraph-target-orchestrator.md)).
+| Frontend-only | `View`, `Role`, `SimPhase`, `Urgency`, `EvalMethodology` | src/types.ts |
 
 ## Frontend parity contract
 
