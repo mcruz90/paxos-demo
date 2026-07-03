@@ -113,6 +113,7 @@ def _criterion_to_result(c: ScenarioCriterion) -> CriterionResult:
         status=CriterionStatus(c.ground_truth_status),
         note=c.evidence_summary,
         docSource=c.grounding.doc_ref if c.grounding else "",
+        confidence=c.confidence,
     )
 
 

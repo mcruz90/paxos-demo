@@ -87,6 +87,7 @@ def test_scenario_criterion_accepts_grounding_field() -> None:
         rule_type=RuleType.diagnostic,
         ground_truth_status=CriterionStatus.found,
         evidence_summary="HbA1c 8.2%",
+        confidence=0.98,
         grounding=GroundingRef(
             doc_ref="clinical_00_t2dm_diagnosis.txt",
             section="Finding",
@@ -107,6 +108,7 @@ def test_scenario_criterion_grounding_is_optional() -> None:
         rule_type=RuleType.diagnostic,
         ground_truth_status=CriterionStatus.found,
         evidence_summary="HbA1c 8.2%",
+        confidence=0.98,
         # no grounding field
     )
     assert crit.grounding is None

@@ -9,7 +9,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from models.schemas import CriterionStatus, RuleType
 
@@ -96,6 +96,14 @@ class ScenarioCriterion(BaseModel):
     rule_type: RuleType
     ground_truth_status: CriterionStatus
     evidence_summary: str = ""
+    # S3 Slice 1: ground-truth confidence (0-1) that the finding is correct
+    # and complete enough to act on without human input. Required — a labeled
+    # criterion without a confidence label is an unlabeled criterion. Labeling
+    # rubric: mechanically verifiable evidence (date arithmetic, lab values,
+    # NPI lookup) ~0.97-0.99; absence-of-evidence checks ~0.92-0.93;
+    # documented gaps/ambiguity (needs_review) 0.70-0.85; contradictory
+    # sources (conflict) <0.70.
+    confidence: float = Field(ge=0.0, le=1.0)
     # Step 3: claim→span citation — which synthetic document grounds this criterion
     grounding: GroundingRef | None = None
 

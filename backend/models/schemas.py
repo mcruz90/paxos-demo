@@ -124,6 +124,11 @@ class CriterionResult(BaseModel):
     workflow_plan: WorkflowPlan | None = Field(alias="workflowPlan", default=None)
     # For status 'conflict': the contradictory source claims, surfaced rather than resolved.
     conflict_sources: list[ConflictSource] | None = Field(alias="conflictSources", default=None)
+    # Confidence (0-1) that the finding is correct AND complete enough to act
+    # on without human input — what the TierRouter bands route against
+    # (S3: >=0.95 routine, 0.70-0.94 complex, <0.70 exception). None means
+    # 'not assessed' and routes to exception; never defaults to 1.0.
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
 
     model_config = ConfigDict(populate_by_name=True)
 

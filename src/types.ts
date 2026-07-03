@@ -40,6 +40,11 @@ export interface CriterionResult {
   // For status 'conflict': the two (or more) contradictory source claims the
   // system surfaces instead of silently selecting one.
   conflictSources?: { source: string; claim: string }[]
+  // 0–1 confidence that the finding is correct and complete enough to act on
+  // without human input. Mirrors backend CriterionResult.confidence
+  // (schemas.py) — parity-tested in test_schema_parity.py. Absent = not
+  // assessed (routes to the exception tier, never assumed 1.0).
+  confidence?: number
 }
 
 export interface TimelineEvent {

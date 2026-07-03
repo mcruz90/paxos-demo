@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.3",
+  "schema_version": "0.4",
   "_note": "SYNTHETIC — NO PHI — Canonical labeled dataset. backend/data/pa_requirements.json is seeded from this file. Never duplicate scenario data ad hoc in test files — import load_scenarios_fixture() instead.",
   "scenarios": [
     {
@@ -27,6 +27,7 @@
           "label": "Type II Diabetes Mellitus confirmed",
           "rule_type": "diagnostic",
           "ground_truth_status": "found",
+          "confidence": 0.98,
           "evidence_summary": "HbA1c 8.2% on 03/14/2024; ICD-10 E11.9 documented since 2019; fasting glucose 187 mg/dL",
           "grounding": {
             "doc_ref": "clinical_00_t2dm_diagnosis.txt",
@@ -38,6 +39,7 @@
           "label": "Patient age meets minimum threshold (18 years)",
           "rule_type": "diagnostic",
           "ground_truth_status": "found",
+          "confidence": 0.99,
           "evidence_summary": "DOB 03/14/1972; age 52 at time of request; Cigna Ozempic minimum age 18 years",
           "grounding": {
             "doc_ref": "clinical_01_adult_age_threshold.txt",
@@ -49,6 +51,7 @@
           "label": "No concurrent GLP-1 or GLP-1/GIP agonist on active medication list",
           "rule_type": "safety",
           "ground_truth_status": "found",
+          "confidence": 0.92,
           "evidence_summary": "Active list reviewed 03/14/2024: metformin, lisinopril, atorvastatin — no other GLP-1/GIP agent",
           "grounding": {
             "doc_ref": "clinical_02_no_concomitant_glp1.txt",
@@ -60,6 +63,7 @@
           "label": "Indication limited to glycemic management in Type II Diabetes",
           "rule_type": "custom",
           "ground_truth_status": "needs_review",
+          "confidence": 0.74,
           "evidence_summary": "Chart includes BMI 33.2 kg/m2 and 'weight management goals discussed' note 01/10/2024; payer requires clarification that Ozempic is prescribed solely for T2DM glycemic control",
           "grounding": {
             "doc_ref": "clinical_03_indication_t2dm_only.txt",
@@ -100,6 +104,7 @@
           "label": "GERD or erosive esophagitis diagnosis documented",
           "rule_type": "diagnostic",
           "ground_truth_status": "found",
+          "confidence": 0.98,
           "evidence_summary": "Endoscopy 11/15/2023: Los Angeles Grade A esophagitis; ICD-10 K21.0 confirmed",
           "grounding": {
             "doc_ref": "clinical_00_gerd_diagnosis.txt",
@@ -111,6 +116,7 @@
           "label": "Patient age 6 or older (auto-process exemption does not apply)",
           "rule_type": "diagnostic",
           "ground_truth_status": "found",
+          "confidence": 0.99,
           "evidence_summary": "DOB 09/22/2017; age 7 at time of request; step therapy criteria applicable",
           "grounding": {
             "doc_ref": "clinical_01_age_6_or_older.txt",
@@ -122,6 +128,7 @@
           "label": "Documented failure of omeprazole, pantoprazole, and rabeprazole",
           "rule_type": "temporal",
           "ground_truth_status": "needs_review",
+          "confidence": 0.78,
           "evidence_summary": "Omeprazole 10 mg x 8 weeks failed (documented); pantoprazole and rabeprazole not documented; UHC requires failure of all three agents",
           "grounding": {
             "doc_ref": "clinical_02_ppi_step_therapy.txt",
@@ -133,6 +140,7 @@
           "label": "Documented oral-motor dysphagia or swallowing limitation",
           "rule_type": "custom",
           "ground_truth_status": "conflict",
+          "confidence": 0.45,
           "evidence_summary": "SLP 12/02/2023: dysphagia confirmed, cannot swallow tablets; vs. chart note 01/15/2024: 'tolerating crushed omeprazole without difficulty'",
           "grounding": {
             "doc_ref": "clinical_03_swallowing_limitation.txt",
@@ -173,6 +181,7 @@
           "label": "Primary Biliary Cholangitis confirmed (ALP elevated, AMA positive)",
           "rule_type": "diagnostic",
           "ground_truth_status": "found",
+          "confidence": 0.98,
           "evidence_summary": "ALP 198 U/L (ref <115); AMA positive (titer 1:640); meets AASLD 2021 criteria (2 of 3 present)",
           "grounding": {
             "doc_ref": "clinical_00_pbc_diagnosis.txt",
@@ -184,6 +193,7 @@
           "label": "Patient age 18 or older",
           "rule_type": "diagnostic",
           "ground_truth_status": "found",
+          "confidence": 0.99,
           "evidence_summary": "DOB 11/07/1970; age 54 at time of request",
           "grounding": {
             "doc_ref": "clinical_01_adult_age_18.txt",
@@ -195,6 +205,7 @@
           "label": "No current or prior hepatic decompensation",
           "rule_type": "safety",
           "ground_truth_status": "found",
+          "confidence": 0.93,
           "evidence_summary": "No ascites, variceal bleeding, or hepatic encephalopathy through 03/2024; MELD score 9",
           "grounding": {
             "doc_ref": "clinical_02_no_decompensation.txt",
@@ -206,6 +217,7 @@
           "label": "Gastroenterologist or hepatologist prescriber",
           "rule_type": "provider",
           "ground_truth_status": "found",
+          "confidence": 0.97,
           "evidence_summary": "Dr. Samuel Okonkwo, MD — Hepatology; NPI 3456789012; board-certified",
           "grounding": {
             "doc_ref": "clinical_03_specialist_prescriber.txt",
@@ -217,6 +229,7 @@
           "label": "UDCA therapy for 12 or more months with inadequate response",
           "rule_type": "temporal",
           "ground_truth_status": "needs_review",
+          "confidence": 0.72,
           "evidence_summary": "Ursodiol initiated 06/15/2023; duration at PA request (02/20/2024) ~8 months; ALP still elevated but 12-month minimum not yet reached",
           "grounding": {
             "doc_ref": "clinical_04_udca_trial_duration.txt",
