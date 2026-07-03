@@ -97,6 +97,33 @@ Retry semantics: only the **synthesis → gatekeeper** pair retries
 by design cannot fail — generic fallback). `retry_count` rides along in
 `PipelineState` and is reported on the terminal `ErrorEvent`.
 
+## Initial-PA pipeline run — one request (S2, in progress)
+
+Source: [backend/agents/initial_pa_graph.py](../../backend/agents/initial_pa_graph.py).
+Same terminal guarantee as the appeal run (`done` | `error`); no LLM, no
+chunks. As of Slice 2 the run implements the top of the `initial_pa`
+lifecycle above:
+
+```mermaid
+stateDiagram-v2
+    [*] --> security_gate
+    security_gate --> error_event : request.security_hold
+    security_gate --> pa_ingestion
+    pa_ingestion --> crd_check
+    crd_check --> done_event : PA not required (registry miss — early exit)
+    crd_check --> pa_assembly : PA required
+    pa_assembly --> done_event : (Slice 3 inserts pas_submit → determination here)
+    pa_ingestion --> error_event : unhandled exception (broad catch)
+    crd_check --> error_event : unhandled exception (broad catch)
+    done_event --> [*]
+    error_event --> [*]
+```
+
+**Stub CRD semantics:** the pa_requirements registry stands in for the
+payer's CRD endpoint — a registry miss reads as "no PA required", which
+fails open on registry gaps. Acceptable only while the registry is the
+authoritative source; production replaces the lookup with a payer CRD query.
+
 ## SimPhase — frontend POC flow
 
 Type: `src/types.ts`; driven by the POC panels in `src/components/poc/`.

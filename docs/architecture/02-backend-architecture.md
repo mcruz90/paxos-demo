@@ -109,6 +109,30 @@ I/O once at module load):
 | [synthesis.py](../../backend/agents/nodes/synthesis.py) | `build_prompt(state) → str`; `apply_synthesis(state, text, model) → PipelineState` | Fills the XML-delimited template from `agents/prompts.py`; the *graph* owns the streaming loop so it can interleave ChunkEvents (hard-9) |
 | [gatekeeper.py](../../backend/agents/nodes/gatekeeper.py) | `(PipelineState) → PipelineState` | Deterministic checks, in order: length ≥ 300 chars, drug present, diagnosis present, no refusal/AI-identity phrases. Sets `passed_gatekeeper`, appends `errors` |
 
+## The initial-PA pipeline (S2)
+
+`run_initial_pa_pipeline(request)` in
+[backend/agents/initial_pa_graph.py](../../backend/agents/initial_pa_graph.py)
+is a second `StateGraph` (over `InitialPaState`) for the initial-PA
+lifecycle: `pa_ingestion → crd_check → [PA required?] → pa_assembly → …`,
+with a conditional early exit to `finalize` when no PA requirement is on
+file. **No LLM backend parameter — this path never invokes a model**; its
+event union has no `chunk` member. Slice 3 inserts `pas_submit` +
+`determination` between assembly and finalize.
+
+| Node | Contract | Does |
+| --- | --- | --- |
+| [pa_ingestion.py](../../backend/agents/nodes/pa_ingestion.py) | `(InitialPaRequest) → InitialPaState` | Initializes state to zero values |
+| [crd_check.py](../../backend/agents/nodes/crd_check.py) | `(InitialPaState) → InitialPaState` | `derive_pa_required` (pure rule): registry hit ⇒ required with basis; miss ⇒ `required=False` "no PA requirement on file". **Stub CRD — the registry stands in for the payer's CRD endpoint and fails open on registry gaps**; a real payer query replaces the lookup |
+| [pa_assembly.py](../../backend/agents/nodes/pa_assembly.py) | `build_submission(request, pa_context) → PaSubmission` | Canonical structured PA request; PAS/X12-278 rail shape is the Slice 3 adapter's job |
+
+The registry lookup itself (plan_id → drug-alias → generic + validated pack
+loader) lives in
+[agents/requirements_lookup.py](../../backend/agents/requirements_lookup.py),
+extracted from the retrieval node when CRD became its second consumer
+(CLAUDE.md DRY). Both lifecycles share the security-hold gate semantics and
+the `done`|`error` terminal guarantee.
+
 Two boundary guarantees added in the hardening pass
 ([docs/project-review-hardening.md](../project-review-hardening.md)):
 

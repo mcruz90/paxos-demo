@@ -118,6 +118,15 @@ Notes:
   over so the pipeline gate enforces it for both lifecycles.
 - **`PipelineState`** is the LangGraph-shaped TypedDict every node maps over.
   It is per-run and never shared (CLAUDE.md ACID §Isolation).
+- **`InitialPaState`** (S2 Slice 2) is the initial-PA graph's TypedDict —
+  full lifecycle shape spec-first: `pa_required`/`pa_context`/`pa_resolution`
+  set by `crd_check`, `submission: PaSubmission | None` by `pa_assembly`,
+  `submission_ref`/`outcome`/`appeal_handoff` filled by the Slice 3 nodes.
+- **`PaSubmission`** (S2 Slice 2) is the canonical structured PA request the
+  assembly node produces (case_ref, drug/diagnosis/plan_id,
+  requested_therapy, criteria evidence, CRD-resolved pa_context). Canonical
+  only — the PAS/X12-278 rail shape comes from the rail adapter (adapter
+  pattern; engine never branches on payer/rail).
 - **`ScenarioConfig`** is the rich scenario shape shared with the frontend
   demo — appeal scenarios plus optional initial-PA lifecycle fields
   (`pa_required`, `requested_therapy`, `pa_outcome`, `appeal_handoff`,
