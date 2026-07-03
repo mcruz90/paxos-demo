@@ -11,7 +11,8 @@ React Frontend (Vite + Tailwind)
         │
         │  POST /api/appeal/generate  (SSE stream; every stream ends with done|error)
         ▼
-FastAPI Backend  ──► 4-node pipeline (LangGraph-style; library adoption decided with S3 TierRouter)
+FastAPI Backend  ──► 4-node pipeline (interim hand-rolled; LangGraph is the
+        │            committed orchestrator — ADR-0001, migration lands with Sprint 2)
         │                   │
         │           [0] Security gate  security_hold requests never reach the LLM
         │           [1] Ingestion      validates AppealRequest → PipelineState
@@ -30,7 +31,8 @@ FastAPI Backend  ──► 4-node pipeline (LangGraph-style; library adoption de
 ```
 
 Planned (not yet wired): Langfuse tracing (PHI-redacted), DSPy EHR extraction,
-Qdrant policy store — see the Roadmap.
+Qdrant policy store — see the Roadmap. System structure and settled decisions
+live in [docs/architecture/](docs/architecture/README.md).
 
 The demo branch UI runs on 6 built-in fixture scenarios. Connect a local backend for live LLM generation in the POC view.
 

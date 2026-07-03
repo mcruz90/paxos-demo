@@ -45,6 +45,17 @@ hand-rolled `agents/graph.py` is an explicitly interim implementation.
 Migration trigger: **the first feature that needs conditional routing —
 planned as the TierRouter node (Sprint 2/3).** At that point:
 
+> **Update 2026-07-02 (May, confirming this ADR after the hardening pass):**
+> LangGraph is the de-facto framework for nodes/agents — state management,
+> retries, checkpointing come from the framework, not hand-rolled code. The
+> trigger fires at **Sprint 2, not Sprint 3**: the initial-PA lifecycle itself
+> is conditional (determination → approved | pended-loop | denied →
+> appealHandoff — see [05-state-lifecycle.md](../05-state-lifecycle.md)), so
+> building it on the interim loop would violate the "no orchestration features
+> on the hand-rolled loop" rule below. Migration is scheduled as **Sprint 2
+> Slice 0** in [11-sprint-plan.md](../11-sprint-plan.md), behavior-preserving,
+> with the 425-test suite as the safety net.
+
 1. Re-add `langgraph` + `langchain-core` through the CLAUDE.md pre-install
    security check (they are already listed in the deferred block of
    `backend/pyproject.toml` with a pinned CVE floor).

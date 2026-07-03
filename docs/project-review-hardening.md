@@ -213,7 +213,7 @@ Rewritten to match reality, with planned items marked as planned.
 | AuditRecord runtime wiring + provenance field + correlation_id + idempotency | Real feature work; belongs in the S2 plan (spec-first: add fields when the write path lands, not as more defined-but-unused schema) | Sprint 2 |
 | Claim→citation as a *blocking* gatekeeper check | Depends on the S4 eval suite; note: it must eventually block, not just score, to honor the AI-accountability rule | Sprint 4 |
 | `CriterionResult.confidence` | Prerequisite for S3 tier routing; ripples through frontend contract + fixtures adapter + golden set, so land it as the first S3 slice, spec-first | Sprint 3 |
-| LangGraph adoption decision | TierRouter (S3) is where branching/checkpointing would justify it | Sprint 3 |
+| LangGraph adoption decision | **SETTLED 2026-07-02: LangGraph is the committed orchestrator (ADR-0001); migration = Sprint 2 Slice 0** | ~~Sprint 3~~ Sprint 2 |
 | 10/13 failing e2e specs (`frontend-e2e-debt.md`) | Needs a UX decision on the landing→queue flow first | Frontend session |
 | `redact_phi` over-redaction of Title-Case prose ("Medical Director") | Acceptable for log scrubbing (its only use); revisit if ever applied to letter text | When Langfuse lands |
 | Retrieval import-time JSON load | Accepted: fail-fast at boot is intentional; revisit if packs become hot-reloadable | Sprint 5 |
