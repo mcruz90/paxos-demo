@@ -40,6 +40,18 @@ rejected, not coerced):
 before the pipeline runs — application failures are in-stream `error`
 events, not HTTP status codes.
 
+### Initial-PA lifecycle route — **spec-first, route lands in S2 Slice 5**
+
+The request/event schemas exist as of S2 Slice 1
+(`InitialPaRequest`, `InitialPaDoneEvent`, `InitialPaEvent` in
+[schemas.py](../../backend/models/schemas.py)); no route serves them yet.
+Contract the Slice 5 endpoint will honor: Bearer auth like every `/api/*`
+route; SSE with the same terminal guarantee (`done`|`error`); `step` events
+for the initial-PA nodes; **no `chunk` events** (no LLM in this path); the
+`done` payload is `InitialPaDoneEvent` (CRD result, determination,
+appeal-handoff pointer when denied) rather than the appeal `DoneEvent`.
+This section becomes the route's full spec when Slice 5 lands.
+
 ## SSE wire format
 
 Each event is one frame:

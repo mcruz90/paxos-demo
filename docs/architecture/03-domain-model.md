@@ -82,8 +82,22 @@ classDiagram
         pa_required / pa_outcome / appeal_handoff ...
     }
 
+    class InitialPaRequest {
+        scenario_id: str  max64 kebab-case
+        case_ref: str  max64 — idempotency-key source (S2 Slice 4)
+        drug: str
+        diagnosis: str
+        plan: str
+        plan_id: str
+        requested_therapy: str
+        criteria_results: CriterionResult[]
+        security_hold: bool = False
+        security_reason: str
+    }
+
     PipelineState --> AppealRequest
     AppealRequest "1" --> "*" CriterionResult
+    InitialPaRequest "1" --> "*" CriterionResult
     ScenarioConfig "1" --> "*" CriterionResult
     CriterionResult --> Rule
     CriterionResult --> WorkflowPlan
@@ -94,6 +108,14 @@ Notes:
 - **`AppealRequest`** is strict-mode (`ConfigDict(strict=True)`) with
   max-length constraints — the validated HTTP boundary. `security_hold` /
   `security_reason` are set by the ETL, not expected from clients.
+- **`InitialPaRequest`** (S2 Slice 1, spec-first) is the initial-PA
+  lifecycle's own strict request — deliberately **not** an `AppealRequest`
+  extension: an initial PA precedes any payer decision (no denial fields),
+  and it drives a different artifact on a different rail (CRD → assemble →
+  PAS). `case_ref` is the case identifier a denied PA's appeal continues
+  (`AppealHandoff.case_ref`) and the source of the Slice 4 idempotency key
+  (falls back to `scenario_id` when empty). The `security_hold` pair carries
+  over so the pipeline gate enforces it for both lifecycles.
 - **`PipelineState`** is the LangGraph-shaped TypedDict every node maps over.
   It is per-run and never shared (CLAUDE.md ACID §Isolation).
 - **`ScenarioConfig`** is the rich scenario shape shared with the frontend
@@ -133,6 +155,16 @@ classDiagram
         retry_count: int
     }
 ```
+
+The initial-PA stream (S2 Slice 1, spec-first) shares `StepEvent`/`ErrorEvent`
+and the terminal guarantee, but its success terminal is
+**`InitialPaDoneEvent`** (`event: "done"`): `pa_required: PaRequired`,
+`outcome: PaOutcome | None` (None ⇔ CRD early exit), `appeal_handoff:
+AppealHandoff | None` (present iff denied), `submission_ref` (PAS rail),
+`pa_resolution`. `InitialPaEvent = StepEvent | InitialPaDoneEvent |
+ErrorEvent` — **no `chunk` member**: there is no LLM in the initial-PA path;
+the denied→appeal handoff is a pointer, and launching the appeal stays a
+separate human-gated request.
 
 Exact wire format in [06-api-contract.md](06-api-contract.md).
 
@@ -226,7 +258,8 @@ adapted per consumer, never duplicated (CLAUDE.md DRY).
 | Enum | Values | Home |
 | --- | --- | --- |
 | `CaseStatus` | processing, ready_for_review, exception, awaiting_documentation, submitted, payer_response | schemas.py ↔ types.ts (parity: hard-3) |
-| `CaseLifecycle` | initial_pa, appeal | schemas.py ↔ types.ts |
+| `CaseLifecycle` | initial_pa, appeal | schemas.py ↔ types.ts (parity-tested since S2 Slice 1) |
+| `PaDecision` | approved, pended, denied | schemas.py ↔ types.ts (parity: S2 Slice 1); `PaOutcome.decision` |
 | `RuleType` | diagnostic, temporal, math, safety, provider, quantity, custom | schemas.py ↔ types.ts |
 | `CriterionStatus` | found, needs_review, conflict | schemas.py ↔ types.ts |
 | `ClientType` | medtech, patient | schemas.py ↔ types.ts |
