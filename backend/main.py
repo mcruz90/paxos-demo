@@ -3,6 +3,7 @@
 Routes:
   GET  /health                  — unauthenticated health check
   POST /api/appeal/generate     — SSE appeal generation (Bearer auth required)
+  POST /api/pa/submit           — SSE initial-PA lifecycle (Bearer auth; no LLM)
 
 Auth: All /api/* routes require Authorization: Bearer <API_SECRET_KEY>.
       API_SECRET_KEY is read from the environment (set via .env or CI secrets).
@@ -26,7 +27,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from agents.graph import run_pipeline
-from models.schemas import AppealEvent, AppealRequest, ErrorEvent
+from agents.initial_pa_graph import run_initial_pa_pipeline
+from models.schemas import (
+    AppealEvent,
+    AppealRequest,
+    ErrorEvent,
+    InitialPaEvent,
+    InitialPaRequest,
+)
 
 if TYPE_CHECKING:
     from ml.llm_backend import LLMBackend
@@ -140,7 +148,7 @@ def _build_llm_backend() -> LLMBackend:
 # SSE formatting
 # ---------------------------------------------------------------------------
 
-def _sse_line(event: AppealEvent) -> str:
+def _sse_line(event: AppealEvent | InitialPaEvent) -> str:
     """Format a single SSE message frame."""
     return f"event: {event.event}\ndata: {event.model_dump_json()}\n\n"
 
@@ -157,6 +165,13 @@ async def _stream_events(request: AppealRequest) -> AsyncIterator[str]:
         )
         return
     async for event in run_pipeline(request, llm_backend=llm_backend):
+        yield _sse_line(event)
+
+
+async def _stream_initial_pa_events(request: InitialPaRequest) -> AsyncIterator[str]:
+    # No LLM backend construction — the initial-PA path never invokes a model,
+    # so the route must serve without LLM_BACKEND being set.
+    async for event in run_initial_pa_pipeline(request):
         yield _sse_line(event)
 
 
@@ -182,6 +197,26 @@ async def generate_appeal(body: AppealRequest) -> StreamingResponse:
     """
     return StreamingResponse(
         _stream_events(body),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/api/pa/submit")
+async def submit_initial_pa(body: InitialPaRequest) -> StreamingResponse:
+    """Run the initial-PA lifecycle as Server-Sent Events.
+
+    Authentication: enforced by the auth_middleware before this is reached.
+
+    Returns a ``text/event-stream`` response emitting ``step`` and a terminal
+    ``done`` (InitialPaDoneEvent) or ``error`` event — never ``chunk``
+    (no LLM in this path).
+    """
+    return StreamingResponse(
+        _stream_initial_pa_events(body),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

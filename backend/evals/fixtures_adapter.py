@@ -5,9 +5,10 @@ intentionally different schemas.  This module is the SOLE place that knows both 
 and defines the canonical mapping between them.
 
 Public API:
-    eval_scenario_to_appeal_request(scenario) -> AppealRequest
-    eval_scenario_to_scenario_config(scenario) -> ScenarioConfig
-    FixturesAdapterError                        -- raised for redteam or unknown anchors
+    eval_scenario_to_appeal_request(scenario)    -> AppealRequest
+    eval_scenario_to_initial_pa_request(scenario) -> InitialPaRequest
+    eval_scenario_to_scenario_config(scenario)   -> ScenarioConfig
+    FixturesAdapterError                          -- raised for redteam or unknown anchors
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from models.schemas import (
     ClientType,
     CriterionResult,
     CriterionStatus,
+    InitialPaRequest,
     Rule,
     RuleType,
     ScenarioConfig,
@@ -161,6 +163,30 @@ def eval_scenario_to_appeal_request(eval_scenario: EvalScenario) -> AppealReques
         plan_id=eval_scenario.plan_id,
         criteria_results=[_criterion_to_result(c) for c in eval_scenario.criteria],
         company_names=[eval_scenario.payer],
+    )
+
+
+def eval_scenario_to_initial_pa_request(eval_scenario: EvalScenario) -> InitialPaRequest:
+    """Map a golden EvalScenario to an InitialPaRequest (S2 Slice 5).
+
+    The same case facts drive both lifecycles — no denial fields exist on
+    the initial-PA shape, and ``requested_therapy`` is the drug itself
+    (EvalScenario carries no dose detail; never invent data).
+
+    Raises:
+        FixturesAdapterError: For redteam scenarios or unknown anchor_id values.
+    """
+    _guard_not_redteam(eval_scenario)
+    meta = _require_meta(eval_scenario.anchor_id)
+
+    return InitialPaRequest(
+        scenario_id=_normalize_scenario_id(eval_scenario.scenario_id),
+        drug=eval_scenario.drug,
+        diagnosis=meta.diagnosis,
+        plan=eval_scenario.payer,
+        plan_id=eval_scenario.plan_id,
+        requested_therapy=eval_scenario.drug,
+        criteria_results=[_criterion_to_result(c) for c in eval_scenario.criteria],
     )
 
 
