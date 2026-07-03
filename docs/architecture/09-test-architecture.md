@@ -68,8 +68,9 @@ anchors. All three run in CI ([08-deployment-ci.md](08-deployment-ci.md)).
 Logic extracted from the component tree gets unit tests
 (`src/components/poc/pipeline.test.ts`, `letter.test.ts`,
 `payload.test.ts`, `src/components/lifecycle.test.ts`,
-`versioning.test.ts`) — per the CLAUDE.md rule that extraction implies a
-test. Components themselves are demo-only and E2E-covered.
+`versioning.test.ts`, `src/components/portfolio/caseQueue.test.ts`,
+`src/data/patientContext.test.ts`) — per the CLAUDE.md rule that extraction
+implies a test. Components themselves are demo-only and E2E-covered.
 
 ### E2E (Playwright, `e2e/`)
 

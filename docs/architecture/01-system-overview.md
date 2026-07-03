@@ -55,6 +55,7 @@ is also untrusted until it passes the deterministic gatekeeper
 flowchart TB
     subgraph frontend ["React SPA — src/ (Vite + Tailwind, TS strict)"]
         views["Role views: Operate / Build / Scale / Sponsor<br/>src/components/"]
+        portfolio["Case-queue workspace (3-pane)<br/>src/components/portfolio/"]
         poc["POC live-pipeline view<br/>src/components/poc/"]
         scenarios["Scenario fixtures (offline demo data)<br/>src/data/scenarios.tsx"]
     end
@@ -80,6 +81,7 @@ flowchart TB
 
     poc -- "SSE" --> main
     views --> scenarios
+    portfolio --> scenarios
     main --> graph
     graph --> nodes
     graph --> ml
@@ -100,6 +102,7 @@ flowchart TB
 | Container | Path | Responsibility | Today |
 | --- | --- | --- | --- |
 | Demo UI | `src/` | Role-based demo views; entirely scenario-fixture-driven; works with no backend | Live |
+| Queue workspace | `src/components/portfolio/` | Three-pane case queue (case list · criteria/letter workspace · citation ground truth); pure queue/transition logic in `caseQueue.ts`, patient-context resolution in `src/data/patientContext.ts` | Live |
 | POC view | `src/components/poc/` | The one UI surface that calls the real backend (SSE streaming appeal generation), with offline fallback | Live |
 | API | `backend/main.py` | Bearer auth on `/api/*`, LLM backend factory, SSE framing | Live |
 | Pipeline | `backend/agents/` | 4-node appeal generation with retry + security-hold gate | Live (hand-rolled; LangGraph is the target — [ADR-0001](adr/0001-langgraph-target-orchestrator.md)) |

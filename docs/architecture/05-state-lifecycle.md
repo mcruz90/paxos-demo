@@ -19,10 +19,12 @@ stateDiagram-v2
     processing --> awaiting_documentation : pre-submission doc gap
     awaiting_documentation --> processing : docs received
     exception --> ready_for_review : human resolved flag
+    exception --> awaiting_documentation : outbound doc workflow dispatched (queue workspace)
     ready_for_review --> submitted : reviewer approves & transmits
     submitted --> payer_response : payer determination received
     payer_response --> [*] : accepted / closed
     payer_response --> processing : dispute → next round
+    payer_response --> ready_for_review : counter-offer disputed inline (queue workspace)
 ```
 
 Semantics worth pinning:
@@ -35,6 +37,18 @@ Semantics worth pinning:
   target for the TierRouter ([ADR-0001](adr/0001-langgraph-target-orchestrator.md)).
 - Queue prioritization (frontend `Urgency`: today / soon / later) is derived
   from regulatory turnaround deadlines, orthogonal to `CaseStatus`.
+- **Exception resolution never skips the approval gate.** The queue workspace
+  (`src/components/portfolio/`) lets a coordinator resolve each flagged
+  criterion by dispatching its outbound workflow or overriding the finding
+  with a rationale. A fully resolved case routes to `awaiting_documentation`
+  if any workflow was dispatched (we now wait on the provider), otherwise to
+  `ready_for_review` — never straight to `submitted`; only the explicit
+  approve action transmits (`statusAfterResolution` in
+  `src/components/portfolio/caseQueue.ts`, unit-tested).
+- The inline payer-response dispute (queue workspace) returns the case to
+  `ready_for_review` because the next-round letter is already drafted; the
+  POC round-2 flow goes through `processing` because it regenerates the
+  letter. Both edges are real, at different surfaces.
 
 ## CaseLifecycle — which artifact is being produced
 
