@@ -18,6 +18,7 @@ from models.schemas import (
     AuditProvenance,
     CaseLifecycle,
     CaseStatus,
+    CaseTier,
     CriterionResult,
     PaDecision,
     RuleType,
@@ -92,6 +93,18 @@ def test_pa_decision_matches_frontend_union() -> None:
     backend = {member.value for member in PaDecision}
     assert backend == frontend, (
         f"PaDecision drift — backend-only: {backend - frontend}, "
+        f"frontend-only: {frontend - backend}"
+    )
+
+
+def test_case_tier_matches_frontend_union() -> None:
+    """CaseTier (S3 Slice 2) — the deterministic HITL tier the TierRouter
+    assigns. The frontend union predates the backend enum (demo review UI);
+    the backend mirrors it. New enum ⇒ parity coverage."""
+    frontend = _ts_union_values("CaseTier")
+    backend = {member.value for member in CaseTier}
+    assert backend == frontend, (
+        f"CaseTier drift — backend-only: {backend - frontend}, "
         f"frontend-only: {frontend - backend}"
     )
 
