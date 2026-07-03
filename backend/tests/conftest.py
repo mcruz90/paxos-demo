@@ -184,5 +184,6 @@ def make_pipeline_state(base_appeal_request: AppealRequest):
             "passed_gatekeeper": passed_gatekeeper,
             "retry_count": retry_count,
             "errors": errors or [],
+            "tier": None,
         }
     return _make

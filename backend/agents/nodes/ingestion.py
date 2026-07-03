@@ -31,4 +31,5 @@ def run_ingestion(request: AppealRequest) -> PipelineState:
         "passed_gatekeeper": False,
         "retry_count": 0,
         "errors": [],
+        "tier": None,
     }

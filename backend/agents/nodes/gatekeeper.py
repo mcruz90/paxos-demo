@@ -18,6 +18,11 @@ from models.schemas import PipelineState
 # Configuration
 # ---------------------------------------------------------------------------
 
+# Retry policy lives with the gate that triggers it. The graph's conditional
+# edge and the tier router's exhaustion signal both import it from here
+# (graph.py must stay importable FROM tier_router without a cycle).
+MAX_RETRIES = 3
+
 MIN_LENGTH = 300  # characters
 
 # Phrases that indicate the LLM refused or leaked its identity

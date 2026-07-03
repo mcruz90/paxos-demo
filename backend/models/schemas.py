@@ -43,6 +43,17 @@ class CaseStatus(StrEnum):
     payer_response = "payer_response"
 
 
+class CaseTier(StrEnum):
+    """Deterministic HITL review tier (S3 Slice 2). Assigned by the
+    TierRouter node — pure rule logic, never an LLM (regulatory + safety
+    constraint: Illinois, MD HB 1563). Mirrors the pre-existing types.ts
+    union — parity-tested in test_schema_parity.py."""
+
+    routine = "routine"
+    complex = "complex"
+    exception = "exception"
+
+
 class ClientType(StrEnum):
     medtech = "medtech"
     patient = "patient"
@@ -441,6 +452,8 @@ class PipelineState(TypedDict):
     passed_gatekeeper: bool
     retry_count: int
     errors: list[str]
+    # Set by tier_router (None until it runs — never a default tier)
+    tier: CaseTier | None
 
 
 class InitialPaState(TypedDict):

@@ -35,6 +35,7 @@ def _state(base_appeal_request: AppealRequest, denial_text: str, pa_context: str
         "passed_gatekeeper": False,
         "retry_count": 0,
         "errors": [],
+        "tier": None,
     }
 
 

@@ -16,6 +16,7 @@ def _state_with_text(base_appeal_request, appeal_text: str) -> PipelineState:
         "passed_gatekeeper": False,
         "retry_count": 0,
         "errors": [],
+        "tier": None,
     }
 
 

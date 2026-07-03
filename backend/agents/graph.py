@@ -22,7 +22,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 
-from agents.nodes.gatekeeper import run_gatekeeper
+from agents.nodes.gatekeeper import MAX_RETRIES, run_gatekeeper
 from agents.nodes.ingestion import run_ingestion
 from agents.nodes.retrieval import run_retrieval
 from agents.nodes.synthesis import apply_synthesis, build_prompt
@@ -41,8 +41,6 @@ from models.schemas import (
     PipelineState,
     StepEvent,
 )
-
-MAX_RETRIES = 3
 
 logger = logging.getLogger(__name__)
 
