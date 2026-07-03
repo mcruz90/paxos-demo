@@ -13,7 +13,8 @@ import { WorkflowSpecView } from './components/WorkflowSpecView'
 import { FailureReviewView } from './components/FailureReviewView'
 import { Sidebar } from './components/Sidebar'
 import { SponsorView } from './components/SponsorView'
-import { PortfolioView } from './components/PortfolioView'
+import { SplitPortfolioView } from './components/portfolio/SplitPortfolioView'
+import { applyPayerDecision, quickApproveClient, setClientStatus } from './components/portfolio/caseQueue'
 import { AutomationPolicyView } from './components/AutomationPolicyView'
 import { POCView } from './components/poc/POCView'
 import { LibraryView } from './components/LibraryView'
@@ -67,6 +68,7 @@ export default function App() {
   const [activeTour, setActiveTour] = useState<TourId | null>(null)
   const [tourRunning, setTourRunning] = useState(false)
   const [tourStepIndex, setTourStepIndex] = useState(0)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const instrStore = useInstructionStore()
 
   // Switching roles navigates to that role's default first view
@@ -118,6 +120,15 @@ export default function App() {
     setActiveRole('Operate')
   }
 
+  // Case-status transitions from the queue's preview pane — the guarded state
+  // machine lives in portfolio/caseQueue.ts, unit-tested there.
+  const handleQuickApprove = (scenarioId: string) =>
+    setClients(prev => quickApproveClient(prev, scenarioId))
+  const handlePayerDecision = (scenarioId: string, decision: 'accepted' | 'disputed') =>
+    setClients(prev => applyPayerDecision(prev, scenarioId, decision))
+  const handleUpdateClientStatus = (scenarioId: string, status: CaseStatus) =>
+    setClients(prev => setClientStatus(prev, scenarioId, status))
+
   // Apply a step's nav: make the right view (and case) active before the step shows.
   // Also syncs activeRole so the sidebar reflects the correct role during tours.
   const applyTourNav = (nav?: TourStep['nav']) => {
@@ -149,6 +160,7 @@ export default function App() {
   }
 
   const startTour = (id: TourId) => {
+    setIsSidebarCollapsed(false)
     setActiveTour(id)
     setActiveRole(TOUR_ROLE[id] ?? 'Operate')
     applyTourNav(TOURS[id].steps[0]?.nav)
@@ -215,12 +227,29 @@ export default function App() {
           skipBeacon: true,
         }}
       />
-      <Sidebar view={view} setView={setView} activeRole={activeRole} onRoleChange={handleRoleChange} onStartTour={openTourHub} theme={theme} onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} />
+      <Sidebar
+        view={view}
+        setView={setView}
+        activeRole={activeRole}
+        onRoleChange={handleRoleChange}
+        onStartTour={openTourHub}
+        theme={theme}
+        onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
       {view === 'landing' && (
         <LandingHub onStartTour={startTour} onRoleChange={handleRoleChange} />
       )}
       {view === 'portfolio' && (
-        <PortfolioView clients={clients} onOpenCase={openCase} onStartTour={openTourHub} />
+        <SplitPortfolioView
+          clients={clients}
+          onOpenCase={openCase}
+          onStartTour={openTourHub}
+          onQuickApprove={handleQuickApprove}
+          onPayerDecision={handlePayerDecision}
+          onUpdateClientStatus={handleUpdateClientStatus}
+        />
       )}
       {view === 'poc' && activeScenario && (
         <POCView

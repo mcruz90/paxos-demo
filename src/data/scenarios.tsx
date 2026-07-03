@@ -483,11 +483,41 @@ export const TENANT = {
 // ---------------------------------------------------------------------------
 
 export const initialClients: Client[] = [
-  { id: 4, name: 'Case #PH-3101', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 5, 2026',  scenarioId: 'novo-ozempic-docgap',  deadline: 'Due tomorrow',   urgency: 'soon'  },
-  { id: 0, name: 'Case #PH-3098', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 17, 2026', scenarioId: 'novo-ozempic-initial', deadline: 'Due in 2 days',  urgency: 'soon'  },
-  { id: 1, name: 'Case #PH-3102', drug: 'Ozempic',          categoryLabel: 'Endocrinology',    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 8, 2026',  scenarioId: 'novo-ozempic',         deadline: 'Due today',      urgency: 'today' },
-  { id: 2, name: 'Case #PH-4201', drug: 'Esomeprazole Susp.', categoryLabel: 'Gastroenterology', status: 'payer_response',   clientType: 'patient', lastUpdated: 'Jun 11, 2026', scenarioId: 'pediatric-esomeprazole', deadline: 'Due in 4 days',  urgency: 'later' },
-  { id: 3, name: 'Case #PH-2847', drug: 'Livdelzi',         categoryLabel: 'Hepatology',        status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 9, 2026',  scenarioId: 'gilead-livdelzi',      deadline: 'Due today',      urgency: 'today' },
+  {
+    id: 4, name: 'Case #PH-3101', drug: 'Ozempic', categoryLabel: 'Endocrinology',
+    patientDisplayName: 'Robert Chen',   patientDob: '03/14/1972', payer: 'Cigna',
+    gapSummary: 'Prescriber attestation needed — BMI note triggers T2DM-only indication review',
+    status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 5, 2026',
+    scenarioId: 'novo-ozempic-docgap',    deadline: 'Due tomorrow',   urgency: 'soon',
+  },
+  {
+    id: 0, name: 'Case #PH-3098', drug: 'Ozempic', categoryLabel: 'Endocrinology',
+    patientDisplayName: 'Anita Patel',   patientDob: '08/22/1985', payer: 'Cigna',
+    gapSummary: 'All criteria satisfied — ready for coordinator sign-off and PAS submission',
+    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 17, 2026',
+    scenarioId: 'novo-ozempic-initial',   deadline: 'Due in 2 days',  urgency: 'soon',
+  },
+  {
+    id: 1, name: 'Case #PH-3102', drug: 'Ozempic', categoryLabel: 'Endocrinology',
+    patientDisplayName: 'Margaret Vance', patientDob: '11/08/1967', payer: 'Cigna',
+    gapSummary: 'Appeal letter drafted — T2DM indication dispute, coordinator review needed',
+    status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 8, 2026',
+    scenarioId: 'novo-ozempic',           deadline: 'Due today',      urgency: 'today',
+  },
+  {
+    id: 2, name: 'Case #PH-4201', drug: 'Esomeprazole Susp.', categoryLabel: 'Gastroenterology',
+    patientDisplayName: 'Lucas Rivera',   patientDob: '05/30/2019',  payer: 'UnitedHealthcare',
+    gapSummary: 'Payer counter-offer: dose limited to 10 mg/day — labeled dose is 20 mg at ≥20 kg',
+    status: 'payer_response',   clientType: 'patient', lastUpdated: 'Jun 11, 2026',
+    scenarioId: 'pediatric-esomeprazole', deadline: 'Due in 4 days',  urgency: 'later',
+  },
+  {
+    id: 3, name: 'Case #PH-2847', drug: 'Livdelzi', categoryLabel: 'Hepatology',
+    patientDisplayName: 'Diane Okafor',   patientDob: '09/01/1959',  payer: 'Cigna',
+    gapSummary: 'Conflict: decompensation history disputed between consult and discharge notes',
+    status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 9, 2026',
+    scenarioId: 'gilead-livdelzi',        deadline: 'Due today',      urgency: 'today',
+  },
 ]
 
 
