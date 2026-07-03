@@ -201,6 +201,32 @@ def test_scenario_config_id_matches_eval_scenario_id() -> None:
 
 
 # ---------------------------------------------------------------------------
+# S3 Slice 1 — confidence labels round-trip through the adapter
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("scenario_id", _CLINICAL_PA_IDS)
+def test_appeal_request_criterion_confidence_round_trips(scenario_id: str) -> None:
+    """Golden confidence labels must survive the adapter — the TierRouter
+    (S3 Slice 2) routes on them; a dropped label silently becomes 'not
+    assessed' and mis-tiers the case."""
+    scenario = _get(scenario_id)
+    req = eval_scenario_to_appeal_request(scenario)
+    for adapted, golden in zip(req.criteria_results, scenario.criteria):
+        assert adapted.confidence == golden.confidence
+
+
+@pytest.mark.parametrize("scenario_id", _CLINICAL_PA_IDS)
+def test_initial_pa_request_criterion_confidence_round_trips(scenario_id: str) -> None:
+    from evals.fixtures_adapter import eval_scenario_to_initial_pa_request
+
+    scenario = _get(scenario_id)
+    req = eval_scenario_to_initial_pa_request(scenario)
+    for adapted, golden in zip(req.criteria_results, scenario.criteria):
+        assert adapted.confidence == golden.confidence
+
+
+# ---------------------------------------------------------------------------
 # S2 Slice 5 — EvalScenario → InitialPaRequest (initial-PA lifecycle)
 # ---------------------------------------------------------------------------
 

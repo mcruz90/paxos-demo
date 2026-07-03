@@ -171,6 +171,46 @@ def test_criterion_result_conflict_sources_parses() -> None:
     assert cr.conflict_sources[0].claim == "T2DM confirmed"
 
 
+def test_criterion_result_confidence_in_range_parses() -> None:
+    """S3 Slice 1: confidence is a 0–1 float on every criterion finding."""
+    cr = CriterionResult.model_validate(
+        {
+            "rule": {"type": "diagnostic", "label": "dx"},
+            "status": "found",
+            "note": "HbA1c 8.2%",
+            "confidence": 0.97,
+        }
+    )
+    assert cr.confidence == 0.97
+
+
+def test_criterion_result_confidence_defaults_to_none() -> None:
+    """Absent confidence means 'not assessed' — never silently 1.0. The
+    TierRouter (S3 Slice 2) treats None as exception-band, so the default
+    must be honest, not optimistic."""
+    cr = CriterionResult.model_validate(
+        {
+            "rule": {"type": "diagnostic", "label": "dx"},
+            "status": "found",
+            "note": "HbA1c 8.2%",
+        }
+    )
+    assert cr.confidence is None
+
+
+@pytest.mark.parametrize("bad_value", [-0.1, 1.01, 2.0])
+def test_criterion_result_confidence_rejects_out_of_range(bad_value: float) -> None:
+    with pytest.raises(ValidationError):
+        CriterionResult.model_validate(
+            {
+                "rule": {"type": "diagnostic", "label": "dx"},
+                "status": "found",
+                "note": "HbA1c 8.2%",
+                "confidence": bad_value,
+            }
+        )
+
+
 def test_timeline_event_parses_and_rejects_bad_status() -> None:
     ev = TimelineEvent(label="PAS submitted", date="2026-06-10", status="done")
     assert ev.status == "done"

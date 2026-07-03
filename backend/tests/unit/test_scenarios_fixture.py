@@ -130,6 +130,27 @@ def test_clinical_pa_criteria_ground_truth_status_is_valid(scenario_id: str) -> 
 
 
 @pytest.mark.parametrize("scenario_id", sorted(_CLINICAL_PA_IDS))
+def test_clinical_pa_criteria_have_confidence_labels(scenario_id: str) -> None:
+    """S3 Slice 1: every golden criterion carries a numeric 0–1 confidence label.
+
+    Semantics: confidence that the finding is correct AND complete enough to
+    act on without human input — the ground truth the TierRouter bands
+    (S3 Slice 2) route against. A labeled criterion without confidence is an
+    unlabeled criterion.
+    """
+    fixture = load_scenarios_fixture()
+    scenario = next(s for s in fixture.scenarios if s.scenario_id == scenario_id)
+    for crit in scenario.criteria:
+        assert crit.confidence is not None, (
+            f"{scenario_id} criterion {crit.key!r}: missing confidence label"
+        )
+        assert 0.0 <= crit.confidence <= 1.0, (
+            f"{scenario_id} criterion {crit.key!r}: "
+            f"confidence {crit.confidence} outside [0, 1]"
+        )
+
+
+@pytest.mark.parametrize("scenario_id", sorted(_CLINICAL_PA_IDS))
 def test_clinical_pa_has_at_least_one_needs_review_or_conflict(scenario_id: str) -> None:
     """clinical_pa scenarios must have ≥1 criterion that is not 'found' — that is the denial basis."""
     fixture = load_scenarios_fixture()
