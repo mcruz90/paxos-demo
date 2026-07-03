@@ -27,6 +27,7 @@ orchestration decision lived only in chat history. That decision is now
 | [08-deployment-ci.md](08-deployment-ci.md) | CI jobs and gates, runtime topology, environment matrix |
 | [09-test-architecture.md](09-test-architecture.md) | Test tiers, TDD workflow, eval layer, known test debt |
 | [10-roadmap-traceability.md](10-roadmap-traceability.md) | Target architecture and the roadmap → component → ADR traceability map |
+| [11-sprint-plan.md](11-sprint-plan.md) | Sequenced sprint plan (revised 2026-07-02): slice-level scope for S2–S6, what changed vs. the pre-hardening roadmap |
 | [adr/](adr/README.md) | Architecture Decision Records — the settled (and rejected) decisions |
 
 ## Relationship to other documents
@@ -61,6 +62,6 @@ A structural change (new node, new layer, new external dependency, changed
 event contract, changed lifecycle) should update the relevant doc — and add or
 amend an ADR if a decision was made — in the same PR as the code change.
 
-> **Pending:** the enforcing rule in CLAUDE.md is deferred until the
-> `project-review-hardening` branch lands (that file was in active edit when
-> this suite was written, 2026-07-02). Until then, this section is the rule.
+The enforcing rule now lives in [/CLAUDE.md](../../CLAUDE.md) §"Architecture
+Docs — Shape Lives in docs/architecture/" (added 2026-07-02 once the
+hardening branch settled).

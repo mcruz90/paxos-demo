@@ -3,7 +3,8 @@
 *Written 2026-07-02. This is the forward-looking doc — everything here is
 **target** unless marked live. Sprint planning starts here: find the roadmap
 item, see which components and ADRs it touches, check the dependency
-re-entry cost.*
+re-entry cost. The sequenced, slice-level plan is
+[11-sprint-plan.md](11-sprint-plan.md).*
 
 ## Target-state container view
 
@@ -74,9 +75,10 @@ backend earns it milestone by milestone.
 
 | Roadmap item | Components touched | Deps to re-vet ([ADR-0007](adr/0007-deferred-dependencies.md)) | Docs/ADRs to update | Status |
 | --- | --- | --- | --- | --- |
-| **Sprint 2 — Initial-PA lifecycle** (next) | `models/schemas.py` (lifecycle fields exist), new nodes/routes for CRD→DTR→PAS flow, `CasePacket` wiring | none expected | [03](03-domain-model.md), [05](05-state-lifecycle.md), [06](06-api-contract.md) | Planned |
+| **LangGraph migration** (Sprint 2 **Slice 0** — resequenced 2026-07-02) | `agents/graph.py` → `StateGraph(PipelineState)`; `run_pipeline` signature + SSE contract unchanged; nodes untouched | `langgraph`, `langchain-core>=1.3.3` | [02](02-backend-architecture.md); executes [ADR-0001](adr/0001-langgraph-target-orchestrator.md) | Committed — scheduled ([11](11-sprint-plan.md)) |
+| **Sprint 2 — Initial-PA lifecycle** (next) | `models/schemas.py` (lifecycle fields exist; new lifecycle-named request — NOT an `AppealRequest` extension), new nodes/routes for CRD→DTR→PAS flow, `CasePacket` wiring | via Slice 0 above | [03](03-domain-model.md), [05](05-state-lifecycle.md), [06](06-api-contract.md) | Planned — slices in [11](11-sprint-plan.md) |
 | **AuditRecord wiring** (with Sprint 2) | Pipeline boundary writes in-memory `list[AuditRecord]`; provenance field (as-is / gatekeeper-corrected / human-edited); idempotency key = `case_id` + attempt | none | [03](03-domain-model.md), [06](06-api-contract.md), new ADR for idempotency-key shape | Planned — schema exists, nothing writes it |
-| **TierRouter + LangGraph migration** (Sprint 2/3) | `agents/graph.py` → `StateGraph`; new `agents/nodes/tier_router.py`; `CaseTier` becomes a backend enum | `langgraph`, `langchain-core>=1.3.3` | [02](02-backend-architecture.md), [05](05-state-lifecycle.md); executes [ADR-0001](adr/0001-langgraph-target-orchestrator.md) | Committed — trigger defined |
+| **TierRouter / HITL tiering** (Sprint 3) | New `agents/nodes/tier_router.py` (deterministic, never LLM-decided); `CriterionResult.confidence` first (spec-first, ripples to frontend); `CaseTier` becomes a backend enum | none (LangGraph already in from S2 Slice 0) | [02](02-backend-architecture.md), [05](05-state-lifecycle.md) | Planned — slices in [11](11-sprint-plan.md) |
 | **Live-LLM eval CLI** (Sprint 4) | `evals/run_evals.py`; golden-set dimension scorers (claim_citation etc.) | none (uses existing provider) | [09](09-test-architecture.md) | Planned; never in CI |
 | **Qdrant policy retrieval** (Phase 1.2 / S5) | `etl/policy_ingest/`; retrieval node gains vector path; coverage-driven resolution (BIN/PCN/Group via `golden/coverage_pool.json`) | `qdrant-client`, `sentence-transformers` | [02](02-backend-architecture.md), [04](04-data-flow.md), new ADR (vector store choice) | Planned — S5 hook comments already in code |
 | **DSPy EHR extraction** (Phase 1.3) | `etl/ehr_extract/`; new adapter → `CasePacket` | `dspy` | [04](04-data-flow.md) | Planned — dir stub exists |
