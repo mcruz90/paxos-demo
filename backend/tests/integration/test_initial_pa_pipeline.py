@@ -191,6 +191,41 @@ async def test_pended_loop_re_runs_determination_then_resolves() -> None:
     assert done.outcome.decision is PaDecision.approved
 
 
+# ---------------------------------------------------------------------------
+# Slice 5 exit criteria — golden-set scenarios drive the initial-PA pipeline
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_golden_scenarios_run_through_initial_pa_pipeline() -> None:
+    """Every non-redteam golden scenario, adapted to an InitialPaRequest,
+    must flow the full CRD → assemble → PAS → determination path to a done
+    terminal with a plan_id-resolved CRD hit (all golden plan_ids are in the
+    requirements registry). Sprint 2 exit criteria."""
+    from evals.fixtures.schema import load_scenarios_fixture
+    from evals.fixtures_adapter import eval_scenario_to_initial_pa_request
+
+    fixture = load_scenarios_fixture()
+    ran = 0
+    for scenario in fixture.scenarios:
+        if scenario.denial_type == "redteam":
+            continue
+        request = eval_scenario_to_initial_pa_request(scenario)
+        events = await _collect(request)
+
+        assert events[-1].event == "done", (
+            f"{scenario.scenario_id}: expected done terminal, got {[e.event for e in events]}"
+        )
+        done = events[-1]
+        assert isinstance(done, InitialPaDoneEvent)
+        assert done.pa_required.required is True
+        assert done.pa_resolution == "plan_id"
+        assert done.outcome is not None
+        ran += 1
+
+    assert ran >= 3, "expected at least the three golden anchors to run"
+
+
 @pytest.mark.asyncio
 async def test_denied_path_hands_off_to_appeal() -> None:
     """Conflicting evidence → denied → the done event carries the

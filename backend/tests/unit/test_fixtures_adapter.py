@@ -198,3 +198,47 @@ def test_scenario_config_id_matches_eval_scenario_id() -> None:
     scenario = _get("ozempic_cigna_clinical_pa")
     cfg = eval_scenario_to_scenario_config(scenario)
     assert cfg.id == scenario.scenario_id
+
+
+# ---------------------------------------------------------------------------
+# S2 Slice 5 — EvalScenario → InitialPaRequest (initial-PA lifecycle)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("scenario_id", _CLINICAL_PA_IDS + ["ozempic_cigna_coding_error"])
+def test_initial_pa_request_adapts_without_error(scenario_id: str) -> None:
+    """Every non-redteam golden scenario must produce a valid InitialPaRequest
+    — the same case facts drive both lifecycles (one dataset, adapted per
+    consumer)."""
+    from evals.fixtures_adapter import eval_scenario_to_initial_pa_request
+    from models.schemas import InitialPaRequest
+
+    scenario = _get(scenario_id)
+    result = eval_scenario_to_initial_pa_request(scenario)
+    assert isinstance(result, InitialPaRequest)
+
+
+def test_initial_pa_request_maps_case_facts() -> None:
+    from evals.fixtures_adapter import eval_scenario_to_initial_pa_request
+
+    scenario = _get("ozempic_cigna_clinical_pa")
+    result = eval_scenario_to_initial_pa_request(scenario)
+
+    assert result.scenario_id == "ozempic-cigna-clinical-pa"
+    assert result.drug == scenario.drug
+    assert result.plan_id == scenario.plan_id
+    assert result.plan == scenario.payer
+    # No dose detail exists in EvalScenario — the requested therapy is the
+    # drug itself, never invented data.
+    assert result.requested_therapy == scenario.drug
+    assert result.case_ref == ""  # correlation falls back to scenario_id
+    assert len(result.criteria_results) == len(scenario.criteria)
+
+
+@pytest.mark.parametrize("scenario_id", _REDTEAM_IDS)
+def test_initial_pa_request_guards_redteam(scenario_id: str) -> None:
+    from evals.fixtures_adapter import eval_scenario_to_initial_pa_request
+
+    scenario = _get(scenario_id)
+    with pytest.raises(FixturesAdapterError):
+        eval_scenario_to_initial_pa_request(scenario)
