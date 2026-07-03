@@ -1,13 +1,12 @@
 """agents/initial_pa_graph.py — LangGraph StateGraph for the initial-PA lifecycle.
 
 Runs the initial-PA flow per docs/architecture/05-state-lifecycle.md:
-    pa_ingestion → crd_check → [PA required?] → pa_assembly → …
-                                     └─ no ──→ finalize (early exit)
+    pa_ingestion → crd_check → [PA required?] → pa_assembly → pas_submit
+                        └─ no ──→ finalize      → determination ⟲ (pended,
+                                  (early exit)     bounded) → finalize
 
-Slice 2 wires CRD + assembly with the "PA not required" early-exit
-conditional edge; Slice 3 inserts pas_submit + determination between
-assembly and finalize. No LLM runs in this path — the denied→appeal handoff
-is a pointer, and launching the appeal stays a separate human-gated request.
+Denied determinations carry an AppealHandoff pointer on the done event; the
+appeal is never auto-launched (human-gated). No LLM runs in this path.
 
 Emits InitialPaEvent objects (StepEvent | InitialPaDoneEvent | ErrorEvent)
 through LangGraph's custom stream channel, with the same boundary contract
@@ -25,14 +24,17 @@ from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 
 from agents.nodes.crd_check import run_crd_check
+from agents.nodes.determination import run_determination
 from agents.nodes.pa_assembly import run_pa_assembly
 from agents.nodes.pa_ingestion import run_pa_ingestion
+from agents.nodes.pas_submit import run_pas_submit
 from models.schemas import (
     ErrorEvent,
     InitialPaDoneEvent,
     InitialPaEvent,
     InitialPaRequest,
     InitialPaState,
+    PaDecision,
     StepEvent,
 )
 
@@ -63,6 +65,18 @@ async def _assemble_node(state: InitialPaState) -> InitialPaState:
     return run_pa_assembly(state)
 
 
+async def _pas_submit_node(state: InitialPaState) -> InitialPaState:
+    writer = get_stream_writer()
+    writer(StepEvent(step="pas_submit", label="Transmitting on the PAS rail…"))
+    return run_pas_submit(state)
+
+
+async def _determination_node(state: InitialPaState) -> InitialPaState:
+    writer = get_stream_writer()
+    writer(StepEvent(step="determination", label="Awaiting payer determination…"))
+    return run_determination(state)
+
+
 async def _finalize_node(state: InitialPaState) -> InitialPaState:
     writer = get_stream_writer()
     pa_required = state["pa_required"]
@@ -87,11 +101,22 @@ def _after_crd_check(state: InitialPaState) -> str:
     return "finalize"
 
 
+def _after_determination(state: InitialPaState) -> str:
+    """Conditional edge: pended → re-enter determination (bounded by the
+    node's pend-cycle rule); approved/denied → finalize."""
+    outcome = state["outcome"]
+    if outcome is not None and outcome.decision is PaDecision.pended:
+        return "determination"
+    return "finalize"
+
+
 def _build_graph() -> StateGraph:
     graph: StateGraph = StateGraph(InitialPaState)
     graph.add_node("ingestion", _ingestion_node)
     graph.add_node("crd_check", _crd_check_node)
     graph.add_node("assemble", _assemble_node)
+    graph.add_node("pas_submit", _pas_submit_node)
+    graph.add_node("determination", _determination_node)
     graph.add_node("finalize", _finalize_node)
 
     graph.add_edge(START, "ingestion")
@@ -101,7 +126,14 @@ def _build_graph() -> StateGraph:
         _after_crd_check,
         {"assemble": "assemble", "finalize": "finalize"},
     )
-    graph.add_edge("assemble", "finalize")
+    graph.add_edge("assemble", "pas_submit")
+    graph.add_edge("pas_submit", "determination")
+    graph.add_conditional_edges(
+        "determination",
+        _after_determination,
+        # A pend re-enters determination only — it never re-submits the PA.
+        {"determination": "determination", "finalize": "finalize"},
+    )
     graph.add_edge("finalize", END)
     return graph
 

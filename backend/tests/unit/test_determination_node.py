@@ -12,13 +12,13 @@ separate human-gated request.
 
 from __future__ import annotations
 
+from agents.nodes.crd_check import run_crd_check
 from agents.nodes.determination import (
     MAX_PEND_CYCLES,
     derive_determination,
     make_appeal_handoff,
     run_determination,
 )
-from agents.nodes.crd_check import run_crd_check
 from agents.nodes.pa_assembly import run_pa_assembly
 from agents.nodes.pa_ingestion import run_pa_ingestion
 from models.schemas import (

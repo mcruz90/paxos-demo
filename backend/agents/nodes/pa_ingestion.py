@@ -31,5 +31,6 @@ def run_pa_ingestion(request: InitialPaRequest) -> InitialPaState:
         "submission_ref": "",
         "outcome": None,
         "appeal_handoff": None,
+        "pend_cycles": 0,
         "errors": [],
     }

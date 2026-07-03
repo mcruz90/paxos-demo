@@ -420,6 +420,8 @@ class InitialPaState(TypedDict):
     # Set by determination
     outcome: PaOutcome | None
     appeal_handoff: AppealHandoff | None
+    # Completed pend/info-request cycles (bounded — the pended loop must terminate)
+    pend_cycles: int
     errors: list[str]
 
 
