@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from models.schemas import CaseStatus, RuleType
+from models.schemas import CaseLifecycle, CaseStatus, PaDecision, RuleType
 
 _TYPES_TS = Path(__file__).resolve().parents[3] / "src" / "types.ts"
 
@@ -43,5 +43,25 @@ def test_rule_type_matches_frontend_union() -> None:
     backend = {member.value for member in RuleType}
     assert backend == frontend, (
         f"RuleType drift — backend-only: {backend - frontend}, "
+        f"frontend-only: {frontend - backend}"
+    )
+
+
+def test_case_lifecycle_matches_frontend_union() -> None:
+    frontend = _ts_union_values("CaseLifecycle")
+    backend = {member.value for member in CaseLifecycle}
+    assert backend == frontend, (
+        f"CaseLifecycle drift — backend-only: {backend - frontend}, "
+        f"frontend-only: {frontend - backend}"
+    )
+
+
+def test_pa_decision_matches_frontend_union() -> None:
+    """PaDecision (S2 Slice 1) — the determination decision the initial-PA
+    lifecycle branches on. New enum ⇒ types.ts mirror + parity coverage."""
+    frontend = _ts_union_values("PaDecision")
+    backend = {member.value for member in PaDecision}
+    assert backend == frontend, (
+        f"PaDecision drift — backend-only: {backend - frontend}, "
         f"frontend-only: {frontend - backend}"
     )
