@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-import agents.nodes.retrieval as retrieval
+import agents.requirements_lookup as requirements_lookup
 from agents.nodes.retrieval import run_retrieval
 from errors import ETLParseError
 from models.schemas import (
@@ -221,7 +221,9 @@ def test_retrieval_state_purity() -> None:
 
 # ---------------------------------------------------------------------------
 # _load_requirements() error handling — malformed pack must raise ETLParseError,
-# not a bare KeyError (validated via Pydantic before use per CLAUDE.md)
+# not a bare KeyError (validated via Pydantic before use per CLAUDE.md).
+# Loader lives in agents/requirements_lookup.py since the S2 Slice 2 DRY
+# extraction (CRD check is the second consumer).
 # ---------------------------------------------------------------------------
 
 
@@ -244,10 +246,10 @@ def test_load_requirements_raises_etl_parse_error_on_missing_field(
         ),
         encoding="utf-8",
     )
-    monkeypatch.setattr(retrieval, "_REQUIREMENTS_PATH", bad_file)
+    monkeypatch.setattr(requirements_lookup, "_REQUIREMENTS_PATH", bad_file)
 
     with pytest.raises(ETLParseError):
-        retrieval._load_requirements()
+        requirements_lookup._load_requirements()
 
 
 def test_load_requirements_raises_etl_parse_error_on_malformed_json(
@@ -256,7 +258,7 @@ def test_load_requirements_raises_etl_parse_error_on_malformed_json(
     """Invalid JSON syntax must raise ETLParseError."""
     bad_file = tmp_path / "pa_requirements.json"
     bad_file.write_text("{not valid json", encoding="utf-8")
-    monkeypatch.setattr(retrieval, "_REQUIREMENTS_PATH", bad_file)
+    monkeypatch.setattr(requirements_lookup, "_REQUIREMENTS_PATH", bad_file)
 
     with pytest.raises(ETLParseError):
-        retrieval._load_requirements()
+        requirements_lookup._load_requirements()
