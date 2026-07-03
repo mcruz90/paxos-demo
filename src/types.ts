@@ -13,6 +13,10 @@ export type CaseLifecycle = 'initial_pa' | 'appeal'
 // Payer determination decision on an initial-PA submission. Mirrors backend
 // PaDecision (schemas.py) — parity-tested in test_schema_parity.py.
 export type PaDecision = 'approved' | 'pended' | 'denied'
+// AI-accountability provenance on every AuditRecord: what the outbound
+// artifact was when it left the system. Mirrors backend AuditProvenance
+// (schemas.py) — parity-tested in test_schema_parity.py.
+export type AuditProvenance = 'as_is' | 'gatekeeper_corrected' | 'human_edited'
 
 export interface Rule {
   type: RuleType
@@ -122,7 +126,11 @@ export type Urgency = 'today' | 'soon' | 'later'
 
 export interface Client {
   id: number
-  name: string
+  name: string                  // Case reference, e.g. 'Case #PH-3101'
+  patientDisplayName?: string   // Human-readable patient name, e.g. 'Margaret Vance'
+  patientDob?: string           // Date of birth label, e.g. '03/14/1972'
+  payer?: string                // Short payer name, e.g. 'Cigna', 'UnitedHealthcare'
+  gapSummary?: string           // Per-case one-line clinical context for the queue preview
   drug: string
   categoryLabel: string
   status: CaseStatus

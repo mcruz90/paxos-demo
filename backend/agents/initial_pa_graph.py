@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from typing import cast
 
 from langgraph.config import get_stream_writer
@@ -28,7 +29,12 @@ from agents.nodes.determination import run_determination
 from agents.nodes.pa_assembly import run_pa_assembly
 from agents.nodes.pa_ingestion import run_pa_ingestion
 from agents.nodes.pas_submit import run_pas_submit
+from audit.boundary import with_audit
+from audit.ids import derive_case_id, derive_correlation_id, derive_idempotency_key
 from models.schemas import (
+    AuditProvenance,
+    AuditRecord,
+    CaseLifecycle,
     ErrorEvent,
     InitialPaDoneEvent,
     InitialPaEvent,
@@ -149,9 +155,10 @@ async def run_initial_pa_pipeline(
     """Execute the initial-PA pipeline and yield SSE events.
 
     Boundary contract (same as the appeal pipeline): every stream terminates
-    with a ``done`` or ``error`` event — a node exception must never
-    propagate out of this generator, because SSE headers are already sent and
-    the client would see a bare disconnect with no event.
+    with a ``done`` or ``error`` event, the terminal event carries the run's
+    ``correlation_id``, and exactly one :class:`AuditRecord` is written
+    before the terminal event is yielded (idempotent on case + attempt —
+    ADR-0009).
 
     Args:
         request: A fully-validated :class:`InitialPaRequest`. No LLM backend
@@ -160,6 +167,47 @@ async def run_initial_pa_pipeline(
     Yields:
         :class:`StepEvent`, :class:`InitialPaDoneEvent`, or
         :class:`ErrorEvent` objects.
+    """
+    case_id = derive_case_id(request.case_ref, request.scenario_id)
+    correlation_id = derive_correlation_id(case_id, request.attempt)
+    idempotency_key = derive_idempotency_key(case_id, request.attempt)
+
+    def build_record(event: InitialPaEvent, duration_ms: int) -> AuditRecord:
+        done = event if isinstance(event, InitialPaDoneEvent) else None
+        return AuditRecord(
+            correlation_id=correlation_id,
+            idempotency_key=idempotency_key,
+            lifecycle=CaseLifecycle.initial_pa,
+            case_ref=request.case_ref,
+            scenario_id=request.scenario_id,
+            drug=request.drug,
+            plan=request.plan,
+            timestamp=datetime.now(UTC).isoformat(),
+            duration_ms=duration_ms,
+            outcome="done" if done else "error",
+            # No LLM in this path — model_name stays "".
+            artifact_ref=done.submission_ref if done else "",
+            pa_resolution=done.pa_resolution if done else "",
+            # Machine-assembled artifact, unedited.
+            provenance=AuditProvenance.as_is,
+        )
+
+    async for event in with_audit(
+        _generate_events(request),
+        correlation_id=correlation_id,
+        build_record=build_record,
+    ):
+        yield event
+
+
+async def _generate_events(
+    request: InitialPaRequest,
+) -> AsyncIterator[InitialPaEvent]:
+    """Pipeline event stream: security gate → graph run → guaranteed terminal.
+
+    A node exception must never propagate out of this generator (SSE headers
+    are already sent); the broad catch converts it to a terminal ``error``
+    event with a generic message, full detail logged server-side.
     """
     try:
         # --- security hold enforcement (before any node runs) ---

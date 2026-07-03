@@ -53,6 +53,22 @@ class CaseLifecycle(StrEnum):
     appeal = "appeal"
 
 
+class AuditProvenance(StrEnum):
+    """What the outbound artifact was when it left the system (S2 Slice 4).
+
+    AI-accountability provenance (CLAUDE.md §AI Output Accountability): the
+    audit trail must record what was actually verified before an artifact
+    reached a payer, not just that a pipeline ran. `as_is` = machine output,
+    unedited (all pipeline-boundary writes today); `gatekeeper_corrected`
+    arrives with the S4 blocking claim→citation gatekeeper; `human_edited`
+    arrives with the HITL review flows.
+    """
+
+    as_is = "as_is"
+    gatekeeper_corrected = "gatekeeper_corrected"
+    human_edited = "human_edited"
+
+
 class PaDecision(StrEnum):
     """Payer determination decision on an initial-PA submission (S2 Slice 1).
 
@@ -263,6 +279,10 @@ class AppealRequest(BaseModel):
     plan_id: Annotated[str, Field(max_length=100)]
     criteria_results: list[CriterionResult]
     company_names: list[str] = Field(default_factory=list)
+    # Deliberate resubmission counter — part of the audit idempotency key
+    # (case_id + attempt, ADR-0009). A transport retry reuses the same attempt;
+    # a client bumps it to file the same case again on purpose.
+    attempt: Annotated[int, Field(ge=1)] = 1
     # Set by ETL pipeline when hidden/suspicious content is detected in source document.
     # Not expected from HTTP clients — defaults to False on inbound requests.
     security_hold: bool = False
@@ -294,6 +314,9 @@ class InitialPaRequest(BaseModel):
     # The therapy the structured PA request asks the payer to authorize.
     requested_therapy: Annotated[str, Field(max_length=200)]
     criteria_results: list[CriterionResult]
+    # Deliberate resubmission counter — part of the audit idempotency key
+    # (case_id + attempt, ADR-0009).
+    attempt: Annotated[int, Field(ge=1)] = 1
     # Set by ETL pipeline when hidden/suspicious content is detected in source
     # documents. Same detection flag as AppealRequest — the pipeline gate is
     # the single enforcement point for both lifecycles.
@@ -349,12 +372,21 @@ class DoneEvent(BaseModel):
     # A generic-fallback letter is a materially different artifact from a
     # payer-specific one; the audit trail must be able to tell them apart.
     pa_resolution: PaResolution = ""
+    # Gatekeeper retries that preceded the pass ("passed after N retries" is
+    # a quality signal the audit trail records; S2 Slice 4).
+    retry_count: int = 0
+    # Stamped at the pipeline boundary; equals the AuditRecord's
+    # correlation_id, so a client can reference its run end-to-end (ADR-0009).
+    correlation_id: str = ""
 
 
 class ErrorEvent(BaseModel):
     event: Literal["error"] = "error"
     message: str
     retry_count: int = 0
+    # Stamped at the pipeline boundary (ADR-0009); "" only for pre-pipeline
+    # failures (e.g. backend construction in main.py).
+    correlation_id: str = ""
 
 
 AppealEvent = StepEvent | ChunkEvent | DoneEvent | ErrorEvent
@@ -380,6 +412,9 @@ class InitialPaDoneEvent(BaseModel):
     submission_ref: str = ""
     # Which retrieval path produced the PA criteria (audit-relevant, hard-5).
     pa_resolution: PaResolution = ""
+    # Stamped at the pipeline boundary; equals the AuditRecord's
+    # correlation_id (ADR-0009).
+    correlation_id: str = ""
 
 
 # The initial-PA stream never emits chunks: there is no LLM in this path.
@@ -426,21 +461,42 @@ class InitialPaState(TypedDict):
 
 
 # ---------------------------------------------------------------------------
-# Audit record (in-memory pre-DB)
+# Audit record (in-memory pre-DB — written at both pipeline boundaries,
+# before the terminal SSE event; S2 Slice 4)
 # ---------------------------------------------------------------------------
 
 
 class AuditRecord(BaseModel):
+    """One entry per pipeline run — done or error, either lifecycle.
+
+    Identifiers and hashes only, never letter/request text (PHI rule).
+    Idempotent on ``idempotency_key`` = case_id + attempt (ADR-0009);
+    ``correlation_id`` coincides with it pre-DB, so a single ID traces logs,
+    the terminal event, and this record.
+    """
+
+    correlation_id: str
+    idempotency_key: str
+    lifecycle: CaseLifecycle
+    case_ref: str = ""
     scenario_id: str
     drug: str
     plan: str
-    denial_reason: str
+    denial_reason: str = ""  # appeal lifecycle only
     timestamp: str
     duration_ms: int
-    model_name: str
+    outcome: Literal["done", "error"]
+    # "" for the no-LLM initial-PA path.
+    model_name: str = ""
     prompt_tokens: int = 0
     completion_tokens: int = 0
-    appeal_text_hash: str
-    gatekeeper_passed: bool
-    retry_count: int
+    # sha256 prefix of the outbound artifact: DoneEvent.ref (appeal letter)
+    # or the PAS submission_ref (initial PA). "" on error runs.
+    artifact_ref: str = ""
+    gatekeeper_passed: bool = False
+    retry_count: int = 0
     structural_eval_scores: dict[str, float] = Field(default_factory=dict)
+    # Which retrieval path produced the PA criteria (hard-5).
+    pa_resolution: PaResolution = ""
+    # AI-accountability: what the artifact was when it left the system.
+    provenance: AuditProvenance
