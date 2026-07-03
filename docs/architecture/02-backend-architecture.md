@@ -61,7 +61,9 @@ provider SDK; `models/` contains no logic; prompt copy lives only in
 
 `run_pipeline(request, llm_backend)` in
 [backend/agents/graph.py](../../backend/agents/graph.py) is an async generator
-yielding SSE events. Sequence for one request:
+yielding SSE events. Since Sprint 2 Slice 0 it executes a LangGraph
+`StateGraph(PipelineState)` under the hood (see the orchestration section
+below); the event sequence for one request is unchanged:
 
 ```mermaid
 sequenceDiagram
@@ -119,29 +121,42 @@ Two boundary guarantees added in the hardening pass
    disconnect. Detail is logged server-side (identifiers only, PHI rule);
    clients get a generic message.
 
-## Orchestration: interim vs target
+## Orchestration: LangGraph StateGraph (live since Sprint 2 Slice 0)
 
 > **This is the section that answers "who orchestrates the DAG?"**
-> Full decision record: [ADR-0001](adr/0001-langgraph-target-orchestrator.md).
+> Full decision record: [ADR-0001](adr/0001-langgraph-target-orchestrator.md)
+> — executed 2026-07-02, behavior-preserving (the pre-migration 425-test suite
+> passed unmodified).
 
-**Current (interim):** `agents/graph.py` is a hand-rolled async generator —
-plain sequential calls plus a retry loop. It exists in this form because the
-current topology is linear, SSE interleaving is trivial to hand-roll, and the
-hardening pass deliberately removed unused dependencies (`langgraph` among
-them, chore-11) rather than carry an unexercised framework.
+`agents/graph.py` compiles a `StateGraph(PipelineState)` once at import and
+runs it per request. Design points:
 
-**Target:** **LangGraph is the committed orchestrator.** The migration
-trigger is the TierRouter node (tiered HITL routing: routine / complex /
-exception), which introduces conditional edges, checkpointing, and
-human-in-the-loop interrupts — exactly what `StateGraph` provides and a
-hand-rolled loop starts to reimplement badly. Planned for Sprint 2/3.
-
-The migration is cheap **by construction**: every node is already a pure
-`(state) → state` function over the `PipelineState` TypedDict — LangGraph's
-native node shape. Adopting it means re-wiring `graph.py`
-(`StateGraph(PipelineState)` + `add_node`/`add_edge`), not rewriting nodes.
-**Do not add orchestration logic (branching, persistence, interrupts) to the
-hand-rolled loop — that work belongs to the LangGraph migration.**
+- **Wrapper nodes own event emission, nothing else.** Each graph node is a
+  thin async wrapper that writes `StepEvent`/`ChunkEvent` to LangGraph's
+  custom stream channel (`get_stream_writer()`) and delegates all logic to
+  the untouched pure functions in `agents/nodes/`. `run_pipeline` forwards
+  the custom stream — its public signature and the SSE event contract are
+  identical to the pre-migration implementation.
+- **The synthesis→gatekeeper retry loop is a conditional edge**
+  (`_after_gatekeeper`: passed → `finalize`, failed & retries left →
+  `synthesis`, exhausted → `exhausted`). `finalize` emits `DoneEvent`;
+  `exhausted` emits the terminal `ErrorEvent` with `retry_count=3`.
+- **`llm_backend` is injected via `config["configurable"]`**, not captured in
+  a closure — the compiled graph is a module-level singleton; per-run state
+  isolation (ACID §Isolation) holds because there is no checkpointer.
+- **Boundary guarantees carry over:** the `security_hold` gate runs in
+  `run_pipeline` before the graph is invoked (LLM never constructed into a
+  node call for held requests), and the one deliberate broad catch still
+  converts any node exception into a terminal `error` event.
+- **Checkpointing/interrupts are deliberately not enabled yet** — that is the
+  Sprint 3 exception-queue slice. `langgraph-checkpoint` is floor-pinned
+  (`>=3.0`, CVE-2025-67644) but no checkpointer is configured.
+- **LangSmith stays dark.** `langsmith` arrives as a mandatory transitive of
+  `langchain-core`; `main.py` force-sets `LANGSMITH_TRACING` /
+  `LANGCHAIN_TRACING_V2` to `"false"` after `load_dotenv()` so PHI trace
+  payloads can never leave the process via a stray env var
+  (test: `tests/unit/test_telemetry_disabled.py`). Planned observability
+  remains self-hosted Langfuse.
 
 ## Patterns in force
 

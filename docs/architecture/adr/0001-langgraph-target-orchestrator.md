@@ -1,6 +1,10 @@
 # ADR-0001: LangGraph is the target orchestrator; the hand-rolled pipeline is interim
 
-- **Status:** Accepted
+- **Status:** Accepted — **executed 2026-07-02** (Sprint 2 Slice 0, branch
+  `sprint-2-initial-pa`): `agents/graph.py` is now a
+  `StateGraph(PipelineState)`; the pre-migration 425-test suite passed
+  unmodified. See [02-backend-architecture.md](../02-backend-architecture.md)
+  §Orchestration for the as-built design.
 - **Date:** 2026-07-02 (backfilled; decision originally made in project
   planning conversations, then lost — see Context)
 - **Decided by:** May
