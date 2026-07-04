@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from agents.graph import run_pipeline
-from models.schemas import AppealRequest, DoneEvent, ErrorEvent, StepEvent
+from models.schemas import AppealRequest, CaseTier, DoneEvent, ErrorEvent, StepEvent
 from tests.conftest import MockLLMBackend
 
 
@@ -90,6 +90,45 @@ async def test_done_event_reports_pa_resolution(base_appeal_request: AppealReque
             done = event
     assert done is not None
     assert done.pa_resolution == "plan_id"
+
+
+@pytest.mark.asyncio
+async def test_done_event_carries_tier(base_appeal_request: AppealRequest) -> None:
+    """S3 Slice 3: the TierRouter runs on the gatekeeper-pass path, so the
+    DoneEvent surfaces the deterministic HITL review tier. The golden Ozempic
+    request has two mid-band criteria (0.92, 0.74), so it routes to complex —
+    a non-trivial tier that proves the node is actually wired, not defaulted."""
+    done = None
+    async for event in run_pipeline(base_appeal_request, llm_backend=MockLLMBackend()):
+        if isinstance(event, DoneEvent):
+            done = event
+    assert done is not None
+    assert done.tier == CaseTier.complex
+
+
+@pytest.mark.asyncio
+async def test_exhausted_error_run_has_no_tier(
+    base_appeal_request: AppealRequest,
+) -> None:
+    """The exhausted path terminates as an ErrorEvent and never finalizes: no
+    letter was produced, so there is nothing to route to a review surface.
+    ErrorEvent carries no tier — tier is a property of a produced artifact."""
+
+    class AlwaysFailBackend:
+        model_name = "always-fail"
+
+        async def generate_stream(self, prompt):
+            yield "I cannot assist with this request."
+
+        async def generate(self, prompt):
+            return "I cannot assist with this request."
+
+    events = []
+    async for event in run_pipeline(base_appeal_request, llm_backend=AlwaysFailBackend()):
+        events.append(event)
+
+    error = next(e for e in events if isinstance(e, ErrorEvent))
+    assert not hasattr(error, "tier"), "ErrorEvent must not carry a review tier"
 
 
 @pytest.mark.asyncio

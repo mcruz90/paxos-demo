@@ -19,6 +19,7 @@ from models.schemas import (
     AppealRequest,
     AuditProvenance,
     CaseLifecycle,
+    CaseTier,
     CriterionResult,
     CriterionStatus,
     DoneEvent,
@@ -88,6 +89,10 @@ async def test_appeal_done_run_writes_exactly_one_record(base_appeal_request) ->
     assert record.pa_resolution == done.pa_resolution
     assert record.correlation_id
     assert record.correlation_id == done.correlation_id
+    # S3 Slice 3: the deterministic HITL tier is recorded on the audit entry
+    # (the golden Ozempic request routes to complex) and matches the DoneEvent.
+    assert record.tier == CaseTier.complex
+    assert record.tier == done.tier
 
 
 @pytest.mark.asyncio
@@ -129,6 +134,9 @@ async def test_appeal_error_run_writes_record(base_appeal_request) -> None:
     assert len(records) == 1
     assert records[0].outcome == "error"
     assert records[0].retry_count == 3
+    # The exhausted path produced no letter, so there is no artifact to route
+    # to a review surface — tier stays None on an error run (S3 Slice 3).
+    assert records[0].tier is None
     error = next(e for e in events if isinstance(e, ErrorEvent))
     assert error.correlation_id == records[0].correlation_id
 
