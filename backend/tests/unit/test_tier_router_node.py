@@ -19,8 +19,6 @@ Run from backend/:
 
 from __future__ import annotations
 
-import pytest
-
 from agents.nodes.ingestion import run_ingestion
 from agents.nodes.tier_router import TierSignals, decide_tier, run_tier_router
 from models.schemas import (
