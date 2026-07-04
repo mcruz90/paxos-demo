@@ -97,7 +97,8 @@ stateDiagram-v2
     ingestion --> retrieval
     retrieval --> synthesis : attempt 1
     synthesis --> gatekeeper : stream collected
-    gatekeeper --> done_event : passed (+ eval_structural, ref hash)
+    gatekeeper --> tier_router : passed
+    tier_router --> done_event : tier assigned (+ eval_structural, ref hash)
     gatekeeper --> synthesis : failed, attempt < 3
     gatekeeper --> error_event : failed, attempt == 3
     ingestion --> error_event : unhandled exception (broad catch)
@@ -110,6 +111,16 @@ Retry semantics: only the **synthesis → gatekeeper** pair retries
 (`MAX_RETRIES = 3`); ingestion/retrieval failures are not retried (retrieval
 by design cannot fail — generic fallback). `retry_count` rides along in
 `PipelineState` and is reported on the terminal `ErrorEvent`.
+
+Tier routing (S3 Slice 3): a gatekeeper pass runs **tier_router** — the
+deterministic HITL router (never an LLM; Illinois, MD HB 1563) — before
+`finalize`, so the terminal `DoneEvent` and the `AuditRecord` carry the
+review tier (`routine` / `complex` / `exception`). The exhausted branch
+(`error_event`) produced no letter, so it carries **no** tier — tier is a
+property of a produced artifact, and `decide_tier`'s gatekeeper-exhausted →
+exception rule is therefore unreachable from this wired path (the exhausted
+branch intercepts `>= MAX_RETRIES` first) and stays a defensive completeness
+guard, exercised only in `decide_tier`'s unit tests.
 
 ## Initial-PA pipeline run — one request (S2)
 

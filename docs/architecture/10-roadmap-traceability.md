@@ -20,9 +20,9 @@ flowchart TB
         subgraph nodes2 ["Nodes"]
             ing2["ingestion"]
             ret2["retrieval"]
-            tier["TierRouter<br/>routine / complex / exception"]
             syn2["synthesis"]
             gate2["gatekeeper"]
+            tier["TierRouter<br/>routine / complex / exception<br/>(live — S3 Slice 3)"]
         end
         ml2["ml/ — LLMBackend Protocol<br/>groq · mock · (+ future providers)"]
         subgraph etl2 ["ETL adapters"]
@@ -41,8 +41,8 @@ flowchart TB
     ehrs["EHRs (Epic, Athena, ModMed)"]
 
     ui --> api2 --> lg
-    lg --> ing2 --> ret2 --> tier
-    tier --> syn2 --> gate2
+    lg --> ing2 --> ret2 --> syn2 --> gate2
+    gate2 -- "passed" --> tier
     tier -- "exception → human queue" --> ui
     ml2 --> groq3
     lg --> ml2
@@ -53,7 +53,6 @@ flowchart TB
     api2 -.-> audit -.-> pg3
     api2 -.-> payer2
 
-    style tier stroke-dasharray: 5 5
     style ehr2 stroke-dasharray: 5 5
     style pol stroke-dasharray: 5 5
     style qd2 stroke-dasharray: 5 5
@@ -77,7 +76,7 @@ backend earns it milestone by milestone.
 | **LangGraph migration** (Sprint 2 **Slice 0** — resequenced 2026-07-02) | `agents/graph.py` → `StateGraph(PipelineState)`; `run_pipeline` signature + SSE contract unchanged; nodes untouched | `langgraph`, `langchain-core>=1.3.3` | [02](02-backend-architecture.md); executes [ADR-0001](adr/0001-langgraph-target-orchestrator.md) | **Live** (2026-07-02, S2 Slice 0 — suite passed unmodified) |
 | **Sprint 2 — Initial-PA lifecycle** | `models/schemas.py` (lifecycle fields exist; new lifecycle-named request — NOT an `AppealRequest` extension), new nodes/routes for CRD→DTR→PAS flow, `CasePacket` wiring | via Slice 0 above | [03](03-domain-model.md), [05](05-state-lifecycle.md), [06](06-api-contract.md) | **Live** (2026-07-03, S2 Slices 1–5: `InitialPaRequest`, CRD/assembly nodes, stub PAS rail + determination, `/api/pa/submit`; stretch upload route not done) |
 | **AuditRecord wiring** (with Sprint 2) | Pipeline boundary writes in-memory `list[AuditRecord]`; provenance field (as-is / gatekeeper-corrected / human-edited); idempotency key = `case_id` + attempt | none | [03](03-domain-model.md), [06](06-api-contract.md), [ADR-0009](adr/0009-idempotency-key-and-audit-writes.md) | **Live** (2026-07-03, S2 Slice 4 — both lifecycles, every terminal) |
-| **TierRouter / HITL tiering** (Sprint 3) | New `agents/nodes/tier_router.py` (deterministic, never LLM-decided); `CriterionResult.confidence` first (spec-first, ripples to frontend); `CaseTier` becomes a backend enum | none (LangGraph already in from S2 Slice 0) | [02](02-backend-architecture.md), [03](03-domain-model.md), [05](05-state-lifecycle.md) | In progress — `CriterionResult.confidence` **Live** (2026-07-03, S3 Slice 1: schema + types.ts mirror + field parity + adapter + golden labels); `tier_router.py` + `CaseTier` backend enum **Live** (2026-07-03, S3 Slice 2 — node built, not yet wired); remaining: Slice 3 wiring (edge + DoneEvent/AuditRecord + frontend) + Slice 4 exception interrupt — slices in [11](11-sprint-plan.md) |
+| **TierRouter / HITL tiering** (Sprint 3) | New `agents/nodes/tier_router.py` (deterministic, never LLM-decided); `CriterionResult.confidence` first (spec-first, ripples to frontend); `CaseTier` becomes a backend enum | none (LangGraph already in from S2 Slice 0) | [02](02-backend-architecture.md), [03](03-domain-model.md), [05](05-state-lifecycle.md) | In progress — `CriterionResult.confidence` **Live** (2026-07-03, S3 Slice 1: schema + types.ts mirror + field parity + adapter + golden labels); `tier_router.py` + `CaseTier` backend enum **Live** (2026-07-03, S3 Slice 2); wiring **Live** (2026-07-04, S3 Slice 3 — gatekeeper-pass edge `gatekeeper → tier_router → finalize`, `tier` on `DoneEvent`/`AuditRecord`; exhausted path carries no tier; frontend already keys review UI off `getCaseTier`); remaining: Slice 4 exception interrupt — slices in [11](11-sprint-plan.md) |
 | **Live-LLM eval CLI** (Sprint 4) | `evals/run_evals.py`; golden-set dimension scorers (claim_citation etc.) | none (uses existing provider) | [09](09-test-architecture.md) | Planned; never in CI |
 | **Qdrant policy retrieval** (Phase 1.2 / S5) | `etl/policy_ingest/`; retrieval node gains vector path; coverage-driven resolution (BIN/PCN/Group via `golden/coverage_pool.json`) | `qdrant-client`, `sentence-transformers` | [02](02-backend-architecture.md), [04](04-data-flow.md), new ADR (vector store choice) | Planned — S5 hook comments already in code |
 | **DSPy EHR extraction** (Phase 1.3) | `etl/ehr_extract/`; new adapter → `CasePacket` | `dspy` | [04](04-data-flow.md) | Planned — dir stub exists |

@@ -57,13 +57,14 @@ found): route handlers contain no business logic; nodes never import a
 provider SDK; `models/` contains no logic; prompt copy lives only in
 `agents/prompts.py`.
 
-## The 4-node pipeline
+## The appeal pipeline
 
 `run_pipeline(request, llm_backend)` in
 [backend/agents/graph.py](../../backend/agents/graph.py) is an async generator
 yielding SSE events. Since Sprint 2 Slice 0 it executes a LangGraph
 `StateGraph(PipelineState)` under the hood (see the orchestration section
-below); the event sequence for one request is unchanged:
+below); the event sequence for one request adds only the `tier_router` step
+on the gatekeeper-pass path (S3 Slice 3):
 
 ```mermaid
 sequenceDiagram
@@ -90,13 +91,15 @@ sequenceDiagram
         G->>N: apply_synthesis(state, text, model_name)
         G->>N: run_gatekeeper(state)
         alt passed_gatekeeper
+            G-->>C: StepEvent "tier_router"
+            G->>N: run_tier_router(state) → tier (deterministic HITL, never LLM)
             G->>G: eval_structural(text, request)
-            G-->>C: DoneEvent (model, ref=sha256[:12], structural_scores, pa_resolution)
+            G-->>C: DoneEvent (model, ref=sha256[:12], structural_scores, pa_resolution, tier)
         else failed
             G->>G: retry_count += 1
         end
     end
-    G-->>C: ErrorEvent (retry_count=3) if all retries exhausted
+    G-->>C: ErrorEvent (retry_count=3, no tier) if all retries exhausted
 ```
 
 Node contracts (all pure — no I/O inside the function; retrieval does its file
@@ -108,7 +111,7 @@ I/O once at module load):
 | [retrieval.py](../../backend/agents/nodes/retrieval.py) | `(PipelineState) → PipelineState` | PA criteria lookup: exact `plan_id` → drug-alias substring → generic fallback; records which path fired in `pa_resolution` (hard-5); never raises |
 | [synthesis.py](../../backend/agents/nodes/synthesis.py) | `build_prompt(state) → str`; `apply_synthesis(state, text, model) → PipelineState` | Fills the XML-delimited template from `agents/prompts.py`; the *graph* owns the streaming loop so it can interleave ChunkEvents (hard-9) |
 | [gatekeeper.py](../../backend/agents/nodes/gatekeeper.py) | `(PipelineState) → PipelineState` | Deterministic checks, in order: length ≥ 300 chars, drug present, diagnosis present, no refusal/AI-identity phrases. Sets `passed_gatekeeper`, appends `errors`. Owns `MAX_RETRIES` (the graph's conditional edge and the tier router both import it) |
-| [tier_router.py](../../backend/agents/nodes/tier_router.py) | `decide_tier(TierSignals) → CaseTier`; `(PipelineState) → PipelineState` | **Deterministic HITL tier routing (S3 Slice 2) — never an LLM deciding tier** (Illinois, MD HB 1563). Routine = all criteria confidence ≥ 0.95 + first-pass gatekeeper; complex = any [0.70, 0.95), counter-offer, `drug_alias` resolution (first drug/plan pairing), or passed-after-retries; exception = any < 0.70/unassessed/no criteria, gatekeeper exhausted, novel denial reason, or `pa_resolution == "generic"` (the hard-5 signal's consumer). Exception > complex. Sets `PipelineState.tier`. **Not yet wired into the graph — the post-gatekeeper conditional edge, `tier` on `DoneEvent`/`AuditRecord`, and the frontend keying are S3 Slice 3** |
+| [tier_router.py](../../backend/agents/nodes/tier_router.py) | `decide_tier(TierSignals) → CaseTier`; `(PipelineState) → PipelineState` | **Deterministic HITL tier routing (S3 Slice 2) — never an LLM deciding tier** (Illinois, MD HB 1563). Routine = all criteria confidence ≥ 0.95 + first-pass gatekeeper; complex = any [0.70, 0.95), counter-offer, `drug_alias` resolution (first drug/plan pairing), or passed-after-retries; exception = any < 0.70/unassessed/no criteria, gatekeeper exhausted, novel denial reason, or `pa_resolution == "generic"` (the hard-5 signal's consumer). Exception > complex. Sets `PipelineState.tier`. **Wired (S3 Slice 3):** the gatekeeper-pass conditional edge routes `gatekeeper → tier_router → finalize`, and `tier` rides the `DoneEvent` + `AuditRecord`. The exhausted path carries no tier (no letter produced) |
 
 ## The initial-PA pipeline (S2)
 
@@ -166,9 +169,11 @@ runs it per request. Design points:
   the custom stream — its public signature and the SSE event contract are
   identical to the pre-migration implementation.
 - **The synthesis→gatekeeper retry loop is a conditional edge**
-  (`_after_gatekeeper`: passed → `finalize`, failed & retries left →
-  `synthesis`, exhausted → `exhausted`). `finalize` emits `DoneEvent`;
-  `exhausted` emits the terminal `ErrorEvent` with `retry_count=3`.
+  (`_after_gatekeeper`: passed → `tier_router`, failed & retries left →
+  `synthesis`, exhausted → `exhausted`). On a pass, `tier_router` (S3 Slice 3,
+  deterministic HITL) runs before `finalize`, which emits the `DoneEvent`
+  carrying the review `tier`; `exhausted` emits the terminal `ErrorEvent` with
+  `retry_count=3` and no tier (no letter was produced).
 - **`llm_backend` is injected via `config["configurable"]`**, not captured in
   a closure — the compiled graph is a module-level singleton; per-run state
   isolation (ACID §Isolation) holds because there is no checkpointer.
