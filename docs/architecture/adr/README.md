@@ -20,6 +20,8 @@ pass. New decisions get new ADRs at decision time.
 | [0006](0006-sse-streaming-transport.md) | SSE transport with a guaranteed terminal event | Accepted |
 | [0007](0007-deferred-dependencies.md) | Dependencies stay out of the tree until something imports them | Accepted |
 | [0008](0008-event-driven-pubsub-declined.md) | Event-driven pub/sub architecture | Rejected |
+| [0009](0009-idempotency-key-and-audit-writes.md) | Idempotency-key shape and the pre-DB audit write path | Accepted |
+| [0010](0010-in-memory-checkpointer-exception-interrupt.md) | In-memory checkpointer for the exception-tier interrupt | Accepted |
 
 ## Statuses
 

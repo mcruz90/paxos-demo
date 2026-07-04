@@ -111,7 +111,7 @@ I/O once at module load):
 | [retrieval.py](../../backend/agents/nodes/retrieval.py) | `(PipelineState) → PipelineState` | PA criteria lookup: exact `plan_id` → drug-alias substring → generic fallback; records which path fired in `pa_resolution` (hard-5); never raises |
 | [synthesis.py](../../backend/agents/nodes/synthesis.py) | `build_prompt(state) → str`; `apply_synthesis(state, text, model) → PipelineState` | Fills the XML-delimited template from `agents/prompts.py`; the *graph* owns the streaming loop so it can interleave ChunkEvents (hard-9) |
 | [gatekeeper.py](../../backend/agents/nodes/gatekeeper.py) | `(PipelineState) → PipelineState` | Deterministic checks, in order: length ≥ 300 chars, drug present, diagnosis present, no refusal/AI-identity phrases. Sets `passed_gatekeeper`, appends `errors`. Owns `MAX_RETRIES` (the graph's conditional edge and the tier router both import it) |
-| [tier_router.py](../../backend/agents/nodes/tier_router.py) | `decide_tier(TierSignals) → CaseTier`; `(PipelineState) → PipelineState` | **Deterministic HITL tier routing (S3 Slice 2) — never an LLM deciding tier** (Illinois, MD HB 1563). Routine = all criteria confidence ≥ 0.95 + first-pass gatekeeper; complex = any [0.70, 0.95), counter-offer, `drug_alias` resolution (first drug/plan pairing), or passed-after-retries; exception = any < 0.70/unassessed/no criteria, gatekeeper exhausted, novel denial reason, or `pa_resolution == "generic"` (the hard-5 signal's consumer). Exception > complex. Sets `PipelineState.tier`. **Wired (S3 Slice 3):** the gatekeeper-pass conditional edge routes `gatekeeper → tier_router → finalize`, and `tier` rides the `DoneEvent` + `AuditRecord`. The exhausted path carries no tier (no letter produced) |
+| [tier_router.py](../../backend/agents/nodes/tier_router.py) | `decide_tier(TierSignals) → CaseTier`; `(PipelineState) → PipelineState` | **Deterministic HITL tier routing (S3 Slice 2) — never an LLM deciding tier** (Illinois, MD HB 1563). Routine = all criteria confidence ≥ 0.95 + first-pass gatekeeper; complex = any [0.70, 0.95), counter-offer, `drug_alias` resolution (first drug/plan pairing), or passed-after-retries; exception = any < 0.70/unassessed/no criteria, gatekeeper exhausted, novel denial reason, or `pa_resolution == "generic"` (the hard-5 signal's consumer). Exception > complex. Sets `PipelineState.tier`. **Wired (S3 Slice 3):** the gatekeeper-pass conditional edge routes `gatekeeper → tier_router → finalize`, and `tier` rides the `DoneEvent` + `AuditRecord`. The exhausted path carries no tier (no letter produced). **S3 Slice 4a:** an `exception` tier then parks at the `hold` node via `interrupt()` for human review (ADR-0010) — after `finalize` emits the `DoneEvent`, so the stream still terminates with `done` |
 
 ## The initial-PA pipeline (S2)
 
@@ -175,15 +175,24 @@ runs it per request. Design points:
   carrying the review `tier`; `exhausted` emits the terminal `ErrorEvent` with
   `retry_count=3` and no tier (no letter was produced).
 - **`llm_backend` is injected via `config["configurable"]`**, not captured in
-  a closure — the compiled graph is a module-level singleton; per-run state
-  isolation (ACID §Isolation) holds because there is no checkpointer.
+  a closure — the compiled graph is a module-level singleton. `thread_id`
+  rides the same `configurable` (S3 Slice 4a). Per-run state isolation (ACID
+  §Isolation) holds because the checkpointer is **keyed** by
+  `thread_id = correlation_id` — distinct runs never share checkpoint state
+  ([ADR-0010](adr/0010-in-memory-checkpointer-exception-interrupt.md)).
 - **Boundary guarantees carry over:** the `security_hold` gate runs in
   `run_pipeline` before the graph is invoked (LLM never constructed into a
   node call for held requests), and the one deliberate broad catch still
   converts any node exception into a terminal `error` event.
-- **Checkpointing/interrupts are deliberately not enabled yet** — that is the
-  Sprint 3 exception-queue slice. `langgraph-checkpoint` is floor-pinned
-  (`>=3.0`, CVE-2025-67644) but no checkpointer is configured.
+- **Checkpointing/interrupts are enabled for the exception tier** (S3 Slice
+  4a, [ADR-0010](adr/0010-in-memory-checkpointer-exception-interrupt.md)): the
+  appeal graph compiles with an `InMemorySaver`, and an exception-tier run
+  parks at the `hold` node via `interrupt()` after `finalize` has emitted its
+  `DoneEvent` (so the `done`|`error` contract holds — no new terminal type).
+  The resume endpoint is Slice 4b; the frontend HITL resume UX is Slice 4c.
+  `langgraph-checkpoint` (floor-pinned `>=3.0`, CVE-2025-67644) is now active,
+  not just present. A PostgreSQL checkpointer replaces the in-memory saver at
+  Phase 3 (shards under multi-worker today, like the audit list).
 - **LangSmith stays dark.** `langsmith` arrives as a mandatory transitive of
   `langchain-core`; `main.py` force-sets `LANGSMITH_TRACING` /
   `LANGCHAIN_TRACING_V2` to `"false"` after `load_dotenv()` so PHI trace

@@ -98,12 +98,15 @@ stateDiagram-v2
     retrieval --> synthesis : attempt 1
     synthesis --> gatekeeper : stream collected
     gatekeeper --> tier_router : passed
-    tier_router --> done_event : tier assigned (+ eval_structural, ref hash)
+    tier_router --> finalize : tier assigned (+ eval_structural, ref hash)
+    finalize --> done_event
+    done_event --> hold : tier == exception (park for human review)
     gatekeeper --> synthesis : failed, attempt < 3
     gatekeeper --> error_event : failed, attempt == 3
     ingestion --> error_event : unhandled exception (broad catch)
     retrieval --> error_event : unhandled exception (broad catch)
-    done_event --> [*]
+    done_event --> [*] : routine / complex
+    hold --> [*] : parked (resume via /api/appeal/resume — S3 Slice 4b)
     error_event --> [*]
 ```
 
@@ -121,6 +124,16 @@ property of a produced artifact, and `decide_tier`'s gatekeeper-exhausted →
 exception rule is therefore unreachable from this wired path (the exhausted
 branch intercepts `>= MAX_RETRIES` first) and stays a defensive completeness
 guard, exercised only in `decide_tier`'s unit tests.
+
+Exception-tier park (S3 Slice 4a; [ADR-0010](adr/0010-in-memory-checkpointer-exception-interrupt.md)):
+after `finalize` emits the `DoneEvent` for an `exception` run, a post-finalize
+conditional edge sends it to the **`hold`** node, which calls `interrupt()` —
+the run parks at a durable checkpoint keyed by `thread_id = correlation_id`
+so a human can resume it. Because the `DoneEvent` was already emitted, the SSE
+stream still terminates with `done` (no new terminal type); the interrupt
+surfaces on LangGraph's `updates` channel, which the custom stream does not
+forward, so the client's stream simply ends. Routine/complex runs skip `hold`
+and go straight to `[*]`. The resume endpoint is Slice 4b, the HITL UX Slice 4c.
 
 ## Initial-PA pipeline run — one request (S2)
 
