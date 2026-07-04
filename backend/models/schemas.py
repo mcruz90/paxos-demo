@@ -391,6 +391,12 @@ class DoneEvent(BaseModel):
     # Gatekeeper retries that preceded the pass ("passed after N retries" is
     # a quality signal the audit trail records; S2 Slice 4).
     retry_count: int = 0
+    # Deterministic HITL review tier the TierRouter assigned (S3 Slice 3):
+    # routine → streamlined approval, complex → full-letter review, exception
+    # → escalation. None only on a pre-tier terminal (there is none on the
+    # done path — finalize runs after tier_router — but the default keeps the
+    # field additive, like correlation_id/pa_resolution were in S2 Slice 4).
+    tier: CaseTier | None = None
     # Stamped at the pipeline boundary; equals the AuditRecord's
     # correlation_id, so a client can reference its run end-to-end (ADR-0009).
     correlation_id: str = ""
@@ -516,5 +522,9 @@ class AuditRecord(BaseModel):
     structural_eval_scores: dict[str, float] = Field(default_factory=dict)
     # Which retrieval path produced the PA criteria (hard-5).
     pa_resolution: PaResolution = ""
+    # Deterministic HITL review tier the artifact was routed to (S3 Slice 3).
+    # None on an error run: the exhausted path produced no letter, so there is
+    # nothing to route to a review surface — tier is a property of an artifact.
+    tier: CaseTier | None = None
     # AI-accountability: what the artifact was when it left the system.
     provenance: AuditProvenance

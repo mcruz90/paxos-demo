@@ -26,6 +26,7 @@ from agents.nodes.gatekeeper import MAX_RETRIES, run_gatekeeper
 from agents.nodes.ingestion import run_ingestion
 from agents.nodes.retrieval import run_retrieval
 from agents.nodes.synthesis import apply_synthesis, build_prompt
+from agents.nodes.tier_router import run_tier_router
 from audit.boundary import with_audit
 from audit.ids import derive_case_id, derive_correlation_id, derive_idempotency_key
 from evals.appeal_evals import eval_structural
@@ -89,6 +90,15 @@ async def _gatekeeper_node(state: PipelineState) -> PipelineState:
     return state
 
 
+async def _tier_router_node(state: PipelineState) -> PipelineState:
+    # Deterministic HITL routing on the gatekeeper-pass path (S3 Slice 3) —
+    # never an LLM deciding tier (Illinois, MD HB 1563). Runs before finalize
+    # so the DoneEvent can surface the review tier.
+    writer = get_stream_writer()
+    writer(StepEvent(step="tier_router", label="Assigning review tier…"))
+    return run_tier_router(state)
+
+
 async def _finalize_node(state: PipelineState) -> PipelineState:
     writer = get_stream_writer()
     full_text = state["appeal_text"]
@@ -108,6 +118,7 @@ async def _finalize_node(state: PipelineState) -> PipelineState:
             structural_scores=scores,
             pa_resolution=state["pa_resolution"],
             retry_count=state["retry_count"],
+            tier=state["tier"],
         )
     )
     return state
@@ -129,9 +140,18 @@ async def _exhausted_node(state: PipelineState) -> PipelineState:
 
 
 def _after_gatekeeper(state: PipelineState) -> str:
-    """Conditional edge: pass → finalize; fail → retry synthesis or give up."""
+    """Conditional edge: pass → tier_router; fail → retry synthesis or give up.
+
+    On a pass the run first goes through tier_router (deterministic HITL
+    routing) and only then to finalize. The exhausted branch produced no
+    acceptable letter, so it never routes a tier — it terminates as an error.
+    (tier_router only ever sees retry_count ≤ MAX_RETRIES-1: the exhausted
+    branch intercepts >= MAX_RETRIES first, so decide_tier's
+    gatekeeper-exhausted → exception rule is unreachable from this path and
+    stays a defensive completeness guarantee, exercised in unit tests.)
+    """
     if state["passed_gatekeeper"]:
-        return "finalize"
+        return "tier_router"
     if state["retry_count"] < MAX_RETRIES:
         return "synthesis"
     return "exhausted"
@@ -143,6 +163,7 @@ def _build_graph() -> StateGraph:
     graph.add_node("retrieval", _retrieval_node)
     graph.add_node("synthesis", _synthesis_node)
     graph.add_node("gatekeeper", _gatekeeper_node)
+    graph.add_node("tier_router", _tier_router_node)
     graph.add_node("finalize", _finalize_node)
     graph.add_node("exhausted", _exhausted_node)
 
@@ -153,8 +174,9 @@ def _build_graph() -> StateGraph:
     graph.add_conditional_edges(
         "gatekeeper",
         _after_gatekeeper,
-        {"finalize": "finalize", "synthesis": "synthesis", "exhausted": "exhausted"},
+        {"tier_router": "tier_router", "synthesis": "synthesis", "exhausted": "exhausted"},
     )
+    graph.add_edge("tier_router", "finalize")
     graph.add_edge("finalize", END)
     graph.add_edge("exhausted", END)
     return graph
@@ -211,6 +233,9 @@ async def run_pipeline(
             retry_count=done.retry_count if done else (error.retry_count if error else 0),
             structural_eval_scores=done.structural_scores if done else {},
             pa_resolution=done.pa_resolution if done else "",
+            # The HITL review tier (S3 Slice 3). None on error: no letter was
+            # produced, so there is no artifact to route to a review surface.
+            tier=done.tier if done else None,
             # No gatekeeper-correction or human-edit path exists yet — every
             # pipeline-boundary artifact is machine output as-is.
             provenance=AuditProvenance.as_is,
