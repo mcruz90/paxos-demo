@@ -19,8 +19,10 @@ from datetime import UTC, datetime
 from typing import cast
 
 from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import interrupt
 
 from agents.nodes.gatekeeper import MAX_RETRIES, run_gatekeeper
 from agents.nodes.ingestion import run_ingestion
@@ -36,6 +38,7 @@ from models.schemas import (
     AuditProvenance,
     AuditRecord,
     CaseLifecycle,
+    CaseTier,
     ChunkEvent,
     DoneEvent,
     ErrorEvent,
@@ -124,6 +127,22 @@ async def _finalize_node(state: PipelineState) -> PipelineState:
     return state
 
 
+async def _hold_node(state: PipelineState) -> PipelineState:
+    """Park an exception-tier run at a durable checkpoint for human review
+    (S3 Slice 4a) — the compliance-critical HITL primitive, LangGraph's own
+    (ADR-0001), never hand-rolled.
+
+    ``finalize`` has already emitted the exception ``DoneEvent``, so the SSE
+    stream terminated with ``done`` (contract preserved) before this pause.
+    ``interrupt()`` then suspends the run; the checkpoint is retained under
+    ``thread_id = correlation_id`` so a human can resume it (S3 Slice 4b).
+    Nothing side-effecting runs before ``interrupt()`` — on resume this node
+    re-executes from the top, and ``interrupt()`` returns the human's input.
+    """
+    interrupt({"reason": "exception tier — human review required before submission"})
+    return state
+
+
 async def _exhausted_node(state: PipelineState) -> PipelineState:
     writer = get_stream_writer()
     writer(
@@ -157,6 +176,14 @@ def _after_gatekeeper(state: PipelineState) -> str:
     return "exhausted"
 
 
+def _after_finalize(state: PipelineState) -> str:
+    """Conditional edge: exception tier → hold (park for human review); every
+    other tier → END. ``finalize`` already emitted the terminal DoneEvent
+    either way, so parking the exception run does not break the SSE contract
+    (S3 Slice 4a)."""
+    return "hold" if state["tier"] == CaseTier.exception else END
+
+
 def _build_graph() -> StateGraph:
     graph: StateGraph = StateGraph(PipelineState)
     graph.add_node("ingestion", _ingestion_node)
@@ -165,6 +192,7 @@ def _build_graph() -> StateGraph:
     graph.add_node("gatekeeper", _gatekeeper_node)
     graph.add_node("tier_router", _tier_router_node)
     graph.add_node("finalize", _finalize_node)
+    graph.add_node("hold", _hold_node)
     graph.add_node("exhausted", _exhausted_node)
 
     graph.add_edge(START, "ingestion")
@@ -177,14 +205,21 @@ def _build_graph() -> StateGraph:
         {"tier_router": "tier_router", "synthesis": "synthesis", "exhausted": "exhausted"},
     )
     graph.add_edge("tier_router", "finalize")
-    graph.add_edge("finalize", END)
+    graph.add_conditional_edges("finalize", _after_finalize, {"hold": "hold", END: END})
+    graph.add_edge("hold", END)
     graph.add_edge("exhausted", END)
     return graph
 
 
-# Compiled once at import; stateless across runs (no checkpointer), so each
-# invocation gets its own isolated PipelineState (ACID §Isolation).
-_PIPELINE = _build_graph().compile()
+# Compiled once at import with an in-memory checkpointer (S3 Slice 4a,
+# ADR-0010): required so an exception-tier run can park at an interrupt and be
+# resumed. Isolation (ACID §Isolation) is preserved because checkpoints are
+# *keyed* by thread_id = correlation_id (case_id:aN, unique per logical run) —
+# runs never share mutable state; the store is keyed, not global-mutable.
+# Known limit: the in-memory saver shards under multiple uvicorn workers, same
+# as the audit list — acceptable pre-DB; a PostgreSQL checkpointer replaces it
+# at Phase 3 alongside the durable audit store.
+_PIPELINE = _build_graph().compile(checkpointer=InMemorySaver())
 
 
 async def run_pipeline(
@@ -242,7 +277,7 @@ async def run_pipeline(
         )
 
     async for event in with_audit(
-        _generate_events(request, llm_backend),
+        _generate_events(request, llm_backend, thread_id=correlation_id),
         correlation_id=correlation_id,
         build_record=build_record,
     ):
@@ -252,6 +287,8 @@ async def run_pipeline(
 async def _generate_events(
     request: AppealRequest,
     llm_backend,
+    *,
+    thread_id: str,
 ) -> AsyncIterator[AppealEvent]:
     """Pipeline event stream: security gate → graph run → guaranteed terminal.
 
@@ -260,6 +297,13 @@ async def _generate_events(
     no event. This is the one deliberate broad catch in the pipeline: it
     converts failures at the API boundary, it does not hide them (full detail
     is logged server-side; the client gets a generic message).
+
+    ``thread_id`` (= correlation_id) keys the run's checkpoint so an
+    exception-tier run can park at an interrupt and be resumed (S3 Slice 4a).
+    An exception run streams its terminal DoneEvent from ``finalize`` and then
+    parks at ``hold``; the astream iterator ends cleanly (the interrupt
+    surfaces on the ``updates`` channel, which ``stream_mode="custom"`` does
+    not forward), so the client sees a normal ``done`` terminal.
     """
     try:
         # --- security hold enforcement (before any node runs) ---
@@ -275,7 +319,9 @@ async def _generate_events(
             )
             return
 
-        config: RunnableConfig = {"configurable": {"llm_backend": llm_backend}}
+        config: RunnableConfig = {
+            "configurable": {"llm_backend": llm_backend, "thread_id": thread_id}
+        }
         async for event in _PIPELINE.astream(
             {"request": request}, config=config, stream_mode="custom"
         ):

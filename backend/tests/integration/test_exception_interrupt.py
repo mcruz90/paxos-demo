@@ -18,6 +18,7 @@ Run from backend/:
 from __future__ import annotations
 
 import pytest
+from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
 from agents.graph import _PIPELINE, run_pipeline
@@ -59,7 +60,7 @@ def _exception_request(scenario_id: str) -> AppealRequest:
     )
 
 
-def _thread_config(correlation_id: str) -> dict:
+def _thread_config(correlation_id: str) -> RunnableConfig:
     return {"configurable": {"thread_id": correlation_id}}
 
 
