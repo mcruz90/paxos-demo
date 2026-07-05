@@ -545,3 +545,51 @@ class AuditRecord(BaseModel):
     tier: CaseTier | None = None
     # AI-accountability: what the artifact was when it left the system.
     provenance: AuditProvenance
+
+
+# ---------------------------------------------------------------------------
+# Introspection response types (S3 Task 3) — read-only, Bearer-gated tooling
+# surfaces over the audit store + review queue. Backend-tooling only: NOT
+# mirrored in src/types.ts (frontend HITL integration is a later sprint), so
+# they are deliberately outside the schema-parity guard.
+# ---------------------------------------------------------------------------
+
+
+class PendingReviewItem(BaseModel):
+    """One parked exception-tier run awaiting human review (S3 Task 3).
+
+    Metadata only — never the letter/request text (CLAUDE.md PHI rule). A
+    reviewer surfaces the queue with this; the draft body is a deferred Slice
+    4c surface. ``parked_at`` is the timestamp of the exception ``done`` audit
+    record (when the run parked at ``hold``). ``tier`` is always ``exception``
+    today (only that tier parks), carried explicitly so the shape survives if
+    another tier ever gains a review checkpoint.
+    """
+
+    correlation_id: str
+    scenario_id: str
+    drug: str
+    plan: str
+    tier: CaseTier
+    parked_at: str
+
+
+class PendingReviewsResponse(BaseModel):
+    """Response body for GET /api/reviews/pending (S3 Task 3).
+
+    Wrapped (not a bare array) so the payload can gain top-level metadata
+    without a breaking change.
+    """
+
+    reviews: list[PendingReviewItem]
+
+
+class AuditRecordsResponse(BaseModel):
+    """Response body for GET /api/audit/records (S3 Task 3).
+
+    Returns :class:`AuditRecord` entries as-is (already identifiers-and-hashes
+    only by design). Wrapped for the same forward-compat reason as
+    :class:`PendingReviewsResponse`.
+    """
+
+    records: list[AuditRecord]
