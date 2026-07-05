@@ -58,13 +58,10 @@ export function SplitPortfolioView({
   const matches = filterClients(clients, search, filterStage, filterUrgency)
   const groups  = groupByAction(matches)
 
-  // Auto-select: first case on load, and re-select when the current one filters out
+  // No auto-select on load — the queue opens blank so the first thing a user
+  // sees isn't an arbitrary case. Once a case is selected, re-select the next
+  // best match if the current one filters out from under them.
   useEffect(() => {
-    const firstMatch = groups[0]?.rows[0]
-    if (firstMatch && selectedId === null) {
-      setSelectedId(firstMatch.id)
-      return
-    }
     if (selectedId !== null && !matches.find(c => c.id === selectedId)) {
       setSelectedId(groups[0]?.rows[0]?.id ?? null)
     }
@@ -257,6 +254,7 @@ export function SplitPortfolioView({
             onOpenCase={onOpenCase}
             onQuickApprove={onQuickApprove}
             onPayerDecision={onPayerDecision}
+            onBackToQueue={() => setSelectedId(null)}
             selectedCiteIndex={activeCiteIndex}
             onSelectCiteIndex={setActiveCiteIndex}
             activeTab={activeTab}

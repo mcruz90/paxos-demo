@@ -194,7 +194,7 @@ export function LetterPreview({
 }) {
   if (blocked) {
     return (
-      <div className="bg-white rounded-xl p-8 shadow-inner text-slate-800 border border-slate-200 min-h-[300px] flex flex-col items-center justify-center text-center">
+      <div className="paper bg-white rounded-xl p-8 shadow-inner text-slate-800 border border-slate-200 min-h-[300px] flex flex-col items-center justify-center text-center">
         <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-3">
           <AlertTriangle className="w-6 h-6 text-amber-500" />
         </div>
@@ -217,7 +217,7 @@ export function LetterPreview({
   const letterProps = { scenario, patientContext, dateStr, selectedCiteIndex, onSelectCiteIndex }
 
   return (
-    <div className="bg-white rounded-xl p-8 shadow-inner text-slate-800 font-serif text-sm leading-relaxed border border-slate-200">
+    <div className="paper bg-white rounded-xl p-8 shadow-inner text-slate-800 font-serif text-sm leading-relaxed border border-slate-200">
       {scenario.lifecycle === 'initial_pa'
         ? <PaRequestLetter {...letterProps} />
         : <AppealLetter {...letterProps} />}
