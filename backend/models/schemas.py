@@ -305,6 +305,23 @@ class AppealRequest(BaseModel):
     security_reason: str = ""
 
 
+class ResumeAppealRequest(BaseModel):
+    """Strict-validated HTTP request body for POST /api/appeal/resume (S3
+    Slice 4b): a human clears a parked exception-tier run for submission.
+
+    ``correlation_id`` is the parked run's handle — the value carried on that
+    run's terminal ``DoneEvent`` (= its checkpoint ``thread_id``). When
+    ``edited_text`` is present it replaces the drafted letter as the outbound
+    artifact; the resume is recorded with ``provenance=human_edited``.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    correlation_id: Annotated[str, Field(min_length=1, max_length=200)]
+    # The human-reviewed letter body. None ⇒ approve the machine draft as-is.
+    edited_text: Annotated[str, Field(max_length=20000)] | None = None
+
+
 class InitialPaRequest(BaseModel):
     """Strict-validated HTTP request body for the initial-PA lifecycle (S2).
 

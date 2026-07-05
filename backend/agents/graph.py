@@ -22,7 +22,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
-from langgraph.types import interrupt
+from langgraph.types import Command, interrupt
 
 from agents.nodes.gatekeeper import MAX_RETRIES, run_gatekeeper
 from agents.nodes.ingestion import run_ingestion
@@ -30,7 +30,12 @@ from agents.nodes.retrieval import run_retrieval
 from agents.nodes.synthesis import apply_synthesis, build_prompt
 from agents.nodes.tier_router import run_tier_router
 from audit.boundary import with_audit
-from audit.ids import derive_case_id, derive_correlation_id, derive_idempotency_key
+from audit.ids import (
+    derive_case_id,
+    derive_correlation_id,
+    derive_idempotency_key,
+    derive_resume_idempotency_key,
+)
 from evals.appeal_evals import eval_structural
 from models.schemas import (
     AppealEvent,
@@ -102,8 +107,11 @@ async def _tier_router_node(state: PipelineState) -> PipelineState:
     return run_tier_router(state)
 
 
-async def _finalize_node(state: PipelineState) -> PipelineState:
-    writer = get_stream_writer()
+def _build_done_event(state: PipelineState) -> DoneEvent:
+    """Build the terminal DoneEvent from the current appeal text — shared by
+    the primary finalize path and the resume path (S3 Slice 4b), so the
+    outbound artifact is scored and hashed the same way whether it is the
+    machine draft or a human-edited version."""
     full_text = state["appeal_text"]
 
     # Structural evaluation scores (deterministic, no LLM)
@@ -114,16 +122,19 @@ async def _finalize_node(state: PipelineState) -> PipelineState:
         scores = {}
 
     ref = hashlib.sha256(full_text.encode()).hexdigest()[:12]
-    writer(
-        DoneEvent(
-            model=state["model_name"],
-            ref=ref,
-            structural_scores=scores,
-            pa_resolution=state["pa_resolution"],
-            retry_count=state["retry_count"],
-            tier=state["tier"],
-        )
+    return DoneEvent(
+        model=state["model_name"],
+        ref=ref,
+        structural_scores=scores,
+        pa_resolution=state["pa_resolution"],
+        retry_count=state["retry_count"],
+        tier=state["tier"],
     )
+
+
+async def _finalize_node(state: PipelineState) -> PipelineState:
+    writer = get_stream_writer()
+    writer(_build_done_event(state))
     return state
 
 
@@ -137,9 +148,24 @@ async def _hold_node(state: PipelineState) -> PipelineState:
     ``interrupt()`` then suspends the run; the checkpoint is retained under
     ``thread_id = correlation_id`` so a human can resume it (S3 Slice 4b).
     Nothing side-effecting runs before ``interrupt()`` — on resume this node
-    re-executes from the top, and ``interrupt()`` returns the human's input.
+    re-executes from the top, and ``interrupt()`` returns the human's input:
+    ``{"edited_text": <str|None>}``. A non-empty ``edited_text`` replaces the
+    drafted letter as the outbound artifact.
     """
-    interrupt({"reason": "exception tier — human review required before submission"})
+    review = interrupt({"reason": "exception tier — human review required before submission"})
+    edited = review.get("edited_text") if isinstance(review, dict) else None
+    if edited:
+        return {**state, "appeal_text": edited}
+    return state
+
+
+async def _resume_finalize_node(state: PipelineState) -> PipelineState:
+    """Emit the terminal DoneEvent for a resumed run (S3 Slice 4b). Only
+    reached on resume — the first pass parks at ``hold`` before it. Re-scores
+    and re-hashes the (possibly human-edited) letter so the resume terminal
+    and its audit record describe the actual outbound artifact."""
+    writer = get_stream_writer()
+    writer(_build_done_event(state))
     return state
 
 
@@ -193,6 +219,7 @@ def _build_graph() -> StateGraph:
     graph.add_node("tier_router", _tier_router_node)
     graph.add_node("finalize", _finalize_node)
     graph.add_node("hold", _hold_node)
+    graph.add_node("resume_finalize", _resume_finalize_node)
     graph.add_node("exhausted", _exhausted_node)
 
     graph.add_edge(START, "ingestion")
@@ -206,7 +233,10 @@ def _build_graph() -> StateGraph:
     )
     graph.add_edge("tier_router", "finalize")
     graph.add_conditional_edges("finalize", _after_finalize, {"hold": "hold", END: END})
-    graph.add_edge("hold", END)
+    # hold parks the run (interrupt); on resume it flows to resume_finalize,
+    # which emits the terminal DoneEvent for the human-cleared letter (Slice 4b).
+    graph.add_edge("hold", "resume_finalize")
+    graph.add_edge("resume_finalize", END)
     graph.add_edge("exhausted", END)
     return graph
 
@@ -216,9 +246,17 @@ def _build_graph() -> StateGraph:
 # resumed. Isolation (ACID §Isolation) is preserved because checkpoints are
 # *keyed* by thread_id = correlation_id (case_id:aN, unique per logical run) —
 # runs never share mutable state; the store is keyed, not global-mutable.
-# Known limit: the in-memory saver shards under multiple uvicorn workers, same
-# as the audit list — acceptable pre-DB; a PostgreSQL checkpointer replaces it
-# at Phase 3 alongside the durable audit store.
+# Known limits (both accepted pre-DB; a PostgreSQL checkpointer replaces this
+# saver at Phase 3 alongside the durable audit store — ADR-0010):
+#   1. The in-memory saver shards under multiple uvicorn workers, same as the
+#      audit list.
+#   2. langgraph 1.2.7 prints a deprecation notice when it deserializes our
+#      schema types (RuleType/CaseTier/AppealRequest/…) from the checkpoint on
+#      resume ("blocked in a future version"). Harmless today — resume works,
+#      and it is a stderr notice, not a raised warning. It is *not* silenced by
+#      the saver's serde config (the checkpoint load path does not honor a
+#      per-instance allowlist here), so the fix belongs with the langgraph
+#      upgrade / durable checkpointer, which registers the schema types.
 _PIPELINE = _build_graph().compile(checkpointer=InMemorySaver())
 
 
@@ -334,4 +372,100 @@ async def _generate_events(
         yield ErrorEvent(
             message="Appeal generation failed due to an internal error.",
             retry_count=0,
+        )
+
+
+async def run_resume(
+    correlation_id: str,
+    edited_text: str | None,
+) -> AsyncIterator[AppealEvent]:
+    """Resume a parked exception-tier run for a human reviewer (S3 Slice 4b).
+
+    Drives the checkpointed run (parked at ``hold`` by Slice 4a) from
+    ``correlation_id`` — its ``thread_id`` — to a ``done`` terminal, applying
+    ``edited_text`` if the reviewer changed the letter. Writes a DISTINCT audit
+    record (``provenance=human_edited``, ``idempotency_key=<corr>:resume``,
+    same ``correlation_id``) so the trail keeps both the machine draft and the
+    human sign-off.
+
+    Args:
+        correlation_id: The parked run's handle (from its terminal DoneEvent).
+        edited_text: Human-edited letter body, or None to clear the draft as-is.
+
+    Yields:
+        :class:`DoneEvent` on success, or :class:`ErrorEvent` if nothing is
+        awaiting review for ``correlation_id`` (unknown, or already resumed).
+    """
+    config: RunnableConfig = {"configurable": {"thread_id": correlation_id}}
+    snapshot = _PIPELINE.get_state(config)
+
+    # Not parked: unknown correlation_id, or the run already resumed/completed.
+    # This is a client error, not a pipeline run — a terminal error, no audit.
+    if not snapshot.next:
+        yield ErrorEvent(
+            message="No appeal is awaiting human review for this reference.",
+            correlation_id=correlation_id,
+        )
+        return
+
+    request: AppealRequest = snapshot.values["request"]
+    idempotency_key = derive_resume_idempotency_key(correlation_id)
+
+    def build_record(event: AppealEvent, duration_ms: int) -> AuditRecord:
+        done = event if isinstance(event, DoneEvent) else None
+        error = event if isinstance(event, ErrorEvent) else None
+        return AuditRecord(
+            correlation_id=correlation_id,
+            idempotency_key=idempotency_key,
+            lifecycle=CaseLifecycle.appeal,
+            scenario_id=request.scenario_id,
+            drug=request.drug,
+            plan=request.plan,
+            denial_reason=request.denial_reason,
+            timestamp=datetime.now(UTC).isoformat(),
+            duration_ms=duration_ms,
+            outcome="done" if done else "error",
+            model_name=done.model if done else "",
+            artifact_ref=done.ref if done else "",
+            gatekeeper_passed=done is not None,
+            retry_count=done.retry_count if done else (error.retry_count if error else 0),
+            structural_eval_scores=done.structural_scores if done else {},
+            pa_resolution=done.pa_resolution if done else "",
+            tier=done.tier if done else None,
+            # A human reviewed (and possibly edited) the letter before it was
+            # cleared for submission — the accountability record of that review.
+            provenance=AuditProvenance.human_edited,
+        )
+
+    async for event in with_audit(
+        _resume_events(config, edited_text, correlation_id),
+        correlation_id=correlation_id,
+        build_record=build_record,
+    ):
+        yield event
+
+
+async def _resume_events(
+    config: RunnableConfig,
+    edited_text: str | None,
+    correlation_id: str,
+) -> AsyncIterator[AppealEvent]:
+    """Resume the checkpointed graph and forward its terminal DoneEvent.
+
+    Same guaranteed-terminal discipline as ``_generate_events``: a node
+    exception is converted to a terminal ``error`` rather than escaping the
+    generator (SSE headers are already sent).
+    """
+    try:
+        async for event in _PIPELINE.astream(
+            Command(resume={"edited_text": edited_text}),
+            config=config,
+            stream_mode="custom",
+        ):
+            yield cast(AppealEvent, event)
+    except Exception:
+        logger.exception("resume failed for correlation_id=%s", correlation_id)
+        yield ErrorEvent(
+            message="Appeal resume failed due to an internal error.",
+            correlation_id=correlation_id,
         )

@@ -40,6 +40,26 @@ def derive_idempotency_key(case_id: str, attempt: int) -> str:
     return f"{case_id}:a{attempt}"
 
 
+def derive_resume_idempotency_key(correlation_id: str) -> str:
+    """Idempotency key for a resumed exception run (S3 Slice 4b).
+
+    A resume is the SAME logical run as the parked draft (same
+    ``correlation_id``), but a DISTINCT auditable event — a human reviewed and
+    cleared the letter. It therefore needs its own key so its
+    ``human_edited`` record is not deduped against the draft's ``as_is``
+    record. This is the first case where correlation_id and idempotency_key
+    deliberately diverge (ADR-0009 anticipated it): the saga still traces
+    under one correlation_id, but the resume write stands on its own.
+
+    Args:
+        correlation_id: The parked run's correlation ID (= its thread_id).
+
+    Returns:
+        Key of the form ``<correlation_id>:resume``.
+    """
+    return f"{correlation_id}:resume"
+
+
 def derive_correlation_id(case_id: str, attempt: int) -> str:
     """Correlation ID for the logical run — coincides with the idempotency
     key pre-DB (ADR-0009).

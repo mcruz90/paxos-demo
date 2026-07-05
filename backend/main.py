@@ -3,6 +3,7 @@
 Routes:
   GET  /health                  — unauthenticated health check
   POST /api/appeal/generate     — SSE appeal generation (Bearer auth required)
+  POST /api/appeal/resume       — SSE resume of a parked exception run (Bearer; no LLM)
   POST /api/pa/submit           — SSE initial-PA lifecycle (Bearer auth; no LLM)
 
 Auth: All /api/* routes require Authorization: Bearer <API_SECRET_KEY>.
@@ -26,7 +27,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from agents.graph import run_pipeline
+from agents.graph import run_pipeline, run_resume
 from agents.initial_pa_graph import run_initial_pa_pipeline
 from models.schemas import (
     AppealEvent,
@@ -34,6 +35,7 @@ from models.schemas import (
     ErrorEvent,
     InitialPaEvent,
     InitialPaRequest,
+    ResumeAppealRequest,
 )
 
 if TYPE_CHECKING:
@@ -175,6 +177,13 @@ async def _stream_initial_pa_events(request: InitialPaRequest) -> AsyncIterator[
         yield _sse_line(event)
 
 
+async def _stream_resume_events(request: ResumeAppealRequest) -> AsyncIterator[str]:
+    # Resume re-enters a parked graph at the hold node (Slice 4b) — no LLM is
+    # invoked (no synthesis re-run), so this route serves without LLM_BACKEND.
+    async for event in run_resume(request.correlation_id, request.edited_text):
+        yield _sse_line(event)
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -197,6 +206,28 @@ async def generate_appeal(body: AppealRequest) -> StreamingResponse:
     """
     return StreamingResponse(
         _stream_events(body),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/api/appeal/resume")
+async def resume_appeal(body: ResumeAppealRequest) -> StreamingResponse:
+    """Resume a parked exception-tier appeal run for a human reviewer (S3
+    Slice 4b).
+
+    Authentication: enforced by the auth_middleware before this is reached.
+    No LLM_BACKEND required — the resume path invokes no model.
+
+    Returns a ``text/event-stream`` emitting a terminal ``done`` (the human
+    reviewed/edited letter) or ``error`` (nothing awaiting review for the
+    given ``correlation_id``).
+    """
+    return StreamingResponse(
+        _stream_resume_events(body),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
