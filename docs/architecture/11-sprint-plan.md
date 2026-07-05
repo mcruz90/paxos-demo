@@ -54,7 +54,15 @@ gatekeeper — the compliance-critical HITL story.
 | **1 — `CriterionResult.confidence`** (spec-first, FIRST) | Add the 0–1 field backend + `types.ts` + parity test + `fixtures_adapter` + golden labels. | Everything else in S3 depends on it; it's the widest-rippling change, so it goes alone in one slice. |
 | **2 — TierRouter node** | `agents/nodes/tier_router.py`, pure + deterministic: all ≥0.95 & first-pass gatekeeper → routine; any 0.70–0.94 or counter-offer or first drug/plan pairing → complex; any <0.70/missing, gatekeeper 3×, novel denial reason, **or `pa_resolution == "generic"`** → exception. `CaseTier` becomes a backend enum (mirror + parity). | **Never an LLM deciding tier** — regulatory + safety constraint (Illinois, MD HB 1563). The generic-fallback signal from hard-5 finally has its consumer. |
 | **3 — Wire tier through** | Conditional edge post-gatekeeper; `tier` on `DoneEvent` + AuditRecord; frontend keys review UI off it (streamlined card / full letter / exception report already exist in the demo UI). | Escalation paths + review tiers are **platform policy inherited by all packs**, not per-pack (platformization memory). |
-| **4 — Exception interrupt (scoped)** | LangGraph checkpoint/interrupt for the exception queue: persist run state so a human can resume. **Staged into three thin slices** (the "keep minimal" fork, resolved with May 2026-07-04 — do all of it, but in series, not one fat slice): **4a** checkpoint + interrupt on the exception tier, resume test-proven ([ADR-0010](adr/0010-in-memory-checkpointer-exception-interrupt.md)) — **Live** 2026-07-04; **4b** `POST /api/appeal/resume` endpoint (Bearer, SSE, idempotent, audited — `resume_finalize` node, distinct `human_edited` record per the ADR-0009 resume amendment) — **Live** 2026-07-04; **4c** frontend HITL resume UX (wire the exception surface to a live resume stream — the POC is simulated today, so this is a real frontend lift). | This is why the framework was chosen; don't hand-roll it. 4a compiles the appeal graph with `InMemorySaver` (`thread_id = correlation_id`); isolation preserved because keyed, not shared (ADR-0010). |
+| **4 — Exception interrupt (scoped)** | LangGraph checkpoint/interrupt for the exception queue: persist run state so a human can resume. **Staged into three thin slices** (the "keep minimal" fork, resolved with May 2026-07-04 — do all of it, but in series, not one fat slice): **4a** checkpoint + interrupt on the exception tier, resume test-proven ([ADR-0010](adr/0010-in-memory-checkpointer-exception-interrupt.md)) — **Live** 2026-07-04; **4b** `POST /api/appeal/resume` endpoint (Bearer, SSE, idempotent, audited — `resume_finalize` node, distinct `human_edited` record per the ADR-0009 resume amendment) — **Live** 2026-07-04; **4c** frontend HITL resume UX — **DEFERRED** (decision 2026-07-04): the POC has *no* live backend wiring at all (fully simulated), so 4c is not a slice but the start of a frontend↔backend integration workstream (SSE client, browser auth-token strategy, live run lifecycle) — moved to Unscheduled below. | This is why the framework was chosen; don't hand-roll it. 4a compiles the appeal graph with `InMemorySaver` (`thread_id = correlation_id`); isolation preserved because keyed, not shared (ADR-0010). |
+
+**Sprint 3 closes at Slice 4b (2026-07-04).** Slices 1–3 + 4a + 4b are live:
+the compliance-critical HITL story — confidence-banded deterministic tier
+routing (never an LLM) → exception-tier checkpoint/interrupt → human-resumable
+via `POST /api/appeal/resume` → dual audit trail (`as_is` draft +
+`human_edited` sign-off) — is complete and end-to-end tested at the
+backend/API level. The remaining piece (4c) is presentation and is gated on a
+frontend-integration effort that does not yet exist.
 
 ## Sprint 4 — Eval suite
 
@@ -100,6 +108,7 @@ gatekeeper — the compliance-critical HITL story.
 
 | Item | Trigger |
 | --- | --- |
+| **Frontend ↔ backend live integration** (absorbs S3 Slice 4c) | The POC is fully simulated — no live API calls exist. This workstream builds the first ones: an SSE client, a **browser auth-token strategy** (API_SECRET_KEY is a server secret; a SPA needs a real mechanism — decide before any live call), and a live run lifecycle in the UI. 4c (exception surface → `POST /api/appeal/resume`) lands here, needing a live `/api/appeal/generate` to create a parked run first. Deferred from S3 (2026-07-04); the sprint plan anticipated this slip. |
 | Langfuse tracing | After S2 (correlation IDs exist to propagate). Re-vet its network behavior first (ADR-0007 telemetry clause); `redact_phi` on every payload; best-effort try/except. |
 | PostgreSQL durable audit | Phase 3 / first hosted deployment — replaces the in-memory list; persistence before `done` per ACID §Durability. |
 | Hosted backend checklist | CORS tightening, rate limiting (`slowapi` re-entry), deploy target ([08](08-deployment-ci.md)). |
