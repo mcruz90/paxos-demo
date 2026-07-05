@@ -17,6 +17,7 @@ flowchart TB
         graph["agents/graph.py — StateGraph def + node wrappers + compiled _PIPELINE"]
         generate["agents/generate.py — run_pipeline() (generate entrypoint; client of _PIPELINE)"]
         resume["agents/resume.py — run_resume() (resume saga; client of _PIPELINE)"]
+        rqueue["agents/review_queue.py — derive_pending_reviews() + is_run_parked()"]
     end
     subgraph l3 ["Nodes (pure functions over PipelineState)"]
         ing["nodes/ingestion.py"]
@@ -44,6 +45,7 @@ flowchart TB
 
     main --> generate --> graph
     main --> resume --> graph
+    main --> rqueue --> graph
     graph --> ing --> ret --> syn --> gate
     syn --> prompts
     graph --> proto
@@ -212,6 +214,33 @@ runs it per request. Design points:
   payloads can never leave the process via a stray env var
   (test: `tests/unit/test_telemetry_disabled.py`). Planned observability
   remains self-hosted Langfuse.
+
+## Introspection endpoints & the review queue (S3 Task 3)
+
+Two read-only, Bearer-gated GETs expose in-flight/completed state without a new
+storage layer (contract in [06-api-contract.md](06-api-contract.md)):
+
+- `GET /api/audit/records` returns the audit store snapshot as-is
+  (`audit/store.all_records()`) — metadata + hashes only.
+- `GET /api/reviews/pending` lists exception-tier runs parked at `hold`
+  awaiting review.
+
+**The audit trail is the queue index** — there is no separate queue structure
+([ADR-0011](adr/0011-audit-trail-as-review-queue-index.md)). The derivation
+lives in
+[agents/review_queue.py](../../backend/agents/review_queue.py), split by
+testability so the `main.py` handlers stay logic-free (CLAUDE.md §File
+Organization):
+
+- `derive_pending_reviews(records, is_parked)` — **pure**: a `correlation_id`
+  is pending iff it has an exception-tier `done` record, no `human_edited`
+  record for the same id, and `is_parked` confirms a live checkpoint.
+  Unit-tested with literal records and a fake `is_parked`.
+- `is_run_parked(correlation_id)` — the concrete checker the route wires in;
+  touches the checkpointer via the **same public API `run_resume` uses**
+  (`_PIPELINE.get_state(config).next`), never `InMemorySaver` internals — so it
+  survives the Phase 3 PostgreSQL checkpointer swap (audit store + checkpointer
+  move to durable storage together; ADR-0009/0010/0011).
 
 ## Patterns in force
 

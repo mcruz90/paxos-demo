@@ -71,6 +71,60 @@ first deliberate divergence of correlation_id and idempotency_key that
 [ADR-0009](adr/0009-idempotency-key-and-audit-writes.md) anticipated. A resume
 of a non-parked reference is a client error and writes no record.
 
+### `GET /api/audit/records` — list the audit trail (S3 Task 3)
+
+Read-only introspection over the in-memory audit store. **Auth:** same Bearer
+middleware. Returns every `AuditRecord` as-is — **identifiers and hashes only,
+never letter/request text** (the records are metadata by construction, ADR-0009).
+
+**Response:** `200` `application/json`, `AuditRecordsResponse`:
+
+```json
+{"records": [ { /* AuditRecord */ }, ... ]}
+```
+
+Order is insertion order (each run's boundary write, ADR-0009). Empty list
+before any run. Not paginated pre-DB (in-process list; ADR-0009 note).
+
+### `GET /api/reviews/pending` — parked runs awaiting human review (S3 Task 3)
+
+Read-only. Lists the exception-tier runs parked at the `hold` checkpoint and
+not yet cleared by a resume. **Auth:** same Bearer middleware. **Metadata
+only** — never the draft body (a reviewer-reads-the-draft surface is a deferred
+Slice 4c decision).
+
+The queue is **derived from the audit trail**, not a separate structure: a
+`correlation_id` is pending iff it has an exception-tier `done` audit record,
+no `human_edited` record for the same id, and is still parked at its checkpoint
+(confirmed via the checkpointer's public `get_state(...).next` — the same check
+`run_resume` uses). See
+[ADR-0011](adr/0011-audit-trail-as-review-queue-index.md).
+
+**Response:** `200` `application/json`, `PendingReviewsResponse`:
+
+```json
+{
+  "reviews": [
+    {
+      "correlation_id": "livdelzi-cigna:a1",
+      "scenario_id": "livdelzi-cigna",
+      "drug": "Livdelzi (seladelpar)",
+      "plan": "Cigna PPO",
+      "tier": "exception",
+      "parked_at": "2026-07-04T09:30:00+00:00"
+    }
+  ]
+}
+```
+
+- `tier` is always `exception` today (only that tier parks); carried
+  explicitly so the shape survives if another tier ever gains a checkpoint.
+- `parked_at` is the timestamp of the exception `done` audit record.
+- A run **disappears** from this list once resumed (its `human_edited` record
+  is written) or once its checkpoint is gone; an unknown/never-parked
+  `correlation_id` never appears — the queue is not a crawl of stray
+  checkpoints.
+
 ### `POST /api/pa/submit` — initial-PA lifecycle (S2 Slice 5)
 
 Runs CRD check → assemble → PAS submit (stub rail) → determination as SSE.
@@ -206,7 +260,7 @@ never double-writes the audit trail**
 
 | Code | Cause |
 | --- | --- |
-| 200 | Stream started (application outcome is in-stream) |
+| 200 | Streaming routes: stream started (application outcome is in-stream). Introspection GETs (`/api/audit/records`, `/api/reviews/pending`): the JSON body |
 | 401 | Missing/invalid Bearer token (`{"detail": "Missing or invalid Authorization header"}` or `{"detail": "Invalid API key"}`) |
 | 422 | Body failed `AppealRequest` validation (FastAPI standard shape) |
 

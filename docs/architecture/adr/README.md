@@ -22,6 +22,7 @@ pass. New decisions get new ADRs at decision time.
 | [0008](0008-event-driven-pubsub-declined.md) | Event-driven pub/sub architecture | Rejected |
 | [0009](0009-idempotency-key-and-audit-writes.md) | Idempotency-key shape and the pre-DB audit write path | Accepted |
 | [0010](0010-in-memory-checkpointer-exception-interrupt.md) | In-memory checkpointer for the exception-tier interrupt | Accepted |
+| [0011](0011-audit-trail-as-review-queue-index.md) | The audit trail is the parked-run review-queue index | Accepted |
 
 ## Statuses
 
