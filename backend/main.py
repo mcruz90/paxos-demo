@@ -4,6 +4,8 @@ Routes:
   GET  /health                  — unauthenticated health check
   POST /api/appeal/generate     — SSE appeal generation (Bearer auth required)
   POST /api/appeal/resume       — SSE resume of a parked exception run (Bearer; no LLM)
+  GET  /api/audit/records       — list the audit trail (Bearer; read-only, metadata only)
+  GET  /api/reviews/pending     — list parked exception runs awaiting review (Bearer; read-only)
   POST /api/pa/submit           — SSE initial-PA lifecycle (Bearer auth; no LLM)
 
 Auth: All /api/* routes require Authorization: Bearer <API_SECRET_KEY>.
@@ -30,12 +32,16 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from agents.generate import run_pipeline
 from agents.initial_pa_graph import run_initial_pa_pipeline
 from agents.resume import run_resume
+from agents.review_queue import derive_pending_reviews, is_run_parked
+from audit.store import all_records
 from models.schemas import (
     AppealEvent,
     AppealRequest,
+    AuditRecordsResponse,
     ErrorEvent,
     InitialPaEvent,
     InitialPaRequest,
+    PendingReviewsResponse,
     ResumeAppealRequest,
 )
 
@@ -234,6 +240,31 @@ async def resume_appeal(body: ResumeAppealRequest) -> StreamingResponse:
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         },
+    )
+
+
+@app.get("/api/audit/records")
+async def list_audit_records() -> AuditRecordsResponse:
+    """List the audit trail (S3 Task 3) — read-only, metadata + hashes only.
+
+    Authentication: enforced by the auth_middleware before this is reached.
+    Returns every :class:`AuditRecord` as-is (identifiers and hashes by design,
+    never letter/request text).
+    """
+    return AuditRecordsResponse(records=all_records())
+
+
+@app.get("/api/reviews/pending")
+async def list_pending_reviews() -> PendingReviewsResponse:
+    """List exception-tier runs awaiting human review (S3 Task 3).
+
+    Authentication: enforced by the auth_middleware before this is reached.
+    Metadata only — never the draft body (a deferred Slice 4c surface). The
+    queue is derived from the audit trail (ADR-0011); the handler only wires
+    the store snapshot and the live parked-check into the pure derivation.
+    """
+    return PendingReviewsResponse(
+        reviews=derive_pending_reviews(all_records(), is_run_parked)
     )
 
 
