@@ -60,3 +60,19 @@ from a *transport* retry, and what happens when the audit write itself fails.
 - Terminal SSE events gained additive fields (`correlation_id`; DoneEvent
   `retry_count`) — documented in [06-api-contract.md](../06-api-contract.md);
   no existing field changed shape.
+
+## Amendment — resume writes (S3 Slice 4b, 2026-07-04)
+
+Point 3 above ("correlation_id coincides with the idempotency key pre-DB")
+gets its first deliberate exception. Resuming a parked exception-tier run
+([ADR-0010](0010-in-memory-checkpointer-exception-interrupt.md)) is the SAME
+logical run as the machine draft — it must trace under the **same
+correlation_id** — but a DISTINCT auditable event (a human reviewed/cleared
+the letter). So the resume record keeps `correlation_id = <case_id>:a<attempt>`
+and takes `idempotency_key = <correlation_id>:resume`
+(`derive_resume_idempotency_key`). The two IDs now differ, exactly as this ADR
+foresaw ("a per-execution ID can hang off the logical key"): the divergence
+buys a distinct `human_edited` record that is not deduped against the draft's
+`as_is` record — the accountability trail keeps both. Resume idempotency is
+enforced first by the parked-state check (a completed run cannot be resumed
+again) and backstopped by the key.

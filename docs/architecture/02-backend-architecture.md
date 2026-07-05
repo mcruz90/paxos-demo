@@ -189,10 +189,15 @@ runs it per request. Design points:
   appeal graph compiles with an `InMemorySaver`, and an exception-tier run
   parks at the `hold` node via `interrupt()` after `finalize` has emitted its
   `DoneEvent` (so the `done`|`error` contract holds — no new terminal type).
-  The resume endpoint is Slice 4b; the frontend HITL resume UX is Slice 4c.
-  `langgraph-checkpoint` (floor-pinned `>=3.0`, CVE-2025-67644) is now active,
-  not just present. A PostgreSQL checkpointer replaces the in-memory saver at
-  Phase 3 (shards under multi-worker today, like the audit list).
+  **Resume is live (Slice 4b):** `POST /api/appeal/resume` → `run_resume`
+  re-enters the graph at `hold` via `Command(resume=…)`, applies the reviewer's
+  `edited_text`, and `resume_finalize` emits the terminal `DoneEvent`; the
+  resume writes its own `human_edited` audit record. The frontend HITL resume
+  UX is Slice 4c. `langgraph-checkpoint` (floor-pinned `>=3.0`,
+  CVE-2025-67644) is now active, not just present. A PostgreSQL checkpointer
+  replaces the in-memory saver at Phase 3 (shards under multi-worker today,
+  like the audit list; and owns the checkpoint-serialization forward-compat
+  note in ADR-0010).
 - **LangSmith stays dark.** `langsmith` arrives as a mandatory transitive of
   `langchain-core`; `main.py` force-sets `LANGSMITH_TRACING` /
   `LANGCHAIN_TRACING_V2` to `"false"` after `load_dotenv()` so PHI trace

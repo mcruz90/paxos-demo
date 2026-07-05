@@ -106,7 +106,7 @@ stateDiagram-v2
     ingestion --> error_event : unhandled exception (broad catch)
     retrieval --> error_event : unhandled exception (broad catch)
     done_event --> [*] : routine / complex
-    hold --> [*] : parked (resume via /api/appeal/resume — S3 Slice 4b)
+    hold --> [*] : parked — first stream ends; resume is a separate request
     error_event --> [*]
 ```
 
@@ -133,7 +133,17 @@ so a human can resume it. Because the `DoneEvent` was already emitted, the SSE
 stream still terminates with `done` (no new terminal type); the interrupt
 surfaces on LangGraph's `updates` channel, which the custom stream does not
 forward, so the client's stream simply ends. Routine/complex runs skip `hold`
-and go straight to `[*]`. The resume endpoint is Slice 4b, the HITL UX Slice 4c.
+and go straight to `[*]`.
+
+Resume (S3 Slice 4b) is a **separate request** — `POST /api/appeal/resume`
+with the parked run's `correlation_id`. `run_resume` re-enters the graph at
+`hold` via `Command(resume={"edited_text": …})`; `hold` applies the reviewer's
+edit, then `resume_finalize` emits a fresh `done` terminal for the cleared
+letter. That resume stream writes its own `human_edited` `AuditRecord`
+(distinct `idempotency_key`, same `correlation_id`), so the trail holds the
+machine draft and the human sign-off side by side. Resuming a run that is not
+parked (unknown id, or already resumed) is a terminal `error` with no audit —
+resume is idempotent. The HITL UX that calls this endpoint is Slice 4c.
 
 ## Initial-PA pipeline run — one request (S2)
 

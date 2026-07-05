@@ -41,6 +41,36 @@ rejected, not coerced):
 before the pipeline runs — application failures are in-stream `error`
 events, not HTTP status codes.
 
+### `POST /api/appeal/resume` — clear a parked exception run (S3 Slice 4b)
+
+Resumes an exception-tier appeal run that parked for human review
+([ADR-0010](adr/0010-in-memory-checkpointer-exception-interrupt.md)) and
+drives it to a `done` terminal. **Auth:** same Bearer middleware. **No LLM in
+this path** — resume re-enters the graph at the `hold` node (no synthesis
+re-run), so the route serves without `LLM_BACKEND` set and the stream carries
+no `chunk` events.
+
+**Request body:** `ResumeAppealRequest` — strict-mode Pydantic:
+
+| Field | Type | Constraint |
+| --- | --- | --- |
+| `correlation_id` | str | 1–200 chars — the parked run's handle (the `correlation_id` on its `done` event = its checkpoint `thread_id`) |
+| `edited_text` | str \| null | ≤ 20000 chars, default `null` — the human-reviewed letter body; `null` clears the machine draft as-is |
+
+**Events:** a single terminal `done` (same shape as the appeal route; `tier`
+stays `exception`, `correlation_id` equals the parked run's — one saga, one
+ID) or `error` when nothing is awaiting review for `correlation_id` (unknown,
+or already resumed — resume is idempotent: a completed run cannot be resumed
+again).
+
+**Audit:** the resume writes its **own** `AuditRecord` —
+`provenance=human_edited`, `idempotency_key=<correlation_id>:resume` (distinct
+from the draft's `<case_id>:a<attempt>`, so the human sign-off is not deduped
+against the machine draft; the two share one `correlation_id`). This is the
+first deliberate divergence of correlation_id and idempotency_key that
+[ADR-0009](adr/0009-idempotency-key-and-audit-writes.md) anticipated. A resume
+of a non-parked reference is a client error and writes no record.
+
 ### `POST /api/pa/submit` — initial-PA lifecycle (S2 Slice 5)
 
 Runs CRD check → assemble → PAS submit (stub rail) → determination as SSE.

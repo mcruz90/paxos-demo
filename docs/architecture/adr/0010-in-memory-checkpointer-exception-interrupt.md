@@ -65,8 +65,21 @@ before the mechanical work stacks on it.
 
 - Enables `interrupt`/resume for exception runs with the smallest possible
   change; resume is proven by test (`test_exception_interrupt.py`:
-  `Command(resume=...)` drives a parked run to a clean end) — the endpoint is
-  4b, the UX is 4c.
+  `Command(resume=...)` drives a parked run to a clean end). **4b landed the
+  `POST /api/appeal/resume` endpoint** (`run_resume`): it validates the run is
+  parked, resumes via `Command(resume={"edited_text": …})`, and writes a
+  distinct `human_edited` audit record (`idempotency_key=<corr>:resume`, same
+  `correlation_id` — see the [ADR-0009 resume amendment](0009-idempotency-key-and-audit-writes.md#amendment--resume-writes-s3-slice-4b-2026-07-04)).
+  The UX is 4c.
+- **Serialization forward-compat (known, harmless today):** langgraph 1.2.7
+  prints a deprecation notice when it deserializes our schema types
+  (`RuleType`/`CaseTier`/`AppealRequest`/…) from the checkpoint on resume
+  ("blocked in a future version"). It is a stderr notice, not a raised warning;
+  resume works. The saver's per-instance serde allowlist does **not** silence
+  it (the checkpoint load path does not honor it here), so the fix — an
+  explicit msgpack type allowlist or registered serde — lands with the
+  langgraph upgrade / the Phase 3 durable checkpointer, which owns
+  serialization anyway. Documented at the `_PIPELINE` compile site.
 - **Known limit (accepted pre-DB):** `InMemorySaver` shards under multiple
   uvicorn workers — a run parked on one worker cannot be resumed via another —
   exactly the audit-list limitation ([ADR-0009](0009-idempotency-key-and-audit-writes.md)).
