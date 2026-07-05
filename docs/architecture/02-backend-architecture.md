@@ -38,7 +38,7 @@ flowchart TB
     end
     subgraph l6 ["Data & ingestion"]
         etl["etl/denial_letter/ — pipeline, file_detector"]
-        models["models/ — schemas.py, case_packet.py"]
+        models["models/ — schemas.py (facade) over enums/domain/requests/events/pipeline/audit, case_packet.py"]
         pareq["data/pa_requirements.json"]
         fhi["third_party/fhi/ — forked upstream (Apache 2.0)"]
     end

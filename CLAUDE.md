@@ -23,7 +23,7 @@
 
 ## DRY — Single Source of Truth
 - Extract shared logic on the second occurrence, not the third.
-- Shared types live in `backend/models/schemas.py` (backend) and `src/types.ts` (frontend). Never redefine a type inline.
+- Shared types live in the `backend/models/` package, imported via `models.schemas` (backend), and `src/types.ts` (frontend). Never redefine a type inline. (`models.schemas` is a re-export facade over domain-split submodules — `enums`/`domain`/`requests`/`events`/`pipeline`/`audit` — kept as the single public import point; import from `models.schemas`, not the submodules.)
 - The 6 scenario fixtures in `backend/evals/fixtures/scenarios.json` are the canonical test dataset. `backend/data/pa_requirements.json` is seeded from them. Never duplicate scenario data ad hoc in test files — import the fixture.
 - Prompt templates live in `backend/third_party/fhi/prompt_templates.py` or `backend/agents/prompts.py`. Never inline a multi-line prompt string in a node file.
 
