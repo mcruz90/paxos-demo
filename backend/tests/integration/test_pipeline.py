@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from agents.graph import run_pipeline
+from agents.generate import run_pipeline
 from models.schemas import AppealRequest, CaseTier, DoneEvent, ErrorEvent, StepEvent
 from tests.conftest import MockLLMBackend
 

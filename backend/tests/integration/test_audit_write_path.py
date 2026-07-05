@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from agents.graph import run_pipeline
+from agents.generate import run_pipeline
 from agents.initial_pa_graph import run_initial_pa_pipeline
 from audit.store import all_records, reset_audit_log
 from models.schemas import (

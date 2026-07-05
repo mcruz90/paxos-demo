@@ -27,7 +27,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from agents.graph import run_pipeline
+from agents.generate import run_pipeline
 from agents.initial_pa_graph import run_initial_pa_pipeline
 from agents.resume import run_resume
 from models.schemas import (

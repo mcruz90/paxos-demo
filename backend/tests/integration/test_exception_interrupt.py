@@ -21,7 +21,8 @@ import pytest
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-from agents.graph import _PIPELINE, run_pipeline
+from agents.generate import run_pipeline
+from agents.graph import _PIPELINE
 from models.schemas import (
     AppealRequest,
     CaseTier,

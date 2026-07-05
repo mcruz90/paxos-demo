@@ -14,7 +14,8 @@ flowchart TB
         main["main.py — routes, auth middleware, SSE framing, LLM factory"]
     end
     subgraph l2 ["Orchestration"]
-        graph["agents/graph.py — StateGraph def + compiled _PIPELINE + run_pipeline()"]
+        graph["agents/graph.py — StateGraph def + node wrappers + compiled _PIPELINE"]
+        generate["agents/generate.py — run_pipeline() (generate entrypoint; client of _PIPELINE)"]
         resume["agents/resume.py — run_resume() (resume saga; client of _PIPELINE)"]
     end
     subgraph l3 ["Nodes (pure functions over PipelineState)"]
@@ -41,9 +42,8 @@ flowchart TB
         fhi["third_party/fhi/ — forked upstream (Apache 2.0)"]
     end
 
-    main --> graph
-    main --> resume
-    resume --> graph
+    main --> generate --> graph
+    main --> resume --> graph
     graph --> ing --> ret --> syn --> gate
     syn --> prompts
     graph --> proto
@@ -63,10 +63,12 @@ provider SDK; `models/` contains no logic; prompt copy lives only in
 ## The appeal pipeline
 
 `run_pipeline(request, llm_backend)` in
-[backend/agents/graph.py](../../backend/agents/graph.py) is an async generator
-yielding SSE events. Since Sprint 2 Slice 0 it executes a LangGraph
-`StateGraph(PipelineState)` under the hood (see the orchestration section
-below); the event sequence for one request adds only the `tier_router` step
+[backend/agents/generate.py](../../backend/agents/generate.py) is an async
+generator yielding SSE events. Since Sprint 2 Slice 0 it executes the compiled
+LangGraph `StateGraph(PipelineState)` defined in
+[agents/graph.py](../../backend/agents/graph.py) under the hood (see the
+orchestration section below); the event sequence for one request adds only the
+`tier_router` step
 on the gatekeeper-pass path (S3 Slice 3):
 
 ```mermaid
