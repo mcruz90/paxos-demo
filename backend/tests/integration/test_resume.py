@@ -16,7 +16,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from agents.graph import _PIPELINE, run_pipeline, run_resume
+from agents.graph import _PIPELINE, run_pipeline
+from agents.resume import run_resume
 from audit.store import all_records, reset_audit_log
 from models.schemas import (
     AppealRequest,

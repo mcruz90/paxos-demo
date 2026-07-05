@@ -14,7 +14,8 @@ flowchart TB
         main["main.py — routes, auth middleware, SSE framing, LLM factory"]
     end
     subgraph l2 ["Orchestration"]
-        graph["agents/graph.py — run_pipeline()"]
+        graph["agents/graph.py — StateGraph def + compiled _PIPELINE + run_pipeline()"]
+        resume["agents/resume.py — run_resume() (resume saga; client of _PIPELINE)"]
     end
     subgraph l3 ["Nodes (pure functions over PipelineState)"]
         ing["nodes/ingestion.py"]
@@ -41,6 +42,8 @@ flowchart TB
     end
 
     main --> graph
+    main --> resume
+    resume --> graph
     graph --> ing --> ret --> syn --> gate
     syn --> prompts
     graph --> proto
@@ -190,6 +193,9 @@ runs it per request. Design points:
   parks at the `hold` node via `interrupt()` after `finalize` has emitted its
   `DoneEvent` (so the `done`|`error` contract holds — no new terminal type).
   **Resume is live (Slice 4b):** `POST /api/appeal/resume` → `run_resume`
+  ([agents/resume.py](../../backend/agents/resume.py) — the resume saga is
+  split out of `graph.py` as a client of the compiled `_PIPELINE`, which stays
+  in `graph.py` with the shared `_build_done_event`)
   re-enters the graph at `hold` via `Command(resume=…)`, applies the reviewer's
   `edited_text`, and `resume_finalize` emits the terminal `DoneEvent`; the
   resume writes its own `human_edited` audit record. The frontend HITL resume

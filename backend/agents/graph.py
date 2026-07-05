@@ -1,13 +1,20 @@
-"""agents/graph.py — LangGraph StateGraph pipeline orchestrator (ADR-0001).
+"""agents/graph.py — LangGraph StateGraph appeal orchestrator (ADR-0001).
 
-Runs the 4-node DAG:
-    ingestion → retrieval → synthesis → gatekeeper
+Defines and compiles the appeal-generation DAG:
+    ingestion → retrieval → synthesis⇄gatekeeper → tier_router → finalize
+    → (hold → resume_finalize | END), with an exhausted error branch
 
 as a ``StateGraph(PipelineState)``. The synthesis→gatekeeper cycle retries up
-to MAX_RETRIES times via a conditional edge. SSE-compatible AppealEvent
-objects are emitted through LangGraph's custom stream channel, so
-``run_pipeline`` keeps its public signature and event contract from the
-interim hand-rolled implementation.
+to MAX_RETRIES times via a conditional edge; an exception-tier run parks at
+``hold`` via ``interrupt()`` behind an ``InMemorySaver`` checkpointer (S3
+Slice 4a, ADR-0010). SSE-compatible AppealEvent objects are emitted through
+LangGraph's custom stream channel, so ``run_pipeline`` keeps a stable public
+signature and event contract.
+
+This module owns the graph definition, the node wrappers, the compiled
+``_PIPELINE`` singleton, and the generate entrypoint (``run_pipeline``). The
+resume saga that re-enters a parked run lives in
+[agents/resume.py](resume.py) — a client of ``_PIPELINE``, not a rebuild of it.
 """
 
 from __future__ import annotations
@@ -22,7 +29,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
-from langgraph.types import Command, interrupt
+from langgraph.types import interrupt
 
 from agents.nodes.gatekeeper import MAX_RETRIES, run_gatekeeper
 from agents.nodes.ingestion import run_ingestion
@@ -34,7 +41,6 @@ from audit.ids import (
     derive_case_id,
     derive_correlation_id,
     derive_idempotency_key,
-    derive_resume_idempotency_key,
 )
 from evals.appeal_evals import eval_structural
 from models.schemas import (
@@ -372,100 +378,4 @@ async def _generate_events(
         yield ErrorEvent(
             message="Appeal generation failed due to an internal error.",
             retry_count=0,
-        )
-
-
-async def run_resume(
-    correlation_id: str,
-    edited_text: str | None,
-) -> AsyncIterator[AppealEvent]:
-    """Resume a parked exception-tier run for a human reviewer (S3 Slice 4b).
-
-    Drives the checkpointed run (parked at ``hold`` by Slice 4a) from
-    ``correlation_id`` — its ``thread_id`` — to a ``done`` terminal, applying
-    ``edited_text`` if the reviewer changed the letter. Writes a DISTINCT audit
-    record (``provenance=human_edited``, ``idempotency_key=<corr>:resume``,
-    same ``correlation_id``) so the trail keeps both the machine draft and the
-    human sign-off.
-
-    Args:
-        correlation_id: The parked run's handle (from its terminal DoneEvent).
-        edited_text: Human-edited letter body, or None to clear the draft as-is.
-
-    Yields:
-        :class:`DoneEvent` on success, or :class:`ErrorEvent` if nothing is
-        awaiting review for ``correlation_id`` (unknown, or already resumed).
-    """
-    config: RunnableConfig = {"configurable": {"thread_id": correlation_id}}
-    snapshot = _PIPELINE.get_state(config)
-
-    # Not parked: unknown correlation_id, or the run already resumed/completed.
-    # This is a client error, not a pipeline run — a terminal error, no audit.
-    if not snapshot.next:
-        yield ErrorEvent(
-            message="No appeal is awaiting human review for this reference.",
-            correlation_id=correlation_id,
-        )
-        return
-
-    request: AppealRequest = snapshot.values["request"]
-    idempotency_key = derive_resume_idempotency_key(correlation_id)
-
-    def build_record(event: AppealEvent, duration_ms: int) -> AuditRecord:
-        done = event if isinstance(event, DoneEvent) else None
-        error = event if isinstance(event, ErrorEvent) else None
-        return AuditRecord(
-            correlation_id=correlation_id,
-            idempotency_key=idempotency_key,
-            lifecycle=CaseLifecycle.appeal,
-            scenario_id=request.scenario_id,
-            drug=request.drug,
-            plan=request.plan,
-            denial_reason=request.denial_reason,
-            timestamp=datetime.now(UTC).isoformat(),
-            duration_ms=duration_ms,
-            outcome="done" if done else "error",
-            model_name=done.model if done else "",
-            artifact_ref=done.ref if done else "",
-            gatekeeper_passed=done is not None,
-            retry_count=done.retry_count if done else (error.retry_count if error else 0),
-            structural_eval_scores=done.structural_scores if done else {},
-            pa_resolution=done.pa_resolution if done else "",
-            tier=done.tier if done else None,
-            # A human reviewed (and possibly edited) the letter before it was
-            # cleared for submission — the accountability record of that review.
-            provenance=AuditProvenance.human_edited,
-        )
-
-    async for event in with_audit(
-        _resume_events(config, edited_text, correlation_id),
-        correlation_id=correlation_id,
-        build_record=build_record,
-    ):
-        yield event
-
-
-async def _resume_events(
-    config: RunnableConfig,
-    edited_text: str | None,
-    correlation_id: str,
-) -> AsyncIterator[AppealEvent]:
-    """Resume the checkpointed graph and forward its terminal DoneEvent.
-
-    Same guaranteed-terminal discipline as ``_generate_events``: a node
-    exception is converted to a terminal ``error`` rather than escaping the
-    generator (SSE headers are already sent).
-    """
-    try:
-        async for event in _PIPELINE.astream(
-            Command(resume={"edited_text": edited_text}),
-            config=config,
-            stream_mode="custom",
-        ):
-            yield cast(AppealEvent, event)
-    except Exception:
-        logger.exception("resume failed for correlation_id=%s", correlation_id)
-        yield ErrorEvent(
-            message="Appeal resume failed due to an internal error.",
-            correlation_id=correlation_id,
         )
