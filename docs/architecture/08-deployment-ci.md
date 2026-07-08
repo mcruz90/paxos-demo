@@ -6,15 +6,19 @@ Sources: [.github/workflows/ci.yml](../../.github/workflows/ci.yml),
 
 ## CI pipeline
 
-Runs on every push (all branches) and PRs to `main`. Four parallel jobs; all
+Runs on every push (all branches) and PRs to `main`. Five parallel jobs; all
 are gates — no `|| true` escape hatches (chore-12 removed the pip-audit one).
 
 ```mermaid
 flowchart LR
-    push["push / PR"] --> fe & bu & bi & lint
+    push["push / PR"] --> fe & wt & bu & bi & lint
 
     subgraph fe ["frontend-check (node 24)"]
         f1["npm ci"] --> f2["npm test<br/>(Vitest incl. scenarios_parity guard)"] --> f3["npm run build"]
+    end
+
+    subgraph wt ["wire-types-freshness (node + uv)"]
+        w1["npm ci"] --> w2["uv sync --group dev"] --> w3["npm run api:dump<br/>(OpenAPI ← Pydantic)"] --> w4["npm run api:types<br/>(TS ← OpenAPI)"] --> w5["git diff --exit-code<br/>(stale = FAIL)"]
     end
 
     subgraph bu ["backend-unit"]
@@ -40,6 +44,15 @@ Gate semantics worth knowing:
 - **Parity guards run in CI**, not just on dev machines — frontend
   `scenarios_parity.test.ts` in the Vitest job, backend
   `test_schema_parity.py` in the unit job.
+- **`wire-types-freshness` is a drift gate for the wire contract** (ADR-0012).
+  It regenerates `openapi.json` (from the live Pydantic models) and
+  `src/generated/api-types.d.ts`, then fails on any diff — so the checked-in
+  generated types can never silently lag the backend schema. It needs both
+  toolchains (Node for `openapi-typescript`, uv/Python for the OpenAPI dump).
+  Note: a scoped `overrides` entry in `package.json` pins `openapi-typescript`'s
+  `typescript` peer to the root version (a TS-6 peer-range lag) — chosen over a
+  repo-wide `legacy-peer-deps` so peer validation stays on elsewhere; remove
+  once upstream widens the range (ADR-0012).
 - **The live-LLM eval CLI is deliberately not in CI** (needs a provider key,
   costs tokens) — planned as `evals/run_evals.py` (Sprint 4), manual or
   `workflow_dispatch`.

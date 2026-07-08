@@ -4,6 +4,35 @@
 Source of truth: [backend/main.py](../../backend/main.py) and
 [backend/models/schemas.py](../../backend/models/schemas.py).*
 
+## Generated wire types (ADR-0012)
+
+The Pydantic models are the **authored** source of truth for this contract; the
+frontend's TypeScript wire types are a **build product** generated from the
+backend's OpenAPI schema, not hand-mirrored.
+
+- `npm run api:dump` — [backend/tools/dump_openapi.py](../../backend/tools/dump_openapi.py)
+  writes the deterministic (sorted-key) OpenAPI document to
+  [openapi.json](../../openapi.json) at the repo root via `app.openapi()` (no
+  server boot).
+- `npm run api:types` — `openapi-typescript` generates
+  [src/generated/api-types.d.ts](../../src/generated/api-types.d.ts) (checked
+  in; the demo deploy has no backend at build time — ADR-0005).
+- Both are regenerated and diff-checked in CI (the `wire-types-freshness` job,
+  [08-deployment-ci.md](08-deployment-ci.md)) — a stale generated file fails the
+  build, the same drift-gate role the anchor-join parity guard plays for
+  fixtures.
+
+The SSE event shapes below (`step`/`chunk`/`done`/`error`, `InitialPaDoneEvent`)
+would be invisible to OpenAPI on their own — the streaming routes return
+`StreamingResponse`, which has no response model. They are registered explicitly
+from the same Pydantic models in
+[backend/openapi_ext.py](../../backend/openapi_ext.py) so the generated types
+include typed SSE events.
+
+*Note (2026-07-06): this slice establishes the dump → generate → guard pipeline
+only. [src/types.ts](../../src/types.ts) is not yet migrated to the generated
+types — that happens in the next slice, alongside the SSE client.*
+
 ## Routes
 
 ### `GET /health`

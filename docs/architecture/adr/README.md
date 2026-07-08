@@ -23,6 +23,7 @@ pass. New decisions get new ADRs at decision time.
 | [0009](0009-idempotency-key-and-audit-writes.md) | Idempotency-key shape and the pre-DB audit write path | Accepted |
 | [0010](0010-in-memory-checkpointer-exception-interrupt.md) | In-memory checkpointer for the exception-tier interrupt | Accepted |
 | [0011](0011-audit-trail-as-review-queue-index.md) | The audit trail is the parked-run review-queue index | Accepted |
+| [0012](0012-generated-wire-types-from-openapi.md) | Generated TypeScript wire types from OpenAPI; Pydantic is the authored source | Accepted |
 
 ## Statuses
 

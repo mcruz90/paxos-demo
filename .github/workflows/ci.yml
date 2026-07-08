@@ -22,6 +22,35 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  wire-types-freshness:
+    name: Generated wire types are fresh (OpenAPI → TS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --group dev
+      # Regenerate the OpenAPI dump (from the live Pydantic models) and the
+      # TypeScript wire types, then fail if the committed artifacts are stale.
+      # This replaces the hand-maintained src/types.ts parity guard for wire
+      # shapes — same drift-gate philosophy as scenarios_parity.test.ts, now
+      # applied to the backend↔frontend contract (ADR-0012). A stale generated
+      # file must fail CI, not linger.
+      - name: Regenerate OpenAPI dump + wire types
+        run: |
+          npm run api:dump
+          npm run api:types
+      - name: Fail if generated wire types are stale
+        run: git diff --exit-code -- openapi.json src/generated/api-types.d.ts
+
   backend-unit:
     name: Backend unit + contract tests
     runs-on: ubuntu-latest

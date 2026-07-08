@@ -1,0 +1,1087 @@
+{
+  "components": {
+    "schemas": {
+      "AppealHandoff": {
+        "description": "Initial-PA denial \u2192 appeal handoff: which appeal scenario to launch.",
+        "properties": {
+          "caseRef": {
+            "title": "Caseref",
+            "type": "string"
+          },
+          "scenarioId": {
+            "title": "Scenarioid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scenarioId",
+          "caseRef"
+        ],
+        "title": "AppealHandoff",
+        "type": "object"
+      },
+      "AppealRequest": {
+        "description": "Strict-validated HTTP request body for POST /api/appeal/generate.",
+        "properties": {
+          "attempt": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "company_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Company Names",
+            "type": "array"
+          },
+          "criteria_results": {
+            "items": {
+              "$ref": "#/components/schemas/CriterionResult"
+            },
+            "title": "Criteria Results",
+            "type": "array"
+          },
+          "denial_reason": {
+            "maxLength": 500,
+            "title": "Denial Reason",
+            "type": "string"
+          },
+          "denial_text": {
+            "maxLength": 5000,
+            "title": "Denial Text",
+            "type": "string"
+          },
+          "diagnosis": {
+            "maxLength": 200,
+            "title": "Diagnosis",
+            "type": "string"
+          },
+          "drug": {
+            "maxLength": 200,
+            "title": "Drug",
+            "type": "string"
+          },
+          "plan": {
+            "maxLength": 200,
+            "title": "Plan",
+            "type": "string"
+          },
+          "plan_id": {
+            "maxLength": 100,
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "scenario_id": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9\\-]+$",
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "security_hold": {
+            "default": false,
+            "title": "Security Hold",
+            "type": "boolean"
+          },
+          "security_reason": {
+            "default": "",
+            "title": "Security Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scenario_id",
+          "drug",
+          "diagnosis",
+          "denial_text",
+          "denial_reason",
+          "plan",
+          "plan_id",
+          "criteria_results"
+        ],
+        "title": "AppealRequest",
+        "type": "object"
+      },
+      "AuditProvenance": {
+        "description": "What the outbound artifact was when it left the system (S2 Slice 4).\n\nAI-accountability provenance (CLAUDE.md \u00a7AI Output Accountability): the\naudit trail must record what was actually verified before an artifact\nreached a payer, not just that a pipeline ran. `as_is` = machine output,\nunedited (all pipeline-boundary writes today); `gatekeeper_corrected`\narrives with the S4 blocking claim\u2192citation gatekeeper; `human_edited`\narrives with the HITL review flows.",
+        "enum": [
+          "as_is",
+          "gatekeeper_corrected",
+          "human_edited"
+        ],
+        "title": "AuditProvenance",
+        "type": "string"
+      },
+      "AuditRecord": {
+        "description": "One entry per pipeline run \u2014 done or error, either lifecycle.\n\nIdentifiers and hashes only, never letter/request text (PHI rule).\nIdempotent on ``idempotency_key`` = case_id + attempt (ADR-0009);\n``correlation_id`` coincides with it pre-DB, so a single ID traces logs,\nthe terminal event, and this record.",
+        "properties": {
+          "artifact_ref": {
+            "default": "",
+            "title": "Artifact Ref",
+            "type": "string"
+          },
+          "case_ref": {
+            "default": "",
+            "title": "Case Ref",
+            "type": "string"
+          },
+          "completion_tokens": {
+            "default": 0,
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "correlation_id": {
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "denial_reason": {
+            "default": "",
+            "title": "Denial Reason",
+            "type": "string"
+          },
+          "drug": {
+            "title": "Drug",
+            "type": "string"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "gatekeeper_passed": {
+            "default": false,
+            "title": "Gatekeeper Passed",
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/CaseLifecycle"
+          },
+          "model_name": {
+            "default": "",
+            "title": "Model Name",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "done",
+              "error"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "pa_resolution": {
+            "default": "",
+            "enum": [
+              "plan_id",
+              "drug_alias",
+              "generic",
+              ""
+            ],
+            "title": "Pa Resolution",
+            "type": "string"
+          },
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          },
+          "prompt_tokens": {
+            "default": 0,
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/AuditProvenance"
+          },
+          "retry_count": {
+            "default": 0,
+            "title": "Retry Count",
+            "type": "integer"
+          },
+          "scenario_id": {
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "structural_eval_scores": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Structural Eval Scores",
+            "type": "object"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CaseTier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "correlation_id",
+          "idempotency_key",
+          "lifecycle",
+          "scenario_id",
+          "drug",
+          "plan",
+          "timestamp",
+          "duration_ms",
+          "outcome",
+          "provenance"
+        ],
+        "title": "AuditRecord",
+        "type": "object"
+      },
+      "AuditRecordsResponse": {
+        "description": "Response body for GET /api/audit/records (S3 Task 3).\n\nReturns :class:`AuditRecord` entries as-is (already identifiers-and-hashes\nonly by design). Wrapped for the same forward-compat reason as\n:class:`PendingReviewsResponse`.",
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/AuditRecord"
+            },
+            "title": "Records",
+            "type": "array"
+          }
+        },
+        "required": [
+          "records"
+        ],
+        "title": "AuditRecordsResponse",
+        "type": "object"
+      },
+      "CaseLifecycle": {
+        "enum": [
+          "initial_pa",
+          "appeal"
+        ],
+        "title": "CaseLifecycle",
+        "type": "string"
+      },
+      "CaseTier": {
+        "description": "Deterministic HITL review tier (S3 Slice 2). Assigned by the\nTierRouter node \u2014 pure rule logic, never an LLM (regulatory + safety\nconstraint: Illinois, MD HB 1563). Mirrors the pre-existing types.ts\nunion \u2014 parity-tested in test_schema_parity.py.",
+        "enum": [
+          "routine",
+          "complex",
+          "exception"
+        ],
+        "title": "CaseTier",
+        "type": "string"
+      },
+      "ChunkEvent": {
+        "properties": {
+          "event": {
+            "const": "chunk",
+            "default": "chunk",
+            "title": "Event",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ChunkEvent",
+        "type": "object"
+      },
+      "ConflictSource": {
+        "description": "One side of a 'conflict' criterion \u2014 a source and the claim it asserts.\n\nSurfaced (instead of silently picking one) when two documents disagree.",
+        "properties": {
+          "claim": {
+            "title": "Claim",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "claim"
+        ],
+        "title": "ConflictSource",
+        "type": "object"
+      },
+      "CriterionResult": {
+        "properties": {
+          "confidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "conflictSources": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ConflictSource"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conflictsources"
+          },
+          "docSource": {
+            "default": "",
+            "title": "Docsource",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/Rule"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CriterionStatus"
+          },
+          "suggestedAction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestedaction"
+          },
+          "workflowPlan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "rule",
+          "status",
+          "note"
+        ],
+        "title": "CriterionResult",
+        "type": "object"
+      },
+      "CriterionStatus": {
+        "enum": [
+          "found",
+          "needs_review",
+          "conflict"
+        ],
+        "title": "CriterionStatus",
+        "type": "string"
+      },
+      "DoneEvent": {
+        "properties": {
+          "correlation_id": {
+            "default": "",
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "event": {
+            "const": "done",
+            "default": "done",
+            "title": "Event",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "pa_resolution": {
+            "default": "",
+            "enum": [
+              "plan_id",
+              "drug_alias",
+              "generic",
+              ""
+            ],
+            "title": "Pa Resolution",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "retry_count": {
+            "default": 0,
+            "title": "Retry Count",
+            "type": "integer"
+          },
+          "structural_scores": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Structural Scores",
+            "type": "object"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CaseTier"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "model",
+          "ref"
+        ],
+        "title": "DoneEvent",
+        "type": "object"
+      },
+      "ErrorEvent": {
+        "properties": {
+          "correlation_id": {
+            "default": "",
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "event": {
+            "const": "error",
+            "default": "error",
+            "title": "Event",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "retry_count": {
+            "default": 0,
+            "title": "Retry Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "ErrorEvent",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InitialPaDoneEvent": {
+        "description": "Success terminal for the initial-PA stream (S2 Slice 1, spec-first).\n\nSame ``done``/``error`` contract as the appeal stream \u2014 every stream ends\nwith exactly one of them \u2014 but lifecycle-shaped payload: the CRD result,\nthe payer determination (absent when the CRD early-exits with \"PA not\nrequired\"), and the appeal handoff pointer when denied. Launching the\nappeal stays a separate, human-gated request.",
+        "properties": {
+          "appeal_handoff": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppealHandoff"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "correlation_id": {
+            "default": "",
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "event": {
+            "const": "done",
+            "default": "done",
+            "title": "Event",
+            "type": "string"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "pa_required": {
+            "$ref": "#/components/schemas/PaRequired"
+          },
+          "pa_resolution": {
+            "default": "",
+            "enum": [
+              "plan_id",
+              "drug_alias",
+              "generic",
+              ""
+            ],
+            "title": "Pa Resolution",
+            "type": "string"
+          },
+          "submission_ref": {
+            "default": "",
+            "title": "Submission Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pa_required"
+        ],
+        "title": "InitialPaDoneEvent",
+        "type": "object"
+      },
+      "InitialPaRequest": {
+        "description": "Strict-validated HTTP request body for the initial-PA lifecycle (S2).\n\nDeliberately NOT an AppealRequest extension (Sprint 2 standing rule): an\ninitial PA precedes any payer decision, so there is no denial to quote,\nand the flow it drives (CRD check \u2192 assemble \u2192 PAS submit \u2192 determination)\nis a different artifact on a different transmission rail\n(05-state-lifecycle.md).",
+        "properties": {
+          "attempt": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "case_ref": {
+            "default": "",
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9\\-]*$",
+            "title": "Case Ref",
+            "type": "string"
+          },
+          "criteria_results": {
+            "items": {
+              "$ref": "#/components/schemas/CriterionResult"
+            },
+            "title": "Criteria Results",
+            "type": "array"
+          },
+          "diagnosis": {
+            "maxLength": 200,
+            "title": "Diagnosis",
+            "type": "string"
+          },
+          "drug": {
+            "maxLength": 200,
+            "title": "Drug",
+            "type": "string"
+          },
+          "plan": {
+            "maxLength": 200,
+            "title": "Plan",
+            "type": "string"
+          },
+          "plan_id": {
+            "maxLength": 100,
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "requested_therapy": {
+            "maxLength": 200,
+            "title": "Requested Therapy",
+            "type": "string"
+          },
+          "scenario_id": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9\\-]+$",
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "security_hold": {
+            "default": false,
+            "title": "Security Hold",
+            "type": "boolean"
+          },
+          "security_reason": {
+            "default": "",
+            "title": "Security Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scenario_id",
+          "drug",
+          "diagnosis",
+          "plan",
+          "plan_id",
+          "requested_therapy",
+          "criteria_results"
+        ],
+        "title": "InitialPaRequest",
+        "type": "object"
+      },
+      "PaDecision": {
+        "description": "Payer determination decision on an initial-PA submission (S2 Slice 1).\n\nThe initial-PA lifecycle branches on this: approved ends the flow,\npended loops back to determination, denied hands off to the appeal\npipeline (05-state-lifecycle.md).",
+        "enum": [
+          "approved",
+          "pended",
+          "denied"
+        ],
+        "title": "PaDecision",
+        "type": "string"
+      },
+      "PaOutcome": {
+        "description": "Payer determination after a PAS submission (initial-PA lifecycle).",
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/PaDecision"
+          },
+          "determinationId": {
+            "title": "Determinationid",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "timeToTherapy": {
+            "title": "Timetotherapy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "determinationId",
+          "timeToTherapy",
+          "note"
+        ],
+        "title": "PaOutcome",
+        "type": "object"
+      },
+      "PaRequired": {
+        "description": "CRD pre-check result: is a PA required for this drug \u00d7 plan, and why.",
+        "properties": {
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "required",
+          "basis"
+        ],
+        "title": "PaRequired",
+        "type": "object"
+      },
+      "PendingReviewItem": {
+        "description": "One parked exception-tier run awaiting human review (S3 Task 3).\n\nMetadata only \u2014 never the letter/request text (CLAUDE.md PHI rule). A\nreviewer surfaces the queue with this; the draft body is a deferred Slice\n4c surface. ``parked_at`` is the timestamp of the exception ``done`` audit\nrecord (when the run parked at ``hold``). ``tier`` is always ``exception``\ntoday (only that tier parks), carried explicitly so the shape survives if\nanother tier ever gains a review checkpoint.",
+        "properties": {
+          "correlation_id": {
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "drug": {
+            "title": "Drug",
+            "type": "string"
+          },
+          "parked_at": {
+            "title": "Parked At",
+            "type": "string"
+          },
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          },
+          "scenario_id": {
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "tier": {
+            "$ref": "#/components/schemas/CaseTier"
+          }
+        },
+        "required": [
+          "correlation_id",
+          "scenario_id",
+          "drug",
+          "plan",
+          "tier",
+          "parked_at"
+        ],
+        "title": "PendingReviewItem",
+        "type": "object"
+      },
+      "PendingReviewsResponse": {
+        "description": "Response body for GET /api/reviews/pending (S3 Task 3).\n\nWrapped (not a bare array) so the payload can gain top-level metadata\nwithout a breaking change.",
+        "properties": {
+          "reviews": {
+            "items": {
+              "$ref": "#/components/schemas/PendingReviewItem"
+            },
+            "title": "Reviews",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reviews"
+        ],
+        "title": "PendingReviewsResponse",
+        "type": "object"
+      },
+      "ResumeAppealRequest": {
+        "description": "Strict-validated HTTP request body for POST /api/appeal/resume (S3\nSlice 4b): a human clears a parked exception-tier run for submission.\n\n``correlation_id`` is the parked run's handle \u2014 the value carried on that\nrun's terminal ``DoneEvent`` (= its checkpoint ``thread_id``). When\n``edited_text`` is present it replaces the drafted letter as the outbound\nartifact; the resume is recorded with ``provenance=human_edited``.",
+        "properties": {
+          "correlation_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "edited_text": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edited Text"
+          }
+        },
+        "required": [
+          "correlation_id"
+        ],
+        "title": "ResumeAppealRequest",
+        "type": "object"
+      },
+      "Rule": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/RuleType"
+          }
+        },
+        "required": [
+          "type",
+          "label"
+        ],
+        "title": "Rule",
+        "type": "object"
+      },
+      "RuleType": {
+        "enum": [
+          "diagnostic",
+          "temporal",
+          "math",
+          "safety",
+          "provider",
+          "quantity",
+          "custom"
+        ],
+        "title": "RuleType",
+        "type": "string"
+      },
+      "StepEvent": {
+        "properties": {
+          "event": {
+            "const": "step",
+            "default": "step",
+            "title": "Event",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "label"
+        ],
+        "title": "StepEvent",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WorkflowPlan": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "recipient": {
+            "title": "Recipient",
+            "type": "string"
+          },
+          "turnaround": {
+            "title": "Turnaround",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "recipient",
+          "channel",
+          "turnaround"
+        ],
+        "title": "WorkflowPlan",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Streaming prior-authorization appeal generation backend.",
+    "title": "PaxOS Appeal Generation API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/appeal/generate": {
+      "post": {
+        "description": "Stream an appeal letter as Server-Sent Events.\n\nAuthentication: enforced by the auth_middleware before this is reached.\n\nReturns a ``text/event-stream`` response emitting ``step``, ``chunk``,\n``done``, and ``error`` events.",
+        "operationId": "generate_appeal_api_appeal_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppealRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Appeal"
+      }
+    },
+    "/api/appeal/resume": {
+      "post": {
+        "description": "Resume a parked exception-tier appeal run for a human reviewer (S3\nSlice 4b).\n\nAuthentication: enforced by the auth_middleware before this is reached.\nNo LLM_BACKEND required \u2014 the resume path invokes no model.\n\nReturns a ``text/event-stream`` emitting a terminal ``done`` (the human\nreviewed/edited letter) or ``error`` (nothing awaiting review for the\ngiven ``correlation_id``).",
+        "operationId": "resume_appeal_api_appeal_resume_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeAppealRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Appeal"
+      }
+    },
+    "/api/audit/records": {
+      "get": {
+        "description": "List the audit trail (S3 Task 3) \u2014 read-only, metadata + hashes only.\n\nAuthentication: enforced by the auth_middleware before this is reached.\nReturns every :class:`AuditRecord` as-is (identifiers and hashes by design,\nnever letter/request text).",
+        "operationId": "list_audit_records_api_audit_records_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditRecordsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Audit Records"
+      }
+    },
+    "/api/pa/submit": {
+      "post": {
+        "description": "Run the initial-PA lifecycle as Server-Sent Events.\n\nAuthentication: enforced by the auth_middleware before this is reached.\n\nReturns a ``text/event-stream`` response emitting ``step`` and a terminal\n``done`` (InitialPaDoneEvent) or ``error`` event \u2014 never ``chunk``\n(no LLM in this path).",
+        "operationId": "submit_initial_pa_api_pa_submit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitialPaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Initial Pa"
+      }
+    },
+    "/api/reviews/pending": {
+      "get": {
+        "description": "List exception-tier runs awaiting human review (S3 Task 3).\n\nAuthentication: enforced by the auth_middleware before this is reached.\nMetadata only \u2014 never the draft body (a deferred Slice 4c surface). The\nqueue is derived from the audit trail (ADR-0011); the handler only wires\nthe store snapshot and the live parked-check into the pure derivation.",
+        "operationId": "list_pending_reviews_api_reviews_pending_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingReviewsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Pending Reviews"
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Unauthenticated health check \u2014 used by load balancers and CI smoke tests.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    }
+  }
+}

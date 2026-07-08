@@ -44,6 +44,7 @@ from models.schemas import (
     PendingReviewsResponse,
     ResumeAppealRequest,
 )
+from openapi_ext import build_openapi
 
 if TYPE_CHECKING:
     from ml.llm_backend import LLMBackend
@@ -72,6 +73,11 @@ app = FastAPI(
     description="Streaming prior-authorization appeal generation backend.",
     version="0.1.0",
 )
+
+# The SSE routes return StreamingResponse, so their event shapes are invisible
+# to FastAPI's default schema generation. Register them explicitly so the
+# generated TypeScript wire types include typed SSE events (openapi_ext, ADR-0012).
+app.openapi = build_openapi(app)  # type: ignore[method-assign]  # FastAPI's documented override pattern
 
 app.add_middleware(
     CORSMiddleware,
