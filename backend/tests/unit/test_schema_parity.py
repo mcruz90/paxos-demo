@@ -12,17 +12,23 @@ the backend must carry every status the frontend can put on a case.
 from __future__ import annotations
 
 import re
+import typing
 from pathlib import Path
 
+from pydantic import BaseModel
+
 from models.schemas import (
+    AppealEvent,
     AuditProvenance,
     CaseLifecycle,
     CaseStatus,
     CaseTier,
     CriterionResult,
+    InitialPaEvent,
     PaDecision,
     RuleType,
 )
+from openapi_ext import _SSE_EVENT_MODELS
 
 _TYPES_TS = Path(__file__).resolve().parents[3] / "src" / "types.ts"
 
@@ -143,4 +149,36 @@ def test_audit_provenance_matches_frontend_union() -> None:
     assert backend == frontend, (
         f"AuditProvenance drift — backend-only: {backend - frontend}, "
         f"frontend-only: {frontend - backend}"
+    )
+
+
+def test_sse_event_registration_covers_the_event_unions() -> None:
+    """SSE event registration parity (ADR-0012, frontend-integration Slice 1).
+
+    ``openapi_ext._SSE_EVENT_MODELS`` is the hand-maintained list of event
+    models injected into ``components.schemas`` so the generated TypeScript wire
+    types include typed SSE events — the streaming routes return
+    ``StreamingResponse``, so FastAPI cannot infer these shapes on its own.
+
+    The CI freshness guard cannot catch drift here: if a sixth event model is
+    added to the ``AppealEvent`` / ``InitialPaEvent`` unions but not registered,
+    regeneration produces an *equally incomplete* artifact — no diff, no
+    failure. That is exactly the project's "a flag nothing reads" gap
+    (CLAUDE.md §Defensive Programming). This test is the reader: the registered
+    set must equal the BaseModel members of both event unions, so a new event
+    that isn't registered fails loudly instead of silently missing from the
+    client contract.
+    """
+    union_members = {
+        arg
+        for union in (AppealEvent, InitialPaEvent)
+        for arg in typing.get_args(union)
+        if isinstance(arg, type) and issubclass(arg, BaseModel)
+    }
+    registered = set(_SSE_EVENT_MODELS)
+    assert registered == union_members, (
+        "SSE event registration drift — union members missing from "
+        f"_SSE_EVENT_MODELS (will be absent from generated wire types): "
+        f"{union_members - registered}; dead registration entries: "
+        f"{registered - union_members}"
     )
