@@ -10,10 +10,10 @@ const byScenario = (id: string): Client => {
 
 describe('getCaseTier', () => {
   it('maps exception status to the exception tier', () => {
-    expect(getCaseTier(byScenario('intercept-ocaliva'))).toBe('exception')
+    expect(getCaseTier(byScenario('gilead-livdelzi'))).toBe('exception')
   })
   it('maps payer_response status to the complex tier', () => {
-    expect(getCaseTier(byScenario('infant-omeprazole'))).toBe('complex')
+    expect(getCaseTier(byScenario('pediatric-esomeprazole'))).toBe('complex')
   })
   it('treats ready_for_review as routine', () => {
     expect(getCaseTier(byScenario('novo-ozempic-initial'))).toBe('routine')
@@ -23,11 +23,11 @@ describe('getCaseTier', () => {
 describe('getCaseStage', () => {
   it('labels an initial_pa scenario as Initial PA', () => {
     expect(getCaseStage(byScenario('novo-ozempic-initial'))).toBe('Initial PA')
-    expect(getCaseStage(byScenario('novo-ozempic-denied'))).toBe('Initial PA')
+    expect(getCaseStage(byScenario('novo-ozempic-docgap'))).toBe('Initial PA')
   })
   it('labels a non-initial scenario as Appeal', () => {
     expect(getCaseStage(byScenario('novo-ozempic'))).toBe('Appeal')
-    expect(getCaseStage(byScenario('infant-omeprazole'))).toBe('Appeal')
+    expect(getCaseStage(byScenario('pediatric-esomeprazole'))).toBe('Appeal')
   })
   it('derives stage from the scenario lifecycle, not the queue row', () => {
     expect(scenarios['novo-ozempic-initial'].lifecycle).toBe('initial_pa')

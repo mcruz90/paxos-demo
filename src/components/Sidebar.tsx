@@ -1,4 +1,4 @@
-import { LayoutDashboard, Library, Activity, FileText, Users, AlertTriangle, Pencil, BarChart2, LineChart, ShieldCheck, Rocket, Boxes, Workflow, Sliders, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, Library, Activity, FileText, Users, AlertTriangle, Pencil, BarChart2, LineChart, ShieldCheck, Rocket, Boxes, Workflow, Sliders, Sun, Moon, ChevronLeft, ChevronRight } from 'lucide-react'
 import { type View, type Role } from '../types'
 
 type Owner = 'Client' | 'Platform' | 'Sponsor'
@@ -74,10 +74,19 @@ const OWNER_LABEL: Record<Owner, string> = {
   Sponsor:  'Manufacturer view',
 }
 
+// Hover accent on the collapse toggle follows the active role's color
+const ROLE_TOGGLE_GLOW: Record<Role, string> = {
+  Operate: 'hover:shadow-teal-500/20 hover:border-teal-500/30 hover:text-teal-300',
+  Build:   'hover:shadow-violet-500/20 hover:border-violet-500/30 hover:text-violet-300',
+  Scale:   'hover:shadow-violet-500/20 hover:border-violet-500/30 hover:text-violet-300',
+  Sponsor: 'hover:shadow-sky-500/20 hover:border-sky-500/30 hover:text-sky-300',
+}
+
 export function Sidebar({
   view, setView,
   activeRole, onRoleChange,
   onStartTour, theme, onToggleTheme,
+  isCollapsed, onToggleCollapse,
 }: {
   view: View
   setView: (v: View) => void
@@ -86,90 +95,103 @@ export function Sidebar({
   onStartTour: () => void
   theme: 'dark' | 'light'
   onToggleTheme: () => void
+  isCollapsed: boolean
+  onToggleCollapse: () => void
 }) {
   const activeSection = SECTIONS.find(s => s.name === activeRole) ?? SECTIONS[0]
 
   return (
-    <aside className="w-60 shrink-0 bg-slate-900 border-r border-slate-800 flex flex-col">
-      {/* Logo — top accent stripe reflects the active role */}
-      <div className={`px-5 py-5 border-b border-slate-800 ${ROLE_TOP_BORDER[activeRole]}`}>
-        <button onClick={onStartTour} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity text-left w-full">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-4 h-4 text-white" />
-          </div>
-          <p className="text-sm font-semibold text-white">ClearAuth</p>
-        </button>
-      </div>
-
-      {/* Role switcher — 2×2 grid; clicking a role navigates to its default view */}
-      <div className="px-3 pt-3 pb-2 border-b border-slate-800">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-0.5 mb-2">Viewing as</p>
-        <div className="grid grid-cols-2 gap-1.5">
-          {SECTIONS.map(({ name }) => (
-            <button
-              key={name}
-              onClick={() => onRoleChange(name)}
-              className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${
-                activeRole === name
-                  ? ROLE_ACTIVE[name]
-                  : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800 border border-transparent'
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ROLE_DOT[name]}`} />
-              {name}
-            </button>
-          ))}
+    <div className="relative flex shrink-0 z-40">
+      <aside className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'w-0 border-r-transparent overflow-hidden' : 'w-60 border-slate-800'} shrink-0 bg-slate-900 border-r flex flex-col`}>
+        {/* Logo — top accent stripe reflects the active role */}
+        <div className={`px-5 py-5 border-b border-slate-800 ${ROLE_TOP_BORDER[activeRole]}`}>
+          <button onClick={onStartTour} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity text-left w-full">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-4 h-4 text-white" />
+            </div>
+            <p className="text-sm font-semibold text-white">ClearAuth (Demo) </p>
+          </button>
         </div>
-        <p className="text-xs text-slate-500 mt-2.5 px-0.5 leading-snug">{activeSection.subtitle}</p>
-      </div>
 
-      {/* Nav — only the active role's items */}
-      <nav className="flex-1 p-3 overflow-y-auto">
-        <div className="space-y-0.5">
-          {activeSection.items.map(([v, Icon, label]) => (
-            <button
-              key={v}
-              id={v === 'library' ? 'tour-sidebar-library' : undefined}
-              onClick={() => setView(v)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                view === v || (v === 'portfolio' && view === 'poc')
-                  ? 'bg-slate-700/80 text-white font-medium'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {label}
-            </button>
-          ))}
+        {/* Role switcher — 2×2 grid; clicking a role navigates to its default view */}
+        <div className="px-3 pt-3 pb-2 border-b border-slate-800">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-0.5 mb-2">Viewing as</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {SECTIONS.map(({ name }) => (
+              <button
+                key={name}
+                onClick={() => onRoleChange(name)}
+                className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${
+                  activeRole === name
+                    ? ROLE_ACTIVE[name]
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800 border border-transparent'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ROLE_DOT[name]}`} />
+                {name}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500 mt-2.5 px-0.5 leading-snug">{activeSection.subtitle}</p>
         </div>
-      </nav>
 
-      {/* Footer — theme, tour, persona */}
-      <div className="p-3 border-t border-slate-800 space-y-1">
-        <button
-          onClick={onToggleTheme}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-        >
-          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-        </button>
-        <button
-          onClick={onStartTour}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-        >
-          <Activity className="w-4 h-4" />
-          Guided Tour
-        </button>
-        <div className="flex items-center gap-3 px-2 py-2">
-          <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
-            <Users className="w-3.5 h-3.5 text-slate-400" />
+        {/* Nav — only the active role's items */}
+        <nav className="flex-1 p-3 overflow-y-auto">
+          <div className="space-y-0.5">
+            {activeSection.items.map(([v, Icon, label]) => (
+              <button
+                key={v}
+                id={v === 'library' ? 'tour-sidebar-library' : undefined}
+                onClick={() => setView(v)}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  view === v || (v === 'portfolio' && view === 'poc')
+                    ? 'bg-slate-700/80 text-white font-medium'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
           </div>
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-slate-300 truncate">{activeSection.persona}</p>
-            <p className="text-xs text-slate-500">{OWNER_LABEL[activeSection.owner]}</p>
+        </nav>
+
+        {/* Footer — theme, tour, persona */}
+        <div className="p-3 border-t border-slate-800 space-y-1">
+          <button
+            onClick={onToggleTheme}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          </button>
+          <button
+            onClick={onStartTour}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            <Activity className="w-4 h-4" />
+            Guided Tour
+          </button>
+          <div className="flex items-center gap-3 px-2 py-2">
+            <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
+              <Users className="w-3.5 h-3.5 text-slate-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-300 truncate">{activeSection.persona}</p>
+              <p className="text-xs text-slate-500">{OWNER_LABEL[activeSection.owner]}</p>
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+      <button
+        onClick={onToggleCollapse}
+        className={`absolute top-1/2 -translate-y-1/2 z-50 w-5 h-12 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-r-lg flex items-center justify-center cursor-pointer text-slate-400 transition-all duration-300 shadow-lg ${ROLE_TOGGLE_GLOW[activeRole]} ${
+          isCollapsed ? 'left-0 border-l border-slate-800/80 rounded-l-none' : 'left-60 -ml-[1px]'
+        }`}
+        title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      >
+        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+      </button>
+    </div>
   )
 }

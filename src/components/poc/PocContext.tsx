@@ -24,6 +24,7 @@ export interface PocContextValue {
   setEditMode: React.Dispatch<React.SetStateAction<boolean>>
   editedBody: string | null
   setEditedBody: React.Dispatch<React.SetStateAction<string | null>>
+  round2Loading: boolean
   round2StepIdx: number
   round2TourIdx: number
   setRound2TourIdx: React.Dispatch<React.SetStateAction<number>>

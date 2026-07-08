@@ -38,8 +38,8 @@ export const EVAL_RUBRIC_V1: EvalRubricData = {
   ],
   cases: [
     { id: 'novo-ozempic',       tier: 'routine',   exp: 'All criteria explicit → routes Routine, auto-drafted letter passes safety gate.', tag: 'none' },
-    { id: 'infant-omeprazole',  tier: 'complex',   exp: 'Payer counter-offer (sub-therapeutic dose) → routes Complex, triggers Round 2.', tag: 'none' },
-    { id: 'intercept-ocaliva',  tier: 'exception', exp: 'Child-Pugh + MELD missing → routes Exception, emits missing-info checklist.', tag: 'none' },
+    { id: 'pediatric-esomeprazole', tier: 'complex',   exp: 'Payer counter-offer (sub-therapeutic dose) → routes Complex, triggers Round 2.', tag: 'none' },
+    { id: 'gilead-livdelzi',    tier: 'exception', exp: 'Decompensation conflict across source docs + specialist prescriber not confirmed → routes Exception, emits missing-info checklist.', tag: 'none' },
   ],
 }
 
@@ -51,10 +51,10 @@ export const EVAL_RUBRIC_V2: EvalRubricData = {
   ],
   cases: [
     EVAL_RUBRIC_V1.cases[0],
-    { id: 'derivable-duration', tier: 'routine', exp: 'Metformin duration only in refill record → FOUND via inferred basis, NOT flagged.', tag: 'regression' },
+    { id: 'derivable-duration', tier: 'routine', exp: 'Patient age derivable from DOB in referral header (not stated as integer) → FOUND via inferred basis, NOT flagged.', tag: 'regression' },
     EVAL_RUBRIC_V1.cases[1],
     EVAL_RUBRIC_V1.cases[2],
-    { id: 'safety-missing-mtc', tier: 'exception', exp: 'MTC history not explicitly cleared → escalates; clearance is NEVER inferred.', tag: 'guardrail' },
+    { id: 'safety-no-concomitant-glp1', tier: 'exception', exp: 'No concomitant GLP-1 not explicitly cleared in chart → escalates; absence is NEVER inferred from an incomplete med list.', tag: 'guardrail' },
   ],
 }
 
@@ -202,7 +202,7 @@ export function EvalRubricView({ setView, onOpenCase }: { setView: (v: View) => 
             <p className="text-xs text-slate-500 mb-3">For subjective dimensions with no deterministic answer key, the AI Lead authors explicit pass criteria; an LLM grades each letter against them (HealthBench-style).</p>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {RUBRIC_DIMENSIONS.filter(d => d.criteria).map(d => (
-                <div key={d.dimension} className="rounded-xl border border-violet-500/20 bg-violet-500/[0.05] p-4">
+                <div key={d.dimension} className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <h3 className="text-sm font-semibold text-violet-200">{d.dimension}</h3>
                     <span className="ml-auto font-mono text-xs text-slate-400">{d.grader} · {thresholdLabel(d.threshold)}</span>
@@ -228,7 +228,7 @@ export function EvalRubricView({ setView, onOpenCase }: { setView: (v: View) => 
               <Stethoscope className="w-4 h-4 text-violet-400" />Is the Judge Trustworthy? <span className="text-violet-300 font-normal">· LLM-as-judge calibration</span>
             </h2>
             <p className="text-xs text-slate-500 mb-3">An LLM grader only gets to gate clinical letters if it agrees with clinicians. The judge is calibrated against a clinician panel on a labeled sample — and the ambiguous tail still goes to a human.</p>
-            <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.05] p-5">
+            <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-5">
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                 {[
                   { label: 'Judge ↔ clinician agreement', value: `${JUDGE_CALIBRATION.agreementPct}%`, sub: `on ${JUDGE_CALIBRATION.labeledLetters} labeled letters` },
