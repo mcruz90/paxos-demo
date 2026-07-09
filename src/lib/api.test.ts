@@ -23,7 +23,7 @@ function sseResponse(body: string, init?: ResponseInit): Response {
 }
 
 function stubFetch(response: Response) {
-  const fetchMock = vi.fn(async () => response)
+  const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(response))
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
 }
