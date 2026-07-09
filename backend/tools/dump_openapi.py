@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> None:
     if "--stdout" in argv:
         sys.stdout.write(rendered)
         return
-    _OUTPUT_PATH.write_text(rendered, encoding="utf-8")
+    _OUTPUT_PATH.write_text(rendered, encoding="utf-8", newline="\n")
     # Status goes to stderr so `--stdout` stays pipe-clean.
     print(f"wrote {_OUTPUT_PATH.relative_to(_REPO_ROOT)}", file=sys.stderr)
 

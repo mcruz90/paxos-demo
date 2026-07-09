@@ -201,6 +201,11 @@
             "title": "Retry Count",
             "type": "integer"
           },
+          "reviewed_by": {
+            "default": "",
+            "title": "Reviewed By",
+            "type": "string"
+          },
           "scenario_id": {
             "title": "Scenario Id",
             "type": "string"
@@ -642,6 +647,62 @@
         "title": "InitialPaRequest",
         "type": "object"
       },
+      "LoginRequest": {
+        "description": "Strict-validated request body for POST /api/auth/login.\n\nChecked with constant-time comparison against the ``DEMO_USER`` /\n``DEMO_PASSWORD`` env vars (the pre-DB demo credential store).",
+        "properties": {
+          "password": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "LoginResponse": {
+        "description": "Response body for a successful login.\n\nThe session id itself is delivered only as the httpOnly ``paxos_session``\ncookie (never in the body, so JS cannot read it). ``csrf_token`` IS returned\nin the body so the SPA can echo it in the ``X-CSRF-Token`` header on\ncookie-authenticated writes (double-submit CSRF defense).",
+        "properties": {
+          "csrf_token": {
+            "title": "Csrf Token",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "csrf_token"
+        ],
+        "title": "LoginResponse",
+        "type": "object"
+      },
+      "MeResponse": {
+        "description": "Response body for GET /api/auth/me \u2014 the current session's user.",
+        "properties": {
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "MeResponse",
+        "type": "object"
+      },
       "PaDecision": {
         "description": "Payer determination decision on an initial-PA submission (S2 Slice 1).\n\nThe initial-PA lifecycle branches on this: approved ends the flow,\npended loops back to determination, denied hands off to the appeal\npipeline (05-state-lifecycle.md).",
         "enum": [
@@ -952,7 +1013,7 @@
     },
     "/api/appeal/resume": {
       "post": {
-        "description": "Resume a parked exception-tier appeal run for a human reviewer (S3\nSlice 4b).\n\nAuthentication: enforced by the auth_middleware before this is reached.\nNo LLM_BACKEND required \u2014 the resume path invokes no model.\n\nReturns a ``text/event-stream`` emitting a terminal ``done`` (the human\nreviewed/edited letter) or ``error`` (nothing awaiting review for the\ngiven ``correlation_id``).",
+        "description": "Resume a parked exception-tier appeal run for a human reviewer (S3\nSlice 4b).\n\nAuthentication: enforced by the auth_middleware before this is reached,\nwhich also resolves the caller identity onto ``request.state`` \u2014 passed down\nas ``reviewed_by`` for the resume audit entry (ADR-0013). The handler stays\nlogic-free: it reads a plain value, it does not parse auth.\nNo LLM_BACKEND required \u2014 the resume path invokes no model.\n\nReturns a ``text/event-stream`` emitting a terminal ``done`` (the human\nreviewed/edited letter) or ``error`` (nothing awaiting review for the\ngiven ``correlation_id``).",
         "operationId": "resume_appeal_api_appeal_resume_post",
         "requestBody": {
           "content": {
@@ -1004,6 +1065,85 @@
           }
         },
         "summary": "List Audit Records"
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "description": "Validate demo credentials, mint a session, set the httpOnly cookie.",
+        "operationId": "login_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "description": "Destroy the session and clear the cookie.",
+        "operationId": "logout_api_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Logout",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "description": "Return the current session's user (401 if there is no session).",
+        "operationId": "me_api_auth_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Me",
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/api/pa/submit": {

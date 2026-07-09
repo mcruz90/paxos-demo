@@ -43,7 +43,10 @@ export interface paths {
          * @description Resume a parked exception-tier appeal run for a human reviewer (S3
          *     Slice 4b).
          *
-         *     Authentication: enforced by the auth_middleware before this is reached.
+         *     Authentication: enforced by the auth_middleware before this is reached,
+         *     which also resolves the caller identity onto ``request.state`` — passed down
+         *     as ``reviewed_by`` for the resume audit entry (ADR-0013). The handler stays
+         *     logic-free: it reads a plain value, it does not parse auth.
          *     No LLM_BACKEND required — the resume path invokes no model.
          *
          *     Returns a ``text/event-stream`` emitting a terminal ``done`` (the human
@@ -73,6 +76,66 @@ export interface paths {
          *     never letter/request text).
          */
         get: operations["list_audit_records_api_audit_records_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description Validate demo credentials, mint a session, set the httpOnly cookie.
+         */
+        post: operations["login_api_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description Destroy the session and clear the cookie.
+         */
+        post: operations["logout_api_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Me
+         * @description Return the current session's user (401 if there is no session).
+         */
+        get: operations["me_api_auth_me_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -291,6 +354,11 @@ export interface components {
              * @default 0
              */
             retry_count: number;
+            /**
+             * Reviewed By
+             * @default
+             */
+            reviewed_by: string;
             /** Scenario Id */
             scenario_id: string;
             /** Structural Eval Scores */
@@ -521,6 +589,42 @@ export interface components {
             security_reason: string;
         };
         /**
+         * LoginRequest
+         * @description Strict-validated request body for POST /api/auth/login.
+         *
+         *     Checked with constant-time comparison against the ``DEMO_USER`` /
+         *     ``DEMO_PASSWORD`` env vars (the pre-DB demo credential store).
+         */
+        LoginRequest: {
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /**
+         * LoginResponse
+         * @description Response body for a successful login.
+         *
+         *     The session id itself is delivered only as the httpOnly ``paxos_session``
+         *     cookie (never in the body, so JS cannot read it). ``csrf_token`` IS returned
+         *     in the body so the SPA can echo it in the ``X-CSRF-Token`` header on
+         *     cookie-authenticated writes (double-submit CSRF defense).
+         */
+        LoginResponse: {
+            /** Csrf Token */
+            csrf_token: string;
+            /** User Id */
+            user_id: string;
+        };
+        /**
+         * MeResponse
+         * @description Response body for GET /api/auth/me — the current session's user.
+         */
+        MeResponse: {
+            /** User Id */
+            user_id: string;
+        };
+        /**
          * PaDecision
          * @description Payer determination decision on an initial-PA submission (S2 Slice 1).
          *
@@ -743,6 +847,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditRecordsResponse"];
+                };
+            };
+        };
+    };
+    login_api_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_api_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    me_api_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
                 };
             };
         };

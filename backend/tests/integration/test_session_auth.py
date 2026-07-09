@@ -18,6 +18,7 @@ the httpx cookie jar (it withholds Secure cookies over plain http).
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
@@ -27,7 +28,7 @@ from security import sessions
 
 
 @pytest.fixture
-def client(monkeypatch) -> TestClient:
+def client(monkeypatch) -> Iterator[TestClient]:
     monkeypatch.setenv("API_SECRET_KEY", "test-secret-key")
     monkeypatch.setenv("DEMO_USER", "demo")
     monkeypatch.setenv("DEMO_PASSWORD", "demo-pass")

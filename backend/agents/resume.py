@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 async def run_resume(
     correlation_id: str,
     edited_text: str | None,
+    reviewed_by: str = "",
 ) -> AsyncIterator[AppealEvent]:
     """Resume a parked exception-tier run for a human reviewer (S3 Slice 4b).
 
@@ -55,6 +56,9 @@ async def run_resume(
     Args:
         correlation_id: The parked run's handle (from its terminal DoneEvent).
         edited_text: Human-edited letter body, or None to clear the draft as-is.
+        reviewed_by: Session user_id of the human who cleared the run, stamped on
+            the resume audit record. "" for a Bearer/service caller (no named
+            reviewer — the service identity, ADR-0013).
 
     Yields:
         :class:`DoneEvent` on success, or :class:`ErrorEvent` if nothing is
@@ -99,6 +103,7 @@ async def run_resume(
             # A human reviewed (and possibly edited) the letter before it was
             # cleared for submission — the accountability record of that review.
             provenance=AuditProvenance.human_edited,
+            reviewed_by=reviewed_by,
         )
 
     async for event in with_audit(

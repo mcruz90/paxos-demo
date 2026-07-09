@@ -2,14 +2,20 @@
 
 Routes:
   GET  /health                  — unauthenticated health check
-  POST /api/appeal/generate     — SSE appeal generation (Bearer auth required)
-  POST /api/appeal/resume       — SSE resume of a parked exception run (Bearer; no LLM)
-  GET  /api/audit/records       — list the audit trail (Bearer; read-only, metadata only)
-  GET  /api/reviews/pending     — list parked exception runs awaiting review (Bearer; read-only)
-  POST /api/pa/submit           — SSE initial-PA lifecycle (Bearer auth; no LLM)
+  POST /api/auth/login          — issue a session cookie (unauthenticated)
+  POST /api/auth/logout         — destroy the session (session + CSRF)
+  GET  /api/auth/me             — current session's user (session)
+  POST /api/appeal/generate     — SSE appeal generation
+  POST /api/appeal/resume       — SSE resume of a parked exception run (no LLM)
+  GET  /api/audit/records       — list the audit trail (read-only, metadata only)
+  GET  /api/reviews/pending     — list parked exception runs awaiting review (read-only)
+  POST /api/pa/submit           — SSE initial-PA lifecycle (no LLM)
 
-Auth: All /api/* routes require Authorization: Bearer <API_SECRET_KEY>.
-      API_SECRET_KEY is read from the environment (set via .env or CI secrets).
+Auth (ADR-0013): every /api/* route accepts EITHER Authorization: Bearer
+      <API_SECRET_KEY> (service/CI) OR a valid `paxos_session` cookie (browser).
+      Cookie-authenticated writes also require an X-CSRF-Token header; Bearer
+      requests are CSRF-exempt. /api/auth/login is the one unauthenticated
+      /api/* route (it issues the credential). The auth routes live in api/auth.py.
 
 LLM backend selection: controlled by the LLM_BACKEND environment variable.
   "mock"  → ml.mock_backend.MockLLMBackend  (CI / local dev, no API key needed)
@@ -19,9 +25,7 @@ LLM backend selection: controlled by the LLM_BACKEND environment variable.
 from __future__ import annotations
 
 import hmac
-import logging
 import os
-from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 
 from dotenv import load_dotenv
@@ -29,27 +33,22 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from agents.generate import run_pipeline
-from agents.initial_pa_graph import run_initial_pa_pipeline
-from agents.resume import run_resume
 from agents.review_queue import derive_pending_reviews, is_run_parked
+from api.auth import router as auth_router
 from audit.store import all_records
 from models.schemas import (
-    AppealEvent,
     AppealRequest,
     AuditRecordsResponse,
-    ErrorEvent,
-    InitialPaEvent,
     InitialPaRequest,
     PendingReviewsResponse,
     ResumeAppealRequest,
 )
 from openapi_ext import build_openapi
+from security.sessions import COOKIE_NAME, CSRF_HEADER, get_session
+from sse import stream_events, stream_initial_pa_events, stream_resume_events
 
 if TYPE_CHECKING:
     from ml.llm_backend import LLMBackend
-
-logger = logging.getLogger(__name__)
 
 # Load .env for local dev (README quick start). Does NOT override variables
 # already set in the environment, so CI/production env wins.
@@ -79,12 +78,26 @@ app = FastAPI(
 # generated TypeScript wire types include typed SSE events (openapi_ext, ADR-0012).
 app.openapi = build_openapi(app)  # type: ignore[method-assign]  # FastAPI's documented override pattern
 
+# CORS: cookie auth needs credentialed requests, so allow_origins can no longer
+# be "*" (browsers reject "*" + credentials). Read an explicit allowlist from
+# CORS_ORIGINS (comma-separated); default to the Vite dev server (ADR-0013).
+_CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Tighten in production
+    allow_origins=_CORS_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Session-cookie auth routes (login / logout / me) — the BFF credential surface
+# beside the Bearer scheme (ADR-0013).
+app.include_router(auth_router)
 
 # ---------------------------------------------------------------------------
 # Auth middleware — must run before body parsing so bad tokens get 401, not 422
@@ -93,21 +106,47 @@ app.add_middleware(
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    """Enforce Bearer token auth on all /api/* routes before body validation."""
-    if request.url.path.startswith("/api/"):
-        auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
-            return JSONResponse(
-                {"detail": "Missing or invalid Authorization header"},
-                status_code=401,
-            )
+    """Authorize /api/* on EITHER Bearer key OR session cookie (ADR-0013).
+
+    Runs before body validation so a bad token gets 401, not 422. Resolves the
+    caller's identity onto ``request.state.session_user_id`` ("" for Bearer /
+    service callers) so a route can attribute an action without re-parsing auth.
+
+    - ``POST /api/auth/login`` is unauthenticated — the credential-issuing route.
+    - Bearer requests are exempt from CSRF (service/CI identity, no browser).
+    - Cookie-authenticated writes (non-GET) require an ``X-CSRF-Token`` header
+      matching the session's token (double-submit defense).
+    """
+    if not request.url.path.startswith("/api/"):
+        return await call_next(request)
+
+    request.state.session_user_id = ""
+
+    if request.url.path == "/api/auth/login":
+        return await call_next(request)
+
+    # (a) Bearer path — unchanged, CSRF-exempt.
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
         token = auth_header[len("Bearer "):]
         secret = _get_secret_key()
         if not secret or not hmac.compare_digest(token, secret):
-            return JSONResponse(
-                {"detail": "Invalid API key"},
-                status_code=401,
-            )
+            return JSONResponse({"detail": "Invalid API key"}, status_code=401)
+        return await call_next(request)
+
+    # (b) Session-cookie path.
+    session = get_session(request.cookies.get(COOKIE_NAME, ""))
+    if session is None:
+        return JSONResponse(
+            {"detail": "Missing or invalid Authorization header"}, status_code=401
+        )
+    if request.method != "GET" and not hmac.compare_digest(
+        request.headers.get(CSRF_HEADER, ""), session.csrf_token
+    ):
+        return JSONResponse(
+            {"detail": "Missing or invalid CSRF token"}, status_code=403
+        )
+    request.state.session_user_id = session.user_id
     return await call_next(request)
 
 
@@ -160,45 +199,7 @@ def _build_llm_backend() -> LLMBackend:
 
 
 # ---------------------------------------------------------------------------
-# SSE formatting
-# ---------------------------------------------------------------------------
-
-def _sse_line(event: AppealEvent | InitialPaEvent) -> str:
-    """Format a single SSE message frame."""
-    return f"event: {event.event}\ndata: {event.model_dump_json()}\n\n"
-
-
-async def _stream_events(request: AppealRequest) -> AsyncIterator[str]:
-    # SSE headers are already sent when this generator runs — a construction
-    # failure must surface as an error event, never a bare disconnect.
-    try:
-        llm_backend = _build_llm_backend()
-    except Exception:
-        logger.exception("LLM backend construction failed")
-        yield _sse_line(
-            ErrorEvent(message="Server LLM backend is not configured.", retry_count=0)
-        )
-        return
-    async for event in run_pipeline(request, llm_backend=llm_backend):
-        yield _sse_line(event)
-
-
-async def _stream_initial_pa_events(request: InitialPaRequest) -> AsyncIterator[str]:
-    # No LLM backend construction — the initial-PA path never invokes a model,
-    # so the route must serve without LLM_BACKEND being set.
-    async for event in run_initial_pa_pipeline(request):
-        yield _sse_line(event)
-
-
-async def _stream_resume_events(request: ResumeAppealRequest) -> AsyncIterator[str]:
-    # Resume re-enters a parked graph at the hold node (Slice 4b) — no LLM is
-    # invoked (no synthesis re-run), so this route serves without LLM_BACKEND.
-    async for event in run_resume(request.correlation_id, request.edited_text):
-        yield _sse_line(event)
-
-
-# ---------------------------------------------------------------------------
-# Routes
+# Routes — SSE framing + stream generators live in sse.py (transport glue).
 # ---------------------------------------------------------------------------
 
 
@@ -218,7 +219,7 @@ async def generate_appeal(body: AppealRequest) -> StreamingResponse:
     ``done``, and ``error`` events.
     """
     return StreamingResponse(
-        _stream_events(body),
+        stream_events(body, _build_llm_backend),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -228,11 +229,14 @@ async def generate_appeal(body: AppealRequest) -> StreamingResponse:
 
 
 @app.post("/api/appeal/resume")
-async def resume_appeal(body: ResumeAppealRequest) -> StreamingResponse:
+async def resume_appeal(body: ResumeAppealRequest, request: Request) -> StreamingResponse:
     """Resume a parked exception-tier appeal run for a human reviewer (S3
     Slice 4b).
 
-    Authentication: enforced by the auth_middleware before this is reached.
+    Authentication: enforced by the auth_middleware before this is reached,
+    which also resolves the caller identity onto ``request.state`` — passed down
+    as ``reviewed_by`` for the resume audit entry (ADR-0013). The handler stays
+    logic-free: it reads a plain value, it does not parse auth.
     No LLM_BACKEND required — the resume path invokes no model.
 
     Returns a ``text/event-stream`` emitting a terminal ``done`` (the human
@@ -240,7 +244,7 @@ async def resume_appeal(body: ResumeAppealRequest) -> StreamingResponse:
     given ``correlation_id``).
     """
     return StreamingResponse(
-        _stream_resume_events(body),
+        stream_resume_events(body, request.state.session_user_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -285,7 +289,7 @@ async def submit_initial_pa(body: InitialPaRequest) -> StreamingResponse:
     (no LLM in this path).
     """
     return StreamingResponse(
-        _stream_initial_pa_events(body),
+        stream_initial_pa_events(body),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
