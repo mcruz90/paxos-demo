@@ -57,10 +57,15 @@ reader instead:
 **Auth (client → backend):** cookie-based — every request sends
 `credentials: "include"` and **no `Authorization` header** (the browser never
 holds the API secret). State-changing POSTs send the session CSRF token as
-`X-CSRF-Token` when supplied. (The middleware's Bearer scheme documented below
-remains the server-side contract for the current build-time-injected POC path;
-the cookie/CSRF seam is the integration direction being wired in a later
-slice.)
+`X-CSRF-Token` when supplied. This is now wired end-to-end (Sprint FI Slice 4):
+in **live mode** (`VITE_API_BASE_URL` set) the SPA logs in via
+`login()`/`logout()`/`me()` (added to `api.ts`), holds the returned
+`{user_id, csrf_token}` **in memory only** (never localStorage — PHI rule; the
+session id itself is the httpOnly cookie), and drives the streaming routes with
+that CSRF token. There is **no build-time API key in the frontend bundle** — the
+`VITE_API_KEY`/Bearer-in-the-browser idea is rejected (that is exactly what the
+BFF exists to prevent, ADR-0013). The Bearer scheme below is server-side only,
+for service/CI callers.
 
 **Error handling mirrors the contract:** a non-200 *before* the stream throws a
 typed `ApiError`; an in-stream failure is delivered as a terminal `error`
@@ -393,7 +398,7 @@ Source of truth: [backend/.env.example](../../backend/.env.example).
 | `GROQ_API_KEY` | when `groq` | Provider key |
 | `GROQ_MODEL` | no | Default `llama3-8b-8192` |
 | `LLM_TIMEOUT_SECONDS` | no | Remote-provider request timeout, default 30 |
-| `VITE_API_KEY` | frontend | Must equal `API_SECRET_KEY`; injected at build time into the POC client |
+| `VITE_API_BASE_URL` | frontend | **Opt-in live mode.** Set (e.g. `http://localhost:8000`) → the SPA calls the real backend via cookie/CSRF auth (Sprint FI Slice 4). Unset → the simulated demo runs fully offline. **No API key is ever put in the frontend bundle** — cookie/CSRF replaces the rejected `VITE_API_KEY`/Bearer-in-browser idea (ADR-0013) |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` | — | **Deferred** — langfuse is not installed ([ADR-0007](adr/0007-deferred-dependencies.md)) |
 
 CORS is a `CORS_ORIGINS` allowlist with `allow_credentials=True` (cookies) —

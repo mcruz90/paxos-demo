@@ -128,21 +128,24 @@ flowchart TB
 The SPA is **not** a thin client over the backend. By design
 ([ADR-0005](adr/0005-dual-branch-strategy.md)):
 
-- All demo views render from `src/data/scenarios.tsx` fixtures — no network.
-- Only the POC pipeline flow performs a real call:
-  `POST /api/appeal/generate` with `Authorization: Bearer <VITE_API_KEY>`,
-  consuming the SSE stream defined in
-  [06-api-contract.md](06-api-contract.md).
+- By default all views — including the POC — render from
+  `src/data/scenarios.tsx` fixtures with **no network**; the static demo deploy
+  has no backend.
+- **Live mode is opt-in** (`VITE_API_BASE_URL` set at build/dev time). One
+  switch point (`src/components/poc/live/liveMode.ts`) makes `App` render the
+  live shell (`LiveApp`) instead of the simulated tree; the simulated
+  components never branch on mode. Live mode logs in via the cookie/CSRF BFF
+  and drives `POST /api/appeal/generate` / `/api/appeal/resume` and
+  `GET /api/reviews/pending` over the SSE stream in
+  [06-api-contract.md](06-api-contract.md). **No API key ships in the bundle.**
 - Shared shapes are duplicated deliberately, with parity enforced by tests:
   `src/types.ts` ↔ `backend/models/schemas.py`
   (see [03-domain-model.md](03-domain-model.md)).
 
-A typed client library for the backend now exists at
-[src/lib/](../../src/lib/) — a POST-SSE `fetch` reader plus route wrappers over
-the generated wire types (auth is cookie/CSRF, not the POC's build-time Bearer
-token). It is a **library only**: no view is wired to make live calls yet
-(that integration lands in a later slice). See the *Client consumption*
-section of [06-api-contract.md](06-api-contract.md).
+The typed client library at [src/lib/](../../src/lib/) — a POST-SSE `fetch`
+reader plus route wrappers over the generated wire types, cookie/CSRF auth — is
+consumed by the live shell in `src/components/poc/live/` (Sprint FI Slice 4).
+See the *Client consumption* section of [06-api-contract.md](06-api-contract.md).
 
 ## Branches
 

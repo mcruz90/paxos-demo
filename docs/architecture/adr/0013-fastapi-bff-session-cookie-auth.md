@@ -100,3 +100,16 @@ We adopt **Option C**. Specifically:
 - **`reviewed_by` is a new AuditRecord field** that the resume path populates;
   every pre-existing boundary write keeps its default `""` (machine identity),
   so no historical record lies.
+
+## Amendment — frontend seam wired (Sprint FI Slice 4, 2026-07-08)
+
+The SPA side of this decision is now live. The opt-in live shell
+(`src/components/poc/live/`) authenticates through this exact scheme: it calls
+`login()`/`logout()`/`me()` (added to `src/lib/api.ts`), holds the returned
+`{user_id, csrf_token}` **in React memory only** — never localStorage or
+sessionStorage (the session id stays in the httpOnly cookie), and echoes the
+CSRF token on every state-changing POST (`/api/appeal/generate`,
+`/api/appeal/resume`). This closes Option A for good: **no `VITE_API_KEY` /
+Bearer token is ever placed in the frontend bundle** — a build-time key in a
+static bundle is precisely the exposure this BFF exists to prevent. A 401
+mid-flow (expired session) surfaces as a "log in again" state, not a crash.
