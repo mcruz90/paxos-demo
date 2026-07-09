@@ -137,6 +137,13 @@ The SPA is **not** a thin client over the backend. By design
   `src/types.ts` ↔ `backend/models/schemas.py`
   (see [03-domain-model.md](03-domain-model.md)).
 
+A typed client library for the backend now exists at
+[src/lib/](../../src/lib/) — a POST-SSE `fetch` reader plus route wrappers over
+the generated wire types (auth is cookie/CSRF, not the POC's build-time Bearer
+token). It is a **library only**: no view is wired to make live calls yet
+(that integration lands in a later slice). See the *Client consumption*
+section of [06-api-contract.md](06-api-contract.md).
+
 ## Branches
 
 | Branch | Purpose |

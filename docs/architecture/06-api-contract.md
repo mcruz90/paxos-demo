@@ -29,9 +29,43 @@ from the same Pydantic models in
 [backend/openapi_ext.py](../../backend/openapi_ext.py) so the generated types
 include typed SSE events.
 
-*Note (2026-07-06): this slice establishes the dump → generate → guard pipeline
-only. [src/types.ts](../../src/types.ts) is not yet migrated to the generated
-types — that happens in the next slice, alongside the SSE client.*
+*Note (2026-07-06): the dump → generate → guard pipeline established the
+generated types; [src/types.ts](../../src/types.ts) is not yet migrated to
+them. The typed SSE client that consumes them now exists — see **Client
+consumption** below.*
+
+## Client consumption (frontend)
+
+The streaming routes are **POST** `text/event-stream`, so the browser's native
+`EventSource` (GET-only) cannot be used. The client
+([src/lib/](../../src/lib/)) drives them with `fetch()` and a streamed body
+reader instead:
+
+- [src/lib/sse.ts](../../src/lib/sse.ts) — an incremental frame parser for the
+  exact `event: <name>\ndata: <json>\n\n` shape below (CRLF-tolerant; handles
+  frames split across, or packed into, one network chunk), plus an
+  async-iterable adapter over a `fetch` Response body (`TextDecoder` with
+  `stream: true`).
+- [src/lib/api.ts](../../src/lib/api.ts) — typed route wrappers:
+  `streamAppealGenerate` / `streamAppealResume` / `streamPaSubmit` each return
+  an `AsyncIterable` of that route's discriminated event union (narrow on the
+  `event` field); `getAuditRecords` / `getPendingReviews` are plain typed GETs.
+- [src/lib/wire.ts](../../src/lib/wire.ts) — the single place that aliases
+  `components["schemas"][…]` from the generated types; nothing else indexes the
+  generated file.
+
+**Auth (client → backend):** cookie-based — every request sends
+`credentials: "include"` and **no `Authorization` header** (the browser never
+holds the API secret). State-changing POSTs send the session CSRF token as
+`X-CSRF-Token` when supplied. (The middleware's Bearer scheme documented below
+remains the server-side contract for the current build-time-injected POC path;
+the cookie/CSRF seam is the integration direction being wired in a later
+slice.)
+
+**Error handling mirrors the contract:** a non-200 *before* the stream throws a
+typed `ApiError`; an in-stream failure is delivered as a terminal `error`
+**event** (yielded, then the iterable ends), never a throw. No reconnect/retry
+logic — a dropped connection ends the iterable and the caller decides.
 
 ## Authentication — dual scheme (ADR-0013)
 
