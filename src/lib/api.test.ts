@@ -6,6 +6,9 @@ import {
   streamPaSubmit,
   getAuditRecords,
   getPendingReviews,
+  login,
+  logout,
+  me,
 } from './api'
 import type { AppealRequest, InitialPaRequest, ResumeAppealRequest } from './wire'
 
@@ -147,5 +150,53 @@ describe('getPendingReviews', () => {
     const body = await getPendingReviews()
     expect(fetchMock.mock.calls[0][0]).toBe('/api/reviews/pending')
     expect(body.reviews).toEqual([])
+  })
+})
+
+describe('login', () => {
+  it('POSTs credentials with cookie credentials and returns the csrf token', async () => {
+    const fetchMock = stubFetch(
+      new Response('{"user_id":"demo","csrf_token":"tok"}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    )
+    const resp = await login({ username: 'demo', password: 'pw' })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/auth/login')
+    expect(init?.method).toBe('POST')
+    expect(init?.credentials).toBe('include')
+    expect(resp.csrf_token).toBe('tok')
+  })
+
+  it('throws ApiError(401) on bad credentials', async () => {
+    stubFetch(new Response('{"detail":"Invalid credentials"}', { status: 401 }))
+    const err = await login({ username: 'x', password: 'y' }).catch(e => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect((err as ApiError).status).toBe(401)
+  })
+})
+
+describe('logout', () => {
+  it('POSTs with the CSRF token', async () => {
+    const fetchMock = stubFetch(new Response(null, { status: 204 }))
+    await logout({ csrfToken: 'tok' })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/auth/logout')
+    const headers = init?.headers as Record<string, string>
+    expect(headers['X-CSRF-Token']).toBe('tok')
+  })
+})
+
+describe('me', () => {
+  it('GETs the current session user', async () => {
+    const fetchMock = stubFetch(
+      new Response('{"user_id":"demo"}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    )
+    const body = await me()
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/auth/me')
+    expect(body.user_id).toBe('demo')
+  })
+
+  it('throws ApiError(401) when there is no session', async () => {
+    stubFetch(new Response('{"detail":"Session required"}', { status: 401 }))
+    await expect(me()).rejects.toBeInstanceOf(ApiError)
   })
 })
