@@ -33,6 +33,31 @@ include typed SSE events.
 only. [src/types.ts](../../src/types.ts) is not yet migrated to the generated
 types — that happens in the next slice, alongside the SSE client.*
 
+## Authentication — dual scheme (ADR-0013)
+
+Every `/api/*` route is authorized on **EITHER** of two credentials, resolved
+by the auth middleware **before body parsing** (a bad token gets `401`, never
+`422`):
+
+1. **Bearer** — `Authorization: Bearer <API_SECRET_KEY>`, the service/CI
+   identity (smoke-tour, evals, CI). Unchanged from the original scheme;
+   compared with `hmac.compare_digest`. **CSRF-exempt** (not browser-driven).
+2. **Session cookie** — `paxos_session`, an opaque httpOnly/Secure/SameSite=Strict
+   cookie issued by `POST /api/auth/login`. For the **browser** SPA (FastAPI is
+   its own BFF). A cookie-authenticated **non-GET** request must also carry an
+   `X-CSRF-Token` header matching the session's token (double-submit CSRF
+   defense) or it gets `403`.
+
+The middleware resolves the caller's identity onto `request.state.session_user_id`
+(the cookie's `user_id`, or `""` for a Bearer/service caller) so a route can
+attribute an action without re-parsing auth (see `reviewed_by`, below).
+
+`POST /api/auth/login` is the **one unauthenticated `/api/*` route** — it issues
+the credential, so it cannot require it (justified per CLAUDE.md §Security
+Defaults). Sessions live in a pre-DB in-memory store (`security/sessions.py`),
+fixed 30-min TTL checked on read, single-worker only — same caveat as the audit
+list ([ADR-0009](adr/0009-idempotency-key-and-audit-writes.md)).
+
 ## Routes
 
 ### `GET /health`
@@ -40,15 +65,34 @@ types — that happens in the next slice, alongside the SSE client.*
 Unauthenticated. Returns `{"status": "ok"}`. Used by load balancers and CI
 smoke tests.
 
+### `POST /api/auth/login` — issue a session cookie (Slice 2)
+
+**Unauthenticated** (credential-issuing). Body `LoginRequest`
+`{username, password}` (strict Pydantic), checked constant-time against the
+`DEMO_USER`/`DEMO_PASSWORD` env vars. On success: sets the `paxos_session`
+cookie and returns `200` `LoginResponse` `{user_id, csrf_token}` — the
+`csrf_token` is returned in the **body** (not the cookie) so the SPA can echo it
+in `X-CSRF-Token`. Wrong credentials → `401`, no cookie.
+
+### `POST /api/auth/logout` — destroy the session (Slice 2)
+
+Requires a session (+ `X-CSRF-Token`, being a cookie write). Deletes the
+server-side session and clears the cookie. `204`, no body.
+
+### `GET /api/auth/me` — current session's user (Slice 2)
+
+Requires a session. Returns `200` `MeResponse` `{user_id}`, or `401` if there is
+no valid session.
+
 ### `POST /api/appeal/generate`
 
 Streams an appeal letter as Server-Sent Events.
 
-**Auth:** `Authorization: Bearer <API_SECRET_KEY>` — enforced by middleware
-on all `/api/*` paths **before body parsing** (a bad token gets `401`, never
-`422`). Token comparison uses `hmac.compare_digest`. Adding any
-unauthenticated `/api/*` route requires explicit justification in the PR
-(CLAUDE.md §Security Defaults).
+**Auth:** dual scheme — Bearer key OR `paxos_session` cookie (see
+[Authentication](#authentication--dual-scheme-adr-0013)). Cookie writes to this
+route require `X-CSRF-Token`; Bearer requests do not. Adding any unauthenticated
+`/api/*` route requires explicit justification in the PR (CLAUDE.md §Security
+Defaults).
 
 **Request body:** `AppealRequest` — strict-mode Pydantic (wrong types are
 rejected, not coerced):
@@ -74,10 +118,10 @@ events, not HTTP status codes.
 
 Resumes an exception-tier appeal run that parked for human review
 ([ADR-0010](adr/0010-in-memory-checkpointer-exception-interrupt.md)) and
-drives it to a `done` terminal. **Auth:** same Bearer middleware. **No LLM in
-this path** — resume re-enters the graph at the `hold` node (no synthesis
-re-run), so the route serves without `LLM_BACKEND` set and the stream carries
-no `chunk` events.
+drives it to a `done` terminal. **Auth:** dual scheme (Bearer or cookie); a
+cookie write needs `X-CSRF-Token`. **No LLM in this path** — resume re-enters
+the graph at the `hold` node (no synthesis re-run), so the route serves without
+`LLM_BACKEND` set and the stream carries no `chunk` events.
 
 **Request body:** `ResumeAppealRequest` — strict-mode Pydantic:
 
@@ -99,6 +143,12 @@ against the machine draft; the two share one `correlation_id`). This is the
 first deliberate divergence of correlation_id and idempotency_key that
 [ADR-0009](adr/0009-idempotency-key-and-audit-writes.md) anticipated. A resume
 of a non-parked reference is a client error and writes no record.
+
+**Actor attribution ([ADR-0013](adr/0013-fastapi-bff-session-cookie-auth.md)):**
+a **cookie-authenticated** resume stamps the session's `user_id` on the resume
+record's `reviewed_by`; a **Bearer-authenticated** resume leaves `reviewed_by=""`
+(the service identity has no named human reviewer — recording one would be a
+false accountability record).
 
 ### `GET /api/audit/records` — list the audit trail (S3 Task 3)
 
@@ -289,9 +339,11 @@ never double-writes the audit trail**
 
 | Code | Cause |
 | --- | --- |
-| 200 | Streaming routes: stream started (application outcome is in-stream). Introspection GETs (`/api/audit/records`, `/api/reviews/pending`): the JSON body |
-| 401 | Missing/invalid Bearer token (`{"detail": "Missing or invalid Authorization header"}` or `{"detail": "Invalid API key"}`) |
-| 422 | Body failed `AppealRequest` validation (FastAPI standard shape) |
+| 200 | Streaming routes: stream started (application outcome is in-stream). Introspection GETs (`/api/audit/records`, `/api/reviews/pending`): the JSON body. `POST /api/auth/login`, `GET /api/auth/me`: the JSON body |
+| 204 | `POST /api/auth/logout` — session destroyed, no body |
+| 401 | No valid credential — missing/invalid Bearer token, missing/expired session cookie, or bad login credentials (`{"detail": …}`) |
+| 403 | Cookie-authenticated non-GET without a matching `X-CSRF-Token` (`{"detail": "Missing or invalid CSRF token"}`) |
+| 422 | Body failed request-model validation (FastAPI standard shape) |
 
 ## Environment variables
 
@@ -300,7 +352,9 @@ Source of truth: [backend/.env.example](../../backend/.env.example).
 
 | Var | Required | Meaning |
 | --- | --- | --- |
-| `API_SECRET_KEY` | yes | Bearer token for `/api/*` (cached on first read) |
+| `API_SECRET_KEY` | yes | Bearer token for `/api/*`, service/CI identity (cached on first read) |
+| `DEMO_USER` / `DEMO_PASSWORD` | for cookie login | Demo browser credentials checked by `POST /api/auth/login` (constant-time); pre-DB single-user store ([ADR-0013](adr/0013-fastapi-bff-session-cookie-auth.md)) |
+| `CORS_ORIGINS` | no | Comma-separated browser origin allowlist; default `http://localhost:5173`. `allow_credentials=True`, so `*` is not permitted |
 | `LLM_BACKEND` | yes | `mock` or `groq` — **no default**, unset fails loudly ([ADR-0002](adr/0002-provider-neutral-llm-backend.md)) |
 | `GROQ_API_KEY` | when `groq` | Provider key |
 | `GROQ_MODEL` | no | Default `llama3-8b-8192` |
@@ -308,5 +362,6 @@ Source of truth: [backend/.env.example](../../backend/.env.example).
 | `VITE_API_KEY` | frontend | Must equal `API_SECRET_KEY`; injected at build time into the POC client |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` | — | **Deferred** — langfuse is not installed ([ADR-0007](adr/0007-deferred-dependencies.md)) |
 
-CORS is currently `allow_origins=["*"]` — flagged in code to tighten at
-deploy time.
+CORS is a `CORS_ORIGINS` allowlist with `allow_credentials=True` (cookies) —
+tightened from `["*"]` in Slice 2 ([ADR-0013](adr/0013-fastapi-bff-session-cookie-auth.md)),
+since a browser will not send credentials to a wildcard origin.

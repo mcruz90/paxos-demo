@@ -11,7 +11,9 @@ layer *is* and how a request actually moves through it.
 ```mermaid
 flowchart TB
     subgraph l1 ["API layer"]
-        main["main.py — routes, auth middleware, SSE framing, LLM factory"]
+        main["main.py — routes, dual-auth middleware, LLM factory"]
+        sse["sse.py — SSE framing + stream generators"]
+        authr["api/auth.py — session-cookie login/logout/me"]
     end
     subgraph l2 ["Orchestration"]
         graph["agents/graph.py — StateGraph def + node wrappers + compiled _PIPELINE"]
