@@ -18,6 +18,8 @@ import { applyPayerDecision, quickApproveClient, setClientStatus } from './compo
 import { AutomationPolicyView } from './components/AutomationPolicyView'
 import { POCView } from './components/poc/POCView'
 import { LibraryView } from './components/LibraryView'
+import { LIVE_MODE } from './components/poc/live/liveMode'
+import { LiveApp } from './components/poc/live/LiveApp'
 
 // Maps each view to the role that owns it — used to keep the sidebar in sync
 // when tours or internal navigation jump across role boundaries.
@@ -202,6 +204,12 @@ export default function App() {
       }
     }
   }
+
+  // Live-integration mode is opt-in (VITE_API_BASE_URL set): the entire live
+  // experience is a separate shell so the simulated demo tree below stays
+  // mode-agnostic and fully offline. This is the one mode switch point.
+  // (LIVE_MODE is a build constant, so hook order is stable across renders.)
+  if (LIVE_MODE) return <LiveApp />
 
   return (
     <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
