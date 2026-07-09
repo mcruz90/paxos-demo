@@ -23,6 +23,9 @@ import type {
   PaSubmitEvent,
   AuditRecordsResponse,
   PendingReviewsResponse,
+  LoginRequest,
+  LoginResponse,
+  MeResponse,
 } from './wire'
 
 /** Same-origin by default; overridable for split frontend/backend deploys. */
@@ -68,6 +71,36 @@ async function getJson<T>(path: string, opts?: RequestOpts): Promise<T> {
   })
   if (!response.ok) throw new ApiError(response.status, `GET ${path} failed: ${response.status}`)
   return (await response.json()) as T
+}
+
+async function postJson(path: string, body: unknown, opts?: RequestOpts): Promise<Response> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (opts?.csrfToken) headers['X-CSRF-Token'] = opts.csrfToken
+  const response = await fetch(BASE_URL + path, {
+    method: 'POST',
+    credentials: 'include',
+    headers,
+    body: JSON.stringify(body),
+    signal: opts?.signal,
+  })
+  if (!response.ok) throw new ApiError(response.status, `POST ${path} failed: ${response.status}`)
+  return response
+}
+
+/** Log in with demo credentials; the session arrives as an httpOnly cookie and
+ * the CSRF token in the returned body (never persisted — held in memory only). */
+export async function login(body: LoginRequest): Promise<LoginResponse> {
+  return (await (await postJson('/api/auth/login', body)).json()) as LoginResponse
+}
+
+/** Destroy the session (requires the CSRF token, like every authenticated write). */
+export async function logout(opts?: RequestOpts): Promise<void> {
+  await postJson('/api/auth/logout', {}, opts)
+}
+
+/** Resolve the current session's user, or throw `ApiError(401)` if none. */
+export function me(opts?: RequestOpts): Promise<MeResponse> {
+  return getJson<MeResponse>('/api/auth/me', opts)
 }
 
 async function* streamEvents<T>(response: Response): AsyncIterable<T> {

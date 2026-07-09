@@ -16,6 +16,14 @@ export type AppealRequest = Schemas['AppealRequest']
 export type ResumeAppealRequest = Schemas['ResumeAppealRequest']
 export type InitialPaRequest = Schemas['InitialPaRequest']
 
+// Auth (session-cookie BFF, ADR-0013).
+export type LoginRequest = Schemas['LoginRequest']
+export type LoginResponse = Schemas['LoginResponse']
+export type MeResponse = Schemas['MeResponse']
+
+// Review-queue item (metadata only — never letter text).
+export type PendingReviewItem = Schemas['PendingReviewItem']
+
 // SSE event shapes (registered from Pydantic via backend/openapi_ext.py).
 export type StepEvent = Schemas['StepEvent']
 export type ChunkEvent = Schemas['ChunkEvent']
