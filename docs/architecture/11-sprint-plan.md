@@ -64,6 +64,35 @@ via `POST /api/appeal/resume` → dual audit trail (`as_is` draft +
 backend/API level. The remaining piece (4c) is presentation and is gated on a
 frontend-integration effort that does not yet exist.
 
+## Sprint FI — Frontend ↔ backend live integration *(promoted from Unscheduled 2026-07-05; branch `frontend-integration`)*
+
+**Goal:** the first live API calls from the SPA — absorbing S3 Slice 4c. The
+POC's simulated flow **stays the default** (the demo deploys as a static site
+with no backend — dual-branch strategy); live mode is an explicit opt-in via
+`VITE_API_BASE_URL`, behind a single mode seam, never per-component branching.
+
+Between-sprint prep (2026-07-04/05, architect review after S3 close): 01
+refreshed to post-S3 reality; `agents/graph.py` split (`generate.py` /
+`resume.py` beside the graph substrate); `models/schemas.py` split into the
+`models/` package behind the `models.schemas` facade; introspection endpoints
+`GET /api/audit/records` + `GET /api/reviews/pending`
+([ADR-0011](adr/0011-audit-trail-as-review-queue-index.md): the audit trail is
+the queue index) + `tools/smoke_tour.py`.
+
+| Slice | Scope | Notes |
+| --- | --- | --- |
+| **1 — Generated wire types** | `openapi.json` dumped deterministically from the app (`tools/dump_openapi.py`; SSE event models registered via `openapi_ext.py`) → `src/generated/api-types.d.ts` via `openapi-typescript` (dev-only); CI freshness job fails on stale artifacts; registration-parity unit test guards the hand-maintained SSE model list. | **Live** 2026-07-08. [ADR-0012](adr/0012-generated-wire-types-from-openapi.md): Pydantic is the authored source; TS wire types are a build product. Replaces hand-parity for wire shapes. |
+| **2 — Session-cookie BFF auth** | FastAPI is its own BFF: `POST /api/auth/login`/`logout`, `GET /api/auth/me`; httpOnly `paxos_session` cookie (30-min TTL, in-memory store `security/sessions.py`) beside the unchanged Bearer path; CSRF double-submit on cookie writes; CORS tightened to `CORS_ORIGINS`; `AuditRecord.reviewed_by` attribution on cookie-authenticated resume. | **Live** 2026-07-09. [ADR-0013](adr/0013-fastapi-bff-session-cookie-auth.md) records the auth fork (SPA-held token / separate BFF / **FastAPI-as-BFF — chosen**). `sse.py` extracted from `main.py` (300-line cap). Real IdP (OIDC / SMART on FHIR) staged to Phase 3 — the session seam is IdP-pluggable by design. |
+| **3 — Typed SSE client** | `src/lib/`: pure incremental `text/event-stream` frame parser + typed route wrappers over `fetch` (the SSE routes are POST — native `EventSource` cannot call them); cookie credentials + `X-CSRF-Token`; in-stream failures are terminal `error` events, not exceptions. Library-only, no UI. | **Live** 2026-07-09. Built in parallel with Slice 2 against the fixed contract; no reconnect/retry machinery by design. |
+| **4 — Live POC wiring** | Login form (live mode only), streaming generate onto the existing POC states, pending-review queue from `/api/reviews/pending`, exception resume UX (approve as-is / edit → `POST /api/appeal/resume`); reconcile stale `VITE_API_KEY` doc mentions in favour of cookie/CSRF. | In progress 2026-07-09. This is S3 Slice 4c, landed last because it needs Slices 1–3. |
+
+**Exit criteria:** simulated-mode build byte-behavior unchanged without
+`VITE_API_BASE_URL`; live end-to-end manually verified (login → streaming
+generate → exception parks → pending queue → resume with edit → dual
+`as_is`/`human_edited` audit records with `reviewed_by`); full suites + wire-
+types freshness green; post-sprint code review + security review pass with the
+simplicity mandate (no defensive branching for states the contract rules out).
+
 ## Sprint 4 — Eval suite
 
 **Goal:** the golden set becomes an executable quality gate.
@@ -108,7 +137,7 @@ frontend-integration effort that does not yet exist.
 
 | Item | Trigger |
 | --- | --- |
-| **Frontend ↔ backend live integration** (absorbs S3 Slice 4c) | The POC is fully simulated — no live API calls exist. This workstream builds the first ones: an SSE client, a **browser auth-token strategy** (API_SECRET_KEY is a server secret; a SPA needs a real mechanism — decide before any live call), and a live run lifecycle in the UI. 4c (exception surface → `POST /api/appeal/resume`) lands here, needing a live `/api/appeal/generate` to create a parked run first. Deferred from S3 (2026-07-04); the sprint plan anticipated this slip. |
+| ~~Frontend ↔ backend live integration~~ | **Promoted to Sprint FI (2026-07-05)** — see the sprint section above. The auth-token question it flagged was resolved as FastAPI-as-BFF session cookies ([ADR-0013](adr/0013-fastapi-bff-session-cookie-auth.md)). |
 | Langfuse tracing | After S2 (correlation IDs exist to propagate). Re-vet its network behavior first (ADR-0007 telemetry clause); `redact_phi` on every payload; best-effort try/except. |
 | PostgreSQL durable audit | Phase 3 / first hosted deployment — replaces the in-memory list; persistence before `done` per ACID §Durability. |
 | Hosted backend checklist | CORS tightening, rate limiting (`slowapi` re-entry), deploy target ([08](08-deployment-ci.md)). |
