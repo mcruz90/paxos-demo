@@ -19,6 +19,11 @@ from models.audit import (
     PendingReviewItem,
     PendingReviewsResponse,
 )
+from models.auth import (
+    LoginRequest,
+    LoginResponse,
+    MeResponse,
+)
 from models.domain import (
     AppealHandoff,
     Citation,
@@ -95,6 +100,10 @@ __all__ = [
     "ResumeAppealRequest",
     "InitialPaRequest",
     "PaSubmission",
+    # auth
+    "LoginRequest",
+    "LoginResponse",
+    "MeResponse",
     # events
     "PaResolution",
     "StepEvent",

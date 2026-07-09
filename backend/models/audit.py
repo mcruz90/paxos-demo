@@ -57,6 +57,10 @@ class AuditRecord(BaseModel):
     tier: CaseTier | None = None
     # AI-accountability: what the artifact was when it left the system.
     provenance: AuditProvenance
+    # Actor attribution (Slice 2). The session user_id of the human who cleared
+    # a cookie-authenticated resume. "" for machine-boundary writes and for
+    # Bearer-authenticated resumes (service identity — no named human reviewer).
+    reviewed_by: str = ""
 
 
 # ---------------------------------------------------------------------------
