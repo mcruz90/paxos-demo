@@ -251,7 +251,6 @@ export default function App() {
         <SplitPortfolioView
           clients={clients}
           onOpenCase={openCase}
-          onStartTour={openTourHub}
           onQuickApprove={handleQuickApprove}
           onPayerDecision={handlePayerDecision}
           onUpdateClientStatus={handleUpdateClientStatus}

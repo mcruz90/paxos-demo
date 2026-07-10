@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookmarkPlus, Building2, Clock, ShieldCheck } from 'lucide-react'
+import { Building2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { type CaseStatus, type Client } from '../../types'
 import { TENANT, scenarios } from '../../data/scenarios'
 import { InfoHint } from '../ui'
@@ -27,14 +27,12 @@ import { QueueFilterBar } from './QueueFilterBar'
 export function SplitPortfolioView({
   clients,
   onOpenCase,
-  onStartTour,
   onQuickApprove,
   onPayerDecision,
   onUpdateClientStatus,
 }: {
   clients: Client[]
   onOpenCase: (scenarioId: string, status: CaseStatus) => void
-  onStartTour: () => void
   onQuickApprove: (scenarioId: string) => void
   onPayerDecision: (scenarioId: string, decision: 'accepted' | 'disputed') => void
   onUpdateClientStatus: (scenarioId: string, status: CaseStatus) => void
@@ -42,7 +40,6 @@ export function SplitPortfolioView({
   const [search,        setSearch]        = useState('')
   const [filterStage,   setFilterStage]   = useState<StageFilter>('all')
   const [filterUrgency, setFilterUrgency] = useState<UrgencyFilter>('all')
-  const [showBanner,    setShowBanner]    = useState(true)
   const [selectedId,    setSelectedId]    = useState<number | null>(null)
 
   const [caseStates,      setCaseStates]      = useState<Record<string, LocalCaseState>>({})
@@ -150,18 +147,6 @@ export function SplitPortfolioView({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowCitations(!showCitations)}
-            className={[
-              'px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors flex items-center gap-1.5',
-              showCitations
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-300 hover:border-slate-600',
-            ].join(' ')}
-          >
-            <BookmarkPlus className="w-3.5 h-3.5" />
-            {showCitations ? 'Hide Citations' : 'Show Citations'}
-          </button>
           <div
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/40"
             title="Cases import automatically from Epic via FHIR Subscriptions the moment the record updates."
@@ -174,37 +159,6 @@ export function SplitPortfolioView({
           </div>
         </div>
       </div>
-
-      {/* ── Welcome banner ─────────────────────────────────── */}
-      {showBanner && (
-        <div className="mx-6 mt-4 mb-0 flex items-start gap-3 px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl shrink-0">
-          <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white leading-snug">Clinical Workspace Queue</p>
-            <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-              ClearAuth groups prior auths by action type. Resolve clinical exceptions (like PBC contradictions or missing attestations) using the checklist, and click quotes to inspect EHR source texts instantly on the right.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0 ml-2">
-            <button
-              onClick={onStartTour}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium transition-colors whitespace-nowrap"
-            >
-              <Clock className="w-3.5 h-3.5" />
-              Choose a tour
-            </button>
-            <button
-              onClick={() => setShowBanner(false)}
-              className="text-slate-500 hover:text-slate-300 transition-colors text-base leading-none px-1"
-              aria-label="Dismiss"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
 
       <QueueFilterBar
         search={search} setSearch={setSearch}
@@ -267,13 +221,28 @@ export function SplitPortfolioView({
           />
         </div>
 
-        {/* Col 3: Citations ground truth */}
-        {showCitations && selectedScenario && (
-          <CitationPane
-            scenario={selectedScenario}
-            highlightedIndex={activeCiteIndex}
-            onSelectIndex={setActiveCiteIndex}
-          />
+        {/* Col 3: Citations ground truth — a persistent vertical handle slides
+            the pane in and out (width-animated) so it never crowds the header. */}
+        {selectedScenario && (
+          <div className="flex shrink-0 overflow-hidden">
+            <button
+              onClick={() => setShowCitations(!showCitations)}
+              title={showCitations ? 'Hide citations' : 'Show citations'}
+              className="w-6 shrink-0 border-l border-slate-800 bg-slate-900/40 hover:bg-slate-800 flex flex-col items-center gap-2 py-3 text-slate-400 hover:text-emerald-300 transition-colors"
+            >
+              {showCitations ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+              <span className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-semibold uppercase tracking-wider">
+                Citations
+              </span>
+            </button>
+            <div className={`transition-all duration-300 ease-in-out overflow-hidden ${showCitations ? 'w-[340px]' : 'w-0'}`}>
+              <CitationPane
+                scenario={selectedScenario}
+                highlightedIndex={activeCiteIndex}
+                onSelectIndex={setActiveCiteIndex}
+              />
+            </div>
+          </div>
         )}
       </div>
     </div>
