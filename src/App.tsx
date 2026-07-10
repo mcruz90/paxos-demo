@@ -18,6 +18,7 @@ import { SplitPortfolioView } from './components/portfolio/SplitPortfolioView'
 import { applyPayerDecision, quickApproveClient, setClientStatus } from './components/portfolio/caseQueue'
 import { AutomationPolicyView } from './components/AutomationPolicyView'
 import { POCView } from './components/poc/POCView'
+import { BuildOverview } from './components/BuildOverview'
 import { LibraryView } from './components/LibraryView'
 
 // Maps each view to the role that owns it — used to keep the sidebar in sync
@@ -28,6 +29,7 @@ const VIEW_ROLE: Record<View, Role> = {
   poc:          'Operate',
   evals:        'Operate',
   automation:   'Operate',
+  build_home:   'Build',
   library:      'Build',
   specs:        'Build',
   instructions: 'Build',
@@ -41,7 +43,7 @@ const VIEW_ROLE: Record<View, Role> = {
 // Default first view for each role (used when switching roles via the role switcher)
 const ROLE_DEFAULT_VIEW: Record<Role, View> = {
   Operate: 'portfolio',
-  Build:   'library',
+  Build:   'build_home',
   Scale:   'onboarding',
   Sponsor: 'sponsor',
 }
@@ -277,6 +279,9 @@ export default function App() {
             ))
           }}
         />
+      )}
+      {view === 'build_home' && (
+        <BuildOverview setView={setView} />
       )}
       {view === 'library' && (
         <LibraryView setView={setView} />

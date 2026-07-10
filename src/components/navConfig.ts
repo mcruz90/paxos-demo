@@ -1,4 +1,4 @@
-import { LayoutDashboard, Library, FileText, AlertTriangle, Pencil, BarChart2, LineChart, Rocket, Boxes, Workflow, Sliders } from 'lucide-react'
+import { LayoutDashboard, Library, FileText, AlertTriangle, Pencil, BarChart2, LineChart, Rocket, Boxes, Workflow, Sliders, Gauge } from 'lucide-react'
 import { type View, type Role } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -29,6 +29,7 @@ export const SECTIONS: readonly NavSection[] = [
   {
     name: 'Build', subtitle: 'What the Applied AI Lead authors', owner: 'Platform', persona: 'Applied AI Lead',
     items: [
+      ['build_home',   Gauge,         'Control Plane'],
       ['library',      Library,       'Ontology Library'],
       ['specs',        FileText,      'Workflow Spec'],
       ['instructions', Pencil,        'Agent Instructions'],
