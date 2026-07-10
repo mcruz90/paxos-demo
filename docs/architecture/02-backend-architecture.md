@@ -219,8 +219,9 @@ runs it per request. Design points:
 
 ## Introspection endpoints & the review queue (S3 Task 3)
 
-Two read-only, Bearer-gated GETs expose in-flight/completed state without a new
-storage layer (contract in [06-api-contract.md](06-api-contract.md)):
+Two read-only GETs — authenticated by either Bearer key or `paxos_session`
+cookie (ADR-0013), like every `/api/*` route — expose in-flight/completed state
+without a new storage layer (contract in [06-api-contract.md](06-api-contract.md)):
 
 - `GET /api/audit/records` returns the audit store snapshot as-is
   (`audit/store.all_records()`) — metadata + hashes only.

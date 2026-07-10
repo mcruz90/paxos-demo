@@ -107,6 +107,11 @@ simplicity mandate (no defensive branching for states the contract rules out).
   trusted on the golden set — evals score, the gatekeeper blocks; this is
   what closes the AI-accountability rule. Update the AuditRecord provenance
   when the gatekeeper corrects.
+- **Resume-path gatekeeper:** route human-edited resumed letters through the
+  deterministic gatekeeper before `resume_finalize`, and set
+  `gatekeeper_passed` from the actual result (security-review informational
+  finding, 2026-07-09 — today the resume `AuditRecord` stamps
+  `gatekeeper_passed=True` for a letter the gatekeeper never saw).
 - Redteam/adversarial fixtures wired as a standing regression suite.
 - Eval gate as the promotion mechanism for pack/prompt/instruction changes
   (versioned + eval-gated + audited — the artifact-versioning pattern),

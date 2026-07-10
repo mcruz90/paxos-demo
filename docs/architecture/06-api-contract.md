@@ -191,9 +191,10 @@ false accountability record).
 
 ### `GET /api/audit/records` — list the audit trail (S3 Task 3)
 
-Read-only introspection over the in-memory audit store. **Auth:** same Bearer
-middleware. Returns every `AuditRecord` as-is — **identifiers and hashes only,
-never letter/request text** (the records are metadata by construction, ADR-0009).
+Read-only introspection over the in-memory audit store. **Auth:** dual scheme —
+Bearer key or `paxos_session` cookie (ADR-0013), same as every other `/api/*`
+route. Returns every `AuditRecord` as-is — **identifiers and hashes only, never
+letter/request text** (the records are metadata by construction, ADR-0009).
 
 **Response:** `200` `application/json`, `AuditRecordsResponse`:
 
@@ -207,9 +208,9 @@ before any run. Not paginated pre-DB (in-process list; ADR-0009 note).
 ### `GET /api/reviews/pending` — parked runs awaiting human review (S3 Task 3)
 
 Read-only. Lists the exception-tier runs parked at the `hold` checkpoint and
-not yet cleared by a resume. **Auth:** same Bearer middleware. **Metadata
-only** — never the draft body (a reviewer-reads-the-draft surface is a deferred
-Slice 4c decision).
+not yet cleared by a resume. **Auth:** dual scheme — Bearer key or `paxos_session`
+cookie (ADR-0013). **Metadata only** — never the draft body (a
+reviewer-reads-the-draft surface is a deferred Slice 4c decision).
 
 The queue is **derived from the audit trail**, not a separate structure: a
 `correlation_id` is pending iff it has an exception-tier `done` audit record,

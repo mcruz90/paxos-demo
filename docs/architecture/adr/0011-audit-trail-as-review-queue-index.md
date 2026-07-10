@@ -72,3 +72,29 @@ never advertised as resumable.
 - Read-only introspection endpoints are now part of the API surface — see
   [06-api-contract.md](../06-api-contract.md); the layer wiring is in
   [02-backend-architecture.md](../02-backend-architecture.md).
+
+## Discovered limitation — a suppressed audit write means queue invisibility (2026-07-10)
+
+Because the queue is *derived from the audit trail*, a run whose audit write is
+suppressed never appears in `pending`. Audit writes are idempotent on
+`idempotency_key = case_id:attempt` (ADR-0009): `write_audit_record` silently
+no-ops on a duplicate key. So a *second* boundary write under the same key
+(same `case_id` + same `attempt`) is dropped, and if that second run is the one
+left parked, it would be invisible to `GET /api/reviews/pending`.
+
+The reachable path was re-running `POST /api/appeal/generate` for a
+`correlation_id` already parked at `hold`: it restarted the run from START
+(orphaning the first checkpoint), re-parked, and tried to write an audit record
+under the *same* `idempotency_key` — which the store deduped, leaving the
+now-parked run out of the queue. The **generate re-entry guard**
+([agents/generate.py](../../../backend/agents/generate.py)) closes this: a
+parked thread is refused with a terminal `error` and never re-runs, so no second
+suppressed write can occur. A deliberate resubmission is a *new* logical run —
+the client **bumps `attempt`** (ADR-0009), which yields a new `correlation_id`
+and a new `idempotency_key`, so its audit write is not a duplicate and its
+parked run is queued normally.
+
+Net: with the guard in place the invisible-in-queue case is unreachable through
+the API. The underlying property — "a deduped audit write implies the run is
+absent from the derived queue" — is recorded here so a future change that adds
+another same-key write path (or relaxes the guard) re-examines it.
