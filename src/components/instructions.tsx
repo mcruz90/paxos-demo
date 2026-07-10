@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Plus, FileText, Zap, Search, Shield, GitBranch, Pencil, Scale, Lock } from 'lucide-react'
+import { Plus, FileText, Zap, Search, Shield, GitBranch, Pencil, Scale, Lock, ArrowRight } from 'lucide-react'
 import { type IconType } from '../types'
 import { IllustrativeTag, RoleChip } from './ui'
+import { NodeRunPanel } from './NodeRunPanel'
 import { ARTIFACT_TODAY, ArtifactControls, BLOCKED_EXPERIMENT, type DimResult, type Experiment, JustPublishedBanner, SandboxPromotionBar, VersionHistoryPanel } from './versioning'
 
 export interface EditableInstruction {
@@ -316,7 +317,7 @@ export function AgentInstructionsView({ store }: { store: InstructionStore }) {
   const [editing, setEditing] = useState(false)
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex-1 overflow-y-auto overflow-x-hidden">
       <div className="px-8 py-6 border-b border-slate-800 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold font-display text-white">Agent Instructions</h1>
@@ -349,28 +350,60 @@ export function AgentInstructionsView({ store }: { store: InstructionStore }) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {NODE_META.map((n, i) => {
-            const Icon = n.icon
-            const active = n.id === nodeId
-            return (
-              <button
-                key={n.id}
-                onClick={() => { if (!editing) setNodeId(n.id) }}
-                disabled={editing && !active}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  active ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-800/50 border-slate-700/60 text-slate-400 hover:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed'
-                }`}
-              >
-                <span className="text-xs font-mono text-slate-500">{i + 1}</span>
-                <Icon className="w-3.5 h-3.5" />{n.node}
-              </button>
-            )
-          })}
-          {editing && <span className="text-xs text-slate-500 ml-1">Finish or cancel your draft to switch nodes</span>}
+        {/* Pipeline node graph — the shared spine. Each node's output feeds the
+            next; the selected node drives the instruction editor below. */}
+        <div>
+          <div className="flex items-baseline gap-2 mb-3">
+            <h2 className="text-sm font-semibold text-white">The pipeline</h2>
+            <span className="text-xs text-slate-500">— each node's output feeds the next; select one to view and edit its instruction</span>
+          </div>
+          <div className="flex flex-col lg:flex-row lg:items-stretch">
+            {NODE_META.map((n, i) => {
+              const Icon = n.icon
+              const active = n.id === nodeId
+              const hist = store.historyById[n.id]
+              const output = hist[hist.length - 1].snapshot.output
+              return (
+                <div key={n.id} className="contents">
+                  <button
+                    onClick={() => { if (!editing) setNodeId(n.id) }}
+                    disabled={editing && !active}
+                    className={`group flex-1 text-left flex flex-col p-3 rounded-xl border transition-all ${
+                      active
+                        ? 'bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/20'
+                        : 'bg-slate-800/50 border-slate-700/60 hover:border-emerald-500/40 disabled:opacity-40 disabled:cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-slate-500 shrink-0">{i + 1}</span>
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-700/50 text-slate-400'}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-semibold text-white truncate">{n.node}</span>
+                      {n.deterministic && <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 ml-auto shrink-0 whitespace-nowrap">no LLM</span>}
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-snug mt-2">
+                      <span className="text-slate-600">out →</span> {output}
+                    </p>
+                  </button>
+                  {i < NODE_META.length - 1 && (
+                    <div className="flex lg:flex-col items-center justify-center shrink-0 lg:w-7 py-1 lg:py-0 text-slate-600">
+                      <ArrowRight className="w-4 h-4 rotate-90 lg:rotate-0" />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {editing && <p className="text-xs text-slate-500 mt-2">Finish or cancel your draft to switch nodes.</p>}
         </div>
 
-        <InstructionEditor key={nodeId} nodeId={nodeId} store={store} onEditingChange={setEditing} />
+        {/* Read mode: instruction spec (left) + example-run spot-check (right).
+            Editing takes the full width and hides the spot-check. */}
+        <div className={editing ? '' : 'grid grid-cols-1 lg:grid-cols-2 gap-6 items-start'}>
+          <InstructionEditor key={nodeId} nodeId={nodeId} store={store} onEditingChange={setEditing} />
+          {!editing && <NodeRunPanel nodeId={nodeId} />}
+        </div>
 
         <p className="text-xs text-slate-600">
           Abridged for illustration — production instruction sets are longer and versioned per policy pack. Edits run in a sandbox against the full eval suite and are promoted only on a clean regression report. In-memory in the demo; persistence is documented for the main build.
