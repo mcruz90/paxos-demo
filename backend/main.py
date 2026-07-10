@@ -120,10 +120,9 @@ async def auth_middleware(request: Request, call_next):
     if not request.url.path.startswith("/api/"):
         return await call_next(request)
 
-    # CORS preflight: an OPTIONS request carries no cookie or Authorization
-    # header (browsers strip credentials from preflights), so authenticating it
-    # would 401 every cross-origin call before CORSMiddleware can answer it. A
-    # preflight grants nothing — pass it through to CORSMiddleware (ADR-0013).
+    # CORS preflight: an OPTIONS carries no credential (browsers strip it), so
+    # authenticating it would 401 every cross-origin call before CORSMiddleware
+    # can answer. A preflight grants nothing — pass it through (ADR-0013).
     if request.method == "OPTIONS":
         return await call_next(request)
 
@@ -166,7 +165,6 @@ def _get_secret_key() -> str:
     if _API_SECRET_KEY is None:
         _API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "")
     return _API_SECRET_KEY
-
 
 
 # ---------------------------------------------------------------------------
