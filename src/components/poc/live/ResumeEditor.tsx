@@ -13,11 +13,15 @@ export function ResumeEditor({
   correlationId,
   draft,
   busy,
+  error,
   onResume,
 }: {
   correlationId: string
   draft: string
   busy: boolean
+  /** A failed resume (error terminal / transport failure) keeps this panel open
+   * with the reviewer's edits intact; this is the message shown to them. */
+  error: string | null
   onResume: (editedText: string | null) => void
 }) {
   const [mode, setMode] = useState<'as_is' | 'edit'>('as_is')
@@ -55,6 +59,12 @@ export function ResumeEditor({
           value={text}
           onChange={e => setText(e.target.value)}
         />
+      )}
+
+      {error && (
+        <p className="text-sm text-red-400" role="alert">
+          Review not submitted: {error}. Your edits are kept — try again.
+        </p>
       )}
 
       <button

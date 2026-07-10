@@ -49,7 +49,10 @@ export class ApiError extends Error {
   }
 }
 
-async function postStream(path: string, body: unknown, opts?: RequestOpts): Promise<Response> {
+/** POST JSON with cookie auth + optional CSRF header. The returned `Response`
+ * is read as JSON by unary callers and as an SSE body by the stream callers —
+ * the request itself is identical either way. */
+async function post(path: string, body: unknown, opts?: RequestOpts): Promise<Response> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (opts?.csrfToken) headers['X-CSRF-Token'] = opts.csrfToken
   const response = await fetch(BASE_URL + path, {
@@ -73,29 +76,15 @@ async function getJson<T>(path: string, opts?: RequestOpts): Promise<T> {
   return (await response.json()) as T
 }
 
-async function postJson(path: string, body: unknown, opts?: RequestOpts): Promise<Response> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (opts?.csrfToken) headers['X-CSRF-Token'] = opts.csrfToken
-  const response = await fetch(BASE_URL + path, {
-    method: 'POST',
-    credentials: 'include',
-    headers,
-    body: JSON.stringify(body),
-    signal: opts?.signal,
-  })
-  if (!response.ok) throw new ApiError(response.status, `POST ${path} failed: ${response.status}`)
-  return response
-}
-
 /** Log in with demo credentials; the session arrives as an httpOnly cookie and
  * the CSRF token in the returned body (never persisted — held in memory only). */
 export async function login(body: LoginRequest): Promise<LoginResponse> {
-  return (await (await postJson('/api/auth/login', body)).json()) as LoginResponse
+  return (await (await post('/api/auth/login', body)).json()) as LoginResponse
 }
 
 /** Destroy the session (requires the CSRF token, like every authenticated write). */
 export async function logout(opts?: RequestOpts): Promise<void> {
-  await postJson('/api/auth/logout', {}, opts)
+  await post('/api/auth/logout', {}, opts)
 }
 
 /** Resolve the current session's user, or throw `ApiError(401)` if none. */
@@ -115,21 +104,21 @@ export async function* streamAppealGenerate(
   body: AppealRequest,
   opts?: RequestOpts,
 ): AsyncIterable<AppealEvent> {
-  yield* streamEvents<AppealEvent>(await postStream('/api/appeal/generate', body, opts))
+  yield* streamEvents<AppealEvent>(await post('/api/appeal/generate', body, opts))
 }
 
 export async function* streamAppealResume(
   body: ResumeAppealRequest,
   opts?: RequestOpts,
 ): AsyncIterable<ResumeEvent> {
-  yield* streamEvents<ResumeEvent>(await postStream('/api/appeal/resume', body, opts))
+  yield* streamEvents<ResumeEvent>(await post('/api/appeal/resume', body, opts))
 }
 
 export async function* streamPaSubmit(
   body: InitialPaRequest,
   opts?: RequestOpts,
 ): AsyncIterable<PaSubmitEvent> {
-  yield* streamEvents<PaSubmitEvent>(await postStream('/api/pa/submit', body, opts))
+  yield* streamEvents<PaSubmitEvent>(await post('/api/pa/submit', body, opts))
 }
 
 export function getAuditRecords(opts?: RequestOpts): Promise<AuditRecordsResponse> {
