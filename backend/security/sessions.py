@@ -13,6 +13,14 @@ signed stateless tokens) replaces it when the deploy goes multi-worker.
 No locks: FastAPI runs on a single-threaded asyncio event loop, and every
 mutation here is a single dict operation between awaits — there is no
 concurrent-mutation window to guard (ADR-0013).
+
+Expiry policy (no background sweeper, by decision): a session is evicted lazily
+on read (``get_session``) AND opportunistically on the next ``create_session``,
+which purges every already-expired entry. Login is the store's only growth
+event, so purging there bounds the store by the count of *live* sessions —
+abandoned logins (minted, then never revisited) can no longer accumulate
+forever. A sweeper thread is the alternative, unnecessary while login is the
+only growth path.
 """
 
 from __future__ import annotations
@@ -25,7 +33,8 @@ from dataclasses import dataclass
 
 # Fixed 30-minute TTL, checked on read. No sliding refresh (that would turn
 # every authenticated read into a write) and no background sweeper — an expired
-# record is simply evicted the next time it is looked up.
+# record is evicted on the next read of its id or on the next create_session
+# (see the module docstring's expiry policy).
 SESSION_TTL_SECONDS = 30 * 60
 
 # Wire names shared by the auth routes (set/clear) and the middleware (read) —
@@ -52,7 +61,15 @@ def create_session(user_id: str) -> tuple[str, str]:
     ``session_id`` becomes the httpOnly cookie value; ``csrf_token`` is returned
     in the login body for the double-submit CSRF check. Both are opaque
     ``secrets.token_urlsafe`` values.
+
+    Opportunistically purges already-expired sessions first (see the expiry
+    policy in the module docstring): login is the only growth event, so this
+    bounds the store by the count of live sessions.
     """
+    now = time.time()
+    for expired_id in [sid for sid, s in _SESSIONS.items() if now >= s.expires_at]:
+        del _SESSIONS[expired_id]
+
     session_id = secrets.token_urlsafe(32)
     csrf_token = secrets.token_urlsafe(32)
     _SESSIONS[session_id] = Session(
