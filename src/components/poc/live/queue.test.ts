@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { dropResolved, shouldRefreshQueue } from './queue'
-import type { PendingReviewItem, ResumeEvent } from '../../../lib/wire'
+import { initialGenState, type LiveGenState } from './appealEvents'
+import type { PendingReviewItem } from '../../../lib/wire'
 
 const item = (correlation_id: string): PendingReviewItem => ({
   correlation_id,
@@ -24,11 +25,19 @@ describe('dropResolved', () => {
 })
 
 describe('shouldRefreshQueue', () => {
-  it('refreshes after a successful resume', () => {
-    expect(shouldRefreshQueue({ event: 'done', ref: 'r', correlation_id: 'a:1', tier: 'exception' } as unknown as ResumeEvent)).toBe(true)
+  const doneState: LiveGenState = { ...initialGenState, status: 'done', correlationId: 'a:1', tier: 'exception' }
+  const errorState: LiveGenState = { ...initialGenState, status: 'error', error: 'No appeal is awaiting human review', correlationId: 'a:1' }
+
+  it('refreshes after a resume that reached a done terminal', () => {
+    expect(shouldRefreshQueue(doneState)).toBe(true)
   })
 
-  it('does not refresh after a resume error', () => {
-    expect(shouldRefreshQueue({ event: 'error', message: 'x', correlation_id: 'a:1' } as unknown as ResumeEvent)).toBe(false)
+  it('does not refresh after a resume that ended in an error terminal', () => {
+    expect(shouldRefreshQueue(errorState)).toBe(false)
+  })
+
+  it('does not refresh a still-streaming or idle state', () => {
+    expect(shouldRefreshQueue(initialGenState)).toBe(false)
+    expect(shouldRefreshQueue({ ...initialGenState, status: 'streaming' })).toBe(false)
   })
 })
