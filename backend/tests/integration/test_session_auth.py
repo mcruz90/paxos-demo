@@ -127,6 +127,28 @@ def test_no_auth_at_all_is_401(client: TestClient) -> None:
 
 
 # ---------------------------------------------------------------------------
+# CORS preflight — OPTIONS carries no credential, so auth_middleware must let
+# it through to CORSMiddleware (ADR-0013). A preflight grants nothing.
+# ---------------------------------------------------------------------------
+
+
+def test_cors_preflight_is_not_blocked_by_auth(client: TestClient) -> None:
+    """An OPTIONS preflight (no cookie, no Bearer) must reach CORSMiddleware and
+    come back 200 with Access-Control-Allow-Origin — not a bare 401. Without
+    this, browsers block every cross-origin call and live mode never works."""
+    resp = client.options(
+        "/api/appeal/generate",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type,x-csrf-token",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+
+# ---------------------------------------------------------------------------
 # Bearer path unchanged — exempt from CSRF
 # ---------------------------------------------------------------------------
 
