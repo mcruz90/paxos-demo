@@ -1,4 +1,4 @@
-import { Library, FileText, Pencil, Workflow, AlertTriangle, ArrowRight, ArrowDown, Gauge } from 'lucide-react'
+import { Library, FileText, Pencil, Workflow, AlertTriangle, ArrowRight, Gauge } from 'lucide-react'
 import { type IconType, type View } from '../types'
 import { universalPrimitives } from '../data/scenarios'
 import { RUBRIC_DIMENSIONS } from '../data/evalRubric'
@@ -7,13 +7,12 @@ import { WORKFLOW_PACKS } from './WorkflowSpecView'
 import { FAILURE_CLUSTERS } from './FailureReviewView'
 
 // Build persona home — the holistic altitude the five detailed surfaces lack on
-// their own. Instead of a flat list, it renders the AI Lead's control plane as a
-// layered domain model: the ontology is the foundational schema; the workflow
-// spec + agent instructions are the agent built on it; the eval rubric + failure
-// review are the governance loop wrapping the agent (gate every change, watch
-// prod, feed remediation back down). Each surface is a live status card that
-// drills into its detailed view. Every count is computed from the same fixtures
-// the detailed views render, so nothing here is invented or can drift.
+// their own. It renders the AI Lead's control plane as a layered domain model,
+// read left→right: the ontology is the foundational schema; the workflow spec +
+// agent instructions are the agent built on it; the eval rubric + failure review
+// are the governance loop wrapping the agent. Each surface is a live status card
+// that drills into its detailed view. Every count is computed from the same
+// fixtures the detailed views render, so nothing here is invented or can drift.
 
 type Health = 'ok' | 'attention' | 'critical'
 
@@ -36,19 +35,14 @@ const NODES: Record<string, Node> = {
   failures:     { view: 'failures',     Icon: AlertTriangle, title: 'Failure Review',     role: 'Prod monitoring — clusters, root cause, remediation',   stat: `${FAILURE_CLUSTERS.length} clusters · ${criticalOpen} critical`,  health: criticalOpen > 0 ? 'critical' : 'ok' },
 }
 
-// Top → bottom: governance wraps the agent, which is built on the foundation.
-interface Tier { key: string; label: string; caption: string; views: string[] }
+// Left → right: the foundation, the agent built on it, the governance loop
+// wrapping it. `edge` is the relation to the tier on its right.
+interface Tier { key: string; label: string; caption: string; views: string[]; edge?: string }
 const TIERS: Tier[] = [
-  { key: 'governance', label: 'Governance loop', caption: 'Gates every change below and watches it in production', views: ['rubric', 'failures'] },
-  { key: 'agent',      label: 'The agent',       caption: 'Pipeline structure + the behavior authored per node — running over the schema', views: ['specs', 'instructions'] },
-  { key: 'foundation', label: 'Foundation',      caption: 'The shared schema everything above is built on',        views: ['library'] },
+  { key: 'foundation', label: 'Foundation',      caption: 'The shared schema every case is built on',            views: ['library'],               edge: 'runs on the schema' },
+  { key: 'agent',      label: 'The agent',       caption: 'Pipeline structure + the behavior authored per node', views: ['specs', 'instructions'], edge: 'gates the agent' },
+  { key: 'governance', label: 'Governance loop', caption: 'Gates every change and watches it in production',      views: ['rubric', 'failures'] },
 ]
-
-// The relation that holds between each tier and the one below it.
-const CONNECTORS: Record<string, string> = {
-  governance: 'gates every change · surfaces prod failures',
-  agent:      'built on the shared schema',
-}
 
 const HEALTH_META: Record<Health, { dot: string; text: string; label: string }> = {
   ok:        { dot: 'bg-emerald-500', text: 'text-emerald-400', label: 'Healthy' },
@@ -62,7 +56,7 @@ function NodeCard({ node, onOpen }: { node: Node; onOpen: () => void }) {
   return (
     <button
       onClick={onOpen}
-      className="group text-left flex flex-col p-4 rounded-xl border bg-slate-800/50 border-slate-700/60 hover:border-emerald-500/50 transition-all"
+      className="group text-left flex flex-col flex-1 p-4 rounded-xl border bg-slate-800/50 border-slate-700/60 hover:border-emerald-500/50 transition-all"
     >
       <div className="flex items-center gap-2.5 mb-2">
         <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-emerald-500/15 text-emerald-400 shrink-0">
@@ -83,15 +77,13 @@ function NodeCard({ node, onOpen }: { node: Node; onOpen: () => void }) {
   )
 }
 
-// Relation label between two tiers.
-function Connector({ text }: { text: string }) {
+// Directional relation between a tier and the one on its right (turns to point
+// down when the tiers stack on narrow screens).
+function Edge({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-3 px-1 py-1">
-      <div className="h-px flex-1 bg-slate-800" />
-      <span className="text-[11px] text-slate-500 inline-flex items-center gap-1.5 shrink-0">
-        <ArrowDown className="w-3 h-3" />{text}
-      </span>
-      <div className="h-px flex-1 bg-slate-800" />
+    <div className="flex lg:flex-col items-center justify-center gap-1.5 shrink-0 lg:w-20 py-1 lg:py-0 text-slate-500">
+      <ArrowRight className="w-4 h-4 rotate-90 lg:rotate-0 shrink-0" />
+      <span className="text-[10px] uppercase tracking-wide text-center leading-tight">{label}</span>
     </div>
   )
 }
@@ -105,35 +97,38 @@ export function BuildOverview({ setView }: { setView: (v: View) => void }) {
           <h1 className="text-xl font-bold font-display text-white">Control Plane</h1>
         </div>
         <p className="text-sm text-slate-400 mt-0.5">
-          The whole system the AI Lead governs, as a layered model — foundation, the agent built on it, and the governance loop around it. Open any surface to drill in.
+          The whole system the AI Lead governs, as a layered model — the foundation, the agent built on it, and the governance loop around it. Open any surface to drill in.
         </p>
       </div>
 
-      <div className="max-w-4xl mx-auto p-8">
-        <p className="text-sm text-slate-300 leading-relaxed mb-8">
-          Governing a probabilistic system is a loop, not a one-way build. Read it bottom-up: the{' '}
+      <div className="p-8">
+        <p className="text-sm text-slate-300 leading-relaxed mb-6 max-w-4xl">
+          Governing a probabilistic system is a loop, not a one-way build. Read it left to right: the{' '}
           <span className="text-slate-400">ontology</span> is the schema everything rests on; the{' '}
           <span className="text-slate-400">agent</span> — pipeline structure plus authored behavior — runs over it;
           and the <span className="text-slate-400">governance loop</span> gates every change and feeds production
-          failures back down as versioned, re-gated fixes.
+          failures back as versioned, re-gated fixes.
         </p>
 
-        <div className="space-y-1">
+        {/* Layered domain model — foundation → agent → governance, left to right */}
+        <div className="flex flex-col lg:flex-row lg:items-stretch">
           {TIERS.map((tier, i) => (
-            <div key={tier.key}>
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-4">
-                <div className="flex items-baseline gap-2 mb-3">
-                  <span className="text-[10px] font-mono text-slate-600">L{TIERS.length - i}</span>
-                  <h2 className="text-sm font-semibold text-white">{tier.label}</h2>
-                  <span className="text-xs text-slate-500 truncate">— {tier.caption}</span>
+            <div key={tier.key} className="contents">
+              <div className="flex-1 flex flex-col rounded-2xl border border-slate-800 bg-slate-900/30 p-4">
+                <div className="mb-3">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[10px] font-mono text-slate-600">L{i + 1}</span>
+                    <h2 className="text-sm font-semibold text-white">{tier.label}</h2>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5 leading-snug">{tier.caption}</p>
                 </div>
-                <div className={`grid gap-3 ${tier.views.length > 1 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 flex-1">
                   {tier.views.map(v => (
                     <NodeCard key={v} node={NODES[v]} onOpen={() => setView(NODES[v].view)} />
                   ))}
                 </div>
               </div>
-              {CONNECTORS[tier.key] && <Connector text={CONNECTORS[tier.key]} />}
+              {tier.edge && <Edge label={tier.edge} />}
             </div>
           ))}
         </div>
