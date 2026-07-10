@@ -106,6 +106,35 @@ async def test_parked_exception_run_resumes_to_completion() -> None:
 
 
 @pytest.mark.asyncio
+async def test_rerunning_a_parked_thread_errors_and_preserves_checkpoint() -> None:
+    """Re-running a request whose thread is already parked at the hold interrupt
+    must NOT restart from START (that orphans the parked HITL checkpoint and
+    breaks ADR-0010's durable-pause guarantee). The generate entrypoint mirrors
+    resume's parked-check (inverse condition): a parked thread yields a terminal
+    ``error`` telling the caller to resume or resubmit with a higher attempt,
+    and the original checkpoint is left intact and still resumable."""
+    req = _exception_request("exc-rerun-guard")
+    events = [e async for e in run_pipeline(req, llm_backend=MockLLMBackend())]
+    done = next(e for e in events if isinstance(e, DoneEvent))
+    cfg = _thread_config(done.correlation_id)
+    parked_next = _PIPELINE.get_state(cfg).next
+    assert parked_next, "the first run must be parked before we re-run it"
+
+    # Re-run the identical request (same correlation_id ⇒ same thread).
+    rerun = [e async for e in run_pipeline(req, llm_backend=MockLLMBackend())]
+    assert rerun[-1].event == "error"
+    assert "review" in rerun[-1].message.lower()
+
+    # The original checkpoint is untouched and still resumes to a clean end.
+    assert _PIPELINE.get_state(cfg).next == parked_next, "checkpoint must be preserved"
+    async for _ in _PIPELINE.astream(
+        Command(resume={"reviewed": True}), config=cfg, stream_mode="custom"
+    ):
+        pass
+    assert _PIPELINE.get_state(cfg).next == (), "preserved checkpoint must still resume"
+
+
+@pytest.mark.asyncio
 async def test_complex_run_does_not_park(base_appeal_request: AppealRequest) -> None:
     """Routine/complex runs run straight to END — the interrupt is
     exception-only, so no non-exception run is ever left parked."""
