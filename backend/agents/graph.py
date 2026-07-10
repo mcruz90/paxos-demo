@@ -252,7 +252,8 @@ def _build_graph() -> StateGraph:
 #      the saver's serde config (the checkpoint load path does not honor a
 #      per-instance allowlist here), so the fix belongs with the langgraph
 #      upgrade / durable checkpointer, which registers the schema types.
-_PIPELINE = _build_graph().compile(checkpointer=InMemorySaver())
+_CHECKPOINTER = InMemorySaver()
+_PIPELINE = _build_graph().compile(checkpointer=_CHECKPOINTER)
 
 
 def reset_checkpointer() -> None:
@@ -265,7 +266,6 @@ def reset_checkpointer() -> None:
     parked correlation_id. Clears the saver's stores in place so every test
     starts from an empty checkpoint store, without rebinding the singleton that
     other modules imported by reference."""
-    saver = _PIPELINE.checkpointer
-    saver.storage.clear()
-    saver.writes.clear()
-    saver.blobs.clear()
+    _CHECKPOINTER.storage.clear()
+    _CHECKPOINTER.writes.clear()
+    _CHECKPOINTER.blobs.clear()
