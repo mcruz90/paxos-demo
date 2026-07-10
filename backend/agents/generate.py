@@ -141,6 +141,24 @@ async def _generate_events(
         config: RunnableConfig = {
             "configurable": {"llm_backend": llm_backend, "thread_id": thread_id}
         }
+
+        # --- re-entry guard (inverse of resume's parked-check) ---
+        # This thread may already be parked at the `hold` interrupt from an
+        # earlier exception-tier run (same correlation_id ⇒ same thread). Streaming
+        # fresh input restarts from START, orphaning that checkpoint and breaking
+        # ADR-0010's durable-pause guarantee — and a later resume by the old
+        # correlation_id would then drive the WRONG run. Refuse instead: resume it,
+        # or resubmit under a higher `attempt` (a new correlation_id, ADR-0009).
+        if _PIPELINE.get_state(config).next:
+            yield ErrorEvent(
+                message=(
+                    "This case is parked awaiting human review; resume it or "
+                    "resubmit with a higher attempt."
+                ),
+                retry_count=0,
+            )
+            return
+
         async for event in _PIPELINE.astream(
             {"request": request}, config=config, stream_mode="custom"
         ):
