@@ -252,16 +252,18 @@ export function InstructionEditor({ nodeId, store, proposedDraft, clusterCases, 
       )}
 
       <div className={`bg-slate-800/40 border rounded-xl p-6 space-y-5 ${editing ? 'border-violet-500/40' : 'border-slate-700/60'}`}>
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            {editing
-              ? <textarea value={view.role} onChange={e => setField({ role: e.target.value })} rows={2} className="w-full bg-slate-900/60 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-slate-200 resize-y focus:outline-none focus:border-slate-500" />
-              : <p className="text-sm text-slate-200 leading-relaxed">{view.role}</p>}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
+        <div>
+          {/* Controls on their own row so the role text keeps full column width
+              in the two-column layout (otherwise the badge + controls squeeze it). */}
+          <div className="flex items-center gap-2 mb-3">
             {meta.deterministic && <span className="text-xs font-medium px-2 py-1 rounded-md bg-sky-500/10 text-sky-300 border border-sky-500/20 whitespace-nowrap">Deterministic · no LLM</span>}
-            <ArtifactControls version={latest.version} editing={editing} onToggleHistory={() => setShowHistory(s => !s)} onEdit={() => startEdit()} />
+            <div className="ml-auto">
+              <ArtifactControls version={latest.version} editing={editing} onToggleHistory={() => setShowHistory(s => !s)} onEdit={() => startEdit()} />
+            </div>
           </div>
+          {editing
+            ? <textarea value={view.role} onChange={e => setField({ role: e.target.value })} rows={2} className="w-full bg-slate-900/60 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-slate-200 resize-y focus:outline-none focus:border-slate-500" />
+            : <p className="text-sm text-slate-200 leading-relaxed">{view.role}</p>}
         </div>
 
         {section('Inputs', (
