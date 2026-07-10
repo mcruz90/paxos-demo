@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
 from typing import cast
 
 from langchain_core.runnables import RunnableConfig
@@ -26,13 +25,12 @@ from langgraph.types import Command
 from agents.graph import _PIPELINE
 from audit.boundary import with_audit
 from audit.ids import derive_resume_idempotency_key
+from audit.records import build_audit_record
 from models.schemas import (
     AppealEvent,
     AppealRequest,
     AuditProvenance,
     AuditRecord,
-    CaseLifecycle,
-    DoneEvent,
     ErrorEvent,
 )
 
@@ -80,28 +78,16 @@ async def run_resume(
     idempotency_key = derive_resume_idempotency_key(correlation_id)
 
     def build_record(event: AppealEvent, duration_ms: int) -> AuditRecord:
-        done = event if isinstance(event, DoneEvent) else None
-        error = event if isinstance(event, ErrorEvent) else None
-        return AuditRecord(
+        # A human reviewed (and possibly edited) the letter before it was cleared
+        # for submission — the accountability record of that review. The resume
+        # path invokes no model, so the error model_name fallback is "" (the
+        # default in audit/records.py).
+        return build_audit_record(
+            event=event,
+            duration_ms=duration_ms,
             correlation_id=correlation_id,
             idempotency_key=idempotency_key,
-            lifecycle=CaseLifecycle.appeal,
-            scenario_id=request.scenario_id,
-            drug=request.drug,
-            plan=request.plan,
-            denial_reason=request.denial_reason,
-            timestamp=datetime.now(UTC).isoformat(),
-            duration_ms=duration_ms,
-            outcome="done" if done else "error",
-            model_name=done.model if done else "",
-            artifact_ref=done.ref if done else "",
-            gatekeeper_passed=done is not None,
-            retry_count=done.retry_count if done else (error.retry_count if error else 0),
-            structural_eval_scores=done.structural_scores if done else {},
-            pa_resolution=done.pa_resolution if done else "",
-            tier=done.tier if done else None,
-            # A human reviewed (and possibly edited) the letter before it was
-            # cleared for submission — the accountability record of that review.
+            request=request,
             provenance=AuditProvenance.human_edited,
             reviewed_by=reviewed_by,
         )

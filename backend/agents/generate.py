@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
 from typing import cast
 
 from langchain_core.runnables import RunnableConfig
@@ -28,13 +27,12 @@ from audit.ids import (
     derive_correlation_id,
     derive_idempotency_key,
 )
+from audit.records import build_audit_record
 from models.schemas import (
     AppealEvent,
     AppealRequest,
     AuditProvenance,
     AuditRecord,
-    CaseLifecycle,
-    DoneEvent,
     ErrorEvent,
 )
 
@@ -68,31 +66,17 @@ async def run_pipeline(
     idempotency_key = derive_idempotency_key(case_id, request.attempt)
 
     def build_record(event: AppealEvent, duration_ms: int) -> AuditRecord:
-        done = event if isinstance(event, DoneEvent) else None
-        error = event if isinstance(event, ErrorEvent) else None
-        return AuditRecord(
+        # Every pipeline-boundary artifact is machine output as-is (no
+        # gatekeeper-correction or human-edit path runs here); an error terminal
+        # records the generating backend's name (audit/records.py).
+        return build_audit_record(
+            event=event,
+            duration_ms=duration_ms,
             correlation_id=correlation_id,
             idempotency_key=idempotency_key,
-            lifecycle=CaseLifecycle.appeal,
-            scenario_id=request.scenario_id,
-            drug=request.drug,
-            plan=request.plan,
-            denial_reason=request.denial_reason,
-            timestamp=datetime.now(UTC).isoformat(),
-            duration_ms=duration_ms,
-            outcome="done" if done else "error",
-            model_name=done.model if done else getattr(llm_backend, "model_name", ""),
-            artifact_ref=done.ref if done else "",
-            gatekeeper_passed=done is not None,
-            retry_count=done.retry_count if done else (error.retry_count if error else 0),
-            structural_eval_scores=done.structural_scores if done else {},
-            pa_resolution=done.pa_resolution if done else "",
-            # The HITL review tier (S3 Slice 3). None on error: no letter was
-            # produced, so there is no artifact to route to a review surface.
-            tier=done.tier if done else None,
-            # No gatekeeper-correction or human-edit path exists yet — every
-            # pipeline-boundary artifact is machine output as-is.
+            request=request,
             provenance=AuditProvenance.as_is,
+            model_name_fallback=getattr(llm_backend, "model_name", ""),
         )
 
     async for event in with_audit(
