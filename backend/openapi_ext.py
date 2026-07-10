@@ -20,37 +20,37 @@ a ``BaseModel``, never hand-written.
 
 from __future__ import annotations
 
+import typing
 from typing import TYPE_CHECKING, Any
 
 from fastapi.openapi.utils import get_openapi
+from pydantic import BaseModel
 
-from models.schemas import (
-    ChunkEvent,
-    DoneEvent,
-    ErrorEvent,
-    InitialPaDoneEvent,
-    StepEvent,
-)
+from models.schemas import AppealEvent, InitialPaEvent
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from fastapi import FastAPI
-    from pydantic import BaseModel
 
 # The SSE event models emitted by the streaming routes. FastAPI cannot infer
-# these from a StreamingResponse, so they are registered by hand. This list
-# must stay in sync with the AppealEvent / InitialPaEvent unions in
-# models.events; test_schema_parity.test_sse_event_registration_covers_the_event_unions
-# is the reader that fails the build if it drifts. (The CI freshness guard
-# cannot catch this: an unregistered new event yields an equally-incomplete
-# artifact — no diff — so the parity test, not the diff, is the guard.)
-_SSE_EVENT_MODELS: tuple[type[BaseModel], ...] = (
-    StepEvent,
-    ChunkEvent,
-    DoneEvent,
-    ErrorEvent,
-    InitialPaDoneEvent,
+# these from a StreamingResponse, so they are registered by hand here so the
+# generated TypeScript wire types include them.
+#
+# Derived mechanically from the AppealEvent / InitialPaEvent unions (order-
+# preserving dedupe — StepEvent and ErrorEvent are in both) so it cannot drift:
+# a new event added to a union is registered automatically. The parity test
+# test_schema_parity.test_sse_event_registration_covers_the_event_unions now
+# guards this derivation (that both unions hold only BaseModel members), rather
+# than a hand-maintained list. Output determinism is safe: the dump
+# (tools/dump_openapi.py) sorts keys, so registration order is irrelevant.
+_SSE_EVENT_MODELS: tuple[type[BaseModel], ...] = tuple(
+    dict.fromkeys(
+        arg
+        for union in (AppealEvent, InitialPaEvent)
+        for arg in typing.get_args(union)
+        if isinstance(arg, type) and issubclass(arg, BaseModel)
+    )
 )
 
 
