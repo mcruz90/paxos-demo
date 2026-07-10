@@ -67,8 +67,13 @@ export function SplitPortfolioView({
     }
   }, [search, filterStage, filterUrgency, clients]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Switching cases resets the per-case view: clear the citation highlight and
+  // return to the default Checklist tab, so a case never opens on the tab left
+  // over from the previous one. A dispute drives checklist→letter within the
+  // same selected case (selectedId unchanged), so this reset doesn't fight it.
   useEffect(() => {
     setActiveCiteIndex(null)
+    setActiveTab('checklist')
   }, [selectedId])
 
   const getLocalCaseState = (scenarioId: string): LocalCaseState =>
