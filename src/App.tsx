@@ -12,6 +12,7 @@ import { EvalRubricView } from './components/EvalRubricView'
 import { WorkflowSpecView } from './components/WorkflowSpecView'
 import { FailureReviewView } from './components/FailureReviewView'
 import { Sidebar } from './components/Sidebar'
+import { Topbar } from './components/Topbar'
 import { SponsorView } from './components/SponsorView'
 import { SplitPortfolioView } from './components/portfolio/SplitPortfolioView'
 import { applyPayerDecision, quickApproveClient, setClientStatus } from './components/portfolio/caseQueue'
@@ -204,7 +205,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
+    <div className="flex flex-col h-screen bg-slate-950 text-white overflow-hidden">
       <Joyride
         steps={activeTour ? TOURS[activeTour].steps : TOURS.overview.steps}
         run={tourRunning}
@@ -227,14 +228,19 @@ export default function App() {
           skipBeacon: true,
         }}
       />
+      <Topbar
+        activeRole={activeRole}
+        onRoleChange={handleRoleChange}
+        theme={theme}
+        onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+        onStartTour={openTourHub}
+      />
+      <div className="flex flex-1 overflow-hidden">
       <Sidebar
         view={view}
         setView={setView}
         activeRole={activeRole}
-        onRoleChange={handleRoleChange}
         onStartTour={openTourHub}
-        theme={theme}
-        onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
@@ -303,6 +309,7 @@ export default function App() {
       {view === 'rubric' && (
         <EvalRubricView setView={setView} onOpenCase={openCase} />
       )}
+      </div>
     </div>
   )
 }
