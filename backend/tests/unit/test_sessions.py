@@ -55,6 +55,23 @@ def test_expired_session_is_rejected(monkeypatch) -> None:
     assert sessions.get_session(session_id) is None
 
 
+def test_create_session_purges_expired_entries(monkeypatch) -> None:
+    """Abandoned logins must not accumulate forever. get_session only evicts a
+    record when that same id is read again, so a session no one revisits leaks.
+    create_session (the growth event) opportunistically purges already-expired
+    entries, bounding the store by the count of live sessions."""
+    stale_id, _ = sessions.create_session("demo")
+    real_time = sessions.time.time()
+    # Advance past the TTL, then create a fresh session — the stale one is purged
+    # even though nobody read it.
+    monkeypatch.setattr(
+        sessions.time, "time", lambda: real_time + sessions.SESSION_TTL_SECONDS + 1
+    )
+    fresh_id, _ = sessions.create_session("demo")
+    assert stale_id not in sessions._SESSIONS
+    assert fresh_id in sessions._SESSIONS
+
+
 def test_verify_credentials_matches_env(monkeypatch) -> None:
     monkeypatch.setenv("DEMO_USER", "alice")
     monkeypatch.setenv("DEMO_PASSWORD", "s3cret")
