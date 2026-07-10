@@ -40,9 +40,9 @@ export const FAILURE_CLUSTERS: FailureCluster[] = [
     proposedFix: 'Add a deterministic gatekeeper check: reject any safety-critical criterion not backed by explicit evidence.',
     proposedDraft: FIX_GATEKEEPER_SAFETY,
     sampleCases: [
-      { id: 'PH-5567', drug: 'Ocaliva', symptom: 'MTC-adjacent contraindication marked cleared on inferred evidence' },
-      { id: 'PH-5571', drug: 'Ozempic', symptom: 'MEN2 history not explicitly ruled out, passed gate' },
-      { id: 'PH-5588', drug: 'Ocaliva', symptom: 'Decompensation flag inferred, not explicitly documented' },
+      { id: 'PH-5567', drug: 'Livdelzi', symptom: 'Decompensation flag inferred from ambiguous chart note, not explicitly documented' },
+      { id: 'PH-5571', drug: 'Ozempic', symptom: 'No concomitant GLP-1 not explicitly cleared in chart — absence inferred from incomplete med list, passed gate' },
+      { id: 'PH-5588', drug: 'Livdelzi', symptom: 'Decompensation flag inferred, not explicitly documented' },
     ],
   },
   {
@@ -51,8 +51,8 @@ export const FAILURE_CLUSTERS: FailureCluster[] = [
     proposedFix: 'Adopt the evidence-sufficiency policy: a supporting criterion may be satisfied by explicit statement OR well-supported inference (recording the basis); never infer a safety-critical clearance.',
     proposedDraft: FIX_SYNTHESIS_OVERCAUTION,
     sampleCases: [
-      { id: 'PH-3102', drug: 'Ozempic', symptom: 'Metformin duration derivable from refills, flagged needs_review' },
-      { id: 'PH-3140', drug: 'Ozempic', symptom: 'HbA1c trend implied by serial labs, flagged needs_review' },
+      { id: 'PH-3102', drug: 'Ozempic', symptom: 'Patient age derivable from DOB in referral header, flagged needs_review' },
+      { id: 'PH-3140', drug: 'Ozempic', symptom: 'T2DM diagnosis derivable from ICD code + labs in chart, flagged needs_review' },
       { id: 'PH-3199', drug: 'Mounjaro', symptom: 'Step therapy derivable from claims history, escalated' },
     ],
   },
@@ -62,7 +62,7 @@ export const FAILURE_CLUSTERS: FailureCluster[] = [
     proposedFix: 'Tighten retrieval: cap evidence spans on long records and re-verify each citation resolves to its source.',
     proposedDraft: FIX_RETRIEVAL_GROUNDING,
     sampleCases: [
-      { id: 'PH-4810', drug: 'Omeprazole Susp.', symptom: 'Citation span covers a full page; exact line ambiguous' },
+      { id: 'PH-4810', drug: 'Esomeprazole Susp.', symptom: 'Citation span covers a full page; exact line ambiguous' },
     ],
   },
   {
@@ -71,7 +71,7 @@ export const FAILURE_CLUSTERS: FailureCluster[] = [
     proposedFix: 'On contradictory spans for one criterion, surface both sources and mark the criterion conflicted; route to human adjudication rather than silently selecting one. Missing evidence and contradictory evidence are handled as distinct states.',
     proposedDraft: FIX_RETRIEVAL_CONFLICT,
     sampleCases: [
-      { id: 'PH-2847', drug: 'Ocaliva', symptom: 'Consult says no decompensation; discharge summary documents ascites' },
+      { id: 'PH-2847', drug: 'Livdelzi', symptom: 'Consult says no decompensation; discharge summary documents ascites' },
       { id: 'PH-6012', drug: 'Humira', symptom: 'Two notes disagree on prior biologic trial duration' },
       { id: 'PH-6048', drug: 'Enbrel', symptom: 'Weight differs between intake and pharmacy record — changes dose math' },
     ],

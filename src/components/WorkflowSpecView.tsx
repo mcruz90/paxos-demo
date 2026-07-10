@@ -10,39 +10,40 @@ export interface WorkflowSpecData {
   reviewSteps: { tier: string; d: string }[]
 }
 
-export interface WorkflowPack { id: string; drug: string; carrier: string; file: string; rawPolicy: string }
+export interface WorkflowPack { id: string; drug: string; carrier: string; file: string; rawPolicy: string; market: 'commercial' | 'individual' | 'medicare_advantage' }
 
 export const WORKFLOW_PACKS: WorkflowPack[] = [
   {
-    id: 'ozempic-cigna', drug: 'Ozempic (semaglutide)', carrier: 'Cigna Connect 500 · T2DM', file: 'ozempic_cigna_base',
-    rawPolicy: 'Coverage for GLP-1 receptor agonists (e.g., semaglutide) for type 2 diabetes mellitus requires an established T2DM diagnosis, a recent HbA1c demonstrating inadequate glycemic control, and a trial of metformin of adequate duration and dose unless contraindicated or not tolerated. Members with a personal or family history of medullary thyroid carcinoma or MEN2 are not eligible.',
+    id: 'ozempic-cigna', drug: 'Ozempic (semaglutide)', carrier: 'Cigna Connect 500 · T2DM', file: 'ozempic_cigna_base', market: 'commercial',
+    rawPolicy: 'Ozempic (semaglutide) and other GLP-1 agonists are covered for confirmed type 2 diabetes mellitus in members age 18 and older. No HbA1c threshold or prior oral diabetes medication trial is required. Concomitant use with another GLP-1 or GLP-1/GIP agonist is not covered. Weight-loss use (without T2DM) is not covered — agents indicated for obesity management (Wegovy, Saxenda, Zepbound) fall under a separate policy.',
   },
   {
-    id: 'ocaliva-aetna', drug: 'Ocaliva (obeticholic acid)', carrier: 'Aetna CVS Health · PBC', file: 'ocaliva_aetna_hepatology',
-    rawPolicy: 'Obeticholic acid is covered for primary biliary cholangitis confirmed by AMA positivity or compatible histology, in adults with an inadequate response to ursodeoxycholic acid after at least 12 months, or intolerance to UDCA. Disease severity (Child-Pugh, MELD) must be documented on current labs. Not covered in decompensated cirrhosis.',
+    id: 'livdelzi-cigna', drug: 'Livdelzi (seladelpar)', carrier: 'Cigna Healthcare · PBC', file: 'livdelzi_cigna_hepatology', market: 'commercial',
+    rawPolicy: 'Livdelzi (seladelpar) is covered for primary biliary cholangitis in combination with UDCA or as monotherapy for those unable to tolerate UDCA, when ≥2 of 3 AASLD biochemical response criteria remain unmet after ≥12 months of adequate UDCA therapy. No current or prior hepatic decompensation (absolute contraindication, including history). Prescriber must be a gastroenterologist, hepatologist, or transplant specialist.',
   },
   {
-    id: 'omeprazole-uhc', drug: 'Omeprazole 2mg/mL Susp.', carrier: 'UnitedHealthcare · Infant GERD', file: 'omeprazole_uhc_pediatric',
-    rawPolicy: 'Compounded omeprazole oral suspension is non-formulary; formulary tablet/capsule alternatives must be tried first unless contraindicated. Coverage for infants requires documented GERD with esophagitis and a trial of conservative measures. Dosing must follow standard protocol.',
+    id: 'esomeprazole-uhc', drug: 'Nexium (esomeprazole) Susp.', carrier: 'UnitedHealthcare · Pediatric GERD', file: 'esomeprazole_uhc_pediatric', market: 'commercial',
+    rawPolicy: 'Nexium (esomeprazole) for suspension is managed under UHC\'s PPI step-therapy program. Coverage requires documented trial or intolerance of tablet PPIs (omeprazole, pantoprazole, rabeprazole) OR a documented swallowing limitation (oral/motor difficulty, dysphagia). Claims auto-process with no PA for patients under age 6. Dosing per the pediatric label.',
   },
 ]
 
 export const WSPEC_OZEMPIC: WorkflowSpecData = {
   rules: [
-    { type: 'diagnostic', cond: 'T2DM (E11.x) established and documented', crit: 'blocking', conf: 0.98 },
-    { type: 'math',       cond: 'HbA1c ≥ 7.5% within last 180 days', crit: 'blocking', conf: 0.82 },
-    { type: 'temporal',   cond: 'Metformin ≥ 90 consecutive days at max tolerated dose', crit: 'supporting', conf: 0.94 },
-    { type: 'safety',     cond: 'NO personal/family history of MTC or MEN2', crit: 'blocking', conf: 0.97 },
+    { type: 'diagnostic', cond: 'T2DM (E11.x) confirmed — ICD code or specialist documentation required', crit: 'blocking', conf: 0.98 },
+    { type: 'diagnostic', cond: 'Patient age ≥ 18 years', crit: 'blocking', conf: 0.99 },
+    { type: 'safety',     cond: 'NO concomitant GLP-1 or GLP-1/GIP agonist (Wegovy, Trulicity, Mounjaro, Saxenda, Zepbound) on active list', crit: 'blocking', conf: 0.96 },
+    { type: 'custom',     cond: 'Indication confirmed as T2DM glycemic control — not weight loss / obesity management', crit: 'blocking', conf: 0.81 },
   ],
   edgeCases: [
-    { c: 'Metformin intolerance / contraindication documented', h: 'Temporal rule bypassed — criterion satisfied via intolerance path (eGFR < 30, GI intolerance).' },
-    { c: 'Trial duration derivable from refill records but not stated', h: 'Satisfied via inferred evidence basis (supporting criticality only). Cite the refill record.' },
-    { c: 'HbA1c result older than 180 days', h: 'needs_review → request a current lab before proceeding.' },
-    { c: 'Safety criterion (MTC/MEN2) not explicitly cleared', h: 'Never inferred. Absence must be explicitly documented or the case escalates.' },
+    { c: 'BMI or weight-management note in chart (T2DM confirmed)', h: 'needs_review → obtain prescriber attestation that Ozempic is prescribed for T2DM glycemic control, not obesity. BMI documentation alone does not displace the T2DM indication.' },
+    { c: 'Patient on Rybelsus (oral semaglutide) AND requesting Ozempic injection', h: 'Safety — concomitant same-class agent; must not have both active. Confirm discontinuation before approval.' },
+    { c: 'Age documented only in referral header (not stated as integer)', h: 'Supported by explicit statement; cite the referral. Never inferred from graduation year or other indirect markers.' },
+    { c: 'T1DM diagnosis present in chart alongside T2DM history', h: 'Escalate to Exception — Cigna policy explicitly excludes T1DM; mixed-diagnosis chart requires clinical clarification before filing.' },
   ],
   escalations: [
-    { trig: 'Supporting criterion unsupported / contradictory', to: 'Complex' },
-    { trig: 'Safety criterion not explicitly cleared', to: 'Exception' },
+    { trig: 'Weight-management documentation without prescriber clarification of T2DM indication', to: 'Complex' },
+    { trig: 'Concomitant GLP-1 or GLP-1/GIP agonist not explicitly cleared', to: 'Exception' },
+    { trig: 'T1DM documented in chart (T2DM use excluded by policy)', to: 'Exception' },
     { trig: 'Gatekeeper fails 3 retries', to: 'Exception' },
     { trig: 'Payer counter-offer received', to: 'Complex (Round 2)' },
   ],
@@ -53,48 +54,49 @@ export const WSPEC_OZEMPIC: WorkflowSpecData = {
   ],
 }
 
-export const WSPEC_OCALIVA: WorkflowSpecData = {
+export const WSPEC_LIVDELZI: WorkflowSpecData = {
   rules: [
-    { type: 'diagnostic', cond: 'Confirmed PBC — AMA-positive or compatible biopsy (K75.89)', crit: 'blocking', conf: 0.95 },
-    { type: 'temporal',   cond: 'Inadequate response to ursodiol ≥ 12 months (ALP > 1.67× ULN)', crit: 'blocking', conf: 0.79 },
-    { type: 'math',       cond: 'Child-Pugh Class A or B (score ≤ 9)', crit: 'blocking', conf: 0.93 },
-    { type: 'safety',     cond: 'MELD < 15 — not decompensated cirrhosis', crit: 'blocking', conf: 0.90 },
+    { type: 'diagnostic', cond: 'Confirmed PBC — AMA-positive or compatible biopsy, ≥2 of 3 AASLD criteria unmet (ALP > ULN, bili > 0.5× ULN, AST/ALT > 2.5× ULN)', crit: 'blocking', conf: 0.95 },
+    { type: 'temporal',   cond: 'UDCA ≥12 months inadequate response (AASLD criteria unmet) OR documented UDCA intolerance', crit: 'blocking', conf: 0.83 },
+    { type: 'safety',     cond: 'NO current or prior hepatic decompensation — absolute contraindication includes historical events', crit: 'blocking', conf: 0.88 },
+    { type: 'prescriber', cond: 'Specialist prescriber confirmed — GI / hepatologist / transplant medicine', crit: 'blocking', conf: 0.79 },
   ],
   edgeCases: [
-    { c: 'Child-Pugh parameters incomplete', h: 'needs_review → request updated hepatology assessment with current labs.' },
-    { c: 'MELD labs older than 30 days', h: 'needs_review → order a stat LFT panel before proceeding.' },
-    { c: 'ALP borderline at ~1.67× ULN', h: 'Document the trend; supporting inference allowed with citation.' },
-    { c: 'Signs of decompensation (ascites / encephalopathy)', h: 'Safety — never inferred; explicit documentation required or escalate.' },
+    { c: 'Prior decompensation event (resolved)', h: 'Safety — prior decompensation is an absolute contraindication per Cigna policy regardless of current status. Escalate to Exception.' },
+    { c: 'UDCA intolerance without 12-month trial', h: 'Intolerance path bypasses duration; documented adverse reaction required with citation.' },
+    { c: 'ALP borderline at or just above ULN', h: 'needs_review → confirm units and reference range; document lab trend with citation.' },
+    { c: 'Prescriber specialty not confirmed in referral', h: 'needs_review → request specialist attestation before filing.' },
   ],
   escalations: [
-    { trig: 'Disease-severity score missing or expired', to: 'Exception' },
-    { trig: 'MELD ≥ 15 (contraindication)', to: 'Exception' },
+    { trig: 'Prior decompensation event in record', to: 'Exception' },
+    { trig: 'Specialist prescriber not confirmed', to: 'Exception' },
+    { trig: 'AASLD response criteria count unclear', to: 'Complex' },
     { trig: 'Gatekeeper fails 3 retries', to: 'Exception' },
   ],
   reviewSteps: [
     { tier: 'Routine', d: 'Confirm summary + key citations · 1 click' },
     { tier: 'Complex', d: 'Coordinator reviews; clinical reviewer (PharmD/MD) co-signs the argument · may edit' },
-    { tier: 'Exception', d: 'Investigate · gather severity docs · clinical reviewer adjudicates before filing' },
+    { tier: 'Exception', d: 'Investigate · gather decompensation history + specialist docs · clinical reviewer adjudicates before filing' },
   ],
 }
 
-export const WSPEC_OMEPRAZOLE: WorkflowSpecData = {
+export const WSPEC_ESOMEPRAZOLE: WorkflowSpecData = {
   rules: [
-    { type: 'diagnostic', cond: 'GERD with esophagitis, endoscopy-confirmed (K21.0)', crit: 'blocking', conf: 0.96 },
-    { type: 'safety',     cond: 'Age ≤ 12 months — solid oral forms contraindicated; liquid required', crit: 'blocking', conf: 0.92 },
-    { type: 'temporal',   cond: 'Conservative therapy trial ≥ 2 weeks (positioning, thickened feeds)', crit: 'blocking', conf: 0.88 },
-    { type: 'safety',     cond: 'Formulary H2 alternative (ranitidine) unavailable — FDA withdrawal', crit: 'supporting', conf: 0.86 },
+    { type: 'diagnostic', cond: 'GERD with erosive esophagitis, endoscopy-confirmed (K21.0)', crit: 'blocking', conf: 0.96 },
+    { type: 'safety',     cond: 'Documented oral-motor dysphagia — tablet/capsule PPIs cannot be safely swallowed', crit: 'blocking', conf: 0.9 },
+    { type: 'temporal',   cond: 'Tablet PPI step therapy (omeprazole/pantoprazole/rabeprazole) OR documented swallowing-limitation bypass', crit: 'blocking', conf: 0.88 },
+    { type: 'temporal',   cond: 'Conservative therapy trial ≥ 2 weeks (dietary, positioning)', crit: 'supporting', conf: 0.86 },
   ],
   edgeCases: [
-    { c: 'Non-formulary compounded formulation', h: 'Requires formulary-exception justification (age-based contraindication to solid forms).' },
-    { c: 'Payer counter-offer with sub-therapeutic dose', h: 'Complex Round 2 → cite NASPGHAN 1 mg/kg/day dosing.' },
+    { c: 'Suspension requested despite age ≥ 6', h: 'Step therapy applies (under-6 auto-processes); needs step-therapy failure or swallowing-limitation bypass.' },
+    { c: 'Payer counter-offer with sub-therapeutic dose', h: 'Complex Round 2 → cite Nexium label / NASPGHAN 10–20mg dosing.' },
     { c: 'Weight-based dose derivable from chart', h: 'Supporting inference allowed; cite the weight and date.' },
-    { c: 'Age verification', h: 'Safety — explicit DOB required, never inferred.' },
+    { c: 'Age verification', h: 'Safety — explicit DOB required, never inferred (drives the under-6 auto-process rule).' },
   ],
   escalations: [
-    { trig: 'Non-formulary formulation requested', to: 'Complex' },
+    { trig: 'Step-therapy exception requested', to: 'Complex' },
     { trig: 'Payer counter-offer received', to: 'Complex (Round 2)' },
-    { trig: 'Authorized dose below guideline threshold', to: 'Complex' },
+    { trig: 'Authorized dose below labeled threshold', to: 'Complex' },
   ],
   reviewSteps: [
     { tier: 'Routine', d: 'Confirm summary + key citations · 1 click' },
@@ -105,8 +107,8 @@ export const WSPEC_OMEPRAZOLE: WorkflowSpecData = {
 
 export const WORKFLOW_HISTORY_BY_PACK: Record<string, VersionEntry<WorkflowSpecData>[]> = {
   'ozempic-cigna':  [{ version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 6, 2026', note: 'Initial spec from Cigna policy', deltas: ['Initial version'], snapshot: WSPEC_OZEMPIC }],
-  'ocaliva-aetna':  [{ version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 7, 2026', note: 'Initial spec from Aetna PBC policy', deltas: ['Initial version'], snapshot: WSPEC_OCALIVA }],
-  'omeprazole-uhc': [{ version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 8, 2026', note: 'Initial spec from UHC pediatric policy', deltas: ['Initial version'], snapshot: WSPEC_OMEPRAZOLE }],
+  'livdelzi-cigna': [{ version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 26, 2026', note: 'Initial spec from Cigna Livdelzi PA policy (cnf_877)', deltas: ['Initial version'], snapshot: WSPEC_LIVDELZI }],
+  'esomeprazole-uhc': [{ version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 8, 2026', note: 'Initial spec from UHC PPI step-therapy policy', deltas: ['Initial version'], snapshot: WSPEC_ESOMEPRAZOLE }],
 }
 
 export function computeWorkflowDeltas(prev: WorkflowSpecData, next: WorkflowSpecData): string[] {
@@ -117,6 +119,17 @@ export function computeWorkflowDeltas(prev: WorkflowSpecData, next: WorkflowSpec
     ...diffList(prev.reviewSteps, next.reviewSteps, 'review step', h => `${h.tier}: ${h.d}`),
   ]
   return d.length ? d : ['No changes']
+}
+
+const MARKET_META: Record<string, { label: string; cls: string }> = {
+  commercial:        { label: 'Commercial',    cls: 'text-sky-400 bg-sky-500/10 border-sky-500/20' },
+  individual:        { label: 'Individual',    cls: 'text-violet-400 bg-violet-500/10 border-violet-500/20' },
+  medicare_advantage:{ label: 'Medicare Adv.', cls: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
+}
+
+export function MarketBadge({ market }: { market: string }) {
+  const m = MARKET_META[market] ?? { label: market, cls: 'text-slate-400 bg-slate-500/10 border-slate-500/20' }
+  return <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${m.cls}`}>{m.label}</span>
 }
 
 // Color the target tier so triage reads at a glance.
@@ -209,6 +222,7 @@ export function WorkflowSpecView() {
             <span className="text-white font-medium">{pack.drug}</span>
             <span className="text-slate-500">·</span>
             <span className="text-slate-400">{pack.carrier}</span>
+            <MarketBadge market={pack.market} />
             <span className="text-xs font-mono text-emerald-400 ml-1">{pack.file}</span>
           </div>
           <ArtifactControls version={latest.version} editing={editing} onToggleHistory={() => setShowHistory(s => !s)} onEdit={startEdit} />

@@ -5,11 +5,18 @@ export type ClientType = 'medtech' | 'patient'
 export type RuleType = 'diagnostic' | 'temporal' | 'math' | 'safety' | 'provider' | 'quantity' | 'custom'
 export type SimPhase = 'idle' | 'loading' | 'done' | 'review' | 'submitted' | 'round2_loading' | 'round2_done' | 'round2_submitted'
 export type CriterionStatus = 'found' | 'needs_review' | 'conflict'
-export type CaseStatus = 'processing' | 'ready_for_review' | 'exception' | 'submitted' | 'payer_response'
+export type CaseStatus = 'processing' | 'ready_for_review' | 'exception' | 'awaiting_documentation' | 'submitted' | 'payer_response'
 // Lifecycle stage a case represents. 'initial_pa' = assemble & transmit a new
 // prior-auth request (Da Vinci CRD → DTR → PAS). 'appeal' = contest a prior
 // denial. Absent on a scenario ⇒ 'appeal' (the original demo scenarios).
 export type CaseLifecycle = 'initial_pa' | 'appeal'
+// Payer determination decision on an initial-PA submission. Mirrors backend
+// PaDecision (schemas.py) — parity-tested in test_schema_parity.py.
+export type PaDecision = 'approved' | 'pended' | 'denied'
+// AI-accountability provenance on every AuditRecord: what the outbound
+// artifact was when it left the system. Mirrors backend AuditProvenance
+// (schemas.py) — parity-tested in test_schema_parity.py.
+export type AuditProvenance = 'as_is' | 'gatekeeper_corrected' | 'human_edited'
 
 export interface Rule {
   type: RuleType
@@ -33,6 +40,11 @@ export interface CriterionResult {
   // For status 'conflict': the two (or more) contradictory source claims the
   // system surfaces instead of silently selecting one.
   conflictSources?: { source: string; claim: string }[]
+  // 0–1 confidence that the finding is correct and complete enough to act on
+  // without human input. Mirrors backend CriterionResult.confidence
+  // (schemas.py) — parity-tested in test_schema_parity.py. Absent = not
+  // assessed (routes to the exception tier, never assumed 1.0).
+  confidence?: number
 }
 
 export interface TimelineEvent {
@@ -40,6 +52,20 @@ export interface TimelineEvent {
   date: string
   note?: string
   status: 'done' | 'flagged' | 'pending'
+}
+
+export interface PatientContext {
+  patientName: string
+  patientDob: string        // YYYY-MM-DD
+  patientSex: string        // "M" | "F"
+  memberId: string
+  groupId: string
+  patientAddress: string
+  prescriberName: string
+  prescriberNpi: string     // 10-digit string (fake in golden set)
+  prescriberSpecialty: string
+  prescriberAddress: string
+  prescriberPhone: string
 }
 
 export interface ScenarioConfig {
@@ -57,6 +83,8 @@ export interface ScenarioConfig {
   criteriaResults: CriterionResult[]
   citations: Record<string, { source: string; page: string; text: string }>
   configJson: string
+  // Optional — present when the scenario was generated from the golden-set pipeline
+  patientContext?: PatientContext
   // Config hierarchy
   drugKey: string            // groups same drug across carrier configs
   parentConfigId?: string    // if set, this config is a plan-specific override of the parent
@@ -74,7 +102,7 @@ export interface ScenarioConfig {
   // Payer determination after the PAS submission. 'approved' is the happy path;
   // 'denied' hands off to the appeal flow (Workstream A-T2).
   paOutcome?: {
-    decision: 'approved' | 'pended' | 'denied'
+    decision: PaDecision
     determinationId: string
     timeToTherapy: string   // headline KPI — filing → approval turnaround
     note: string
@@ -103,7 +131,11 @@ export type Urgency = 'today' | 'soon' | 'later'
 
 export interface Client {
   id: number
-  name: string
+  name: string                  // Case reference, e.g. 'Case #PH-3101'
+  patientDisplayName?: string   // Human-readable patient name, e.g. 'Margaret Vance'
+  patientDob?: string           // Date of birth label, e.g. '03/14/1972'
+  payer?: string                // Short payer name, e.g. 'Cigna', 'UnitedHealthcare'
+  gapSummary?: string           // Per-case one-line clinical context for the queue preview
   drug: string
   categoryLabel: string
   status: CaseStatus
@@ -140,7 +172,7 @@ export type IconType = React.ComponentType<{ className?: string }>
 export interface CaseLink {
   scenarioId: string
   status: CaseStatus
-  caseName: string          // e.g. "Case #PH-4201 · Omeprazole"
+  caseName: string          // e.g. "Case #PH-4201 · Esomeprazole"
 }
 
 // The evaluation methods that score the system (not competitors — they each

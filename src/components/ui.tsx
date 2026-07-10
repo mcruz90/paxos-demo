@@ -16,14 +16,21 @@ export function DueBadge({ deadline, urgency }: { deadline: string; urgency: Urg
 }
 
 export function TierBadge({ tier }: { tier: CaseTier }) {
+  // DISPLAY labels only — enum values (routine/complex/exception) are the
+  // audit/ADR/TierRouter vocabulary and stay untouched. Every case is reviewed
+  // by a human before it leaves the system; the tier names how much the AI could
+  // pre-assemble and what the human must do: 'Full Review' = read closely before
+  // filing; 'Escalation' = the AI hit a gap it can't resolve and handed off.
+  // 'Exception' is deliberately avoided here — it collides with the amber
+  // CaseStatus='exception' workflow chip (a different axis).
   if (tier === 'exception') return (
     <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 whitespace-nowrap">
-      Exception
+      Escalation
     </span>
   )
   if (tier === 'complex') return (
     <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 whitespace-nowrap">
-      Complex
+      Full Review
     </span>
   )
   return (
@@ -79,11 +86,12 @@ export function StageBadge({ stage }: { stage: 'Initial PA' | 'Appeal' }) {
 
 export function StatusBadge({ status }: { status: CaseStatus }) {
   const config: Record<CaseStatus, { label: string; className: string }> = {
-    processing:       { label: 'Processing',        className: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-    ready_for_review: { label: 'Ready for Review',  className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-    exception:        { label: 'Exception',         className: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    submitted:        { label: 'Submitted',         className: 'bg-slate-600/30 text-slate-400 border-slate-600/30' },
-    payer_response:   { label: 'Payer Response',    className: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
+    processing:             { label: 'Processing',             className: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+    ready_for_review:       { label: 'Ready for Review',       className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    exception:              { label: 'Exception',              className: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    awaiting_documentation: { label: 'Awaiting Documentation', className: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
+    submitted:              { label: 'Submitted',              className: 'bg-slate-600/30 text-slate-400 border-slate-600/30' },
+    payer_response:         { label: 'Payer Response',         className: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
   }
   const { label, className } = config[status]
   return (

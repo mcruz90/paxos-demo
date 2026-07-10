@@ -23,14 +23,14 @@ describe('getPipelineSteps', () => {
     expect(steps[3].explanation).toContain('PAS')
   })
 
-  it('uses appeal framing (step therapy) for the Ozempic appeal', () => {
+  it('uses appeal framing (indication clarification) for the Ozempic appeal', () => {
     const steps = getPipelineSteps(scenarios['novo-ozempic'])
-    expect(steps[0].explanation.toLowerCase()).toContain('step therapy')
+    expect(steps[0].explanation.toLowerCase()).toContain('indication')
     expect(steps[0].explanation).not.toContain('CRD')
   })
 
-  it('uses the infant-specific FDA ranitidine framing', () => {
-    const steps = getPipelineSteps(scenarios['infant-omeprazole'])
-    expect(steps[1].explanation.toLowerCase()).toContain('ranitidine')
+  it('uses the pediatric PPI step-therapy / dysphagia framing', () => {
+    const steps = getPipelineSteps(scenarios['pediatric-esomeprazole'])
+    expect(steps[1].explanation.toLowerCase()).toContain('dysphagia')
   })
 })

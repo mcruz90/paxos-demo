@@ -220,15 +220,17 @@ export function ExceptionsPanel() {
     
                           {/* Action footer — only shown in default unresolved state */}
                           {!isDispatched && !isPending && !isOverriding && !overrideNote && (
-                            <div className="px-4 py-3 border-t border-slate-700/60 flex items-center justify-between gap-3">
+                            <div className={`px-4 py-3 border-t border-slate-700/60 flex items-center ${cr.workflowPlan ? 'justify-between' : 'justify-start'} gap-3`}>
                               <button onClick={() => { setPendingOverride(cr.rule.label); setOverrideInput(cr.note) }}
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700/50 hover:bg-slate-700 text-slate-300 border border-slate-600/50 rounded-lg text-xs font-medium transition-colors">
                                 Override
                               </button>
-                              <button onClick={() => stagePendingDispatch(cr.rule.label)}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium transition-colors">
-                                <Zap className="w-3.5 h-3.5" />Dispatch Workflow
-                              </button>
+                              {cr.workflowPlan && (
+                                <button onClick={() => stagePendingDispatch(cr.rule.label)}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium transition-colors">
+                                  <Zap className="w-3.5 h-3.5" />Dispatch Workflow
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -237,6 +239,19 @@ export function ExceptionsPanel() {
                   </div>
                 </div>
     
+                {/* Document request sent banner — shown once all workflows are dispatched */}
+                {allResolved && (
+                  <div className="flex items-center gap-4 p-4 bg-sky-950/40 border border-sky-500/30 rounded-xl">
+                    <div className="w-10 h-10 rounded-full bg-sky-500/20 flex items-center justify-center shrink-0">
+                      <CheckCircle className="w-5 h-5 text-sky-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-sky-300">Workflows Dispatched</p>
+                      <p className="text-xs text-sky-300/70">All resolution workflows sent — awaiting provider responses. Case moved to documentation queue.</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Bottom CTA */}
                 <div className="flex gap-3 pt-1 flex-wrap">
                   {allResolved ? (

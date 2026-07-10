@@ -6,19 +6,19 @@ import { getPipelineSteps } from './pipeline'
 import { CaseTimeline } from './CaseTimeline'
 import { CoverageResolutionLine } from './coverage'
 import { CaseTechnicalDetails } from './CaseTechnicalDetails'
+import { CaseContextSidebar } from './CaseContextSidebar'
 import { buildLetterBody, openAppealPdf } from './letter'
 import { PocProvider, type PocContextValue } from './PocContext'
 import { ReviewPanel } from './ReviewPanel'
 import { PaRequestReviewPanel } from './PaRequestReviewPanel'
 import { SubmittedPanel } from './SubmittedPanel'
-import { Round2LoadingPanel } from './Round2LoadingPanel'
 import { Round2DonePanel } from './Round2DonePanel'
 import { Round2SubmittedPanel } from './Round2SubmittedPanel'
 import { ExceptionsPanel } from './ExceptionsPanel'
 import { DonePanel } from './DonePanel'
 import { PipelineStartPanel } from './PipelineStartPanel'
 
-export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, caseStatus, onStartAppeal }: {
+export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, autoStart, caseStatus, onStartAppeal, onDispatchComplete }: {
   scenario: ScenarioConfig
   onReset: () => void
   onSaveToPortfolio?: () => void
@@ -26,13 +26,21 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
   autoStart?: boolean
   caseStatus?: CaseStatus
   onStartAppeal?: (scenarioId: string) => void
+  onDispatchComplete?: () => void
 }) {
   const [phase, setPhase] = useState<SimPhase>(
     reviewMode && (caseStatus === 'submitted' || caseStatus === 'payer_response') ? 'submitted' :
     reviewMode ? 'done' :
     'idle'
   )
-  const [dispatched, setDispatched] = useState<string[]>([])
+  const [dispatched, setDispatched] = useState<string[]>(() => {
+    if (caseStatus === 'awaiting_documentation') {
+      return scenario.criteriaResults
+        .filter(cr => cr.status === 'needs_review' || cr.status === 'conflict')
+        .map(cr => cr.rule.label)
+    }
+    return []
+  })
   const [pendingDispatch, setPendingDispatch] = useState<string[]>([])
   const [acknowledged, setAcknowledged] = useState(false)
   const [appealRef] = useState(() => {
@@ -41,14 +49,16 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
     const known = initialClients.find(c => c.scenarioId === scenario.id)?.name
     return known ? known.replace('Case #', '') : newCaseRef()
   })
-  const executeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const round2IntervalRef  = useRef<ReturnType<typeof setInterval> | null>(null)
+  const executeIntervalRef        = useRef<ReturnType<typeof setInterval> | null>(null)
+  const round2IntervalRef         = useRef<ReturnType<typeof setInterval> | null>(null)
+  const dispatchCompleteCalledRef = useRef(false)
 
   const [traceOpen, setTraceOpen] = useState(true)
   const [hoveredCite, setHoveredCite] = useState<number | null>(null)
   const [editMode, setEditMode] = useState(false)
   const [editedBody, setEditedBody] = useState<string | null>(null)
   const [round2StepIdx, setRound2StepIdx] = useState(0)
+  const [round2Loading, setRound2Loading] = useState(false)
   const [tourIdx, setTourIdx] = useState(0)
   const [round2TourIdx, setRound2TourIdx] = useState(0)
   const [payerResponseResolution, setPayerResponseResolution] = useState<'accepted' | null>(null)
@@ -62,15 +72,18 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
   const pipelineSteps = getPipelineSteps(scenario)
 
   const handleRound2Execute = () => {
-    setPhase('round2_loading'); setRound2StepIdx(0); setRound2TourIdx(0)
+    // Stay on the submitted phase — SubmittedPanel shows inline progress.
+    // Auto-advance to round2_done when all steps complete.
+    setRound2Loading(true); setRound2StepIdx(0); setRound2TourIdx(0)
     let i = 0
     round2IntervalRef.current = setInterval(() => {
       i++; setRound2StepIdx(i)
       if (i >= pipelineSteps.length - 1) {
         clearInterval(round2IntervalRef.current!)
         round2IntervalRef.current = null
+        setTimeout(() => { setRound2Loading(false); setPhase('round2_done') }, 600)
       }
-    }, 2500)
+    }, 800)
   }
 
   const [overrides, setOverrides] = useState<Record<string, string>>({}) // ruleLabel -> coordinator rationale
@@ -92,7 +105,7 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
   }
   const dispatchAll = () => {
     const remaining = unresolvedCriteria
-      .filter(cr => !dispatched.includes(cr.rule.label) && !overrides[cr.rule.label])
+      .filter(cr => !dispatched.includes(cr.rule.label) && !overrides[cr.rule.label] && cr.workflowPlan)
     setPendingDispatch(prev => [...new Set([...prev, ...remaining.map(cr => cr.rule.label)])])
   }
   const applyOverride = (ruleLabel: string) => {
@@ -111,8 +124,10 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
       if (i >= pipelineSteps.length - 1) {
         clearInterval(executeIntervalRef.current!)
         executeIntervalRef.current = null
+        // Auto-advance — no manual "Continue" gate
+        setTimeout(() => setPhase('done'), 600)
       }
-    }, 2500)
+    }, 800)
   }
 
   useEffect(() => {
@@ -132,6 +147,13 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
     if (round2IntervalRef.current)  clearInterval(round2IntervalRef.current)
   }, [])
 
+  useEffect(() => {
+    if (allResolved && !dispatchCompleteCalledRef.current && onDispatchComplete) {
+      dispatchCompleteCalledRef.current = true
+      onDispatchComplete()
+    }
+  }, [allResolved, onDispatchComplete])
+
   const handleDownload = () => openAppealPdf(scenario)
 
   const ctx = useMemo<PocContextValue>(() => ({
@@ -139,7 +161,7 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
     phase, setPhase, dispatched, pendingDispatch, acknowledged, setAcknowledged,
     appealRef, traceOpen, setTraceOpen, hoveredCite, setHoveredCite,
     editMode, setEditMode, editedBody, setEditedBody,
-    round2StepIdx, round2TourIdx, setRound2TourIdx,
+    round2Loading, round2StepIdx, round2TourIdx, setRound2TourIdx,
     payerResponseResolution, setPayerResponseResolution,
     overrides, pendingOverride, setPendingOverride, overrideInput, setOverrideInput,
     stepIdx, tourIdx, setTourIdx,
@@ -152,7 +174,7 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
     phase, dispatched, pendingDispatch, acknowledged,
     appealRef, traceOpen, hoveredCite,
     editMode, editedBody,
-    round2StepIdx, round2TourIdx,
+    round2Loading, round2StepIdx, round2TourIdx,
     payerResponseResolution,
     overrides, pendingOverride, overrideInput,
     stepIdx, tourIdx,
@@ -215,9 +237,9 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
           <CaseTechnicalDetails scenario={scenario} />
         </div>
       ) : (
-        // All other phases: two-column — static context on the left, evolving
-        // action panel on the right. Timeline lives in the right column so it
-        // can lay out horizontally without being squeezed by the w-80 left rail.
+        // All other phases: two-column — action panel on the left, context on
+        // the right. When the submitted phase has a payer counter-offer, the
+        // right column swaps to CaseContextSidebar (wider, sticky, contextual).
         <div className="p-8 flex gap-6 items-start">
           <div className="flex-1 min-w-0 space-y-4">
             {scenario.timeline && caseStatus && (
@@ -228,25 +250,31 @@ export function POCView({ scenario, onReset, onSaveToPortfolio, reviewMode, auto
             )}
             <PocProvider value={ctx}>
               {phase === 'submitted' ? <SubmittedPanel />
-                : phase === 'round2_loading' ? <Round2LoadingPanel />
                 : phase === 'round2_submitted' ? <Round2SubmittedPanel />
                 : phase === 'done' && hasExceptions ? <ExceptionsPanel />
                 : phase === 'done' ? <DonePanel />
                 : <PipelineStartPanel />}
             </PocProvider>
           </div>
-          <div className="w-80 shrink-0 space-y-4">
-            <div className="flex items-center gap-4 p-4 bg-slate-800/40 border border-slate-700/60 rounded-xl text-sm">
-              <Package className="w-5 h-5 text-slate-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-medium leading-snug">{scenario.drug}</p>
-                <p className="text-slate-400 text-xs mt-0.5">{scenario.plan}</p>
-              </div>
-              <span className="text-xs text-slate-500 shrink-0">{scenario.criteriaResults.length} rules</span>
+          {/* Right sidebar: smart context pane for payer responses, default stack otherwise */}
+          {phase === 'submitted' && scenario.payerCounterOffer ? (
+            <div className="w-96 shrink-0 sticky top-8 space-y-3">
+              <CaseContextSidebar scenario={scenario} />
             </div>
-            <CoverageResolutionLine scenarioId={scenario.id} />
-            <CaseTechnicalDetails scenario={scenario} />
-          </div>
+          ) : (
+            <div className="w-80 shrink-0 space-y-4">
+              <div className="flex items-center gap-4 p-4 bg-slate-800/40 border border-slate-700/60 rounded-xl text-sm">
+                <Package className="w-5 h-5 text-slate-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-medium leading-snug">{scenario.drug}</p>
+                  <p className="text-slate-400 text-xs mt-0.5">{scenario.plan}</p>
+                </div>
+                <span className="text-xs text-slate-500 shrink-0">{scenario.criteriaResults.length} rules</span>
+              </div>
+              <CoverageResolutionLine scenarioId={scenario.id} />
+              <CaseTechnicalDetails scenario={scenario} />
+            </div>
+          )}
         </div>
       )}
     </div>

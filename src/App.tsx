@@ -12,8 +12,10 @@ import { EvalRubricView } from './components/EvalRubricView'
 import { WorkflowSpecView } from './components/WorkflowSpecView'
 import { FailureReviewView } from './components/FailureReviewView'
 import { Sidebar } from './components/Sidebar'
+import { Topbar } from './components/Topbar'
 import { SponsorView } from './components/SponsorView'
-import { PortfolioView } from './components/PortfolioView'
+import { SplitPortfolioView } from './components/portfolio/SplitPortfolioView'
+import { applyPayerDecision, quickApproveClient, setClientStatus } from './components/portfolio/caseQueue'
 import { AutomationPolicyView } from './components/AutomationPolicyView'
 import { POCView } from './components/poc/POCView'
 import { LibraryView } from './components/LibraryView'
@@ -67,6 +69,7 @@ export default function App() {
   const [activeTour, setActiveTour] = useState<TourId | null>(null)
   const [tourRunning, setTourRunning] = useState(false)
   const [tourStepIndex, setTourStepIndex] = useState(0)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const instrStore = useInstructionStore()
 
   // Switching roles navigates to that role's default first view
@@ -118,6 +121,15 @@ export default function App() {
     setActiveRole('Operate')
   }
 
+  // Case-status transitions from the queue's preview pane — the guarded state
+  // machine lives in portfolio/caseQueue.ts, unit-tested there.
+  const handleQuickApprove = (scenarioId: string) =>
+    setClients(prev => quickApproveClient(prev, scenarioId))
+  const handlePayerDecision = (scenarioId: string, decision: 'accepted' | 'disputed') =>
+    setClients(prev => applyPayerDecision(prev, scenarioId, decision))
+  const handleUpdateClientStatus = (scenarioId: string, status: CaseStatus) =>
+    setClients(prev => setClientStatus(prev, scenarioId, status))
+
   // Apply a step's nav: make the right view (and case) active before the step shows.
   // Also syncs activeRole so the sidebar reflects the correct role during tours.
   const applyTourNav = (nav?: TourStep['nav']) => {
@@ -149,6 +161,7 @@ export default function App() {
   }
 
   const startTour = (id: TourId) => {
+    setIsSidebarCollapsed(false)
     setActiveTour(id)
     setActiveRole(TOUR_ROLE[id] ?? 'Operate')
     applyTourNav(TOURS[id].steps[0]?.nav)
@@ -192,7 +205,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
+    <div className="flex flex-col h-screen bg-slate-950 text-white overflow-hidden">
       <Joyride
         steps={activeTour ? TOURS[activeTour].steps : TOURS.overview.steps}
         run={tourRunning}
@@ -215,12 +228,33 @@ export default function App() {
           skipBeacon: true,
         }}
       />
-      <Sidebar view={view} setView={setView} activeRole={activeRole} onRoleChange={handleRoleChange} onStartTour={openTourHub} theme={theme} onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} />
+      <Topbar
+        activeRole={activeRole}
+        onRoleChange={handleRoleChange}
+        theme={theme}
+        onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+        onStartTour={openTourHub}
+      />
+      <div className="flex flex-1 overflow-hidden">
+      <Sidebar
+        view={view}
+        setView={setView}
+        activeRole={activeRole}
+        onStartTour={openTourHub}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
       {view === 'landing' && (
         <LandingHub onStartTour={startTour} onRoleChange={handleRoleChange} />
       )}
       {view === 'portfolio' && (
-        <PortfolioView clients={clients} onOpenCase={openCase} onStartTour={openTourHub} />
+        <SplitPortfolioView
+          clients={clients}
+          onOpenCase={openCase}
+          onQuickApprove={handleQuickApprove}
+          onPayerDecision={handlePayerDecision}
+          onUpdateClientStatus={handleUpdateClientStatus}
+        />
       )}
       {view === 'poc' && activeScenario && (
         <POCView
@@ -235,6 +269,13 @@ export default function App() {
               ? undefined
               : () => addToPortfolio(activeScenario)
           }
+          onDispatchComplete={() => {
+            setClients(prev => prev.map(c =>
+              c.scenarioId === activeScenario.id && c.status === 'exception'
+                ? { ...c, status: 'awaiting_documentation' as CaseStatus }
+                : c
+            ))
+          }}
         />
       )}
       {view === 'library' && (
@@ -267,6 +308,7 @@ export default function App() {
       {view === 'rubric' && (
         <EvalRubricView setView={setView} onOpenCase={openCase} />
       )}
+      </div>
     </div>
   )
 }
