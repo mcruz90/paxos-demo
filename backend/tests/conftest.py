@@ -86,6 +86,21 @@ def mock_llm() -> MockLLMBackend:
     return MockLLMBackend()
 
 
+@pytest.fixture(autouse=True)
+def _isolate_checkpointer() -> None:
+    """Clear the process-singleton graph checkpointer before every test.
+
+    The compiled ``_PIPELINE`` and its ``InMemorySaver`` live for the whole test
+    session, so a parked exception-tier checkpoint otherwise leaks into later
+    tests — and the generate re-entry guard then (correctly) refuses to restart a
+    thread a prior test left parked, e.g. the SSE happy-path tests that reuse one
+    correlation_id. Resetting here makes checkpoint isolation explicit instead of
+    depending on the pre-fix orphan-and-restart behavior."""
+    from agents.graph import reset_checkpointer
+
+    reset_checkpointer()
+
+
 # ---------------------------------------------------------------------------
 # ScenarioConfig + criteria fixtures derived from golden ozempic_cigna scenario
 # ---------------------------------------------------------------------------

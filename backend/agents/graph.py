@@ -253,3 +253,19 @@ def _build_graph() -> StateGraph:
 #      per-instance allowlist here), so the fix belongs with the langgraph
 #      upgrade / durable checkpointer, which registers the schema types.
 _PIPELINE = _build_graph().compile(checkpointer=InMemorySaver())
+
+
+def reset_checkpointer() -> None:
+    """Test-only: clear the in-memory checkpoint store between tests.
+
+    The compiled ``_PIPELINE`` (and its ``InMemorySaver``) is a process
+    singleton, so parked checkpoints otherwise leak across tests — and the
+    generate re-entry guard (which refuses to restart a parked thread; see
+    [generate.py](generate.py)) then correctly fails a later test that reuses a
+    parked correlation_id. Clears the saver's stores in place so every test
+    starts from an empty checkpoint store, without rebinding the singleton that
+    other modules imported by reference."""
+    saver = _PIPELINE.checkpointer
+    saver.storage.clear()
+    saver.writes.clear()
+    saver.blobs.clear()
