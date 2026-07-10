@@ -61,7 +61,7 @@ export function LandingHub({ onStartTour, onRoleChange }: { onStartTour: (id: To
             <p className="text-xs text-slate-400 mt-0.5">The whole arc in four beats — Operate, Build, Scale — in about 90 seconds.</p>
           </div>
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 group-hover:gap-2.5 transition-all shrink-0">
-            Watch<ArrowRight className="w-3.5 h-3.5" />
+            Step through<ArrowRight className="w-3.5 h-3.5" />
           </span>
         </button>
 
