@@ -13,6 +13,7 @@ import { scenarios } from '../../../data/scenarios'
 import { useLiveSession } from './useLiveSession'
 import { useLiveAppeal } from './useLiveAppeal'
 import { usePendingQueue } from './usePendingQueue'
+import { shouldRefreshQueue } from './queue'
 import { isParked } from './appealEvents'
 import { LoginForm } from './LoginForm'
 import { GenerateView } from './GenerateView'
@@ -75,10 +76,14 @@ function LiveWorkspace({
   const handleResume = async (editedText: string | null) => {
     if (!resumeTarget) return
     setResumeBusy(true)
-    await appeal.resume(resumeTarget.correlationId, editedText, csrfToken)
+    const result = await appeal.resume(resumeTarget.correlationId, editedText, csrfToken)
+    setResumeBusy(false)
+    // On an error terminal (e.g. double-resume) or transport failure the run is
+    // still parked — keep the editor open so the reviewer's edits aren't lost;
+    // the error surfaces via appeal.state.error in the panel below.
+    if (!shouldRefreshQueue(result)) return
     queue.drop(resumeTarget.correlationId)
     await queue.refresh()
-    setResumeBusy(false)
     setResumeTarget(null)
   }
 
@@ -109,9 +114,11 @@ function LiveWorkspace({
             />
             {resumeTarget && (
               <ResumeEditor
+                key={resumeTarget.correlationId}
                 correlationId={resumeTarget.correlationId}
                 draft={resumeTarget.draft}
                 busy={resumeBusy}
+                error={appeal.state.status === 'error' ? appeal.state.error : null}
                 onResume={handleResume}
               />
             )}
