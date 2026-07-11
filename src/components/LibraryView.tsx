@@ -5,6 +5,7 @@ import { scenarios, universalPrimitives } from '../data/scenarios'
 import { ruleColors, ruleIcons } from './ui'
 import { ARTIFACT_ACTOR, diffList, type VersionEntry } from './versioning'
 import { LifecycleSkeleton } from './LifecycleSkeleton'
+import { PrimitiveRunPanel } from './PrimitiveRunPanel'
 
 export interface PolicyPack { pack: string; drug: string; carrier: string; category: string; status: string }
 export interface PackRegistryData { packs: PolicyPack[] }
@@ -60,6 +61,7 @@ export function LibraryView({ setView }: {
   setView: (v: View) => void
 }) {
   const [activeLayer, setActiveLayer] = useState<LayerKey>('skeleton')
+  const [selectedPrimType, setSelectedPrimType] = useState<RuleType>(universalPrimitives[0].type)
   const [primitives, setPrimitives] = useState<UniversalPrimitive[]>(universalPrimitives)
   const [showAddPrimitive, setShowAddPrimitive] = useState(false)
   const [primitiveDraft, setPrimitiveDraft] = useState({ name: '', schemaClass: '', description: '', params: '' })
@@ -159,12 +161,20 @@ export function LibraryView({ setView }: {
             </button>
           </div>
 
-          <div className="border-y border-slate-800 divide-y divide-slate-800">
+          {/* Master-detail: rules list (left) · example run for the selected rule (right) */}
+          <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex-1 min-w-0">
+          <div className="space-y-3">
             {primitives.map((p, i) => {
               const isEditing = editingName === p.name
               const v = primVersion(p)
               return (
-              <div key={`${p.type}-${i}`} id={`tour-primitive-${p.type}`} className="py-4 first:pt-0 last:pb-0">
+              <div
+                key={`${p.type}-${i}`}
+                id={`tour-primitive-${p.type}`}
+                onClick={() => setSelectedPrimType(p.type)}
+                className={`rounded-xl border p-4 cursor-pointer transition-all ${selectedPrimType === p.type ? 'bg-emerald-500/[0.06] border-emerald-500/50 ring-1 ring-emerald-500/20' : 'bg-slate-800/40 border-slate-700/60 hover:border-emerald-500/40'}`}
+              >
                 {/* Header: type · name · schema class · version · edit */}
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <div className={`p-1.5 rounded border ${ruleColors[p.type]}`}>{ruleIcons[p.type]}</div>
@@ -181,37 +191,34 @@ export function LibraryView({ setView }: {
                     </button>
                   )}
                 </div>
-                {/* Body: description (prose) | parameters (schema) side by side */}
-                <div className="flex flex-col lg:flex-row gap-6 mt-2">
-                  <div className="flex-1 min-w-0">
-                    {isEditing ? (
-                      <textarea
-                        value={editDraft.description}
-                        onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))}
-                        rows={5}
-                        className="w-full px-3 py-2 bg-slate-900/60 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-blue-500 resize-none"
-                      />
-                    ) : (
-                      <p className="text-xs text-slate-300 leading-relaxed">{p.description}</p>
-                    )}
-                  </div>
-                  <div className="lg:w-96 shrink-0">
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Parameters</p>
-                    {isEditing ? (
-                      <textarea
-                        value={editDraft.params}
-                        onChange={e => setEditDraft(d => ({ ...d, params: e.target.value }))}
-                        rows={5}
-                        className="w-full px-3 py-2 bg-slate-900/60 border border-slate-700 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-blue-500 resize-none"
-                      />
-                    ) : (
-                      <div className="bg-slate-900/40 rounded-lg p-2.5 font-mono text-[11px] space-y-0.5">
-                        {p.params.map(param => (
-                          <p key={param} className="text-slate-400 break-all">{param}</p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                {/* Description */}
+                {isEditing ? (
+                  <textarea
+                    value={editDraft.description}
+                    onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))}
+                    rows={4}
+                    className="w-full mt-2 px-3 py-2 bg-slate-900/60 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-blue-500 resize-none"
+                  />
+                ) : (
+                  <p className="text-xs text-slate-300 leading-relaxed mt-2">{p.description}</p>
+                )}
+                {/* Parameters */}
+                <div className="mt-2.5">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Parameters</p>
+                  {isEditing ? (
+                    <textarea
+                      value={editDraft.params}
+                      onChange={e => setEditDraft(d => ({ ...d, params: e.target.value }))}
+                      rows={5}
+                      className="w-full px-3 py-2 bg-slate-900/60 border border-slate-700 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-blue-500 resize-none"
+                    />
+                  ) : (
+                    <div className="bg-slate-900/40 rounded-lg p-2.5 grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-0.5 font-mono text-[11px]">
+                      {p.params.map(param => (
+                        <p key={param} className="text-slate-400 break-all">{param}</p>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {isEditing && (
@@ -292,6 +299,13 @@ export function LibraryView({ setView }: {
               </div>
             </div>
           )}
+          </div>
+          <div className="lg:w-[400px] shrink-0">
+            <div className="lg:sticky lg:top-6">
+              <PrimitiveRunPanel type={selectedPrimType} />
+            </div>
+          </div>
+          </div>
         </div>
 
         {/* Per-payer instances — the policy packs (composed from the primitives above; live in the Registry) */}
