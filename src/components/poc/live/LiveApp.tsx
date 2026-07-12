@@ -14,6 +14,7 @@ import { useLiveSession } from './useLiveSession'
 import { useLiveAppeal } from './useLiveAppeal'
 import { useLivePa } from './useLivePa'
 import { usePendingQueue } from './usePendingQueue'
+import { useAuditTrail } from './useAuditTrail'
 import { shouldRefreshQueue } from './queue'
 import { isParked } from './appealEvents'
 import { LoginForm } from './LoginForm'
@@ -22,6 +23,7 @@ import { GenerateView } from './GenerateView'
 import { PaResultView } from './PaResultView'
 import { CaseContextPanel } from './CaseContextPanel'
 import { PendingQueue } from './PendingQueue'
+import { AuditTrailPanel } from './AuditTrailPanel'
 import { ResumeEditor } from './ResumeEditor'
 import type { PendingReviewItem } from '../../../lib/wire'
 
@@ -57,6 +59,7 @@ function LiveWorkspace({
   const appeal = useLiveAppeal(csrfToken, onExpire)
   const pa = useLivePa(csrfToken, onExpire)
   const queue = usePendingQueue(true, onExpire)
+  const audit = useAuditTrail(true, onExpire)
   const [selectedId, setSelectedId] = useState(APPEAL_SCENARIOS[0].id)
   const [resumeTarget, setResumeTarget] = useState<{ correlationId: string; draft: string } | null>(null)
   const [resumeBusy, setResumeBusy] = useState(false)
@@ -82,6 +85,14 @@ function LiveWorkspace({
     void queue.refresh()
     // appeal.state.letter is captured with parkedId; queue.refresh is stable.
   }, [parkedId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Every terminal event (either lifecycle) writes an AuditRecord before it is
+  // yielded (ADR-0009) — refresh the trail so the new row appears.
+  const appealTerminal = appeal.state.status === 'done' || appeal.state.status === 'error'
+  const paTerminal = pa.state.status === 'done' || pa.state.status === 'error'
+  useEffect(() => {
+    if (appealTerminal || paTerminal) void audit.refresh()
+  }, [appealTerminal, paTerminal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openFromQueue = (item: PendingReviewItem) => {
     const draft = appeal.state.correlationId === item.correlation_id ? appeal.state.letter : ''
@@ -142,12 +153,13 @@ function LiveWorkspace({
               />
             )}
           </div>
-          <div className="w-80 shrink-0">
+          <div className="w-80 shrink-0 space-y-5">
             <PendingQueue
               reviews={queue.reviews}
               activeId={resumeTarget?.correlationId ?? null}
               onOpen={openFromQueue}
             />
+            <AuditTrailPanel records={audit.records} />
           </div>
         </div>
       </div>

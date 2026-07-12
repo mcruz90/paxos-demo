@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sortAuditNewestFirst } from './auditTrail'
-import type { AuditRecord } from '../../../lib/wire'
+import { sortAuditNewestFirst, type AuditRecord } from './auditTrail'
 
 const rec = (correlation_id: string, timestamp: string): AuditRecord =>
   ({ correlation_id, timestamp } as unknown as AuditRecord)
