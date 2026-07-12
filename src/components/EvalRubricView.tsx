@@ -75,7 +75,7 @@ export const EVAL_RUBRIC_HISTORY: VersionEntry<EvalRubricData>[] = [
   { version: 2, actor: ARTIFACT_ACTOR, timestamp: 'Jun 11, 2026', note: 'Add Over-Caution dimension + regression/guardrail cases (from failure review)', deltas: [
     '+ dimension: "Over-Caution Rate"',
     '+ case: "derivable-duration" (regression)',
-    '+ case: "safety-missing-mtc" (guardrail)',
+    '+ case: "safety-no-concomitant-glp1" (guardrail)',
   ], snapshot: EVAL_RUBRIC_V2 },
   { version: 3, actor: ARTIFACT_ACTOR, timestamp: 'Jun 17, 2026', note: 'Reclassify scoring methods + add LLM-as-judge rubrics', deltas: [
     '~ "Claim-Citation Alignment" method: LLM-judge → RAGAS (model-graded)',
@@ -307,7 +307,3 @@ export function EvalRubricView({ setView, onOpenCase }: { setView: (v: View) => 
     </div>
   )
 }
-
-// ---------------------------------------------------------------------------
-// View — Agent Instructions (illustrative, abridged instruction sets per node)
-// ---------------------------------------------------------------------------

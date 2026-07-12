@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Plus, ShieldCheck, GitBranch, RefreshCw } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowRight, Plus, ShieldCheck, GitBranch, RefreshCw } from 'lucide-react'
 import { IllustrativeTag } from './ui'
 import {
   ArtifactControls, ARTIFACT_ACTOR, diffList, EditableRecordList, JustPublishedBanner,
@@ -26,6 +26,17 @@ export interface LifecycleStage {
 export interface LifecycleSkeletonData { stages: LifecycleStage[] }
 
 export const NODES = ['Intake', 'Retrieval', 'Synthesis', 'Gatekeeper', 'Transmit', 'Determination', 'Routing']
+
+// Display-only grouping of stages into lifecycle phases (not part of the
+// versioned schema — keeps the read-mode diagram hierarchical without touching
+// the editable data). Stages not listed fall back to their own group.
+const PHASE_BY_KEY: Record<string, string> = {
+  intake: 'Establish need',      coverage: 'Establish need',
+  documentation: 'Build the case', assembly: 'Build the case',
+  gatekeeper: 'Validate & submit', submission: 'Validate & submit',
+  determination: 'Resolve',       appeal: 'Resolve',
+}
+
 const NODE_CLS: Record<string, string> = {
   Intake:        'text-slate-300 bg-slate-700/40 border-slate-600/40',
   Retrieval:     'text-sky-300 bg-sky-500/10 border-sky-500/20',
@@ -158,6 +169,41 @@ function EditableStringList({ items, onChange, addLabel, placeholder }: {
   )
 }
 
+// Compact stage node for the read-mode diagram.
+function StageCard({ s }: { s: LifecycleStage }) {
+  return (
+    <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-3 flex flex-col">
+      <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+        <span className={`text-[10px] px-1.5 py-0.5 rounded border uppercase tracking-wide ${NODE_CLS[s.node] ?? NODE_CLS.Intake}`}>{s.node}</span>
+        <p className="text-sm font-semibold text-white leading-tight">{s.name}</p>
+      </div>
+      {s.artifact && <span className="self-start text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 font-mono mb-1.5">→ {s.artifact}</span>}
+      <p className="text-[11px] text-slate-400 leading-relaxed">{s.role}</p>
+      {s.gates.map((g, gi) => (
+        <div key={gi} className="flex items-start gap-1.5 px-2 py-1 mt-1.5 rounded-md bg-amber-500/10 border border-amber-500/30">
+          <ShieldCheck className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
+          <span className="text-[10px] text-amber-300 leading-snug"><span className="font-semibold">Gate · </span>{g}</span>
+        </div>
+      ))}
+      {s.branch && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {s.branch.split('·').map((b, bi) => (
+            <span key={bi} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-slate-900/50 border border-slate-700/50 text-slate-400"><GitBranch className="w-2.5 h-2.5 shrink-0" />{b.trim()}</span>
+          ))}
+        </div>
+      )}
+      {s.loopsTo && (
+        <div className="mt-1.5 flex items-center gap-1 text-[10px] text-violet-300"><RefreshCw className="w-3 h-3 shrink-0" />loops back to {s.loopsTo}</div>
+      )}
+      <div className="mt-2 pt-2 border-t border-slate-700/40 font-mono text-[10px] space-y-0.5">
+        {s.fields.map(f => (
+          <p key={f.name} className="break-all"><span className="text-sky-300">{f.name}</span><span className="text-slate-600">: </span><span className="text-slate-400">{f.type}</span></p>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function LifecycleSkeleton() {
   const {
     versions, experiments, editing, draft, setDraft, changeNote, setChangeNote,
@@ -165,6 +211,15 @@ export function LifecycleSkeleton() {
   } = useVersioned<LifecycleSkeletonData>(LIFECYCLE_HISTORY)
   const data = editing && draft ? draft : current
   const deltas = editing && draft ? computeSkeletonDeltas(current, draft) : []
+
+  // Group stages into lifecycle phases for the read-mode diagram (display-only).
+  const phases: { label: string; stages: LifecycleStage[] }[] = []
+  for (const s of data.stages) {
+    const label = PHASE_BY_KEY[s.key] ?? s.name
+    const last = phases[phases.length - 1]
+    if (PHASE_BY_KEY[s.key] && last && last.label === label) last.stages.push(s)
+    else phases.push({ label, stages: [s] })
+  }
 
   const setStages = (stages: LifecycleStage[]) => setDraft(d => d ? { ...d, stages } : d)
   const updateStage = (i: number, patch: Partial<LifecycleStage>) => setStages(data.stages.map((s, j) => j === i ? { ...s, ...patch } : s))
@@ -196,8 +251,13 @@ export function LifecycleSkeleton() {
       {editing ? (
         /* ── Editor ──────────────────────────────────────────────────────── */
         <div className="space-y-3 mt-3">
-          {data.stages.map((s, i) => (
-            <div key={s.key} className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 space-y-3">
+          {data.stages.map((s, i) => {
+            const phase = PHASE_BY_KEY[s.key]
+            const showPhase = phase && phase !== (i > 0 ? PHASE_BY_KEY[data.stages[i - 1].key] : undefined)
+            return (
+            <div key={s.key}>
+              {showPhase && <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">{phase}</p>}
+              <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-mono text-slate-500 w-5 shrink-0">{i + 1}</span>
                 <input value={s.name} onChange={e => updateStage(i, { name: e.target.value })} placeholder="stage name" className="flex-1 bg-slate-900/60 border border-slate-700/50 rounded-lg px-2.5 py-1.5 text-sm font-medium text-white focus:outline-none focus:border-slate-500" />
@@ -227,58 +287,41 @@ export function LifecycleSkeleton() {
                 <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Artifact produced (optional)</label>
                 <input value={s.artifact ?? ''} onChange={e => updateStage(i, { artifact: e.target.value })} placeholder="e.g. prior_auth | appeal | determination" className="w-full bg-slate-900/60 border border-slate-700/50 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-slate-500" />
               </div>
+              </div>
             </div>
-          ))}
+            )
+          })}
           <button onClick={addStage} className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300"><Plus className="w-3.5 h-3.5" />Add stage</button>
         </div>
       ) : (
-        /* ── Flowchart ───────────────────────────────────────────────────── */
-        <div className="mt-3">
-          {data.stages.map((s, i) => (
-            <div key={s.key}>
-              <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 flex flex-col md:flex-row gap-5">
-                {/* Left: stage definition + behavior */}
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded border uppercase tracking-wide ${NODE_CLS[s.node] ?? NODE_CLS.Intake}`}>{s.node}</span>
-                    <p className="text-sm font-semibold text-white">{s.name}</p>
-                    {s.artifact && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 font-mono">→ {s.artifact}</span>}
+        /* ── Flowchart — lifecycle phases (left→right), each stacking its
+             sub-stages (top→bottom). Two levels of hierarchy, fills the width. */
+        <div className="mt-3 flex flex-col lg:flex-row lg:items-stretch gap-3 lg:gap-2">
+          {phases.map((ph, pi) => (
+            <div key={ph.label} className="contents">
+              {/* Phase = a bounded group with a numbered header */}
+              <div className="flex-1 min-w-0 flex flex-col rounded-xl border border-slate-700/50 bg-slate-900/40 p-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center justify-center shrink-0">{pi + 1}</span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-mono text-slate-600 uppercase tracking-wider leading-none mb-0.5">Phase</p>
+                    <p className="text-sm font-semibold text-white leading-tight truncate">{ph.label}</p>
                   </div>
-                  <p className="text-xs text-slate-400 leading-relaxed">{s.role}</p>
-                  {s.gates.map((g, gi) => (
-                    <div key={gi} className="flex items-start gap-2 px-2.5 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30">
-                      <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                      <span className="text-[11px] text-amber-300 leading-relaxed"><span className="font-semibold">Gate · </span>{g}</span>
+                </div>
+                <div className="flex flex-col flex-1">
+                  {ph.stages.map((s, si) => (
+                    <div key={s.key}>
+                      <StageCard s={s} />
+                      {si < ph.stages.length - 1 && (
+                        <div className="flex justify-center py-1 text-slate-500"><ArrowDown className="w-4 h-4" /></div>
+                      )}
                     </div>
                   ))}
-                  {s.branch && (
-                    <div className="flex items-start gap-2 px-2.5 py-1.5 rounded-md bg-slate-900/40 border border-slate-700/40">
-                      <GitBranch className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                      <span className="text-[11px] text-slate-400 leading-relaxed">{s.branch}</span>
-                    </div>
-                  )}
-                  {s.loopsTo && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-violet-300">
-                      <RefreshCw className="w-3 h-3" />loops back to {s.loopsTo}
-                    </div>
-                  )}
-                </div>
-                {/* Right: schema — always visible (no extra click) */}
-                <div className="md:w-2/5 shrink-0 space-y-1">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Schema</p>
-                  <div className="bg-slate-900/50 rounded-lg p-2.5 font-mono text-[11px] space-y-0.5">
-                    {s.fields.map(f => (
-                      <p key={f.name} className="break-all"><span className="text-sky-300">{f.name}</span><span className="text-slate-600">: </span><span className="text-slate-400">{f.type}</span></p>
-                    ))}
-                  </div>
                 </div>
               </div>
-              {i < data.stages.length - 1 && (
-                <div className="flex justify-center py-1 text-slate-600">
-                  <div className="flex flex-col items-center">
-                    <div className="w-px h-3 bg-slate-700" />
-                    <ArrowDown className="w-4 h-4 -mt-1" />
-                  </div>
+              {pi < phases.length - 1 && (
+                <div className="flex lg:flex-col items-center justify-center shrink-0 py-1 lg:py-0 lg:px-0.5 text-emerald-500/70">
+                  <ArrowRight className="w-6 h-6 rotate-90 lg:rotate-0" />
                 </div>
               )}
             </div>

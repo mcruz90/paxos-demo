@@ -89,6 +89,7 @@ export const SEVERITY_CLS: Record<FailureCluster['severity'], string> = {
 export function FailureReviewView({ setView, store }: { setView: (v: View) => void; store: InstructionStore }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [resolved, setResolved] = useState<Record<string, number>>({})
+  const [nodeFilter, setNodeFilter] = useState<string | null>(null)
   const ordered = [...FAILURE_CLUSTERS].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || b.count - a.count)
   const selected = FAILURE_CLUSTERS.find(c => c.id === selectedId) ?? null
   const totalFailures = FAILURE_CLUSTERS.reduce((n, c) => n + c.count, 0)
@@ -130,16 +131,72 @@ export function FailureReviewView({ setView, store }: { setView: (v: View) => vo
               ))}
             </div>
 
-            <div className="flex items-center justify-between">
+            {/* Pipeline health — failures mapped onto the node graph (the spine) */}
+            <div>
+              <div className="flex items-baseline gap-2 mb-3">
+                <h2 className="text-sm font-semibold text-white">Pipeline health</h2>
+                <span className="text-xs text-slate-500">— where in the pipeline failures land; select a node to filter the worklist</span>
+              </div>
+              <div className="flex flex-col lg:flex-row lg:items-stretch">
+                {NODE_META.map((n, i) => {
+                  const Icon = n.icon
+                  const nodeClusters = FAILURE_CLUSTERS.filter(c => c.node === n.id)
+                  const total = nodeClusters.reduce((s, c) => s + c.count, 0)
+                  const worst = nodeClusters.reduce<FailureCluster['severity'] | null>((w, c) => (w === null || SEVERITY_RANK[c.severity] < SEVERITY_RANK[w] ? c.severity : w), null)
+                  const healthy = nodeClusters.length === 0
+                  const active = nodeFilter === n.id
+                  return (
+                    <div key={n.id} className="contents">
+                      <button
+                        onClick={() => { if (!healthy) setNodeFilter(active ? null : n.id) }}
+                        disabled={healthy}
+                        className={`flex-1 text-left flex flex-col p-3 rounded-xl border transition-all ${
+                          active ? 'bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/20'
+                          : healthy ? 'bg-slate-800/40 border-slate-700/50 cursor-default'
+                          : 'bg-slate-800/50 border-slate-700/60 hover:border-emerald-500/40'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${healthy ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-700/50 text-slate-300'}`}>
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <span className="text-sm font-semibold text-white">{n.node}</span>
+                        </div>
+                        {healthy ? (
+                          <div className="flex items-center gap-1.5 text-[11px] text-emerald-400"><CheckCircle className="w-3.5 h-3.5 shrink-0" />No failures</div>
+                        ) : (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${SEVERITY_CLS[worst!]}`}>{worst}</span>
+                            <span className="text-[11px] text-slate-500">{nodeClusters.length} cluster{nodeClusters.length > 1 ? 's' : ''} · {total} failures</span>
+                          </div>
+                        )}
+                      </button>
+                      {i < NODE_META.length - 1 && (
+                        <div className="flex lg:flex-col items-center justify-center shrink-0 lg:w-6 py-1 lg:py-0 text-slate-600">
+                          <ChevronRight className="w-4 h-4 rotate-90 lg:rotate-0" />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <h2 className="text-sm font-semibold text-white">Failure Clusters</h2>
+                <h2 className="text-sm font-semibold text-white inline-flex items-center gap-2">
+                  {nodeFilter
+                    ? <>Failures at <span className="font-mono text-slate-300">{NODE_META.find(n => n.id === nodeFilter)?.node}</span></>
+                    : 'Failure Clusters'}
+                  {nodeFilter && <button onClick={() => setNodeFilter(null)} className="text-xs font-normal text-emerald-400 hover:underline">clear</button>}
+                </h2>
                 <p className="text-xs text-slate-500">Prioritized by severity × volume — 3 safety failures outrank 50 over-cautious ones</p>
               </div>
               <span className="text-xs text-slate-500">Last sampled from prod · Jun 15, 2026</span>
             </div>
 
             <div className="space-y-2">
-              {ordered.map(c => {
+              {(nodeFilter ? ordered.filter(c => c.node === nodeFilter) : ordered).map(c => {
                 const isResolved = !!resolved[c.id]
                 const node = NODE_META.find(n => n.id === c.node)!
                 return (

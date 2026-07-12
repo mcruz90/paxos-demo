@@ -16,14 +16,21 @@ export function DueBadge({ deadline, urgency }: { deadline: string; urgency: Urg
 }
 
 export function TierBadge({ tier }: { tier: CaseTier }) {
+  // DISPLAY labels only — enum values (routine/complex/exception) are the
+  // audit/ADR/TierRouter vocabulary and stay untouched. Every case is reviewed
+  // by a human before it leaves the system; the tier names how much the AI could
+  // pre-assemble and what the human must do: 'Full Review' = read closely before
+  // filing; 'Escalation' = the AI hit a gap it can't resolve and handed off.
+  // 'Exception' is deliberately avoided here — it collides with the amber
+  // CaseStatus='exception' workflow chip (a different axis).
   if (tier === 'exception') return (
     <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 whitespace-nowrap">
-      Exception
+      Escalation
     </span>
   )
   if (tier === 'complex') return (
     <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 whitespace-nowrap">
-      Complex
+      Full Review
     </span>
   )
   return (

@@ -12,11 +12,13 @@ import { EvalRubricView } from './components/EvalRubricView'
 import { WorkflowSpecView } from './components/WorkflowSpecView'
 import { FailureReviewView } from './components/FailureReviewView'
 import { Sidebar } from './components/Sidebar'
+import { Topbar } from './components/Topbar'
 import { SponsorView } from './components/SponsorView'
 import { SplitPortfolioView } from './components/portfolio/SplitPortfolioView'
 import { applyPayerDecision, quickApproveClient, setClientStatus } from './components/portfolio/caseQueue'
 import { AutomationPolicyView } from './components/AutomationPolicyView'
 import { POCView } from './components/poc/POCView'
+import { BuildOverview } from './components/BuildOverview'
 import { LibraryView } from './components/LibraryView'
 import { LIVE_MODE } from './components/poc/live/liveMode'
 import { LiveApp } from './components/poc/live/LiveApp'
@@ -29,6 +31,7 @@ const VIEW_ROLE: Record<View, Role> = {
   poc:          'Operate',
   evals:        'Operate',
   automation:   'Operate',
+  build_home:   'Build',
   library:      'Build',
   specs:        'Build',
   instructions: 'Build',
@@ -42,7 +45,7 @@ const VIEW_ROLE: Record<View, Role> = {
 // Default first view for each role (used when switching roles via the role switcher)
 const ROLE_DEFAULT_VIEW: Record<Role, View> = {
   Operate: 'portfolio',
-  Build:   'library',
+  Build:   'build_home',
   Scale:   'onboarding',
   Sponsor: 'sponsor',
 }
@@ -212,7 +215,7 @@ export default function App() {
   if (LIVE_MODE) return <LiveApp />
 
   return (
-    <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
+    <div className="flex flex-col h-screen bg-slate-950 text-white overflow-hidden">
       <Joyride
         steps={activeTour ? TOURS[activeTour].steps : TOURS.overview.steps}
         run={tourRunning}
@@ -235,14 +238,19 @@ export default function App() {
           skipBeacon: true,
         }}
       />
+      <Topbar
+        activeRole={activeRole}
+        onRoleChange={handleRoleChange}
+        theme={theme}
+        onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+        onStartTour={openTourHub}
+      />
+      <div className="flex flex-1 overflow-hidden">
       <Sidebar
         view={view}
         setView={setView}
         activeRole={activeRole}
-        onRoleChange={handleRoleChange}
         onStartTour={openTourHub}
-        theme={theme}
-        onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
@@ -253,7 +261,6 @@ export default function App() {
         <SplitPortfolioView
           clients={clients}
           onOpenCase={openCase}
-          onStartTour={openTourHub}
           onQuickApprove={handleQuickApprove}
           onPayerDecision={handlePayerDecision}
           onUpdateClientStatus={handleUpdateClientStatus}
@@ -280,6 +287,9 @@ export default function App() {
             ))
           }}
         />
+      )}
+      {view === 'build_home' && (
+        <BuildOverview setView={setView} />
       )}
       {view === 'library' && (
         <LibraryView setView={setView} />
@@ -311,6 +321,7 @@ export default function App() {
       {view === 'rubric' && (
         <EvalRubricView setView={setView} onOpenCase={openCase} />
       )}
+      </div>
     </div>
   )
 }

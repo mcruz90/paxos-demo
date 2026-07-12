@@ -1,4 +1,4 @@
-export type View = 'landing' | 'portfolio' | 'poc' | 'library' | 'evals' | 'onboarding' | 'platform' | 'failures' | 'specs' | 'instructions' | 'rubric' | 'sponsor' | 'automation'
+export type View = 'landing' | 'portfolio' | 'poc' | 'build_home' | 'library' | 'evals' | 'onboarding' | 'platform' | 'failures' | 'specs' | 'instructions' | 'rubric' | 'sponsor' | 'automation'
 export type Role = 'Operate' | 'Build' | 'Scale' | 'Sponsor'
 export type IntakePhase = 'upload' | 'analyzing' | 'extracted'
 export type ClientType = 'medtech' | 'patient'
