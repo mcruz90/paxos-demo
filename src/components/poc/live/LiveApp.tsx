@@ -12,19 +12,22 @@ import { LogOut } from 'lucide-react'
 import { scenarios } from '../../../data/scenarios'
 import { useLiveSession } from './useLiveSession'
 import { useLiveAppeal } from './useLiveAppeal'
+import { useLivePa } from './useLivePa'
 import { usePendingQueue } from './usePendingQueue'
 import { shouldRefreshQueue } from './queue'
 import { isParked } from './appealEvents'
 import { LoginForm } from './LoginForm'
+import { CaseSelector } from './CaseSelector'
 import { GenerateView } from './GenerateView'
+import { PaResultView } from './PaResultView'
 import { CaseContextPanel } from './CaseContextPanel'
 import { PendingQueue } from './PendingQueue'
 import { ResumeEditor } from './ResumeEditor'
 import type { PendingReviewItem } from '../../../lib/wire'
 
-// Appeal-lifecycle fixtures only — the initial-PA lifecycle uses a separate
-// endpoint and is out of scope for this slice.
-const APPEAL_SCENARIOS = Object.values(scenarios).filter(s => s.lifecycle !== 'initial_pa')
+const ALL_SCENARIOS = Object.values(scenarios)
+const APPEAL_SCENARIOS = ALL_SCENARIOS.filter(s => s.lifecycle !== 'initial_pa')
+const INITIAL_PA_SCENARIOS = ALL_SCENARIOS.filter(s => s.lifecycle === 'initial_pa')
 
 export function LiveApp() {
   const { auth, doLogin, doLogout, expire } = useLiveSession()
@@ -52,12 +55,23 @@ function LiveWorkspace({
   onExpire: () => void
 }) {
   const appeal = useLiveAppeal(csrfToken, onExpire)
+  const pa = useLivePa(csrfToken, onExpire)
   const queue = usePendingQueue(true, onExpire)
   const [selectedId, setSelectedId] = useState(APPEAL_SCENARIOS[0].id)
   const [resumeTarget, setResumeTarget] = useState<{ correlationId: string; draft: string } | null>(null)
   const [resumeBusy, setResumeBusy] = useState(false)
 
-  const selected = useMemo(() => APPEAL_SCENARIOS.find(s => s.id === selectedId)!, [selectedId])
+  const selected = useMemo(() => ALL_SCENARIOS.find(s => s.id === selectedId)!, [selectedId])
+  const isInitialPa = selected.lifecycle === 'initial_pa'
+  const streaming = isInitialPa ? pa.state.status === 'streaming' : appeal.state.status === 'streaming'
+
+  const onSelect = (id: string) => {
+    setSelectedId(id)
+    appeal.reset()
+    pa.reset()
+    setResumeTarget(null)
+  }
+  const onGenerate = () => { if (isInitialPa) void pa.run(selected); else void appeal.run(selected) }
 
   // A run that parks (exception tier) becomes the review target and shows up in
   // the queue — refresh so the reviewer sees it land.
@@ -106,15 +120,18 @@ function LiveWorkspace({
 
         <div className="p-8 flex gap-6 items-start">
           <div className="flex-1 min-w-0 space-y-5">
-            <GenerateView
-              scenarioList={APPEAL_SCENARIOS}
+            <CaseSelector
+              appeals={APPEAL_SCENARIOS}
+              initialPas={INITIAL_PA_SCENARIOS}
               selectedId={selectedId}
-              onSelect={id => { setSelectedId(id); appeal.reset(); setResumeTarget(null) }}
-              onGenerate={() => appeal.run(selected)}
-              state={appeal.state}
+              streaming={streaming}
+              buttonLabel={isInitialPa ? 'Submit PA' : 'Generate appeal'}
+              onSelect={onSelect}
+              onGenerate={onGenerate}
             />
+            {isInitialPa ? <PaResultView state={pa.state} /> : <GenerateView state={appeal.state} />}
             <CaseContextPanel scenario={selected} />
-            {resumeTarget && (
+            {!isInitialPa && resumeTarget && (
               <ResumeEditor
                 key={resumeTarget.correlationId}
                 correlationId={resumeTarget.correlationId}
