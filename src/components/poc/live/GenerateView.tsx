@@ -8,6 +8,7 @@
 import { Loader2, CircleCheck } from 'lucide-react'
 import type { ScenarioConfig } from '../../../types'
 import type { LiveGenState } from './appealEvents'
+import { DonePanel } from './DonePanel'
 
 export function GenerateView({
   scenarioList,
@@ -71,12 +72,7 @@ export function GenerateView({
         </div>
       )}
 
-      {state.status === 'done' && (
-        <p className="text-sm text-slate-400">
-          Terminal tier: <span className="text-white font-medium">{state.tier}</span>
-          {state.tier === 'exception' ? ' — parked for human review.' : ' — cleared for submission.'}
-        </p>
-      )}
+      {state.status === 'done' && state.done && <DonePanel done={state.done} />}
     </div>
   )
 }

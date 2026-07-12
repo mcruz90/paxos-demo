@@ -17,6 +17,7 @@ import { shouldRefreshQueue } from './queue'
 import { isParked } from './appealEvents'
 import { LoginForm } from './LoginForm'
 import { GenerateView } from './GenerateView'
+import { CaseContextPanel } from './CaseContextPanel'
 import { PendingQueue } from './PendingQueue'
 import { ResumeEditor } from './ResumeEditor'
 import type { PendingReviewItem } from '../../../lib/wire'
@@ -112,6 +113,7 @@ function LiveWorkspace({
               onGenerate={() => appeal.run(selected)}
               state={appeal.state}
             />
+            <CaseContextPanel scenario={selected} />
             {resumeTarget && (
               <ResumeEditor
                 key={resumeTarget.correlationId}
