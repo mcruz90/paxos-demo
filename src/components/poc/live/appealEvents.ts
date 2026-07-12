@@ -30,6 +30,9 @@ export interface LiveGenState {
   correlationId: string | null
   /** HITL tier from `done`; `exception` means the run parked for review. */
   tier: DoneEvent['tier']
+  /** Whole terminal `done` payload (model, ref, scores, pa_resolution…) so the
+   * done panel renders everything the backend returned; null until `done`. */
+  done: DoneEvent | null
   /** Client-facing message from a terminal `error` event. */
   error: string | null
 }
@@ -40,6 +43,7 @@ export const initialGenState: LiveGenState = {
   letter: '',
   correlationId: null,
   tier: null,
+  done: null,
   error: null,
 }
 
@@ -50,7 +54,7 @@ export function reduceAppealEvent(state: LiveGenState, event: AppealEvent): Live
     case 'chunk':
       return { ...state, status: 'streaming', letter: state.letter + event.text }
     case 'done':
-      return { ...state, status: 'done', correlationId: event.correlation_id, tier: event.tier }
+      return { ...state, status: 'done', correlationId: event.correlation_id, tier: event.tier, done: event }
     case 'error':
       return { ...state, status: 'error', error: event.message, correlationId: event.correlation_id }
   }
