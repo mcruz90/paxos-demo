@@ -41,7 +41,7 @@ export function PendingQueue({
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-white font-medium">{item.drug}</p>
-                  {item.tier && <TierBadge tier={item.tier} />}
+                  <TierBadge tier={item.tier} />
                 </div>
                 <p className="text-slate-400 text-xs mt-0.5">{item.plan}</p>
                 <p className="text-slate-600 text-xs mt-0.5 font-mono">{item.correlation_id}</p>
