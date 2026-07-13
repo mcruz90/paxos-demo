@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClearAuth — Citation Workspace (units O1–O3 + X1)</title>
+<style>
+/* ── Shared token sheet (the "session hygiene" token brief, unit X4) ────────
+   Mirrors the demo's dark idiom: slate surfaces, emerald primary, tier/chip
+   colors identical to src/components/ui.tsx. Light theme is a var swap. */
+:root {
+  --bg: #020617;            /* slate-950 */
+  --surface: #0f172a;       /* slate-900 */
+  --surface-2: #1e293b;     /* slate-800 */
+  --border: #334155;        /* slate-700 */
+  --border-soft: rgba(51,65,85,.6);
+  --text: #f8fafc;
+  --text-2: #cbd5e1;        /* slate-300 */
+  --text-3: #94a3b8;        /* slate-400 */
+  --text-4: #64748b;        /* slate-500 */
+  --primary: #10b981;       /* emerald-500 */
+  --primary-soft: rgba(16,185,129,.12);
+  --amber: #f59e0b; --amber-soft: rgba(245,158,11,.12);
+  --red: #f87171;   --red-soft: rgba(248,113,113,.12);
+  --sky: #38bdf8;   --sky-soft: rgba(56,189,248,.12);
+  --violet: #a78bfa; --violet-soft: rgba(167,139,250,.12);
+  --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --sans: Inter, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--text); font: 14px/1.55 var(--sans); overflow: hidden; }
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+
+/* chips — same shape language as TierBadge / StatusBadge */
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500;
+  padding: 2px 9px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.chip.ok     { color: #34d399; border-color: rgba(16,185,129,.25); background: var(--primary-soft); }
+.chip.warn   { color: #fbbf24; border-color: rgba(245,158,11,.25); background: var(--amber-soft); }
+.chip.bad    { color: var(--red); border-color: rgba(248,113,113,.25); background: var(--red-soft); }
+.chip.info   { color: var(--sky); border-color: rgba(56,189,248,.25); background: var(--sky-soft); }
+.chip.plane  { color: var(--violet); border-color: rgba(167,139,250,.3); background: var(--violet-soft); }
+
+/* ── Top bar ── */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 12px 20px; border-bottom: 1px solid var(--surface-2); }
+.topbar h1 { font-size: 15px; font-weight: 700; }
+.topbar .sub { font-size: 12px; color: var(--text-4); margin-top: 1px; }
+.seg { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+.seg button { padding: 5px 14px; border-radius: 7px; font-size: 12px; font-weight: 600; color: var(--text-3); }
+.seg button.on { background: var(--surface-2); color: var(--text); }
+.seg button.on.operate { box-shadow: inset 0 0 0 1px rgba(16,185,129,.35); color: #34d399; }
+.seg button.on.build   { box-shadow: inset 0 0 0 1px rgba(167,139,250,.4);  color: var(--violet); }
+
+/* plane banner (X1): appears in Build persona */
+.plane-banner { display: none; align-items: center; gap: 10px; padding: 8px 20px; font-size: 12px;
+  color: var(--violet); background: var(--violet-soft); border-bottom: 1px solid rgba(167,139,250,.25); }
+body.persona-build .plane-banner { display: flex; }
+
+/* ── Patient banner ── */
+.patient { display: flex; align-items: center; gap: 18px; padding: 10px 20px;
+  border-bottom: 1px solid var(--surface-2); background: rgba(15,23,42,.5); font-size: 12.5px; }
+.patient b { font-size: 13.5px; font-weight: 600; }
+.patient .kv { color: var(--text-3); } .patient .kv b { color: var(--text-2); font-size: 12.5px; }
+.redacted { display: none; background: var(--surface-2); color: var(--text-4); font-family: var(--mono);
+  font-size: 11px; padding: 0 6px; border-radius: 4px; }
+body.persona-build .phi { display: none; }
+body.persona-build .redacted { display: inline-block; }
+
+/* ── Split layout ── */
+.split { display: flex; height: calc(100vh - 118px); }
+body.persona-build .split { height: calc(100vh - 152px); }
+.pane { display: flex; flex-direction: column; min-width: 0; }
+.pane.left  { flex: 11; border-right: 1px solid var(--surface-2); }
+.pane.right { flex: 10; }
+.pane-head { display: flex; align-items: center; gap: 4px; padding: 8px 14px;
+  border-bottom: 1px solid var(--surface-2); overflow-x: auto; }
+.pane-head .label { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-4); margin-right: 8px; white-space: nowrap; }
+.doctab, .wstab { padding: 5px 11px; border-radius: 7px; font-size: 12px; color: var(--text-3); white-space: nowrap; }
+.doctab.on, .wstab.on { background: var(--surface-2); color: var(--text); font-weight: 600; }
+.pane-body { flex: 1; overflow-y: auto; padding: 18px 22px; }
+
+/* ── Document viewer (O1) ── */
+.doc { max-width: 640px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border-soft);
+  border-radius: 12px; padding: 26px 30px; font-size: 13px; color: var(--text-2); }
+.doc h3 { font-size: 13px; color: var(--text); margin-bottom: 2px; }
+.doc .meta { font-size: 11px; color: var(--text-4); margin-bottom: 14px; font-family: var(--mono); }
+.doc p { margin-bottom: 11px; }
+.doc-page { display: none; }
+.doc-page.on { display: block; }
+.span-hl { border-radius: 4px; padding: 1px 3px; transition: box-shadow .25s, background .25s; }
+.span-hl.lit { background: rgba(56,189,248,.16); box-shadow: 0 0 0 1px rgba(56,189,248,.55), 0 0 18px rgba(56,189,248,.25); }
+
+/* ── Criteria cards (O2) ── */
+.crit { border: 1px solid var(--border-soft); background: var(--surface); border-radius: 12px;
+  padding: 13px 15px; margin-bottom: 10px; }
+.crit .row1 { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.crit .name { font-weight: 600; font-size: 13px; color: var(--text); }
+.crit .note { font-size: 12px; color: var(--text-3); margin-top: 6px; }
+.crit .row2 { display: flex; align-items: center; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
+.conf { font-size: 11px; color: var(--text-4); font-variant-numeric: tabular-nums; }
+.conf b { color: var(--text-2); }
+.srcbadge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600;
+  color: var(--sky); background: var(--sky-soft); border: 1px solid rgba(56,189,248,.25);
+  padding: 2.5px 9px; border-radius: 6px; }
+.srcbadge:hover { background: rgba(56,189,248,.2); }
+
+/* ── Letter editor (O3) ── */
+.mode-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; flex-wrap: wrap; }
+.verify-summary { display: none; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); flex-wrap: wrap; }
+body.mode-verify .verify-summary { display: flex; }
+.letter { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 12px;
+  padding: 22px 26px; font-size: 13.5px; color: var(--text-2); }
+.letter p { margin-bottom: 12px; }
+.letter[contenteditable="true"] { outline: 1px dashed rgba(16,185,129,.4); }
+.claim { border-radius: 3px; }
+body.mode-verify .claim.cited    { border-bottom: 2px solid rgba(16,185,129,.7); cursor: pointer; }
+body.mode-verify .claim.conflict { border-bottom: 2px solid var(--amber); background: var(--amber-soft); cursor: pointer; }
+body.mode-verify .claim.uncited  { border-bottom: 2px solid var(--red); background: var(--red-soft); cursor: pointer; }
+.claim.removed { text-decoration: line-through; opacity: .38; }
+.token { display: none; font-family: var(--mono); font-size: 12px; color: var(--violet);
+  background: var(--violet-soft); border-radius: 4px; padding: 0 4px; }
+body.persona-build .token { display: inline; }
+body.persona-build .letter .phi { display: none; }
+body.persona-build .letter[contenteditable] { pointer-events: none; }
+
+/* gatekeeper bar + transmit */
+.gk-bar { display: none; margin-top: 14px; border-radius: 10px; padding: 11px 14px; font-size: 12.5px;
+  border: 1px solid; align-items: center; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
+body.mode-verify .gk-bar { display: flex; }
+.gk-bar.blocked { border-color: rgba(248,113,113,.35); background: var(--red-soft); color: #fca5a5; }
+.gk-bar.clear { border-color: rgba(16,185,129,.3); background: var(--primary-soft); color: #34d399; }
+.btn { padding: 7px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; }
+.btn.primary { background: var(--primary); color: #052e22; }
+.btn.primary:disabled { opacity: .35; cursor: not-allowed; }
+.btn.ghost { border: 1px solid var(--border); color: var(--text-2); }
+.btn.ghost:hover { background: var(--surface-2); }
+.btn.danger { border: 1px solid rgba(248,113,113,.4); color: var(--red); }
+
+/* popover */
+.pop { position: fixed; z-index: 50; width: 340px; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px; box-shadow: 0 18px 50px rgba(0,0,0,.5); display: none; }
+.pop h4 { font-size: 12.5px; margin-bottom: 3px; }
+.pop .why { font-size: 12px; color: var(--text-3); margin-bottom: 10px; }
+.pop .opt { display: block; width: 100%; text-align: left; font-size: 12px; padding: 8px 10px;
+  border-radius: 8px; border: 1px solid var(--border-soft); margin-bottom: 6px; color: var(--text-2); }
+.pop .opt:hover { background: rgba(56,189,248,.08); border-color: rgba(56,189,248,.3); }
+.pop .opt b { color: var(--text); display: block; font-size: 12px; }
+.pop .fine { font-size: 10.5px; color: var(--text-4); margin-top: 4px; }
+
+/* workspace tab panes + states */
+.ws-page { display: none; } .ws-page.on { display: block; }
+.state-banner { display: none; margin-bottom: 12px; border-radius: 10px; padding: 10px 14px; font-size: 12.5px; border: 1px solid; }
+body.state-error .state-banner.error { display: block; border-color: rgba(248,113,113,.35); background: var(--red-soft); color: #fca5a5; }
+body.state-streaming .letter, body.state-streaming .crit { opacity: .55; }
+.skeleton { display: none; height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--surface-2), var(--border), var(--surface-2));
+  background-size: 200% 100%; animation: sh 1.2s infinite; margin: 10px 0; }
+@keyframes sh { to { background-position: -200% 0; } }
+body.state-streaming .skeleton { display: block; }
+.statesel { display: flex; gap: 4px; }
+.statesel button { font-size: 11px; color: var(--text-4); padding: 4px 8px; border-radius: 6px; border: 1px solid transparent; }
+.statesel button.on { border-color: var(--border); color: var(--text-2); background: var(--surface); }
+</style>
+</head>
+<body class="persona-operate mode-verify">
+
+<div class="topbar">
+  <div>
+    <h1>ClearAuth — Citation Workspace <span class="chip info" style="margin-left:6px">design mock · units O1–O3 + X1</span></h1>
+    <div class="sub">Appeal review · Ozempic (semaglutide) — Cigna Connect 500 PPO · pack cnf_360 · tier: Full Review</div>
+  </div>
+  <div style="display:flex; align-items:center; gap:14px">
+    <div class="statesel" title="Hygiene rule 4: every unit shows non-happy states">
+      <button class="on" data-state="">default</button>
+      <button data-state="state-streaming">streaming</button>
+      <button data-state="state-error">error</button>
+    </div>
+    <div class="seg" id="personaSeg" title="X1 — same case, different plane">
+      <button class="on operate" data-persona="persona-operate">Operate</button>
+      <button data-persona="persona-build">Build</button>
+    </div>
+  </div>
+</div>
+
+<div class="plane-banner">
+  <span class="chip plane">Control plane</span>
+  PHI-free by construction (ADR-0014): identifiers are tokenized, documents redacted, letter is read-only. Break-glass is the audited exception — not a toggle.
+</div>
+
+<div class="patient">
+  <b><span class="phi">Maria Alvarez</span><span class="redacted">PT-904128 · initials M.A.</span></b>
+  <span class="kv">DOB <b><span class="phi">03/14/1972</span><span class="redacted">XX/XX/1972</span></b></span>
+  <span class="kv">MRN <b><span class="phi">MRN-904128</span><span class="redacted">[REDACTED]</span></b></span>
+  <span class="kv">Member ID <b><span class="phi">CGN-88231-07</span><span class="redacted">[REDACTED BY EHR GATE]</span></b></span>
+  <span class="kv">Case <b style="font-family:var(--mono)">PA-2026-0847</b></span>
+  <span class="chip warn">Ready for Review</span>
+</div>
+
+<div class="split">
+
+  <!-- ── O1: document viewer ── -->
+  <div class="pane left">
+    <div class="pane-head">
+      <span class="label">Source documents</span>
+      <button class="doctab on" data-doc="doc-denial">Denial Letter</button>
+      <button class="doctab" data-doc="doc-consult">Endocrinology Consult</button>
+      <button class="doctab" data-doc="doc-meds">Medication List</button>
+      <button class="doctab" data-doc="doc-visit">Office Visit Notes</button>
+    </div>
+    <div class="pane-body" id="docBody">
+
+      <div class="doc doc-page on" id="doc-denial">
+        <h3>Cigna Healthcare — Coverage Determination</h3>
+        <div class="meta">CIGNA-CNF360-2024 · issued Jun 8, 2026 · ref DEN-77120</div>
+        <p>Dear <span class="phi">Ms. Alvarez</span><span class="redacted">[PATIENT]</span>,</p>
+        <p>This letter concerns the prior authorization request for <b>Ozempic (semaglutide)</b> submitted under plan Cigna Connect 500 PPO.</p>
+        <p id="span-denial" class="span-hl">Coverage is denied: the indication is not confirmed as limited to Type 2 Diabetes Mellitus glycemic control. The chart documents BMI 33.2 kg/m² and weight-management goals, which may indicate weight-loss use excluded under policy cnf_360.</p>
+        <p>You may appeal this determination within 180 days. A prescriber attestation addressing the indication may be included with the appeal.</p>
+      </div>
+
+      <div class="doc doc-page" id="doc-consult">
+        <h3>Specialist Consult — Endocrinology</h3>
+        <div class="meta">encounter 02/08/2024 · p. 1 · source: Epic</div>
+        <p><span class="phi">Patient Maria Alvarez, DOB 03/14/1972.</span><span class="redacted">[IDENTIFIERS REDACTED — control plane]</span></p>
+        <p id="span-t2dm" class="span-hl">Endocrinology consult 02/08/2024 — T2DM (E11.9) established 2021. ICD-10 on file since 2019. Fasting glucose 187 mg/dL confirming active disease.</p>
+        <p id="span-age" class="span-hl">Patient DOB <span class="phi">03/14/1972</span><span class="redacted">XX/XX/1972</span> — age 52 at time of request (03/14/2024). Cigna GLP-1 policy minimum age 18 years met.</p>
+        <p>Plan: continue metformin; initiate GLP-1 agonist for glycemic control per ADA guidance.</p>
+      </div>
+
+      <div class="doc doc-page" id="doc-meds">
+        <h3>Active Medication List</h3>
+        <div class="meta">reviewed 03/14/2024 · p. 3 · source: Epic</div>
+        <p id="span-meds" class="span-hl">Active medication list 03/14/2024: metformin 1000mg BID, lisinopril 10mg, atorvastatin 40mg. No GLP-1 or GLP-1/GIP agonist active.</p>
+        <p>Allergies: NKDA.</p>
+      </div>
+
+      <div class="doc doc-page" id="doc-visit">
+        <h3>Office Visit Notes</h3>
+        <div class="meta">visit 01/10/2024 · p. 2 · source: Epic</div>
+        <p id="span-bmi" class="span-hl">Office visit 01/10/2024 — BMI 33.2 kg/m². Note: "weight management goals discussed." Prescriber attestation required confirming T2DM glycemic control as sole indication for Ozempic.</p>
+        <p>Follow-up scheduled; labs ordered.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── right workspace ── -->
+  <div class="pane right">
+    <div class="pane-head">
+      <span class="label">Workspace</span>
+      <button class="wstab" data-ws="ws-criteria">Criteria</button>
+      <button class="wstab on" data-ws="ws-letter">Appeal Letter</button>
+    </div>
+    <div class="pane-body">
+      <div class="state-banner error">Stream ended without a terminal event — the run is recorded as <b>error</b> in the audit trail (one terminal per stream, ADR-0006). Retry re-runs with a bumped attempt; it will not double-write.</div>
+
+      <!-- ── O2: criteria checklist ── -->
+      <div class="ws-page" id="ws-criteria">
+        <div class="skeleton" style="width:70%"></div><div class="skeleton" style="width:85%"></div>
+        <div class="crit">
+          <div class="row1"><span class="name">Confirmed Diagnosis: Type 2 Diabetes Mellitus (T2DM)</span><span class="chip ok">Found</span></div>
+          <div class="note">Endocrinology consult confirms T2DM (E11.9), established 2021; fasting glucose 187 mg/dL.</div>
+          <div class="row2"><span class="conf">confidence <b>98%</b></span>
+            <button class="srcbadge" data-doc="doc-consult" data-span="span-t2dm">⤷ Specialist Consult · p. 1</button></div>
+        </div>
+        <div class="crit">
+          <div class="row1"><span class="name">Patient Age ≥ 18 Years (Ozempic Minimum Age Threshold)</span><span class="chip ok">Found</span></div>
+          <div class="note">DOB on file; age 52 at time of request — cnf_360 minimum met.</div>
+          <div class="row2"><span class="conf">confidence <b>99%</b></span>
+            <button class="srcbadge" data-doc="doc-consult" data-span="span-age">⤷ Specialist Consult · p. 1</button></div>
+        </div>
+        <div class="crit">
+          <div class="row1"><span class="name">No Concomitant GLP-1 / GLP-1-GIP Agonist</span><span class="chip ok">Found</span></div>
+          <div class="note">Med list 03/14/2024 shows no other GLP-1 agent active (absence-of-evidence band).</div>
+          <div class="row2"><span class="conf">confidence <b>92%</b></span>
+            <button class="srcbadge" data-doc="doc-meds" data-span="span-meds">⤷ Medication List · p. 3</button></div>
+        </div>
+        <div class="crit">
+          <div class="row1"><span class="name">Indication Confirmed as T2DM Glycemic Control (Not Weight Loss)</span><span class="chip warn">Needs review</span></div>
+          <div class="note">BMI 33.2 + "weight management goals discussed" — payer requests prescriber attestation that Ozempic is for T2DM glycemic control only. This criterion is why the case routed to <b>Full Review</b>.</div>
+          <div class="row2"><span class="conf">confidence <b>74%</b></span>
+            <button class="srcbadge" data-doc="doc-visit" data-span="span-bmi">⤷ Office Visit Notes · p. 2</button></div>
+        </div>
+      </div>
+
+      <!-- ── O3: letter with Edit / Verify ── -->
+      <div class="ws-page on" id="ws-letter">
+        <div class="mode-row">
+          <div class="seg">
+            <button data-mode="mode-edit">Edit</button>
+            <button class="on" data-mode="mode-verify">Verify</button>
+          </div>
+          <div class="verify-summary" id="verifySummary"></div>
+        </div>
+        <div class="skeleton" style="width:88%"></div><div class="skeleton" style="width:74%"></div><div class="skeleton" style="width:81%"></div>
+        <div class="letter" id="letter" contenteditable="false">
+          <p>Re: Appeal of coverage determination DEN-77120 — Ozempic (semaglutide), <span class="phi">Maria Alvarez</span><span class="token">{{PATIENT_NAME}}</span>, member <span class="phi">CGN-88231-07</span><span class="token">{{MEMBER_ID}}</span>, plan Cigna Connect 500 PPO.</p>
+          <p><span class="claim cited" data-claim="c1">The patient carries an established diagnosis of Type 2 Diabetes Mellitus (E11.9), documented since 2021, with a fasting glucose of 187 mg/dL confirming active disease.</span>
+             <span class="claim cited" data-claim="c2">The active medication list shows no concomitant GLP-1 or GLP-1/GIP agonist.</span></p>
+          <p><span class="claim conflict" data-claim="c3">While the chart notes a BMI of 32.8 kg/m², body-mass documentation alone does not displace the established T2DM indication;</span>
+             <span class="claim cited" data-claim="c4">the prescribing endocrinologist's plan initiates a GLP-1 agonist explicitly for glycemic control.</span></p>
+          <p><span class="claim uncited" data-claim="c5">Additionally, the patient's HbA1c has improved by 1.2% on current therapy, demonstrating adherence and therapeutic response.</span></p>
+          <p>We therefore request that the determination be reversed and coverage approved under policy cnf_360.</p>
+        </div>
+        <div class="gk-bar" id="gkBar"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- claim popover -->
+<div class="pop" id="pop"></div>
+
+<script>
+/* Claim registry — the shape S4's blocking gatekeeper returns per claim
+   (see tech-spec.md §Data contracts). status: cited|conflict|uncited. */
+const CLAIMS = {
+  c1: { status: 'cited', doc: 'doc-consult', span: 'span-t2dm',
+        source: 'Specialist Consult · p. 1' },
+  c2: { status: 'cited', doc: 'doc-meds', span: 'span-meds',
+        source: 'Medication List · p. 3' },
+  c3: { status: 'conflict', doc: 'doc-visit', span: 'span-bmi',
+        source: 'Office Visit Notes · p. 2',
+        entity: 'BMI', draft: '32.8 kg/m²', truth: '33.2 kg/m²' },
+  c4: { status: 'cited', doc: 'doc-consult', span: 'span-t2dm',
+        source: 'Specialist Consult · p. 1' },
+  c5: { status: 'uncited', evidence: [] },  // no matching span anywhere
+}
+
+const $ = s => document.querySelector(s)
+const $$ = s => [...document.querySelectorAll(s)]
+const pop = $('#pop')
+
+/* ── O1: doc tabs + span jump ── */
+function showDoc(docId, spanId) {
+  $$('.doctab').forEach(b => b.classList.toggle('on', b.dataset.doc === docId))
+  $$('.doc-page').forEach(p => p.classList.toggle('on', p.id === docId))
+  $$('.span-hl').forEach(s => s.classList.remove('lit'))
+  if (!spanId) return
+  const span = document.getElementById(spanId)
+  span.classList.add('lit')
+  span.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+$$('.doctab').forEach(b => b.onclick = () => showDoc(b.dataset.doc))
+$$('.srcbadge').forEach(b => b.onclick = () => showDoc(b.dataset.doc, b.dataset.span))
+
+/* ── workspace tabs / personas / modes / states ── */
+$$('.wstab').forEach(b => b.onclick = () => {
+  $$('.wstab').forEach(x => x.classList.toggle('on', x === b))
+  $$('.ws-page').forEach(p => p.classList.toggle('on', p.id === b.dataset.ws))
+})
+$$('#personaSeg button').forEach(b => b.onclick = () => {
+  $$('#personaSeg button').forEach(x => x.classList.toggle('on', x === b))
+  document.body.classList.toggle('persona-operate', b.dataset.persona === 'persona-operate')
+  document.body.classList.toggle('persona-build', b.dataset.persona === 'persona-build')
+  hidePop()
+})
+$$('[data-mode]').forEach(b => b.onclick = () => {
+  $$('[data-mode]').forEach(x => x.classList.toggle('on', x === b))
+  const verify = b.dataset.mode === 'mode-verify'
+  document.body.classList.toggle('mode-verify', verify)
+  $('#letter').setAttribute('contenteditable', String(!verify))
+  hidePop()
+})
+$$('.statesel button').forEach(b => b.onclick = () => {
+  $$('.statesel button').forEach(x => x.classList.toggle('on', x === b))
+  document.body.classList.remove('state-streaming', 'state-error')
+  if (b.dataset.state) document.body.classList.add(b.dataset.state)
+})
+
+/* ── O3: verify popovers. The design thesis: fixing a claim NEVER invites
+   free-typed new prose — the options are link-to-evidence, apply the source
+   value, or remove. New uncited text can only enter via Edit mode, where it
+   gets re-verified. ── */
+function claimEls() { return $$('.claim') }
+function popFor(el) {
+  const c = CLAIMS[el.dataset.claim]
+  let html = ''
+  if (el.classList.contains('removed')) {
+    html = `<h4>Claim removed</h4><p class="why">It will not appear in the transmitted letter.</p>
+      <button class="opt" onclick="restoreClaim('${el.dataset.claim}')"><b>Restore claim</b>returns to uncited — must be resolved before transmit</button>`
+  } else if (c.status === 'cited') {
+    html = `<h4><span class="chip ok">Cited</span></h4>
+      <p class="why">Grounded in ${c.source}.</p>
+      <button class="opt" onclick="showDoc('${c.doc}','${c.span}');hidePop()"><b>Jump to evidence</b>${c.source}</button>`
+  } else if (c.status === 'conflict') {
+    html = `<h4><span class="chip warn">Value conflict</span></h4>
+      <p class="why">Draft says <b>${c.entity} ${c.draft}</b>; the source document says <b>${c.truth}</b>. The letter must match the chart verbatim.</p>
+      <button class="opt" onclick="fixConflict('${el.dataset.claim}')"><b>Update draft to ${c.truth}</b>applies the source value; claim becomes cited</button>
+      <button class="opt" onclick="showDoc('${c.doc}','${c.span}');hidePop()"><b>Jump to evidence</b>${c.source}</button>`
+  } else {
+    html = `<h4><span class="chip bad">Uncited — blocked</span></h4>
+      <p class="why">No chart span supports this claim. The gatekeeper blocks transmission while it stands (no-uncited-claim rule). HbA1c history is not in the retrieved chart set.</p>
+      <button class="opt" onclick="removeClaim('${el.dataset.claim}')"><b>Remove claim from letter</b>strikes the sentence; letter re-verifies</button>
+      <button class="opt" onclick="alert('Mock: routes to the doc-gap workflow (unit O11) — request records from the clinic, case → awaiting_documentation.')"><b>Request supporting records</b>routes to doc-gap workflow (O11); case parks as awaiting documentation</button>
+      <p class="fine">There is deliberately no “edit the sentence here” option — free-typing inside Verify would mint new unverified prose.</p>`
+  }
+  pop.innerHTML = html
+  const r = el.getBoundingClientRect()
+  pop.style.display = 'block'
+  pop.style.left = Math.min(r.left, innerWidth - 360) + 'px'
+  pop.style.top = Math.min(r.bottom + 8, innerHeight - 240) + 'px'
+}
+function hidePop() { pop.style.display = 'none' }
+document.addEventListener('click', e => {
+  const claim = e.target.closest('.claim')
+  if (claim && document.body.classList.contains('mode-verify') && !document.body.classList.contains('persona-build')) {
+    e.stopPropagation(); popFor(claim); return
+  }
+  if (!e.target.closest('.pop')) hidePop()
+})
+
+function fixConflict(id) {
+  const el = $(`[data-claim="${id}"]`); const c = CLAIMS[id]
+  el.textContent = el.textContent.replace(c.draft.replace(' kg/m²',''), c.truth.replace(' kg/m²',''))
+  c.status = 'cited'
+  el.classList.remove('conflict'); el.classList.add('cited')
+  hidePop(); renderVerify()
+}
+function removeClaim(id) {
+  $(`[data-claim="${id}"]`).classList.add('removed'); hidePop(); renderVerify()
+}
+function restoreClaim(id) {
+  $(`[data-claim="${id}"]`).classList.remove('removed'); hidePop(); renderVerify()
+}
+
+/* gatekeeper summary — transmit is disabled while any live claim is unresolved */
+function renderVerify() {
+  const live = claimEls().filter(el => !el.classList.contains('removed'))
+  const cited = live.filter(el => el.classList.contains('cited')).length
+  const conflict = live.filter(el => el.classList.contains('conflict')).length
+  const uncited = live.filter(el => el.classList.contains('uncited')).length
+  $('#verifySummary').innerHTML =
+    `<span class="chip ok">${cited} cited</span>` +
+    (conflict ? `<span class="chip warn">${conflict} conflict</span>` : '') +
+    (uncited ? `<span class="chip bad">${uncited} uncited</span>` : '')
+  const bar = $('#gkBar'); const blocked = conflict + uncited > 0
+  bar.className = 'gk-bar ' + (blocked ? 'blocked' : 'clear')
+  bar.innerHTML = blocked
+    ? `<span>⛔ Gatekeeper: transmission <b>blocked</b> — ${uncited} uncited claim(s), ${conflict} value conflict(s). Every claim must trace to a chart span or cited policy statement before the letter leaves the system.</span>
+       <button class="btn primary" disabled>Transmit appeal</button>`
+    : `<span>✓ Gatekeeper: all claims grounded. Sign-off records <b>provenance: human_edited</b> with your reviewer ID on the audit trail.</span>
+       <button class="btn primary" onclick="alert('Mock: POST /api/appeal/resume — dual audit records (as_is draft + human_edited sign-off), same correlation_id.')">Transmit appeal</button>`
+}
+renderVerify()
+</script>
+</body>
+</html>
