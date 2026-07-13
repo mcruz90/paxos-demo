@@ -9,5 +9,8 @@ export default defineConfig({
     // Unit tests cover extracted pure functions — node env, no DOM needed.
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
+    // Hermetic: api.test.ts asserts relative URLs, so a developer-local .env
+    // enabling live mode (VITE_API_BASE_URL) must not leak into the suite.
+    env: { VITE_API_BASE_URL: '' },
   },
 })
