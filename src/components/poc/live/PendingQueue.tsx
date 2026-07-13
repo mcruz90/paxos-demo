@@ -5,6 +5,7 @@
  * resume surface. Refreshes after a resume completes (driven by the parent).
  */
 import { Inbox } from 'lucide-react'
+import { TierBadge } from '../../ui'
 import type { PendingReviewItem } from '../../../lib/wire'
 
 export function PendingQueue({
@@ -38,7 +39,10 @@ export function PendingQueue({
                     : 'border-slate-700 hover:border-slate-600 bg-slate-900/40'
                 }`}
               >
-                <p className="text-white font-medium">{item.drug}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-white font-medium">{item.drug}</p>
+                  <TierBadge tier={item.tier} />
+                </div>
                 <p className="text-slate-400 text-xs mt-0.5">{item.plan}</p>
                 <p className="text-slate-600 text-xs mt-0.5 font-mono">{item.correlation_id}</p>
               </button>

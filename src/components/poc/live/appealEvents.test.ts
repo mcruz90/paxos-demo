@@ -18,6 +18,8 @@ describe('reduceAppealEvent', () => {
     expect(state.letter).toBe('Dear Reviewer')
     expect(state.correlationId).toBe('case:a1')
     expect(state.tier).toBe('routine')
+    expect(state.done?.ref).toBe('abc')
+    expect(state.done?.tier).toBe('routine')
     expect(state.error).toBeNull()
   })
 
@@ -28,6 +30,7 @@ describe('reduceAppealEvent', () => {
     ])
     expect(isParked(state)).toBe(true)
     expect(state.correlationId).toBe('case:a1')
+    expect(state.done?.tier).toBe('exception')
   })
 
   it('does not treat a routine terminal as parked', () => {
