@@ -116,6 +116,9 @@ export function groupByAction(clients: Client[]) {
     .filter(g => g.rows.length > 0)
 }
 
+// One rendered queue group (label/hint + its sorted rows).
+export type ActionGroup = ReturnType<typeof groupByAction>[number]
+
 // ---------------------------------------------------------------------------
 // Exception resolution — a criterion not 'found' counts as resolved once the
 // coordinator has either dispatched its outbound workflow or overridden the
