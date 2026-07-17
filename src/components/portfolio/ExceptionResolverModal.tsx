@@ -1,70 +1,21 @@
 import { useState } from 'react'
-import { BookOpen, Check, Database, ExternalLink, FileSearch, Loader2, Paperclip, Search, Send, Sparkles, X, Zap } from 'lucide-react'
+import { BookOpen, Check, Database, ExternalLink, FileSearch, Loader2, Paperclip, Search, Sparkles, X, Zap } from 'lucide-react'
 import { type DocChatFixture, type ResolverContext, assembleJustification } from './exceptionResolver'
+import { FixtureChat } from './FixtureChat'
 
-// Q&A over the retrieved evidence. Suggested questions answer verbatim from
-// researched fixture fields; free-form questions get an honest "needs the live
-// retrieval backend (O6)" reply instead of an improvised one.
+// Q&A over the retrieved evidence, in a framed card (shared FixtureChat body).
 function DocChat({ chat }: { chat: DocChatFixture }) {
-  const [messages, setMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([])
-  const [input, setInput] = useState('')
-  const asked = new Set(messages.filter(m => m.role === 'user').map(m => m.text))
-
-  const ask = (q: string, a: string) =>
-    setMessages(prev => [...prev, { role: 'user', text: q }, { role: 'ai', text: a }])
-
-  const askFree = () => {
-    const q = input.trim()
-    if (!q) return
-    setInput('')
-    ask(q, 'Free-form document Q&A runs on the live retrieval backend (unit O6) — not available on the demo rail. Try a suggested question, or open the full article above.')
-  }
-
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden">
       <div className="flex items-center gap-1.5 px-3 py-2 border-b border-slate-800">
         <Sparkles className="w-3.5 h-3.5 text-violet-400" />
         <span className="text-xs font-semibold text-slate-300">Ask about this evidence</span>
       </div>
-      {messages.length > 0 && (
-        <div className="px-3 py-2.5 space-y-2 max-h-44 overflow-y-auto">
-          {messages.map((m, i) => (
-            <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
-              <span className={[
-                'inline-block text-xs leading-relaxed rounded-lg px-2.5 py-1.5 max-w-[92%] text-left',
-                m.role === 'user'
-                  ? 'bg-slate-800 text-slate-200'
-                  : 'bg-violet-500/10 border border-violet-500/20 text-slate-300',
-              ].join(' ')}>
-                {m.text}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="flex gap-1.5 px-3 py-2 overflow-x-auto">
-        {chat.suggestions.filter(s => !asked.has(s.q)).map(s => (
-          <button
-            key={s.q}
-            onClick={() => ask(s.q, s.a)}
-            className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-medium text-violet-300 bg-violet-500/10 border border-violet-500/25 hover:bg-violet-500/20 transition-colors"
-          >
-            {s.q}
-          </button>
-        ))}
-      </div>
-      <div className="flex items-center gap-1.5 px-3 pb-2.5">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') askFree() }}
-          placeholder="Ask about dosing, criteria, outcomes…"
-          className="flex-1 bg-slate-950/60 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500"
-        />
-        <button onClick={askFree} className="p-1.5 rounded-lg text-violet-300 hover:bg-violet-500/10 transition-colors">
-          <Send className="w-3.5 h-3.5" />
-        </button>
-      </div>
+      <FixtureChat
+        suggestions={chat.suggestions}
+        deferralReply="Free-form document Q&A runs on the live retrieval backend (unit O6) — not available on the demo rail. Try a suggested question, or open the full article above."
+        placeholder="Ask about dosing, criteria, outcomes…"
+      />
     </div>
   )
 }

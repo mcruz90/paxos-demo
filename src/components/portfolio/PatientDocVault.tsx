@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Send, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { type SourceDocument } from '../../types'
+import { FixtureChat } from './FixtureChat'
 import { type PatientProfileData } from './patient'
 import { presentationForSource } from './documentKindPresentation'
 
@@ -57,20 +57,6 @@ export function PatientDocVault({
 }
 
 function Auditor({ suggestions, patientRef }: { suggestions: { q: string; a: string }[]; patientRef: string }) {
-  const [messages, setMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([
-    { role: 'ai', text: `I have audited this patient's de-identified clinical history (Ref: ${patientRef}). Ask me to cross-reference prior therapy trials, identify criteria discrepancies, or quote guideline outcomes.` },
-  ])
-  const [input, setInput] = useState('')
-  const asked = new Set(messages.filter(m => m.role === 'user').map(m => m.text))
-
-  const ask = (q: string, a: string) => setMessages(prev => [...prev, { role: 'user', text: q }, { role: 'ai', text: a }])
-  const askFree = () => {
-    const q = input.trim()
-    if (!q) return
-    setInput('')
-    ask(q, 'Free-form Q&A over the document corpus runs on the live retrieval backend (unit O6) — not on the demo rail. Try a suggested question.')
-  }
-
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-800 shrink-0">
@@ -80,41 +66,13 @@ function Auditor({ suggestions, patientRef }: { suggestions: { q: string; a: str
           Active Grounding
         </span>
       </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((m, i) => (
-          <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
-            <span className={[
-              'inline-block text-sm leading-relaxed rounded-xl px-3 py-2 max-w-[88%] text-left',
-              m.role === 'user' ? 'bg-slate-800 text-slate-200' : 'bg-violet-500/10 border border-violet-500/20 text-slate-200',
-            ].join(' ')}>
-              {m.text}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex gap-1.5 px-4 py-2 overflow-x-auto shrink-0">
-        {suggestions.filter(s => !asked.has(s.q)).map(s => (
-          <button key={s.q} onClick={() => ask(s.q, s.a)}
-            className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-medium text-violet-300 bg-violet-500/10 border border-violet-500/25 hover:bg-violet-500/20 transition-colors">
-            {s.q}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-1.5 px-4 pb-3 shrink-0">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') askFree() }}
-          placeholder="Ask about compliance logs, clinical indices…"
-          className="flex-1 bg-slate-950/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500"
-        />
-        <button onClick={askFree} className="p-2 rounded-lg text-violet-300 hover:bg-violet-500/10 transition-colors">
-          <Send className="w-4 h-4" />
-        </button>
-      </div>
+      <FixtureChat
+        variant="full"
+        intro={`I have audited this patient's de-identified clinical history (Ref: ${patientRef}). Ask me to cross-reference prior therapy trials, identify criteria discrepancies, or quote guideline outcomes.`}
+        suggestions={suggestions}
+        deferralReply="Free-form Q&A over the document corpus runs on the live retrieval backend (unit O6) — not on the demo rail. Try a suggested question."
+        placeholder="Ask about compliance logs, clinical indices…"
+      />
     </div>
   )
 }
