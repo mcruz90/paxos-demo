@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { scenarios } from './scenarios'
+import { initialClients, scenarios } from './scenarios'
 import goldenRaw from '../../backend/evals/fixtures/scenarios.json'
 
 // ---------------------------------------------------------------------------
@@ -163,6 +163,39 @@ describe('Anchor-join parity: golden scenarios.json ↔ frontend scenarios.tsx',
       it('plan_id agrees', () => {
         expect(fe.planId).toBe(golden.plan_id)
       })
+    })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Client ↔ scenario identity consistency.
+//
+// A scenario's authored narrative (criterion notes, citation snippets,
+// source-document blocks) may state the patient's DOB. Every queue client
+// bound to that scenario must carry the SAME DOB — the patient banner and the
+// rendered chart sit on one screen, so a mismatch is a visible contradiction
+// (this guard was added after Case #PH-3102 shipped with a banner DOB of
+// 11/08/1967 over documents stating 03/14/1972).
+// ---------------------------------------------------------------------------
+
+describe('client DOB agrees with every DOB the scenario narrative states', () => {
+  const DOB_RE = /DOB (\d{2}\/\d{2}\/\d{4})/g
+
+  const narrativeDobs = (scenarioId: string): string[] => {
+    const s = scenarios[scenarioId]
+    const texts = [
+      ...s.criteriaResults.map(c => c.note),
+      ...Object.values(s.citations).map(c => c.text),
+      ...(s.sourceDocuments ?? []).flatMap(d => d.blocks.map(b => b.text)),
+    ]
+    return [...new Set(texts.flatMap(t => [...t.matchAll(DOB_RE)].map(m => m[1])))]
+  }
+
+  for (const client of initialClients) {
+    const stated = narrativeDobs(client.scenarioId)
+    if (stated.length === 0 || !client.patientDob) continue
+    it(`${client.name} (${client.patientDisplayName}) matches ${client.scenarioId}`, () => {
+      expect(stated).toEqual([client.patientDob])
     })
   }
 })
