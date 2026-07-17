@@ -87,6 +87,11 @@ const ANCHOR_JOIN: Array<{
     frontendKey: 'gilead-livdelzi',
     configFile: 'livdelzi_cigna_hepatology.json',
   },
+  {
+    anchorId: 'humira_cigna',
+    frontendKey: 'humira-cigna',
+    configFile: 'humira_cigna_ip0652.json',
+  },
 ]
 
 // ---------------------------------------------------------------------------

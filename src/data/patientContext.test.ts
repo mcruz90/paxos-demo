@@ -20,8 +20,12 @@ describe('resolvePatientContext', () => {
   })
 
   it('derives a distinct member id per case reference', () => {
-    const ids = initialClients.map(c => resolvePatientContext(scenarios[c.scenarioId], c).memberId)
-    expect(new Set(ids).size).toBe(initialClients.length)
+    // Scenarios that supply their own patientContext (golden-set cases like
+    // humira-cigna) carry a real member id; the derive path only governs the
+    // demo cases that don't, so scope the format/distinctness check to those.
+    const derived = initialClients.filter(c => !scenarios[c.scenarioId]?.patientContext)
+    const ids = derived.map(c => resolvePatientContext(scenarios[c.scenarioId], c).memberId)
+    expect(new Set(ids).size).toBe(derived.length)
     expect(ids.every(id => /^MEM-\d+$/.test(id))).toBe(true)
   })
 

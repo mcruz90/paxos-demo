@@ -16,20 +16,20 @@ export function QueueFilterBar({
 }) {
   const hasActiveFilters = filterStage !== 'all' || filterUrgency !== 'all'
 
+  // Stacked layout — lives inside the roster column (the filters govern the
+  // roster only, so they render inside it rather than bleeding page-wide).
   return (
-    <div className="px-6 pt-4 pb-2 shrink-0">
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search patients, drugs, payers..."
-            className="pl-9 pr-3 py-2 w-64 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
-          />
-        </div>
-        <div className="h-5 w-px bg-slate-700/60" />
-        <div className="flex items-center gap-1.5">
+    <div className="pb-3 mb-3 border-b border-slate-800/60 shrink-0 space-y-2.5">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search patients, drugs, payers..."
+          className="pl-9 pr-3 py-2 w-full bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+        />
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
           {([
             { value: 'all',        label: 'All stages' },
             { value: 'initial_pa', label: 'Initial PA' },
@@ -47,9 +47,7 @@ export function QueueFilterBar({
               {label}
             </button>
           ))}
-        </div>
-        <div className="h-5 w-px bg-slate-700/60" />
-        <div className="flex items-center gap-1.5">
+          <span className="h-4 w-px bg-slate-700/60" />
           {([
             { value: 'all',   label: 'Any urgency' },
             { value: 'today', label: 'Due today'   },
@@ -67,7 +65,6 @@ export function QueueFilterBar({
               {label}
             </button>
           ))}
-        </div>
         {hasActiveFilters && (
           <button
             onClick={() => { setFilterStage('all'); setFilterUrgency('all') }}
@@ -80,3 +77,4 @@ export function QueueFilterBar({
     </div>
   )
 }
+// (single flex-wrap row of chips; the search input sits full-width above)

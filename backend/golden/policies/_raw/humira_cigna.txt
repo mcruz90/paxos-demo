@@ -1,0 +1,1125 @@
+Page 1 of 17 
+Coverage Policy Number: IP0652 
+ 
+ 
+ 
+Drug Coverage Policy 
+ 
+Effective Date .................. 05/01/2026 
+Coverage Policy Number .......... IP0652 
+Policy Title…….. Adalimumab Products 
+Prior Authorization Policy 
+ 
+ 
+Inflammatory Conditions – Adalimumab 
+Products Prior Authorization Policy 
+• 
+Abrilada™ (adalimumab-afzb subcutaneous injection – Pfizer) 
+• 
+adalimumab-aacf subcutaneous injection (Fresenius Kabi) 
+• 
+adalimumab-aaty subcutaneous injection (Celltrion) 
+• 
+adalimumab-adaz subcutaneous injection (Sandoz/Novartis) 
+• 
+adalimumab-adbm subcutaneous injection (Boehringer Ingelheim) 
+• 
+adalimumab-bwwd subcutaneous injection (Cordavis) 
+• 
+adalimumab-fkjp subcutaneous injection (Mylan) 
+• 
+adalimumab-ryvk subcutaneous injection (Teva/Alvotech) 
+• 
+Amjevita® (adalimumab-atto subcutaneous injection – Amgen) 
+• 
+Cyltezo® (adalimumab-adbm subcutaneous injection – Boehringer Ingelheim) 
+• 
+Hadlima™ (adalimumab-bwwd subcutaneous injection – Organon/Samsung Bioepis) 
+• 
+Hulio® (adalimumab-fkjp subcutaneous injection – Mylan) 
+• 
+Humira® (adalimumab subcutaneous injection – AbbVie, Cordavis) 
+• 
+Hyrimoz® (adalimumab-adaz subcutaneous injection – Sandoz/Novartis, Cordavis) 
+• 
+Idacio® (adalimumab-aacf subcutaneous injection – Fresenius Kabi) 
+• 
+Simlandi® (adalimumab-ryvk subcutaneous injection – Teva/Alvotech) 
+• 
+Yuflyma® (adalimumab-aaty subcutaneous injection – Celltrion) 
+• 
+Yusimry™ (adalimuamb-aqvh subcutaneous injection – Coherus) 
+ 
+INSTRUCTIONS FOR USE 
+The following Coverage Policy applies to health benefit plans administered by Cigna Companies. 
+Certain Cigna Companies and/or lines of business only provide utilization review services to clients 
+and do not make coverage determinations. References to standard benefit plan language and 
+coverage determinations do not apply to those clients. Coverage Policies are intended to provide 
+guidance in interpreting certain standard benefit plans administered by Cigna Companies. Please 
+note, the terms of a customer’s particular benefit plan document [Group Service Agreement, 
+Evidence of Coverage, Certificate of Coverage, Summary Plan Description (SPD) or similar plan 
+document] may differ significantly from the standard benefit plans upon which these Coverage 
+Policies are based. For example, a customer’s benefit plan document may contain a specific 
+exclusion related to a topic addressed in a Coverage Policy. In the event of a conflict, a customer’s 
+
+Page 2 of 17 
+Coverage Policy Number: IP0652 
+benefit plan document always supersedes the information in the Coverage Policies. In the absence 
+of a controlling federal or state coverage mandate, benefits are ultimately determined by the 
+terms of the applicable benefit plan document. Coverage determinations in each specific instance 
+require consideration of 1) the terms of the applicable benefit plan document in effect on the date 
+of service; 2) any applicable laws/regulations; 3) any relevant collateral source materials including 
+Coverage Policies and; 4) the specific facts of the particular situation. Each coverage request 
+should be reviewed on its own merits. Medical directors are expected to exercise clinical judgment 
+where appropriate and have discretion in making individual coverage determinations. Where 
+coverage for care or services does not depend on specific circumstances, reimbursement will only 
+be provided if a requested service(s) is submitted in accordance with the relevant criteria outlined 
+in the applicable Coverage Policy, including covered diagnosis and/or procedure code(s). 
+Reimbursement is not allowed for services when billed for conditions or diagnoses that are not 
+covered under this Coverage Policy (see “Coding Information” below). When billing, providers 
+must use the most appropriate codes as of the effective date of the submission. Claims submitted 
+for services that are not accompanied by covered code(s) under the applicable Coverage Policy 
+will be denied as not covered. Coverage Policies relate exclusively to the administration of health 
+benefit plans. Coverage Policies are not recommendations for treatment and should never be used 
+as treatment guidelines. In certain markets, delegated vendor guidelines may be used to support 
+medical necessity and other coverage determinations.
+ 
+OVERVIEW 
+Adalimumab products are tumor necrosis factor inhibitors (TNFis) approved for the following 
+uses:1 
+• 
+Ankylosing spondylitis, for reducing signs and symptoms in adults with active disease. 
+• 
+Crohn’s disease, for treatment of moderately to severely active disease in patients ≥ 6 
+years of age. 
+• 
+Hidradenitis suppurativa, for the treatment of moderate to severe disease in patients ≥ 
+12 years of age. 
+• 
+Juvenile idiopathic arthritis (JIA), alone or in combination with methotrexate, for 
+reducing signs and symptoms of moderately to severely active polyarticular disease in 
+patients ≥ 2 years of age. 
+• 
+Plaque psoriasis, for the treatment of adults with moderate to severe chronic disease 
+who are candidates for systemic therapy or phototherapy and when other systemic 
+therapies are medically less appropriate. 
+• 
+Psoriatic arthritis (PsA), alone or in combination with non-biologic disease-modifying 
+antirheumatic drugs (DMARDs), for reducing the signs and symptoms of active arthritis, 
+inhibiting the progression of structural damage, and improving physical function in adults 
+with active disease. 
+• 
+Rheumatoid arthritis, alone or in combination with methotrexate or other non-biologic 
+DMARDS, to reduce the signs and symptoms, induce major clinical response, inhibit the 
+progression of structural damage, and improve physical function in adults with moderately 
+to severely active disease. 
+• 
+Ulcerative colitis, for treatment of moderately to severely active disease in patients ≥ 5 
+years of age.  However, efficacy has not been established in patients with ulcerative colitis 
+who have lost response or were intolerant to another TNFi. 
+• 
+Uveitis, in patients ≥ 2 years of age with noninfectious intermediate, posterior, and 
+panuveitis. 
+ 
+Guidelines 
+TNFis are featured prominently in guidelines for treatment of inflammatory conditions. 
+• 
+Ankylosing Spondylitis and Spondyloarthritis:  Guidelines for ankylosing spondylitis 
+and non-radiographic axial spondylitis are published by the American College of 
+
+Page 3 of 17 
+Coverage Policy Number: IP0652 
+Rheumatology (ACR)/Spondylitis Association of America/Spondyloarthritis Research and 
+Treatment Network (2019).3  TNFis are recommended as the initial biologic.  In those who 
+are secondary non-responders to a TNFi, a second TNFi is recommended over switching out 
+of the class. 
+• 
+Crohn’s Disease:  The American College of Gastroenterology (ACG) [2025] and the 
+American Gastroenterological Association (AGA) [2025] have guidelines for the 
+management of CD in adults.4,17   Both guidelines recommend upfront use of advanced 
+therapies, rather than step-up therapy after failure of corticosteroids and/or 
+immunomodulators.  Advanced therapies recommended include TNF inhibitors, Entyvio® 
+(vedolizumab IV infusion, SC injection), interleukin (IL)-23 inhibitors, IL-12/23 inhibitors, 
+and Rinvoq® (upadacitinib extended-release tablets). 
+• 
+Hidradenitis Suppurativa:  North American guidelines (2019) recommend consideration 
+of adalimumab (level A strength of recommendation, level 1 evidence) for those with 
+moderate to severe disease who do not respond to conventional therapy.19 
+• 
+JIA:  There are guidelines from ACR and the Arthritis Foundation for the treatment of JIA 
+(2021) which address oligoarthritis and temporomandibular joint (TMJ) arthritis.  For 
+oligoarthritis, a biologic is recommended following a trial of a conventional synthetic 
+DMARD.6  In patients with TMJ arthritis, scheduled nonsteroidal anti-inflammatory drugs 
+(NSAIDs) and/or intra-articular glucocorticoids are recommended first-line.  A biologic is a 
+therapeutic option if there is an inadequate response or intolerance.  Additionally, rapid 
+escalation to a biologic ± conventional synthetic DMARD (methotrexate preferred) is often 
+appropriate given the impact and destructive nature of TMJ arthritis.  In these guidelines, 
+there is not a preferred biologic that should be initiated for JIA.  ACR guidelines (2019) are 
+also available specifically for juvenile non-systemic polyarthritis, sacroiliitis, and enthesitis.5  
+TNFis  are the biologics recommended for polyarthritis, sacroiliitis, and enthesitis.  Biologics 
+are recommended following other therapies (e.g., following DMARDs for active polyarthritis 
+or following an NSAID for active JIA with sacroiliitis or enthesitis).  However, there are 
+situations where initial therapy with a biologic may be preferred over other conventional 
+therapies (e.g., if there is involvement of high-risk joints such as the cervical spine, wrist, 
+or hip; high disease activity; and/or those judged to be at high risk of disabling joint 
+damage). 
+• 
+Plaque Psoriasis:  Guidelines from the American Academy of Dermatologists and National 
+Psoriasis Foundation (2019) recommend adalimumab as a monotherapy treatment option 
+for adults with moderate to severe disease.7 
+• 
+PsA:  Guidelines from ACR (2018) recommend TNFis over other biologics for use in 
+treatment-naïve patients with PsA and in those who were previously treated with an oral 
+therapy.8 
+• 
+Rheumatoid Arthritis:  Guidelines from ACR (2021) recommend addition of a biologic or 
+a targeted synthetic DMARD for a patient taking the maximum tolerated dose of 
+methotrexate who is not at target.2 
+• 
+Ulcerative Colitis:  The AGA (2024) and ACG (2025) have clinical practice guidelines on 
+the management of moderate to severe ulcerative colitis in adults.9,10  In moderate to 
+severe disease, systemic corticosteroids or advanced therapies may be utilized for 
+induction of remission.  Advanced therapies recommended include TNFis, Entyvio, IL-23 
+inhibitors, IL-12/23 inhibitors, sphingosine-1-phosphate (S1P) receptor modulators, and 
+Janus kinase (JAK) inhibitors.  If steroids are utilized for induction, efforts should be made 
+to introduce steroid-sparing agents for maintenance therapy.  Of note, guidelines state 
+corticosteroids may be avoided entirely when other effective induction strategies are 
+planned.10  Both guidelines also recommend that any drug that effectively treats induction 
+should be continued for maintenance.9,10 
+• 
+Uveitis and Ocular Inflammatory Disorders:  American Academy of Ophthalmology 
+(AAO) guidelines (2014) note that adalimumab may be used in patients with uveitis due to 
+various causes (e.g., spondyloarthropathy-associated or human leukocyte antigen [HLA]-
+
+Page 4 of 17 
+Coverage Policy Number: IP0652 
+B27-associated uveitis, JIA-associated uveitis, and other posterior uveitides and panuveitis 
+syndromes).12  Adalimumab should be considered second-line in vision-threatening JIA-
+associated uveitis when methotrexate has failed or is not tolerated (strong 
+recommendation) and may be used as corticosteroid-sparing treatment for vision-
+threatening chronic uveitis from seronegative spondyloarthropathy (strong 
+recommendation).  Adalimumab may also be considered in other patients who have vision-
+threatening or corticosteroid-dependent disease who have failed first-line therapies.  
+Adalimumab should be considered as a second-line immunomodulatory agent for severe 
+ocular inflammatory conditions including chronic and severe scleritis.  This was re-affirmed 
+in separate guidelines (2018) for non-corticosteroid systemic immunomodulatory therapy 
+in noninfectious uveitis.20  ACR/Arthritis Federation guidelines (2019) for uveitis associated 
+with JIA make recommendations for use of conventional systemic DMARDs and biologics.  
+In patients with severe active chronic anterior uveitis associated with sight-threatening 
+complications, a TNFi (monoclonal antibody) + methotrexate is recommended.19 
+ 
+Other Uses with Supportive Evidence 
+There are guidelines and/or published data supporting the use of adalimumab products in the 
+following conditions: 
+• 
+Behcet’s Disease:  The European Union Against Rheumatism (EULAR) recommendations 
+(2018) include TNFis for initial or recurrent sight-threatening uveitis.13  For patients 
+refractory to first-line treatments (e.g., corticosteroids), TNFis are among the treatment 
+options for mucocutaneous manifestations, venous thrombosis, severe or refractory 
+gastrointestinal disease, and recurrent/chronic joint involvement.  Recommendations for 
+the use of TNFis in ocular inflammatory disorders from the AAO (2014) note that TNFis 
+may be used first-line in patients with ophthalmic manifestations of Behcet’s disease and 
+for acute exacerbations of preexisting Behcet’s disease.12 
+• 
+Pyoderma Gangrenosum:  There are currently no formal US consensus guidelines 
+specifically dedicated to the diagnosis and management of pyoderma gangrenosum 
+published by major bodies like the AAD.  However, clinical practice is informed by several 
+comprehensive reviews and expert recommendations.  Oral prednisone is the most 
+common initial immunosuppressant medication.14  Other systemic therapies include 
+conventional systemic agents (e.g., cyclosporine, methotrexate, azathioprine, 
+cyclophosphamide, mycophenolate mofetil) and TNFis (i.e., infliximab, etanercept, and 
+adalimumab products).  Of note, it is generally recognized that conventional systemic 
+agents have a delayed onset of action; therefore, two months or longer is considered an 
+adequate duration of therapy to elicit a clinical response.   
+• 
+Sarcoidosis:   The European Respiratory Society Task Force (2021) has guidelines for 
+treatment of pulmonary, cutaneous, cardiac, and neurologic sarcoidosis.15  Adalimumab is 
+a recommended therapy after continued disease or relapse while taking systemic 
+corticosteroids and immunosuppressants (e.g., methotrexate, azathioprine, leflunomide, 
+mycophenolate mofetil, hydroxychloroquine). 
+ 
+Coverage Policy 
+ 
+POLICY STATEMENT 
+Prior Authorization is required for benefit coverage of adalimumab products.  All approvals are 
+provided for the duration noted below.  In cases where the approval is authorized in months, 1 
+month is equal to 30 days.  Because of the specialized skills required for evaluation and diagnosis 
+of patients treated with adalimumab products as well as the monitoring required for adverse 
+events and long-term efficacy, initial approval requires the agent to be prescribed by or in 
+consultation with a physician who specializes in the condition being treated. 
+ 
+
+Page 5 of 17 
+Coverage Policy Number: IP0652 
+NOTE: This product also requires the use of preferred products before approval of a  
+requested non-preferred adalimumab product. Refer to the respective policy 
+Inflammatory Conditions – Adalimumab Products Preferred Specialty Management 
+Policy for Legacy Drug List Plans (PSM003), Inflammatory Conditions – Adalimumab 
+Products Preferred Specialty Management Policy: Standard/Performance, 
+Value/Advantage and Total Savings Prescription Drug Lists (PSM013), or Inflammatory 
+Conditions – Adalimumab Products Preferred Specialty Management Policy for 
+Individual and Family Plans (PSM014) for additional preferred product criteria 
+requirements and exceptions. 
+ 
+The following products are not covered on the pharmacy and medical benefits for Employer Plans 
+and Individual and Family Plans: adalimumab-bwwd, adalimumab-ryvk (-ryvk NDCs starting with 
+51759), Amjevita (NDCs starting with 84612), Humira (NDCs starting with 83457), Hyrimoz 
+(NDCs starting with 83457). Refer to the customer’s benefit plan document for details of covered 
+product(s). 
+ 
+ 
+ 
+Adalimumab products are considered medically necessary when ONE of the following is 
+met (1-14):   
+ 
+FDA-Approved Indications 
+ 
+1. Ankylosing Spondylitis.  Approve for the duration noted if the patient meets ONE of the 
+following (A or B): 
+A) Initial Therapy.  Approve for 6 months if the patient meets BOTH of the following (i and ii): 
+i. 
+Patient is ≥ 18 years of age; AND 
+ii. The medication is prescribed by or in consultation with a rheumatologist; OR 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets BOTH of the following (i and ii): 
+i. 
+Patient has been established on therapy for at least 6 months; AND 
+Note:  A patient who has received < 6 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. Patient meets at least ONE of the following (a or b): 
+a) When assessed by at least one objective measure, patient experienced a beneficial 
+clinical response from baseline (prior to initiating an adalimumab product); OR 
+Note:  Examples of objective measures include Ankylosing Spondylitis Disease 
+Activity Score (ASDAS), Ankylosing Spondylitis Quality of Life Scale (ASQoL), Bath 
+Ankylosing Spondylitis Disease Activity Index (BASDAI), Bath Ankylosing Spondylitis 
+Functional Index (BASFI), Bath Ankylosing Spondylitis Global Score (BAS-G), Bath 
+Ankylosing Spondylitis Metrology Index (BASMI), Dougados Functional Index (DFI), 
+Health Assessment Questionnaire for the Spondyloarthropathies (HAQ-S), and/or 
+serum markers (e.g., C-reactive protein, erythrocyte sedimentation rate). 
+b) Compared with baseline (prior to initiating an adalimumab product), patient 
+experienced an improvement in at least one symptom, such as decreased pain or 
+stiffness, or improvement in function or activities of daily living. 
+ 
+2. Crohn’s Disease.  Approve for the duration noted if the patient meets ONE of the following (A 
+or B): 
+A) Initial Therapy.  Approve for 6 months if the patient meets BOTH of the following (i and ii): 
+i. 
+Patient is ≥ 6 years of age; AND 
+ii. The medication is prescribed by or in consultation with a gastroenterologist; OR 
+
+Page 6 of 17 
+Coverage Policy Number: IP0652 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets BOTH of the following (i and ii): 
+i. 
+Patient has been established on therapy for at least 6 months; AND 
+Note:  A patient who has received < 6 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. Patient meets at least ONE of the following (a or b): 
+a) When assessed by at least one objective measure, patient experienced a beneficial 
+clinical response from baseline (prior to initiating an adalimumab product); OR 
+Note:  Examples of objective measures include fecal markers (e.g., fecal lactoferrin, 
+fecal calprotectin), serum markers (e.g., C-reactive protein), imaging studies 
+(magnetic resonance enterography [MRE], computed tomography enterography 
+[CTE]), endoscopic assessment, and/or reduced dose of corticosteroids. 
+b) Compared with baseline (prior to initiating an adalimumab product), patient 
+experienced an improvement in at least one symptom, such as decreased pain, 
+fatigue, stool frequency, and/or blood in stool. 
+ 
+3. Juvenile Idiopathic Arthritis (JIA) [or juvenile rheumatoid arthritis] {regardless of 
+type of onset}.  Approve for the duration noted if the patient meets ONE of the following (A 
+or B): 
+Note:  This includes a patient with juvenile spondyloarthropathy/active sacroiliac arthritis. 
+A) Initial Therapy.  Approve for 6 months if the patient meets ALL of the following (i, ii, and 
+iii): 
+i. 
+Patient is ≥ 2 years of age; AND 
+ii. Patient meets ONE of the following (a, b, c, or d): 
+a) Patient has tried one other systemic therapy for this condition; OR 
+Note:  Examples of other systemic therapies for JIA include methotrexate, 
+sulfasalazine, leflunomide, or a nonsteroidal anti-inflammatory drug (NSAID) [e.g., 
+ibuprofen, naproxen].  A previous trial of one biologic other than the requested 
+medication also counts as a trial of one systemic therapy for JIA.  A biosimilar of the 
+requested biologic does not count.  Refer to Appendix for examples of biologics used 
+for JIA. 
+b) Patient will be starting on adalimumab concurrently with methotrexate, 
+sulfasalazine, or leflunomide; OR 
+c) Patient has an absolute contraindication to methotrexate, sulfasalazine, or 
+leflunomide; OR 
+Note:  Examples of contraindications to methotrexate include pregnancy, breast 
+feeding, alcoholic liver disease, immunodeficiency syndrome, blood dyscrasias. 
+d) Patient has aggressive disease, as determined by the prescriber; AND 
+iii. The medication is prescribed by or in consultation with a rheumatologist; OR 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets BOTH of the following (i and ii): 
+i. 
+Patient has been established on therapy for at least 6 months; AND 
+Note:  A patient who has received < 6 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. Patient meets at least ONE of the following (a or b): 
+a) When assessed by at least one objective measure, patient experienced a beneficial 
+clinical response from baseline (prior to initiating an adalimumab product); OR 
+Note:  Examples of objective measures include Physician Global Assessment (MD 
+global), Parent/Patient Global Assessment of Overall Well-Being (PGA), 
+Parent/Patient Global Assessment of Disease Activity (PDA), Juvenile Arthritis 
+Disease Activity Score (JDAS), Clinical Juvenile Arthritis Disease Activity Score 
+(cJDAS), Juvenile Spondyloarthritis Disease Activity Index (JSpADA), serum 
+
+Page 7 of 17 
+Coverage Policy Number: IP0652 
+markers (e.g., C-reactive protein, erythrocyte sedimentation rate), and/or reduced 
+dosage of corticosteroids. 
+b) Compared with baseline (prior to initiating an adalimumab product), patient 
+experienced an improvement in at least one symptom, such as improvement in 
+limitation of motion, less joint pain or tenderness, decreased duration of morning 
+stiffness or fatigue, or improved function or activities of daily living. 
+ 
+4. Hidradenitis Suppurativa.  Approve for the duration noted if the patient meets ONE of the 
+following (A or B): 
+A) Initial Therapy.  Approve for 3 months if the patients meets ALL of the following (i, ii, and 
+iii): 
+i. 
+Patient is ≥ 12 years of age; AND 
+ii. Patient has tried at least ONE other therapy; AND 
+Note:  Examples include intralesional or oral corticosteroids (such as triamcinolone or 
+prednisone), systemic antibiotics (e.g., clindamycin, dicloxacillin, or erythromycin), or 
+isotretinoin. 
+iii. The medication is prescribed by or in consultation with a dermatologist; OR 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets ALL of the following (i, ii, and iii): 
+i. 
+Patient has been established on therapy for at least 3 months; AND 
+Note:  A patient who has received < 3 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. When assessed by at least one objective measure, patient experienced a beneficial 
+clinical response from baseline (prior to initiating an adalimumab product); AND 
+Note:  Examples of objective measures include Hurley staging, Sartorius score, 
+Physician Global Assessment, and Hidradenitis Suppurativa Severity Index. 
+iii. Compared with baseline (prior to initiating an adalimumab product), patient 
+experienced an improvement in at least one symptom, such as decreased pain or 
+drainage of lesions, nodules, or cysts. 
+ 
+5. Plaque Psoriasis.  Approve for the duration noted if the patient meets ONE of the following 
+(A or B): 
+A) Initial Therapy.  Approve for 3 months if the patient meets ALL of the following (i, ii, and 
+iii): 
+i. 
+Patient is ≥ 18 years of age; AND 
+ii. Patient meets ONE of the following (a or b): 
+a) Patient has tried at least one traditional systemic agent for psoriasis for at least 3 
+months, unless intolerant; OR 
+Note:  Examples include methotrexate, cyclosporine, or acitretin.  A 3-month trial of 
+psoralen plus ultraviolet A light (PUVA) also counts.  An exception to the 
+requirement for a trial of one traditional systemic agent for psoriasis can be made if 
+the patient has already had a 3-month trial or previous intolerance to at least one 
+biologic (other than the requested medication), Otezla/Otezla XR (apremilast 
+tablets/extended-release tablets), or Sotyktu (deucravacitinib tablets).  A biosimilar 
+of the requested biologic does not count.  Refer to Appendix for examples of 
+biologics used for psoriasis.  A patient who has already tried a biologic for psoriasis, 
+Otezla/Otezla XR, or Sotyktu is not required to “step back” and try a traditional 
+systemic agent for psoriasis. 
+b) According to the prescriber, the patient has a contraindication to methotrexate; 
+AND 
+iii. The medication is prescribed by or in consultation with a dermatologist; OR 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets ALL of the following (i, ii, and iii): 
+
+Page 8 of 17 
+Coverage Policy Number: IP0652 
+i. 
+Patient has been established on therapy for at least 3 months; AND 
+Note:  A patient who has received < 3 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. Patient experienced a beneficial clinical response, defined as improvement from 
+baseline (prior to initiating an adalimumab product) in at least one of the following:  
+estimated body surface area affected, erythema, induration/thickness, and/or scale of 
+areas affected by psoriasis; AND 
+iii. Compared with baseline (prior to receiving an adalimumab product), patient 
+experienced an improvement in at least one symptom, such as decreased pain, itching, 
+and/or burning. 
+ 
+6. Psoriatic Arthritis.  Approve for the duration noted if the patient meets ONE of the following 
+(A or B): 
+A) Initial Therapy.  Approve for 6 months if the patient meets BOTH of the following (i and ii): 
+i. 
+Patient is ≥ 18 years of age; AND 
+ii. The medication is prescribed by or in consultation with a rheumatologist or a 
+dermatologist. 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets BOTH of the following (i and ii): 
+i. 
+Patient has been established on therapy for at least 6 months; AND 
+Note:  A patient who has received < 6 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. Patient meets at least ONE of the following (a or b): 
+a) When assessed by at least one objective measure, patient experienced a beneficial 
+clinical response from baseline (prior to initiating an adalimumab product); OR 
+Note:  Examples of objective measures of disease activity include Disease Activity 
+Index for Psoriatic Arthritis (DAPSA), Composite Psoriatic Disease Activity Index 
+(CPDAI), Psoriatic Arthritis Disease Activity Score (PsA DAS), Grace Index, Leeds 
+Enthesitis Score (LEI), Spondyloarthritis Consortium of Canada (SPARCC) enthesitis 
+score, Leeds Dactylitis Instrument Score, Minimal Disease Activity (MDA), Psoriatic 
+Arthritis Impact of Disease (PsAID-12), and/or serum markers (e.g., C-reactive 
+protein, erythrocyte sedimentation rate). 
+b) Compared with baseline (prior to initiating an adalimumab product), patient 
+experienced an improvement in at least one symptom, such as less joint pain, 
+morning stiffness, or fatigue; improved function or activities of daily living; or 
+decreased soft tissue swelling in joints or tendon sheaths. 
+ 
+7. Rheumatoid Arthritis.  Approve for the duration noted if the patient meets ONE of the 
+following (A or B): 
+A) Initial Therapy.  Approve for 6 months if the patient meets ALL of the following (i, ii, and 
+iii): 
+i. 
+Patient is ≥ 18 years of age; AND 
+ii. Patient has tried ONE conventional synthetic disease-modifying antirheumatic drug 
+(DMARD) for at least 3 months; AND 
+Note:  Examples include methotrexate (oral or injectable), leflunomide, 
+hydroxychloroquine, and sulfasalazine.  An exception to the requirement for a trial of 
+one conventional synthetic DMARD can be made if the patient has already had a 3-
+month trial with at least one biologic other than the requested medication.  A biosimilar 
+of the requested biologic does not count.  Refer to Appendix for examples of biologics 
+used for rheumatoid arthritis.  A patient who has already tried a biologic for rheumatoid 
+arthritis is not required to “step back” and try a conventional synthetic DMARD. 
+ii. The medication is prescribed by or in consultation with a rheumatologist; OR 
+
+Page 9 of 17 
+Coverage Policy Number: IP0652 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets BOTH of the following (i and ii): 
+i. 
+Patient has been established on therapy for at least 6 months; AND 
+Note:  A patient who has received < 6 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. Patient meets at least ONE of the following (a or b): 
+a) Patient experienced a beneficial clinical response when assessed by at least one 
+objective measure; OR 
+Note:  Examples of objective measures of disease activity include Clinical Disease 
+Activity Index (CDAI), Disease Activity Score (DAS) 28 using erythrocyte 
+sedimentation rate or C-reactive protein, Patient Activity Scale (PAS)-II, Rapid 
+Assessment of Patient Index Data 3 (RAPID-3), and/or Simplified Disease Activity 
+Index (SDAI). 
+b) Patient experienced an improvement in at least one symptom, such as decreased 
+joint pain, morning stiffness, or fatigue; improved function or activities of daily 
+living; or decreased soft tissue swelling in joints or tendon sheaths. 
+ 
+8. Ulcerative Colitis.  Approve for the duration noted if the patient meets ONE of the following 
+(A or B): 
+A) Initial Therapy.  Approve for 6 months if the patient meets BOTH of the following (i and ii): 
+i. 
+Patient is ≥ 5 years of age; AND 
+ii. The medication is prescribed by or in consultation with a gastroenterologist; OR 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets BOTH of the following (i and ii): 
+i. 
+Patient has been established on therapy for at least 6 months; AND 
+Note:  A patient who has received < 6 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. Patient meets at least ONE of the following (a or b): 
+a) When assessed by at least one objective measure, patient experienced a beneficial 
+clinical response from baseline (prior to initiating an adalimumab product); OR 
+Note:  Examples of objective measures include fecal markers (e.g., fecal 
+calprotectin), serum markers (e.g., C-reactive protein), endoscopic assessment, 
+and/or reduced dose of corticosteroids. 
+b) Compared with baseline (prior to initiating an adalimumab product), patient 
+experienced an improvement in at least one symptom, such as decreased pain, 
+fatigue, stool frequency, and/or rectal bleeding. 
+ 
+9. Uveitis (including other posterior uveitides and panuveitis syndromes).  Approve for 
+the duration noted if the patient meets ONE of the following (A or B): 
+A) Initial Therapy.  Approve for 6 months if the patient meets ALL of the following (i, ii, and 
+iii): 
+i. 
+Patient is ≥ 2 years of age; AND 
+ii. Patient has tried ONE of the following therapies:  periocular, intraocular, or systemic 
+corticosteroids; immunosuppressives; AND 
+Note:  Examples of corticosteroids include prednisolone, triamcinolone, betamethasone, 
+methylprednisolone, and prednisone.  Examples of immunosuppressive agents include 
+methotrexate, mycophenolate mofetil, azathioprine, and cyclosporine.  A trial of one 
+biologic other than the requested medication also counts.  A biosimilar of the requested 
+biologic does not count. 
+iii. The medication is prescribed by or in consultation with an ophthalmologist; OR 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets BOTH of the following (i and ii): 
+i. 
+Patient has been established on therapy for at least 6 months; AND 
+
+Page 10 of 17 
+Coverage Policy Number: IP0652 
+Note:  A patient who has received < 6 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. Patient meets at least one of the following (a or b): 
+a) When assessed by at least one objective measure, patient experienced a beneficial 
+clinical response from baseline (prior to initiating an adalimumab product); OR 
+Note:  Examples of objective measures include best-corrected visual acuity, 
+assessment of chorioretinal and/or inflammatory retinal vascular lesions, or anterior 
+chamber cell grade or vitreous haze grade. 
+b) Compared with baseline (prior to initiating an adalimumab product), patient 
+experienced an improvement in at least one symptom, such as decreased eye pain, 
+redness, light sensitivity, and/or blurred vision; or improvement in visual acuity. 
+ 
+Other Uses with Supportive Evidence 
+ 
+10. Behcet’s Disease.  Approve for the duration noted if the patient meets ONE of the following 
+(A or B): 
+A) Initial Therapy.  Approve for 3 months if the patient meets ALL of the following (i, ii, and 
+ii): 
+i. 
+Patient is > 2 years of age; AND 
+ii. Patient meets ONE of the following (a or b): 
+a) Patient has tried at least ONE conventional therapy; OR 
+Note:  Examples include systemic corticosteroids (e.g., methylprednisolone), 
+immunosuppressants (e.g., azathioprine, methotrexate, mycophenolate mofetil, 
+cyclosporine, tacrolimus, Leukeran [chlorambucil tablets], cyclophosphamide, 
+interferon alfa, or Otezla/Otezla XR (apremilast tablets/extended-release tablets).  A 
+trial of one biologic other than the requested medication also counts.  A patient who 
+has already tried one biologic other than the requested drug for Behcet’s disease is 
+not required to “step back” and try a conventional therapy.  A biosimilar of the 
+requested biologic does not count. 
+b) Patient has ophthalmic manifestations of Behcet’s disease; AND 
+iii. The medication is prescribed by or in consultation with a rheumatologist, dermatologist, 
+ophthalmologist, gastroenterologist, or neurologist; OR 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets ALL of the following (i, ii, and iii): 
+i. 
+Patient has been established on therapy for at least 3 months; AND 
+Note:  A patient who has received < 3 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. When assessed by at least one objective measure, patient experienced a beneficial 
+clinical response from baseline (prior to initiating an adalimumab product); AND 
+Note:  Examples of objective measures are dependent upon organ involvement but may 
+include best-corrected visual acuity (if ophthalmic manifestations); serum markers 
+(e.g., C-reactive protein, erythrocyte sedimentation rate); or ulcer depth, number, 
+and/or lesion size. 
+iii. Compared with baseline (prior to initiating an adalimumab product), patient 
+experienced an improvement in at least one symptom, such as decreased pain or 
+improved visual acuity (if ophthalmic manifestations). 
+ 
+11. Pyoderma Gangrenosum.  Approve for the duration noted if the patient meets ONE of the 
+following (A or B): 
+A) Initial Therapy.  Approve for 4 months if the patient meets ALL of the following (i, ii, and 
+iii): 
+i. 
+Patient is > 18 years of age; AND 
+ii. Patient meets ONE of the following (a or b): 
+
+Page 11 of 17 
+Coverage Policy Number: IP0652 
+a) Patient has tried one systemic corticosteroid; OR 
+Note:  An example is prednisone. 
+b) Patient has tried one other immunosuppressant for at least 2 months or was 
+intolerant to one of these agents; AND 
+Note:  Examples include mycophenolate mofetil and cyclosporine. 
+iii. The medication is prescribed by or in consultation with a dermatologist; OR 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets ALL of the following (i, ii, and iii): 
+i. 
+Patient has been established on therapy for at least 4 months; AND 
+Note:  A patient who has received < 4 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. Patient experienced a beneficial clinical response, defined as improvement from 
+baseline (prior to initiating an adalimumab product) in at least one of the following:  
+size, depth, and/or number of lesions; AND 
+iii. Compared with baseline (prior to initiating an adalimumab product), patient 
+experienced an improvement in at least one symptom, such as decreased pain and/or 
+tenderness of affected lesions. 
+ 
+12. Sarcoidosis.  Approve for the duration noted if the patient meets ONE of the following (A or 
+B): 
+A) Initial Therapy.  Approve for 3 months if the patient meets ALL of the following (i, ii, iii, and 
+iv): 
+i. 
+Patient is > 18 years of age; AND 
+ii. Patient has tried at least one corticosteroid; AND 
+Note:  An example is prednisone. 
+iii. Patient has tried at least one immunosuppressive medication; AND 
+Note:  Examples include methotrexate, leflunomide, azathioprine, mycophenolate 
+mofetil, hydroxychloroquine, an infliximab product, or chloroquine. 
+iv. The medication is prescribed by or in consultation with a pulmonologist, 
+ophthalmologist, cardiologist, neurologist, or dermatologist; OR 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets ALL of the following (i, ii, and iii): 
+i. 
+Patient has been established on therapy for at least 3 months; AND 
+Note:  A patient who has received < 3 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. When assessed by at least one objective measure, patient experienced a beneficial 
+clinical response from baseline (prior to initiating an adalimumab product); AND 
+Note:  Examples of objective measures are dependent upon organ involvement but may 
+include lung function (e.g., predicted forced vital capacity and/or 6-minute walk 
+distance); serum markers (e.g., C-reactive protein, liver enzymes, N-terminal pro-brain 
+natriuretic peptide [NT-proBNP]); improvement in rash or skin manifestations, 
+neurologic symptoms, or rhythm control; or imaging (e.g., if indicated, chest 
+radiograph, magnetic resonance imaging [MRI], or echocardiography). 
+iii. Compared with baseline (prior to initiating an adalimumab product), patient 
+experienced an improvement in at least one symptom, such as decreased cough, 
+fatigue, pain, palpitations, neurologic symptoms, and/or shortness of breath. 
+ 
+13. Scleritis or Sterile Corneal Ulceration.  Approve for the duration noted if the patient meets 
+ONE of the following (A or B): 
+A) Initial Therapy.  Approve for 6 months if the patient meets ALL of the following (i, ii, and 
+iii): 
+i. 
+Patient is > 18 years of age; AND 
+ii. Patient has tried one other therapy for this condition; AND 
+
+Page 12 of 17 
+Coverage Policy Number: IP0652 
+Note:  Examples include oral nonsteroidal anti-inflammatory drugs (NSAIDs) such as 
+indomethacin, naproxen, or ibuprofen; oral, topical (ophthalmic), or intravenous 
+corticosteroids (such as prednisone, prednisolone, methylprednisolone); methotrexate; 
+cyclosporine; or other immunosupressants. 
+iii. The medication is prescribed by or in consultation with an ophthalmologist; OR 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets BOTH of the following (i and ii): 
+i. 
+Patient has been established on therapy for at least 6 months; AND 
+Note:  A patient who has received < 6 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. Patient meets at least ONE of the following (a or b): 
+a) When assessed by at least one objective measure, patient experienced a beneficial 
+clinical response from baseline (prior to initiating an adalimumab product); OR 
+Note:  Examples of objective measures are serum markers (e.g., C-reactive protein, 
+erythrocyte sedimentation rate). 
+b) Compared with baseline (prior to initiating an adalimumab product), patient 
+experienced an improvement in at least one symptom, such as decreased eye pain, 
+redness, light sensitivity, tearing, and/or improvement in visual acuity. 
+ 
+14. Spondyloarthritis, Other Subtypes.  Approve for the duration noted if the patient meets 
+ONE of the following (A or B): 
+Note:  This includes undifferentiated arthritis, non-radiographic axial spondyloarthritis, reactive 
+arthritis (Reiter’s disease), or arthritis associated with inflammatory bowel disease.  For 
+ankylosing spondylitis or psoriatic arthritis, refer to the respective criteria under FDA-approved 
+indications. 
+A) Initial Therapy.  Approve for 6 months if the patient meets ALL of the following (i, ii, and 
+iii): 
+i. 
+Patient is > 18 years of age; AND 
+ii. Patient meets ONE of the following (a or b): 
+a) Patient meets BOTH of the following [(1) and (2)]: 
+(1)Patient has arthritis primarily in the knees, ankles, elbows, wrists, hands, and/or 
+feet; AND 
+(2)Patient has tried at least one conventional synthetic disease-modifying 
+antirheumatic drug (DMARD); OR 
+Note:  Examples include methotrexate, leflunomide, or sulfasalazine. 
+b) Patient has axial spondyloarthritis AND has objective signs of inflammation, defined 
+as at least ONE of the following [(1) or (2)]: 
+(1)C-reactive protein elevated beyond the upper limit of normal for the reporting 
+laboratory; OR 
+(2)Sacroiliitis reported on magnetic resonance imaging (MRI); AND 
+iii. The medication is prescribed by or in consultation with a rheumatologist; OR 
+B) Patient is Currently Receiving an Adalimumab Product.  Approve for 1 year if the patient 
+meets BOTH of the following (i and ii): 
+i. 
+Patient has been established on therapy for at least 6 months; AND 
+Note:  A patient who has received < 6 months of therapy or who is restarting therapy 
+with an adalimumab product is reviewed under criterion A (Initial Therapy). 
+ii. Patient meets at least ONE of the following (a or b): 
+a) When assessed by at least one objective measure, patient experienced a beneficial 
+clinical response from baseline (prior to initiating an adalimumab product); OR 
+Note:  Examples of objective measures include Ankylosing Spondylitis Disease 
+Activity Score (ASDAS) and/or serum markers (e.g., C-reactive protein, erythrocyte 
+sedimentation rate). 
+
+Page 13 of 17 
+Coverage Policy Number: IP0652 
+b) Compared with baseline (prior to initiating an adalimumab product), patient 
+experienced an improvement in at least one symptom, such as decreased pain or 
+stiffness, or improvement in function or activities of daily living. 
+ 
+ 
+Conditions Not Covered 
+ 
+Adalimumab products for any other use are considered not medically necessary, 
+including the following (this list may not be all inclusive; criteria will be updated as new 
+published data are available):  
+ 
+1. Concurrent Use with a Biologic or with a Targeted Synthetic Oral Small Molecule 
+Drug.  This medication should not be administered in combination with another biologic or 
+with a targeted synthetic oral small molecule drug used for an inflammatory condition (see 
+Appendix for examples).  Combination therapy is generally not recommended due to a 
+potentially higher rate of adverse events and lack of controlled clinical data supporting additive 
+efficacy. 
+Note:  This does NOT exclude the use of conventional synthetic disease-modifying 
+antirheumatic drug(s) [DMARDs] (e.g., methotrexate, leflunomide, hydroxychloroquine, or 
+sulfasalazine) in combination with this medication. 
+ 
+2. Polymyalgia Rheumatica (PMR).  EULAR/ACR guidelines for the management of PMR 
+(2015) strongly recommend against the use of TNFis for treatment of PMR.17  This 
+recommendation is based on lack of evidence for benefit as well as considerable potential for 
+harm. 
+ 
+Coding Information 
+ 
+Note: 1) This list of codes may not be all-inclusive. 
+2) Deleted codes and codes which are not effective at the time the service is rendered may 
+not be eligible for reimbursement. 
+ 
+Considered Medically Necessary when criteria in the applicable policy statements listed 
+above are met: 
+ 
+HCPCS 
+Codes 
+Description 
+C9399 
+Unclassified drugs or biologicals 
+J0139 
+Injection, adalimumab, 1 mg 
+J3490 
+Unclassified drugs 
+J3590 
+Unclassified biologics 
+Q5140 
+Injection, adalimumab-fkjp, biosimilar, 1 mg 
+Q5141 
+Injection, adalimumab-aaty, biosimilar, 1 mg  
+Q5142 
+Injection, adalimumab-ryvk biosimilar, 1 mg 
+Q5143 
+Injection, adalimumab-adbm, biosimilar, 1 mg  
+Q5144 
+Injection, adalimumab-aacf (Idacio), biosimilar, 1 mg 
+Q5145 
+Injection, adalimumab-afzb (Abrilada), biosimilar, 1 mg 
+ 
+References 
+ 
+1. Humira® subcutaneous injection [prescribing information].  North Chicago, IL:  AbbVie; 
+December 2025. 
+
+Page 14 of 17 
+Coverage Policy Number: IP0652 
+2. Fraenkel L, Bathon JM, England BR, et al.  2021 American College of Rheumatology guideline 
+for the treatment of rheumatoid arthritis.  Arthritis Rheumatol.  2021;73(7):1108-1123. 
+3. Ward MM, Deodhar A, Gensler LS, et al.  2019 update of the American College of 
+Rheumatology/Spondylitis Association of America/Spondyloarthritis Research and Treatment 
+Network recommendations for the treatment of ankylosing spondylitis and nonradiographic 
+axial spondyloarthritis.  Arthritis Rheumatol.  2019;71(10):1599-1613. 
+4. Lichtenstein G, Loftus E, Afzali A, et al.  ACG Clinical Guideline:  Management of Crohn's 
+Disease in Adults.  Am J Gastroenterol.  2025 June;120(6):1225-1264. 
+5. Ringold S, Angeles-Han ST, Beukelman T, et al.  2019 American College of 
+Rheumatology/Arthritis Foundation Guideline for the treatment of juvenile idiopathic arthritis:  
+therapeutic approaches for non-systemic polyarthritis, sacroiliitis, and enthesitis.  Arthritis 
+Rheumatol.  2019;71(6):846-863. 
+6. Onel KB, Horton DB, Lovell DJ, et al.  2021 American College of Rheumatology guideline for 
+the treatment of juvenile idiopathic arthritis:  therapeutic approaches for oligoarthritis, 
+temporomandibular joint arthritis, and systemic juvenile idiopathic arthritis.  Arthritis 
+Rheumatol.  2022;74(4):553-569. 
+7. Menter A, Strober BE, Kaplan DH, et al.  Joint AAD-NPF guidelines of care for the management 
+and treatment of psoriasis with biologics.  J Am Acad Dermatol.  2019;80(4):1029-1072. 
+8. Singh JA, Guyatt G, Ogdie A, et al.  2018 American College of Rheumatology/National Psoriasis 
+Foundation Guideline for the treatment of psoriatic arthritis.  Arthritis Care Res (Hoboken).  
+2019;71(1):2-29. 
+9. Singh S, Loftus EV Jr, Limketkai BN, et al.  AGA Living Clinical Practice Guideline on 
+Pharmacological Management of Moderate-to-Severe Ulcerative Colitis.  Gastroenterology.  
+2024 Dec;167(7):1307-1343. 
+10. Rubin D, Ananthakrishnan A, Siegel C.  ACG Clinical Guideline Update:  Ulcerative Colitis in 
+Adults.  Am J of Gastroenterol.   2025 June;120(6):1187-1224. 
+11. Barnes EL, Agrawal M, Syal G, et al.  AGA Clinical practice guideline on the management of 
+pouchitis and inflammatory pouch disorders.  Gastroenterology.  2024 Jan;166(1):59-85. 
+12. Levy-Clarke G, Jabs DA, Read RW, et al.  Expert panel recommendations for the use of anti-
+tumor necrosis factor biologic agents in patients with ocular inflammatory disorders.  
+Ophthalmology.  2014;121(3):785-796. 
+13. Hatemi G, Christensen R, Bang D, et al.  2018 update of the EULAR recommendations for the 
+management of Behçet's syndrome.  Ann Rheum Dis.  2018;77(6):808-818. 
+14. Łyko M, Ryguła A, Kowalski M, Karska J, Jankowska-Konsur A. The Pathophysiology and 
+Treatment of Pyoderma Gangrenosum-Current Options and New Perspectives.  Int J Mol Sci.  
+2024 Feb 19;25(4):2440. 
+15. Baughman RP, Valeyre D, Korsten P, et al.  ERS clinical practice guidelines on treatment of 
+sarcoidosis.  Eur Respir J.  2021;58(6):2004079. 
+16. Dejaco C, Singh YP, Perel P, et al.  2015 Recommendations for the management of 
+polymyalgia rheumatica:  a European League Against Rheumatism/American College of 
+Rheumatology Collaborative Initiative.  Arthritis Rheumatol.  2015;67(10):2569-2580. 
+17. Scott FI, Ananthakrishnan AN, Click B, et al.  AGA Living Clinical Practice Guideline on the 
+Pharmacologic Management of Moderate-to-Severe Crohn's Disease.  Gastroenterology.  2025 
+Dec;169(7):1397-1448.Angeles-Han ST, Ringold S, Beukelman T, et al.  2019 American 
+College of Rheumatology/Arthritis Foundation guideline for the screening, monitoring, and 
+treatment of juvenile idiopathic arthritis-associated uveitis.  Arthritis Rheumatol.  
+2019;71(6):864-877. 
+18. Alikhan A, Sayed C, Alavi A, et al.  North American clinical management guidelines for 
+hidradenitis suppurativa: A publication from the United States and Canadian Hidradenitis 
+Suppurativa Foundations: Part II:  Topical, intralesional, and systemic medical management.  J 
+Am Acad Dermatol.  2019 Jul;81(1):91-101. 
+19. Dick AD, Rosenbaum JT, Al-Dhibi H, et al.  Fundamentals of Care for Uveitis International 
+Consensus Group. Guidance on Noncorticosteroid Systemic Immunomodulatory Therapy in 
+
+Page 15 of 17 
+Coverage Policy Number: IP0652 
+Noninfectious Uveitis: Fundamentals Of Care for UveitiS (FOCUS) Initiative.  Ophthalmology.  
+2018 May;125(5):757-773. 
+ 
+Revision Details 
+ 
+Summary of Changes 
+Review Date 
+Effective Date 
+New policy 
+09/12/2024 
+11/01/2024  
+ 
+ 
+The following coding changes were made: 
+Updated HCPCS Coding: 
+ 
+Added: C9399, J0139, J3490, J3590  
+ 
+Added Codes Effective 1/1/2025: Q5140, Q5141, 
+Q5142, Q5143, Q5144, Q5145  
+ 
+Not Applicable-
+Coding Update 
+Only 
+2/15/2025 
+No criteria changes 
+04/03/2025 
+05/01/2025 
+Adalimumab-aaty (unbranded Yuflyma) was added to the 
+policy.  The same criteria apply as the other adalimumab 
+subcutaneous products. 
+05/08/2025 
+06/01/2025 
+Ulcerative Colitis:  For initial therapy, removed the 
+following options of approval:  (1) the patient has tried 
+one systemic therapy; (2) the patient has pouchitis and 
+tried an antibiotic, probiotic, corticosteroid enema, or 
+mesalamine enema. 
+07/31/2025 
+09/01/2025 
+Plaque Psoriasis:  For initial therapy, in the Note, a 3-
+month trial or prior intolerance to Otezla/Otezla XR 
+(apremilast tablets/extended-release tablets) or Sotyktu 
+(deucravacitinib tablets) was added as an exception to 
+the requirement for a trial of one traditional systemic 
+agent for psoriasis.  For initial therapy, the requirement 
+“patient has a contraindication to methotrexate, as 
+determined by the prescriber” was modified to 
+“according to the prescriber, the patient has a 
+contraindication to methotrexate”.  In the Appendix, 
+Otezla XR (apremilast extended-release tablets) was 
+added under the Oral Therapies/Targeted Synthetic Oral 
+Small Molecular Drugs.   
+11/13/2025 
+01/01/2026 
+Adalimumab-bwwd was added to the policy. 
+ 
+A note was added for adalimumab-bwwd, adalimumab-
+ryvk (-ryvk NDCs starting with 51759), Amjevita (NDCs 
+starting with 84612), Humira (NDCs starting with 
+83457), Hyrimoz (NDCs starting with 83457) to 
+designate them as Non-Covered products for Employer 
+Plans and Individual and Family Plans. 
+01/29/2026 
+03/01/2026 
+Crohn’s Disease:  For initial therapy, the following 
+options of approval were removed: The patient has tried 
+or is currently taking systemic corticosteroids, or 
+corticosteroids are contraindicated; patient has tried one 
+02/19/2026 
+03/15/2026 
+
+Page 16 of 17 
+Coverage Policy Number: IP0652 
+conventional systemic therapy for Crohn’s disease along 
+with the associated note; patient has enterocutaneous 
+(perianal or abdominal) or rectovaginal fistulas; patient 
+had ileocolonic resection (to reduce the chance of 
+Crohn’s disease recurrence). 
+Behcet’s Disease:  Otezla/Otezla XR (apremilast 
+tablets/extended-release tablets) added as an example 
+of conventional therapy. 
+Sarcoidosis:  Cylosporine, Leukeran (chlorambucil 
+tablets), cyclophosphamide, and Thalomid (thalidomide 
+capsules) were removed, and hydroxychloroquine was 
+added as examples of immunosuppressive medications.  
+Cardiologist and neurologist were added as accepted 
+specialists to the specialist requirement.   
+Appendix: Sotyktu was updated to include psoriatic 
+arthritis indication. 
+04/02/2026 
+05/01/2026 
+ 
+ 
+The policy effective date is in force until updated or retired.  
+ 
+ 
+ 
+APPENDIX 
+ 
+Mechanism of Action 
+Examples of Indications* 
+Biologics 
+Adalimumab SC Products (Humira®, 
+biosimilars) 
+Inhibition of TNF 
+AS, CD, JIA, PsO, PsA, RA, UC 
+Cimzia® (certolizumab pegol SC 
+injection) 
+Inhibition of TNF 
+AS, CD, nr-axSpA, PsO, PsA, 
+RA 
+Etanercept SC Products (Enbrel®, 
+biosimilars) 
+Inhibition of TNF 
+AS, JIA, PsO, PsA, RA 
+Infliximab IV Products (Remicade®, 
+biosimilars) 
+Inhibition of TNF 
+AS, CD, PsO, PsA, RA, UC 
+Zymfentra® (infliximab-dyyb SC 
+injection) 
+Inhibition of TNF 
+CD, UC 
+Simponi®, Simponi Aria® (golimumab 
+SC injection, golimumab IV infusion) 
+Inhibition of TNF 
+SC formulation:  AS, PsA, RA, 
+UC 
+IV formulation:  AS, PJIA, 
+PsA, RA 
+Tocilizumab Products (Actemra® IV, 
+biosimilar; Actemra SC, biosimilar) 
+Inhibition of IL-6 
+SC formulation:  PJIA, RA, 
+SJIA 
+IV formulation:  PJIA, RA, 
+SJIA 
+Kevzara® (sarilumab SC injection) 
+Inhibition of IL-6 
+RA 
+Orencia® (abatacept IV infusion, 
+abatacept SC injection) 
+T-cell costimulation 
+modulator 
+SC formulation:  JIA, PSA, RA 
+IV formulation:  JIA, PsA, RA 
+Rituximab IV Products (Rituxan®, 
+biosimilars) 
+CD20-directed cytolytic 
+antibody 
+RA 
+Kineret® (anakinra SC injection) 
+Inhibition of IL-1 
+JIA^, RA 
+Omvoh® (mirikizumab IV infusion, SC 
+injection) 
+Inhibition of IL-23 
+CD, UC 
+Ustekinumab Products (Stelara® SC, 
+biosimilars; ustekinumab IV infusion) 
+Inhibition of IL-12/23 
+SC formulation:  CD, PsO, 
+PsA, UC 
+IV formulation:  CD, UC 
+Siliq® (brodalumab SC injection) 
+Inhibition of IL-17 
+PsO 
+
+Page 17 of 17 
+Coverage Policy Number: IP0652 
+Cosentyx® (secukinumab SC injection; 
+secukinumab IV infusion) 
+Inhibition of IL-17A 
+SC formulation:  AS, ERA, nr-
+axSpA, PsO, PsA 
+IV formulation:  AS, nr-
+axSpA, PsA 
+Taltz® (ixekizumab SC injection) 
+Inhibition of IL-17A 
+AS, nr-axSpA, PsO, PsA 
+Bimzelx® (bimekizumab-bkzx SC 
+injection) 
+Inhibition of IL-
+17A/17F 
+PsO, AS, nr-axSpA, PsA 
+Ilumya® (tildrakizumab-asmn SC 
+injection) 
+Inhibition of IL-23 
+PsO 
+Skyrizi® (risankizumab-rzaa SC 
+injection, risankizumab-rzaa IV infusion) 
+Inhibition of IL-23 
+SC formulation:  CD, PSA, 
+PsO, UC 
+IV formulation:  CD, UC 
+Tremfya® (guselkumab SC injection, 
+guselkumab IV infusion) 
+Inhibition of IL-23 
+SC formulation:  PsA, PsO, UC 
+IV formulation:  UC 
+Entyvio® (vedolizumab IV infusion, 
+vedolizumab SC injection) 
+Integrin receptor 
+antagonist 
+CD, UC 
+Oral Therapies/Targeted Synthetic Oral Small Molecule Drugs 
+Otezla® (apremilast tablets) 
+Inhibition of PDE4 
+PsO, PsA 
+Otezla XR™ (apremilast extended-
+release tablets) 
+Inhibition of PDE4 
+PsO, PsA 
+Cibinqo™ (abrocitinib tablets) 
+Inhibition of JAK 
+pathways 
+AD 
+Olumiant® (baricitinib tablets) 
+Inhibition of JAK 
+pathways 
+RA, AA 
+Litfulo® (ritlecitinib capsules) 
+Inhibition of JAK 
+pathways 
+AA 
+Leqselvi® (deuruxolitinib tablets) 
+Inhibition of JAK 
+pathways 
+AA 
+Rinvoq® (upadacitinib extended-release 
+tablets) 
+Inhibition of JAK 
+pathways 
+AD, AS, nr-axSpA, RA, PsA, 
+UC 
+Rinvoq® LQ (upadacitinib oral solution) 
+Inhibition of JAK 
+pathways 
+PsA, PJIA 
+Sotyktu® (deucravacitinib tablets) 
+Inhibition of TYK2 
+PsO, PsA 
+Xeljanz® (tofacitinib tablets/oral 
+solution) 
+Inhibition of JAK 
+pathways 
+RA, PJIA, PsA, UC 
+Xeljanz® XR (tofacitinib extended-
+release tablets) 
+Inhibition of JAK 
+pathways 
+RA, PsA, UC 
+Zeposia® (ozanimod tablets) 
+Sphingosine 1 
+phosphate receptor 
+modulator 
+UC 
+Velsipity® (etrasimod tablets) 
+Sphingosine 1 
+phosphate receptor 
+modulator 
+UC 
+* Not an all-inclusive list of indications.  Refer to the prescribing information for the respective agent for FDA-
+approved indications; SC – Subcutaneous; TNF – Tumor necrosis factor; AS – Ankylosing spondylitis; CD – 
+Crohn’s disease; JIA – Juvenile idiopathic arthritis; PsO – Plaque psoriasis; PsA – Psoriatic arthritis; RA – 
+Rheumatoid arthritis; UC – Ulcerative colitis; nr-axSpA – Non-radiographic axial spondyloarthritis; IV – 
+Intravenous, PJIA – Polyarticular juvenile idiopathic arthritis; IL – Interleukin; SJIA – Systemic juvenile 
+idiopathic arthritis; ^ Off-label use of Kineret in JIA supported in guidelines; ERA – Enthesitis-related arthritis; 
+DMARD – Disease-modifying antirheumatic drug; PDE4 – Phosphodiesterase 4; JAK – Janus kinase; AD – Atopic 
+dermatitis; AA – Alopecia areata; TYK2 – Tyrosine kinase 2. 
+ 
+ 
+“Cigna Companies” refers to operating subsidiaries of The Cigna Group. All products and services are provided exclusively 
+by or through such operating subsidiaries, including Cigna Health and Life Insurance Company, Connecticut General Life 
+Insurance Company, Evernorth Behavioral Health, Inc., Cigna Health Management, Inc., and HMO or service company 
+subsidiaries of The Cigna Group. © 2026 The Cigna Group. 
+ 

@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, CheckCircle2, Clock, HelpCircle, Zap } from 'lucide-react'
+import { AlertTriangle, Check, CheckCircle2, Clock, FileSearch, HelpCircle, Zap } from 'lucide-react'
 import { type CriterionResult } from '../../types'
 import { type LocalCaseState } from './caseQueue'
 import { ruleIcons } from '../ui'
@@ -13,6 +13,9 @@ export interface CriterionActions {
   cancelOverride: () => void
   applyOverride: (ruleLabel: string) => void
   setOverrideInput: (txt: string) => void
+  // Opens the Exception Resolver modal (evidence presets + discovery console)
+  // for this criterion. Optional — views without the resolver omit it.
+  openResolver?: (criterion: CriterionResult) => void
 }
 
 const STATUS_CFG = {
@@ -37,12 +40,14 @@ const STATUS_CFG = {
     textCls: 'text-red-400',
     bgCls: 'bg-red-500/5 border-red-500/20 hover:border-red-500/30',
   },
+  // Dispatched ≠ satisfied: the request is in flight, the criterion is still
+  // open until the documentation lands — so it stays amber, not green.
   dispatched: {
-    Icon: CheckCircle2,
-    label: 'Dispatched',
-    iconCls: 'text-emerald-400',
-    textCls: 'text-emerald-400',
-    bgCls: 'bg-emerald-500/10 border-emerald-500/25 hover:border-emerald-500/30',
+    Icon: Clock,
+    label: 'Awaiting Docs',
+    iconCls: 'text-amber-400',
+    textCls: 'text-amber-400',
+    bgCls: 'bg-amber-500/10 border-amber-500/25 hover:border-amber-500/30',
   },
   override: {
     Icon: CheckCircle2,
@@ -173,19 +178,36 @@ export function CriterionRow({
 
           {criterion.status !== 'found' && !isDispatched && !isPending && !isOverriding && !overrideNote && (
             <div className="mt-3 pt-2.5 border-t border-slate-700/30 flex items-center gap-2" onClick={e => e.stopPropagation()}>
-              <button
-                onClick={() => actions.startOverride(criterion.rule.label, criterion.note)}
-                className="text-[11px] font-semibold text-slate-400 hover:text-slate-200 bg-slate-800/60 border border-slate-700/80 hover:border-slate-600 rounded px-2.5 py-1 transition-colors"
-              >
-                Override Finding
-              </button>
-              {criterion.workflowPlan && (
+              {actions.openResolver ? (
+                // One entry point: the resolver carries the dispatch-workflow
+                // path (preselected when one exists), evidence presets, and
+                // custom justification — no parallel buttons to choose between.
                 <button
-                  onClick={() => actions.stageDispatch(criterion.rule.label)}
-                  className="flex items-center gap-1 text-[11px] font-semibold text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 rounded px-2.5 py-1 transition-colors"
+                  onClick={() => actions.openResolver!(criterion)}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-sky-300 bg-sky-500/10 border border-sky-500/30 hover:bg-sky-500/20 rounded px-2.5 py-1 transition-colors"
                 >
-                  <Zap className="w-3 h-3" /> Dispatch Workflow
+                  <FileSearch className="w-3 h-3" /> Resolve Exception
+                  {criterion.workflowPlan && (
+                    <span className="text-slate-500 font-normal">· {criterion.workflowPlan.channel}</span>
+                  )}
                 </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => actions.startOverride(criterion.rule.label, criterion.note)}
+                    className="text-[11px] font-semibold text-slate-400 hover:text-slate-200 bg-slate-800/60 border border-slate-700/80 hover:border-slate-600 rounded px-2.5 py-1 transition-colors"
+                  >
+                    Override Finding
+                  </button>
+                  {criterion.workflowPlan && (
+                    <button
+                      onClick={() => actions.stageDispatch(criterion.rule.label)}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 rounded px-2.5 py-1 transition-colors"
+                    >
+                      <Zap className="w-3 h-3" /> Dispatch Workflow
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}

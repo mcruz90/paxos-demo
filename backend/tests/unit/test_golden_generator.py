@@ -202,9 +202,14 @@ def test_pdf_round_trip_etl_extracts_denial_text() -> None:
 # ── POOL-ONLY IDENTITIES ──────────────────────────────────────────────────────
 
 
-def test_identity_pool_has_three_entries() -> None:
-    """IDENTITY_POOL must have exactly 3 entries — one per golden anchor."""
-    assert len(IDENTITY_POOL) == 3
+def test_identity_pool_has_four_entries() -> None:
+    """IDENTITY_POOL must have exactly 4 entries — one per golden anchor.
+
+    Anchors: ozempic_cigna, esomeprazole_uhc_pediatric, livdelzi_cigna_hepatology,
+    humira_cigna. The first three are seed-generated (SEEDS/PROFILES); humira_cigna
+    is a policy-anchored appeal case (authored fixture, no generator seed).
+    """
+    assert len(IDENTITY_POOL) == 4
 
 
 def test_identity_pool_all_required_fields_present() -> None:

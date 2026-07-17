@@ -1,4 +1,5 @@
-import { type CaseTier, type CaseStatus, type Client, type CriterionResult, type ScenarioConfig, type UniversalPrimitive } from '../types'
+import { type CaseTier, type CaseStatus, type Client, type CriterionResult, type ScenarioConfig, type SourceDocument, type UniversalPrimitive } from '../types'
+import { scenarioHumiraCigna } from './scenarios_humira_cigna'
 
 export const universalPrimitives: UniversalPrimitive[] = [
   {
@@ -129,7 +130,64 @@ const ozempicCitations: ScenarioConfig['citations'] = {
     { source: 'Office Visit Notes', page: 'p. 2', text: 'Office visit 01/10/2024 — BMI 33.2 kg/m². Note: "weight management goals discussed." Prescriber attestation required confirming T2DM glycemic control as sole indication for Ozempic.' },
 }
 
+// Rendered source-document bodies behind the Ozempic appeal (novo-ozempic).
+// Each criterion's cited block carries the SAME text as its citation snippet
+// above (verbatim grounding — the sourceDocuments parity test enforces this);
+// the surrounding blocks are authored synthetic context. Patient: Margaret
+// Vance (Case #PH-3102). All demo-synthetic — no real patient data.
+const ozempicSourceDocuments: SourceDocument[] = [
+  {
+    id: 'doc-denial',
+    title: 'Cigna — Coverage Determination',
+    source: 'Cigna Coverage Determination Letter',
+    meta: 'CIGNA-CNF360-2024 · issued Jun 8, 2026 · ref DEN-77120',
+    blocks: [
+      { text: 'Dear Ms. Vance,' },
+      { text: 'This letter concerns the prior authorization request for Ozempic (semaglutide) submitted under plan Cigna Connect 500 PPO.' },
+      { text: 'Coverage is denied: the indication is not confirmed as limited to Type 2 Diabetes Mellitus glycemic control. The chart documents BMI 33.2 kg/m² and weight-management goals, which may indicate weight-loss use excluded under policy cnf_360.' },
+      { text: 'You may appeal this determination within 180 days. A prescriber attestation addressing the indication may be included with the appeal.' },
+    ],
+  },
+  {
+    id: 'doc-consult',
+    title: 'Specialist Consult — Endocrinology',
+    source: 'Specialist Consult (Endocrinology)',
+    meta: 'encounter 02/08/2024 · p. 1 · source: Epic',
+    blocks: [
+      { text: 'Endocrinology consultation — reason for visit: glycemic management, GLP-1 initiation review.' },
+      { text: 'Endocrinology consult 02/08/2024 — T2DM (E11.9) established 2021. ICD-10 on file since 2019. Fasting glucose 187 mg/dL confirming active disease.', criterionLabel: 'Confirmed Diagnosis: Type 2 Diabetes Mellitus (T2DM)' },
+      { text: 'Patient DOB 03/14/1972 — age 52 at time of request (03/14/2024). Cigna GLP-1 policy minimum age 18 years met.', criterionLabel: 'Patient Age ≥ 18 Years (Ozempic Minimum Age Threshold)' },
+      { text: 'Plan: continue metformin; initiate GLP-1 agonist for glycemic control per ADA guidance.' },
+    ],
+  },
+  {
+    id: 'doc-meds',
+    title: 'Active Medication List',
+    source: 'Medication List',
+    meta: 'reviewed 03/14/2024 · p. 3 · source: Epic',
+    blocks: [
+      { text: 'Active medication list 03/14/2024: metformin 1000mg BID, lisinopril 10mg, atorvastatin 40mg. No GLP-1 or GLP-1/GIP agonist active.', criterionLabel: 'No Concomitant GLP-1 or GLP-1/GIP Agonist on Active Medication List' },
+      { text: 'Allergies: NKDA. Reconciliation performed at 03/14/2024 visit.' },
+    ],
+  },
+  {
+    id: 'doc-visit',
+    title: 'Office Visit Notes',
+    source: 'Office Visit Notes',
+    meta: 'visit 01/10/2024 · p. 2 · source: Epic',
+    blocks: [
+      { text: 'Office visit 01/10/2024 — BMI 33.2 kg/m². Note: "weight management goals discussed." Prescriber attestation required confirming T2DM glycemic control as sole indication for Ozempic.', criterionLabel: 'Indication Confirmed as T2DM Glycemic Control (Not Weight Loss)' },
+      { text: 'Follow-up scheduled; labs ordered. Counseling on diet and activity documented.' },
+    ],
+  },
+]
+
 export const scenarios: Record<string, ScenarioConfig> = {
+  // ── Humira × Cigna RA appeal — authored from the real IP0652 policy by the
+  // golden-set governance pass (anchor `humira_cigna`). Data lives in its own
+  // module; registered here. ─────────────────────────────────────────────────
+  'humira-cigna': scenarioHumiraCigna,
+
   // ── Ozempic family: Cigna base ──────────────────────────────────────────────
   'novo-ozempic': {
     id: 'novo-ozempic',
@@ -146,6 +204,7 @@ export const scenarios: Record<string, ScenarioConfig> = {
     clientType: 'patient',
     criteriaResults: ozempicCriteria,
     citations: ozempicCitations,
+    sourceDocuments: ozempicSourceDocuments,
     configJson: ozempicCignaConfigJson,
     timeline: [
       { label: 'PA Filed',      date: 'Jun 5, 2026',  status: 'done'    as const, note: 'Cigna GLP-1 review'    },
@@ -484,39 +543,46 @@ export const TENANT = {
 
 export const initialClients: Client[] = [
   {
-    id: 4, name: 'Case #PH-3101', drug: 'Ozempic', categoryLabel: 'Endocrinology',
+    id: 4, name: 'Case #PH-3101', patientRef: 'PT-3101', drug: 'Ozempic', categoryLabel: 'Endocrinology',
     patientDisplayName: 'Robert Chen',   patientDob: '03/14/1972', payer: 'Cigna',
     gapSummary: 'Prescriber attestation needed — BMI note triggers T2DM-only indication review',
     status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 5, 2026',
     scenarioId: 'novo-ozempic-docgap',    deadline: 'Due tomorrow',   urgency: 'soon',
   },
   {
-    id: 0, name: 'Case #PH-3098', drug: 'Ozempic', categoryLabel: 'Endocrinology',
+    id: 0, name: 'Case #PH-3098', patientRef: 'PT-3098', drug: 'Ozempic', categoryLabel: 'Endocrinology',
     patientDisplayName: 'Anita Patel',   patientDob: '08/22/1985', payer: 'Cigna',
     gapSummary: 'All criteria satisfied — ready for coordinator sign-off and PAS submission',
     status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 17, 2026',
     scenarioId: 'novo-ozempic-initial',   deadline: 'Due in 2 days',  urgency: 'soon',
   },
   {
-    id: 1, name: 'Case #PH-3102', drug: 'Ozempic', categoryLabel: 'Endocrinology',
+    id: 1, name: 'Case #PH-3102', patientRef: 'PT-3102', drug: 'Ozempic', categoryLabel: 'Endocrinology',
     patientDisplayName: 'Margaret Vance', patientDob: '11/08/1967', payer: 'Cigna',
     gapSummary: 'Appeal letter drafted — T2DM indication dispute, coordinator review needed',
     status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 8, 2026',
     scenarioId: 'novo-ozempic',           deadline: 'Due today',      urgency: 'today',
   },
   {
-    id: 2, name: 'Case #PH-4201', drug: 'Esomeprazole Susp.', categoryLabel: 'Gastroenterology',
+    id: 2, name: 'Case #PH-4201', patientRef: 'PT-4201', drug: 'Esomeprazole Susp.', categoryLabel: 'Gastroenterology',
     patientDisplayName: 'Lucas Rivera',   patientDob: '05/30/2019',  payer: 'UnitedHealthcare',
     gapSummary: 'Payer counter-offer: dose limited to 10 mg/day — labeled dose is 20 mg at ≥20 kg',
     status: 'payer_response',   clientType: 'patient', lastUpdated: 'Jun 11, 2026',
     scenarioId: 'pediatric-esomeprazole', deadline: 'Due in 4 days',  urgency: 'later',
   },
   {
-    id: 3, name: 'Case #PH-2847', drug: 'Livdelzi', categoryLabel: 'Hepatology',
+    id: 3, name: 'Case #PH-2847', patientRef: 'PT-2847', drug: 'Livdelzi', categoryLabel: 'Hepatology',
     patientDisplayName: 'Diane Okafor',   patientDob: '09/01/1959',  payer: 'Cigna',
     gapSummary: 'Conflict: decompensation history disputed between consult and discharge notes',
     status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 9, 2026',
     scenarioId: 'gilead-livdelzi',        deadline: 'Due today',      urgency: 'today',
+  },
+  {
+    id: 5, name: 'Case #PH-5177', patientRef: 'PT-5177', drug: 'Humira', categoryLabel: 'Rheumatology',
+    patientDisplayName: 'Yvonne Castellano', patientDob: '05/19/1968', payer: 'Cigna',
+    gapSummary: 'Non-preferred brand denial — preferred-product exception needs documented biosimilar failure',
+    status: 'exception',        clientType: 'patient', lastUpdated: 'Jun 27, 2026',
+    scenarioId: 'humira-cigna',           deadline: 'Due in 2 days',  urgency: 'soon',
   },
 ]
 

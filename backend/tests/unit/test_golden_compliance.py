@@ -54,6 +54,7 @@ _AUTHORED_ANCHOR_IDS: frozenset[str] = frozenset({
     "ozempic_cigna",
     "esomeprazole_uhc_pediatric",
     "livdelzi_cigna_hepatology",
+    "humira_cigna",
 })
 
 # Combined pool of all patient-scope identifiers that must never appear in public docs

@@ -120,6 +120,38 @@ export interface ScenarioConfig {
     ctaAccept: string
     ctaDispute: string
   }
+  // Rendered source-document bodies behind the citations — lets the workspace
+  // show the actual denial letter / chart note with the cited span lit in situ,
+  // not just a quoted snippet. Absent ⇒ the case only offers the snippet cards.
+  sourceDocuments?: SourceDocument[]
+  // EHR auto-verify fixtures, keyed by criterion label: what a simulated
+  // registry pull (pharmacy dispense history, FHIR) would verify for that
+  // criterion. Only authored where the case's researched narrative documents
+  // the underlying fact — the demo rail never "finds" invented data. Absent ⇒
+  // the resolver's auto-verify search honestly reports no discrete EHR match.
+  ehrVerifications?: Record<string, EhrVerification>
+}
+
+export interface EhrVerification {
+  registry: string  // e.g. 'SureScripts dispense history (Epic ingest)'
+  finding: string   // what the pull verifies, traceable to the fixture narrative
+}
+
+// A block of a source document. When `criterionLabel` is set, the block IS the
+// cited span grounding that criterion (its text equals the matching
+// `citations[label].text`), so the viewer can light it when the criterion is
+// selected. Plain blocks (no label) are the surrounding document context.
+export interface SourceDocBlock {
+  text: string
+  criterionLabel?: string
+}
+
+export interface SourceDocument {
+  id: string        // stable DOM/tab id, e.g. 'doc-denial'
+  title: string     // human title, e.g. 'Cigna — Coverage Determination'
+  source: string    // classified by documentKind() for the letterhead/icon
+  meta: string      // provenance line: 'encounter 02/08/2024 · p.1 · Epic'
+  blocks: SourceDocBlock[]
 }
 
 // How close a case is to its regulatory turnaround deadline — drives queue
@@ -129,8 +161,18 @@ export interface ScenarioConfig {
 // state — it would close the case unfavorably, not sit here as "actionable".
 export type Urgency = 'today' | 'soon' | 'later'
 
+// What the PA targets. Everything today is a medication; the type exists so
+// the roster idiom already accommodates device/procedure PA lifecycles.
+export type PaTargetType = 'medication' | 'device' | 'procedure'
+
 export interface Client {
   id: number
+  // Stable per-patient reference — the same patient can own multiple PAs
+  // (cases). Absent ⇒ the case stands alone as its own patient. NOTE: real
+  // patient↔case tenancy is a backend gap (O9/G1); this is demo-only grouping.
+  patientRef?: string
+  // Absent ⇒ 'medication' (the current default across all cases).
+  paTargetType?: PaTargetType
   name: string                  // Case reference, e.g. 'Case #PH-3101'
   patientDisplayName?: string   // Human-readable patient name, e.g. 'Margaret Vance'
   patientDob?: string           // Date of birth label, e.g. '03/14/1972'

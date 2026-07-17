@@ -71,6 +71,19 @@
       "source_pdf_sha256": "e0e779aa2108d490132ed8da7c7e94720e8caf377137ac5f57e3a6cc37ee8189",
       "terms": "factual criteria extracted with citation; not redistributed verbatim",
       "format": "pdf"
+    },
+    {
+      "anchor_id": "humira_cigna",
+      "source_url": "https://static.cigna.com/assets/chcp/pdf/coveragePolicies/pharmacy/ip_0652_coveragepositioncriteria_inflammatory_conditions_adalimumab_products_pa.pdf",
+      "retrieved_date": "2026-07-15",
+      "effective_date": "2026-05-01",
+      "market": "commercial",
+      "cigna_policy_tier": "pharmacy_pa_nonpreferred",
+      "note": "Authored anchor for the adalimumab (Humira) / rheumatoid arthritis / Cigna appeal case. Source is IP0652 (pharmacy Drug Coverage Policy, effective 05/01/2026), the document that contains BOTH the RA clinical criteria (§7.A: age >=18, one conventional synthetic DMARD >=3 months, rheumatologist) AND the preferred-product step-therapy determination for brand Humira (p.5 NOTE: 'requires the use of preferred products before approval of a requested non-preferred adalimumab product' + not-covered list naming Humira NDCs starting 83457). The parallel National Formulary policy cnf_428 (review 03/18/2026) carries the same RA clinical criteria but NO preferred/non-preferred language and treats Humira and biosimilars identically; the non-preferred gate lives only in the pharmacy IP0652 doc + its cross-referenced Preferred Specialty Management policy (PSM003/PSM013/PSM014, not downloaded — exception criteria are governed there).",
+      "raw_sha256": "90567e06de0a435f2d4b5397bdbacfeb190c173879ab2b22074b7d87f88c5992",
+      "markdown_sha256": "282121e6ca6b9110ea2003bd9bfecfda8eb22891ebfe2803a51766ad77888a9d",
+      "terms": "factual criteria extracted with citation; not redistributed verbatim",
+      "format": "pdf"
     }
   ]
 }

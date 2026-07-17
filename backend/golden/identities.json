@@ -40,5 +40,19 @@
     "prescriber_specialty": "Hepatology",
     "prescriber_address": "1200 Medical Center Drive, Portland, OR 97239",
     "prescriber_phone": "(503) 555-0381"
+  },
+  {
+    "anchor_id": "humira_cigna",
+    "patient_name": "Yvonne M. Castellano",
+    "patient_dob": "1968-05-19",
+    "patient_sex": "F",
+    "member_id": "CGN00456789",
+    "group_id": "GRP-78022",
+    "patient_address": "58 Larkspur Hollow, Asheville, NC 28801",
+    "prescriber_name": "Dr. Helena Brandt, MD",
+    "prescriber_npi": "4567890123",
+    "prescriber_specialty": "Rheumatology",
+    "prescriber_address": "455 Vanderbilt Medical Parkway, Asheville, NC 28803",
+    "prescriber_phone": "(828) 555-0413"
   }
 ]

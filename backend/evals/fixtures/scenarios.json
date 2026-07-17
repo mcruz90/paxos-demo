@@ -246,6 +246,96 @@
       "eval_dimensions": ["coverage", "safety", "claim_citation", "over_caution"]
     },
     {
+      "scenario_id": "humira_cigna_clinical_pa",
+      "_note": "SYNTHETIC — NO PHI. Adalimumab (Humira) / rheumatoid arthritis / Cigna appeal. Denial basis: brand Humira is a NON-PREFERRED adalimumab product — Cigna IP0652 requires trial/use of preferred adalimumab products before a non-preferred one (p.5 NOTE; Humira listed not-covered, NDCs starting 83457). The RA clinical criteria (age, one conventional synthetic DMARD >=3 months, rheumatologist) are all met; the crux is the preferred-product exception, whose detail lives in the cross-referenced PSM policy.",
+      "anchor_id": "humira_cigna",
+      "denial_type": "clinical_pa",
+      "drug": "Humira (adalimumab)",
+      "payer": "Cigna Connect 3000 PPO",
+      "plan_id": "CIGNA-IP0652-2026",
+      "appeal_process_ref": "cigna_standard_appeal",
+      "policy_refs": ["humira_cigna"],
+      "submitted_codes": {
+        "icd10": ["M05.79"],
+        "ndc": "00074-0554-02"
+      },
+      "policy_expected_codes": {
+        "icd10_secondary": [],
+        "source_ref": "humira_cigna",
+        "source_text": "M05.79: Rheumatoid arthritis with rheumatoid factor of multiple sites without organ or systems involvement (seropositive RA)."
+      },
+      "discrepancy_signals": [],
+      "criteria": [
+        {
+          "key": "ra_diagnosis",
+          "label": "Seropositive rheumatoid arthritis confirmed, moderately-to-severely active",
+          "rule_type": "diagnostic",
+          "ground_truth_status": "found",
+          "confidence": 0.97,
+          "evidence_summary": "RF positive (78 IU/mL) and anti-CCP positive (>250 U/mL) on 09/12/2025; CDAI 28 (high activity); ICD-10 M05.79 documented since 2021; meets ACR/EULAR 2010 classification",
+          "grounding": {
+            "doc_ref": "clinical_00_ra_diagnosis.txt",
+            "section": "Finding"
+          }
+        },
+        {
+          "key": "adult_age_18",
+          "label": "Patient age 18 or older",
+          "rule_type": "diagnostic",
+          "ground_truth_status": "found",
+          "confidence": 0.99,
+          "evidence_summary": "DOB 05/19/1968; age 58 at time of request; IP0652 RA criterion §7.A.i minimum age 18 met",
+          "grounding": {
+            "doc_ref": "clinical_01_adult_age_18.txt",
+            "section": "Finding"
+          }
+        },
+        {
+          "key": "csdmard_trial_methotrexate",
+          "label": "Conventional synthetic DMARD trial >=3 months (methotrexate)",
+          "rule_type": "temporal",
+          "ground_truth_status": "found",
+          "confidence": 0.96,
+          "evidence_summary": "Methotrexate 20 mg weekly from 02/2024 through 01/2025 (11 months) with inadequate monotherapy response (CDAI remained >22); satisfies IP0652 §7.A.ii; methotrexate continued in combination per Conditions Not Covered §1 Note",
+          "grounding": {
+            "doc_ref": "clinical_02_csdmard_trial_methotrexate.txt",
+            "section": "Finding"
+          }
+        },
+        {
+          "key": "rheumatologist_prescriber",
+          "label": "Prescribed by or in consultation with a rheumatologist",
+          "rule_type": "provider",
+          "ground_truth_status": "found",
+          "confidence": 0.97,
+          "evidence_summary": "Dr. Helena Brandt, MD — Rheumatology; NPI 4567890123; board-certified; satisfies IP0652 §7.A.iii specialist requirement",
+          "grounding": {
+            "doc_ref": "clinical_03_rheumatologist_prescriber.txt",
+            "section": "Finding"
+          }
+        },
+        {
+          "key": "preferred_product_exception",
+          "label": "Preferred-product step therapy met or exception warranted (non-preferred brand Humira)",
+          "rule_type": "custom",
+          "ground_truth_status": "needs_review",
+          "confidence": 0.71,
+          "evidence_summary": "IP0652 requires preferred adalimumab products before a non-preferred one (p.5 NOTE); patient was established on brand Humira >=6 months with beneficial response, then had a documented loss of response and injection-site reactions on a mandated switch to the plan's preferred adalimumab biosimilar (adalimumab-adbm, Cyltezo) 06/2025; supports a medical-necessity exception, but the exception is adjudicated under the cross-referenced Preferred Specialty Management policy (PSM013), not fully in the submitted record",
+          "grounding": {
+            "doc_ref": "denial_letter.txt",
+            "section": "Denial Rationale"
+          }
+        }
+      ],
+      "expected_outcome": {
+        "appealable": true,
+        "resolution_path": "appeal",
+        "primary_argument_key": "preferred_product_exception",
+        "confidence": "medium"
+      },
+      "eval_dimensions": ["coverage", "claim_citation", "over_caution"]
+    },
+    {
       "scenario_id": "ozempic_cigna_coding_error",
       "anchor_id": "ozempic_cigna",
       "denial_type": "coding_error",

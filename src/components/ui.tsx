@@ -9,7 +9,7 @@ export function DueBadge({ deadline, urgency }: { deadline: string; urgency: Urg
     later: 'text-slate-400 bg-slate-700/30 border-slate-600/40',
   }
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap ${cls[urgency]}`}>
+    <span className={`px-2 py-0.5 rounded-md text-xs font-medium border whitespace-nowrap ${cls[urgency]}`}>
       {deadline}
     </span>
   )
@@ -24,17 +24,17 @@ export function TierBadge({ tier }: { tier: CaseTier }) {
   // 'Exception' is deliberately avoided here — it collides with the amber
   // CaseStatus='exception' workflow chip (a different axis).
   if (tier === 'exception') return (
-    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 whitespace-nowrap">
+    <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 whitespace-nowrap">
       Escalation
     </span>
   )
   if (tier === 'complex') return (
-    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 whitespace-nowrap">
+    <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 whitespace-nowrap">
       Full Review
     </span>
   )
   return (
-    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
+    <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
       Routine
     </span>
   )
@@ -78,7 +78,7 @@ export function StageBadge({ stage }: { stage: 'Initial PA' | 'Appeal' }) {
     ? 'bg-blue-500/10 text-blue-300 border-blue-500/20'
     : 'bg-slate-700/40 text-slate-300 border-slate-600/40'
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap ${className}`}>
+    <span className={`px-2 py-0.5 rounded-md text-xs font-medium border whitespace-nowrap ${className}`}>
       {stage}
     </span>
   )
@@ -95,7 +95,7 @@ export function StatusBadge({ status }: { status: CaseStatus }) {
   }
   const { label, className } = config[status]
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${className}`}>
+    <span className={`px-2 py-0.5 rounded-md text-xs font-medium border ${className}`}>
       {label}
     </span>
   )

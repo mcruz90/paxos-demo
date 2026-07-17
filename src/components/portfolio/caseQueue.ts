@@ -6,15 +6,30 @@ import { getCaseStage } from '../../data/scenarios'
 // component state: everything here is unit-testable with literal inputs.
 // ---------------------------------------------------------------------------
 
+// One coordinator action recorded on the case: what was done, when, and — for
+// outbound sends — a snapshot of the artifact that left the system. This is
+// the demo-local stand-in for the backend audit rail (ADR-0009/0011): when the
+// live path lands, each entry maps to an AuditRecord keyed by correlation_id,
+// and the artifact snapshot to its artifact_ref/hash. An action the log can't
+// show is an action the audit trail can't prove.
+export interface ActivityEntry {
+  at: string
+  action: string
+  detail: string
+  artifact?: { title: string; body: string }
+}
+
 // Coordinator actions taken on a case's criteria before the case leaves the
-// queue view: workflows dispatched, findings overridden with a rationale, and
-// the in-progress dispatch/override UI state. Local to the session (demo).
+// queue view: workflows dispatched, findings overridden with a rationale, the
+// in-progress dispatch/override UI state, and the per-case activity log.
+// Local to the session (demo).
 export interface LocalCaseState {
   dispatched: string[]
   pendingDispatch: string[]
   overrides: Record<string, string>
   pendingOverride: string | null
   overrideInput: string
+  activity: ActivityEntry[]
 }
 
 export const EMPTY_LOCAL_CASE_STATE: LocalCaseState = {
@@ -23,6 +38,33 @@ export const EMPTY_LOCAL_CASE_STATE: LocalCaseState = {
   overrides: {},
   pendingOverride: null,
   overrideInput: '',
+  activity: [],
+}
+
+export function logActivity(local: LocalCaseState, entry: ActivityEntry): LocalCaseState {
+  return { ...local, activity: [...local.activity, entry] }
+}
+
+// Snapshot of the outbound request (fax / EHR task) at the moment of dispatch —
+// stored on the activity entry so the log holds a copy of what was actually
+// sent, not just the fact that something was.
+export function buildDispatchArtifact(
+  scenario: ScenarioConfig,
+  criterion: CriterionResult,
+): { title: string; body: string } {
+  const wp = criterion.workflowPlan
+  return {
+    title: `Outbound request — ${wp?.recipient ?? 'provider'}`,
+    body: [
+      `To:         ${wp?.recipient ?? 'Provider'}`,
+      `Channel:    ${wp?.channel ?? '—'}`,
+      `Turnaround: ${wp?.turnaround ?? '—'}`,
+      `Re:         ${scenario.drug} — ${scenario.plan}`,
+      `Criterion:  ${criterion.rule.label}`,
+      ``,
+      `Request:    ${wp?.action ?? criterion.suggestedAction ?? '—'}`,
+    ].join('\n'),
+  }
 }
 
 export const ACTION_GROUPS: { status: CaseStatus; label: string; hint: string }[] = [
@@ -88,6 +130,29 @@ export function countLocallyResolved(criteria: CriterionResult[], local: LocalCa
   return criteria.filter(c =>
     local.dispatched.includes(c.rule.label) || local.overrides[c.rule.label] !== undefined
   ).length
+}
+
+// Checklist display math. A dispatched workflow is a request in flight — the
+// criterion is NOT satisfied until the documentation lands, so it counts as
+// awaitingDocs, never satisfied. Only AI-found criteria and clinician
+// overrides (resolved in place with a justification) are satisfied.
+export interface ChecklistProgress {
+  satisfied: number
+  awaitingDocs: number
+  total: number
+}
+
+export function checklistProgress(scenario: ScenarioConfig, local: LocalCaseState): ChecklistProgress {
+  const unresolved = unresolvedCriteria(scenario)
+  const overridden = unresolved.filter(c => local.overrides[c.rule.label] !== undefined)
+  const awaiting = unresolved.filter(
+    c => local.dispatched.includes(c.rule.label) && local.overrides[c.rule.label] === undefined,
+  )
+  return {
+    satisfied: scenario.criteriaResults.length - unresolved.length + overridden.length,
+    awaitingDocs: awaiting.length,
+    total: scenario.criteriaResults.length,
+  }
 }
 
 // True only when the case actually had exceptions and every one is resolved —

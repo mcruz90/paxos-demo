@@ -1,9 +1,21 @@
-import { User } from 'lucide-react'
-import { type Client } from '../../types'
-import { getCaseStage, getCaseTier } from '../../data/scenarios'
-import { DueBadge, StageBadge, StatusBadge, TierBadge } from '../ui'
+import { type Client, type PaTargetType } from '../../types'
+import { getCaseStage } from '../../data/scenarios'
+import { DueBadge, StageBadge, StatusBadge } from '../ui'
 
-// Compact case card for the queue's left pane.
+// Gemini-roster idiom: a tiny uppercase tag for what the PA targets. All cases
+// today are medications; the badge future-proofs device/procedure lifecycles.
+const TARGET_BADGE: Record<PaTargetType, { label: string; cls: string }> = {
+  medication: { label: 'MEDS',   cls: 'bg-slate-800 border-slate-700 text-slate-400' },
+  device:     { label: 'DEVICE', cls: 'bg-violet-500/10 border-violet-500/20 text-violet-300' },
+  procedure:  { label: 'PROC',   cls: 'bg-blue-500/10 border-blue-500/20 text-blue-300' },
+}
+
+// Compact case card for the queue's left pane. Two lines, minimal required
+// info (roster-scan idiom): identity + status chip, then drug · payer with the
+// stage and deadline. The per-case gap summary lives in the hover tooltip and
+// the workspace — not on the card, where it overwhelmed the scan. The tier
+// badge is dropped here: for exceptions it duplicated the status chip
+// (badge fatigue), and the workspace header still shows it.
 export function CaseCard({
   client,
   selected,
@@ -18,7 +30,7 @@ export function CaseCard({
   isResolved: boolean
 }) {
   const stage = getCaseStage(client)
-  const tier  = getCaseTier(client)
+  const target = TARGET_BADGE[client.paTargetType ?? 'medication']
 
   const accentCls =
     client.urgency === 'today' ? 'border-l-red-500'
@@ -29,8 +41,9 @@ export function CaseCard({
     <button
       id={tourId}
       onClick={onClick}
+      title={client.gapSummary}
       className={[
-        'w-full text-left border-l-2 px-3 py-3 rounded-r-xl transition-all relative',
+        'w-full text-left border-l-2 px-4 py-3.5 rounded-r-xl transition-all relative',
         accentCls,
         selected
           ? 'bg-slate-700/70 shadow-inner ring-1 ring-slate-600/60'
@@ -42,40 +55,25 @@ export function CaseCard({
           <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 animate-pulse" title="All exceptions resolved locally" />
         </span>
       )}
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-6 h-6 rounded-md shrink-0 bg-slate-700 flex items-center justify-center">
-            <User className="w-3.5 h-3.5 text-slate-400" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-white truncate leading-tight">
-              {client.patientDisplayName ?? client.name}
-            </p>
-            <p className="text-xs text-slate-500 leading-tight">
-              {client.name}{client.patientDob ? ` · ${client.patientDob}` : ''}
-            </p>
-          </div>
-        </div>
-        <DueBadge deadline={client.deadline} urgency={client.urgency} />
-      </div>
 
-      <div className="flex items-center gap-1.5 flex-wrap mb-1.5 ml-8">
-        {client.payer && <span className="text-xs text-slate-400 font-medium">{client.payer}</span>}
-        {client.payer && <span className="text-slate-600 text-xs">·</span>}
-        <span className="text-xs text-slate-300">{client.drug}</span>
-        <span className="text-slate-600 text-xs">·</span>
-        <StageBadge stage={stage} />
-      </div>
-
-      {client.gapSummary && (
-        <p className="text-xs text-slate-400 ml-8 leading-snug line-clamp-2">
-          {client.gapSummary}
+      <div className="flex items-start justify-between gap-2 mb-2.5">
+        <p className="text-sm font-semibold text-white truncate leading-tight min-w-0">
+          {client.patientDisplayName ?? client.name}
         </p>
-      )}
-
-      <div className="flex items-center gap-1.5 mt-1.5 ml-8">
         <StatusBadge status={client.status} />
-        {tier !== 'routine' && <TierBadge tier={tier} />}
+      </div>
+
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="text-slate-400 truncate min-w-0">
+          {client.drug}{client.payer ? ` · ${client.payer}` : ''}
+        </span>
+        <span className="flex items-center gap-1.5 shrink-0">
+          <span className={`px-1.5 py-0.5 rounded border text-[9px] font-semibold tracking-wide ${target.cls}`}>
+            {target.label}
+          </span>
+          <StageBadge stage={stage} />
+          <DueBadge deadline={client.deadline} urgency={client.urgency} />
+        </span>
       </div>
     </button>
   )

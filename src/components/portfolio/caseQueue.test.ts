@@ -5,10 +5,13 @@ import {
   type LocalCaseState,
   allExceptionsResolved,
   applyPayerDecision,
+  buildDispatchArtifact,
+  checklistProgress,
   countActionable,
   countLocallyResolved,
   filterClients,
   groupByAction,
+  logActivity,
   quickApproveClient,
   statusAfterResolution,
   unresolvedCriteria,
@@ -112,6 +115,63 @@ describe('exception resolution', () => {
     // Override-only resolution still goes through the human approval gate —
     // it never jumps straight to submitted (05-state-lifecycle).
     expect(statusAfterResolution(EMPTY_LOCAL_CASE_STATE)).toBe('ready_for_review')
+  })
+})
+
+describe('checklistProgress — dispatched is pending, never satisfied', () => {
+  const scenario = scenarios['gilead-livdelzi']
+  const unresolved = unresolvedCriteria(scenario)
+  const total = scenario.criteriaResults.length
+
+  it('a dispatched workflow counts as awaiting docs, not satisfied', () => {
+    const local: LocalCaseState = {
+      ...EMPTY_LOCAL_CASE_STATE,
+      dispatched: [unresolved[0].rule.label],
+    }
+    const p = checklistProgress(scenario, local)
+    expect(p.total).toBe(total)
+    expect(p.awaitingDocs).toBe(1)
+    // Satisfied = criteria the AI found only; the dispatched one is NOT in it.
+    expect(p.satisfied).toBe(total - unresolved.length)
+  })
+
+  it('an override with clinical justification does count as satisfied', () => {
+    const local: LocalCaseState = {
+      ...EMPTY_LOCAL_CASE_STATE,
+      overrides: { [unresolved[0].rule.label]: 'reconciled with hepatologist' },
+    }
+    const p = checklistProgress(scenario, local)
+    expect(p.satisfied).toBe(total - unresolved.length + 1)
+    expect(p.awaitingDocs).toBe(0)
+  })
+
+  it('untouched exceptions are neither satisfied nor awaiting docs', () => {
+    const p = checklistProgress(scenario, EMPTY_LOCAL_CASE_STATE)
+    expect(p.satisfied).toBe(total - unresolved.length)
+    expect(p.awaitingDocs).toBe(0)
+  })
+})
+
+describe('activity log — every coordinator action leaves an audit trace', () => {
+  const scenario = scenarios['novo-ozempic']
+  const criterion = unresolvedCriteria(scenario)[0]
+
+  it('logActivity appends immutably in order', () => {
+    const e1 = { at: '10:01', action: 'Workflow dispatched', detail: 'fax to clinic' }
+    const e2 = { at: '10:05', action: 'Finding overridden', detail: 'rationale' }
+    const s1 = logActivity(EMPTY_LOCAL_CASE_STATE, e1)
+    const s2 = logActivity(s1, e2)
+    expect(EMPTY_LOCAL_CASE_STATE.activity).toHaveLength(0)
+    expect(s2.activity.map(e => e.action)).toEqual(['Workflow dispatched', 'Finding overridden'])
+  })
+
+  it('buildDispatchArtifact snapshots the outbound request from the workflow plan', () => {
+    const artifact = buildDispatchArtifact(scenario, criterion)
+    expect(artifact.title).toContain(criterion.workflowPlan!.recipient)
+    expect(artifact.body).toContain(criterion.workflowPlan!.action)
+    expect(artifact.body).toContain(criterion.workflowPlan!.channel)
+    expect(artifact.body).toContain(scenario.drug)
+    expect(artifact.body).toContain(criterion.rule.label)
   })
 })
 

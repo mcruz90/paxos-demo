@@ -94,5 +94,29 @@
       "oop_met": 450.00,
       "coinsurance_pct": 30.0
     }
+  },
+  {
+    "anchor_id": "humira_cigna",
+    "_note": "SYNTHETIC — NO PHI. Single commercial coverage (Cigna employer pharmacy benefit) — no COB. Anchors the adalimumab (Humira) / rheumatoid arthritis appeal case. IP0652 preferred-product step therapy governs brand Humira as non-preferred; no government secondary present.",
+    "rule_refs": [],
+    "primary": {
+      "payer": "Cigna Connect 3000 PPO",
+      "plan_type": "commercial",
+      "plan_id": "CIGNA-IP0652-2026",
+      "member_id": "CGN00456789",
+      "group_id": "GRP-78022",
+      "bin": "004336",
+      "pcn": "CIGNA",
+      "effective_date": "2026-01-01"
+    },
+    "secondary": null,
+    "cob_type": null,
+    "financials": {
+      "deductible": 2000.0,
+      "deductible_met": 1650.00,
+      "oop_max": 6000.0,
+      "oop_met": 1650.00,
+      "coinsurance_pct": 25.0
+    }
   }
 ]
