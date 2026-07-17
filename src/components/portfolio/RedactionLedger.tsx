@@ -36,8 +36,8 @@ export function RedactionLedger({
 
       <div className="px-4 py-3 border-b border-slate-800 shrink-0">
         <p className="text-xs text-slate-400 leading-relaxed">
-          <b className="text-violet-300">{total}</b> identifier{total !== 1 ? 's' : ''} stripped by the
-          EHR connector before cloud ingestion. This plane never receives raw PHI.
+          <b className="text-violet-300">{total}</b> identifier{total !== 1 ? 's' : ''} tokenized at
+          ETL ingest (ADR-0014 target posture) — direct identifiers never render on this plane.
         </p>
       </div>
 
