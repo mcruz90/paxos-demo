@@ -95,6 +95,28 @@ Enforcement: `test_authored_anchors_have_complete_provenance` (compliance test).
 | `livdelzi_cigna_employer_pdl` | Cigna ip_0711 Livdelzi employer PDL | commercial (reference) | 2026-06-27 |
 | `ozempic_cigna_ifp` | Cigna ip_0702 GLP-1 IFP criteria | individual/family | 2026-06-27 |
 | `ozempic_cigna_employer_pdl` | Cigna ip_0701 GLP-1 employer PDL | commercial (reference) | 2026-06-27 |
+| `humira_cigna` | Cigna IP0652 adalimumab PA criteria (RA §7 + preferred-product NOTE) | commercial (pharmacy, non-preferred) | 2026-07-15 |
+
+### 3.4 Adding an anchor — full registration checklist
+
+A new anchor is not "in" until every row below is done. The `humira_cigna`
+anchor (2026-07-15) shipped with rows 5–7 missed — two red backend tests and
+a retrieval path that silently fell back to `generic` — which is why this
+checklist exists. Rows are ordered so the suites turn red at the first
+missed step, not in production.
+
+| # | Touchpoint | What lands there |
+|---|---|---|
+| 1 | `backend/evals/fixtures/scenarios.json` | The scenario (with `_note` marker, codes consistent with the policy) |
+| 2 | `backend/golden/coverage_pool.json` + `identities.json` | Coverage entry + closed-pool synthetic identity |
+| 3 | `backend/golden/policies/` | `_raw/` source text, rendered `.md`, `sources/` PDF, `provenance.json` entry (URL, retrieved/effective dates, SHA-256s) |
+| 4 | `backend/tests/unit/test_golden_compliance.py::_AUTHORED_ANCHOR_IDS` | Compliance-scan registration |
+| 5 | `backend/evals/fixtures_adapter.py::_ANCHOR_META` | Adapter metadata (manufacturer, config_file, drug/category keys, diagnosis) |
+| 6 | `backend/tests/unit/test_case_packet_schema.py::_ALL_ANCHOR_IDS` | Anchor-completeness guard |
+| 7 | `backend/data/pa_requirements.json` | Requirements pack for the plan_id (criteria_text quoting the `.md`, never re-invented) |
+| 8 | `src/data/` scenario module + registration in `scenarios.tsx` + `ANCHOR_JOIN` row in `scenarios_parity.test.ts` | Frontend scenario + parity join |
+| 9 | CLAUDE.md canonical-fixture count + §3.3 corpus table above | Doc bookkeeping |
+| 10 | Both suites green (`pytest`, `vitest`) | The checklist's teeth — steps 4–8 all have failing tests behind them |
 
 ---
 
@@ -243,7 +265,7 @@ identifiers even in the presence of adversarial text.
 | SYNTHETIC marker | `golden_set/markers.py::assert_marker()` on generated docs; `_note` prefix in JSON fixtures | Generated text docs + scenarios.json |
 | Pool-membership scan | `test_golden_compliance.py::test_non_redteam_scenario_dobs_are_pool_sourced` + NPI variant | Non-redteam evidence_summary strings |
 | Policy-doc PHI scan | `test_golden_compliance.py::test_policy_md_free_of_pool_member_ids` + NPI + raw + payer_procedures variants | All public docs in `golden/policies/` and `golden/payer_procedures/` |
-| Provenance completeness | `test_golden_compliance.py::test_authored_anchors_have_complete_provenance` | 3 authored .md anchors |
+| Provenance completeness | `test_golden_compliance.py::test_authored_anchors_have_complete_provenance` | 4 authored .md anchors |
 | Dangling-ref scan | `test_golden_compliance.py::test_scenario_policy_refs_resolve` + `test_scenario_appeal_process_refs_resolve` | All scenario `policy_refs` and `appeal_process_ref` values |
 | Regulatory-rule completeness | `test_regulatory_rules.py` | `golden/regulatory/rules.json` |
 | No dangling rule_refs | `test_regulatory_rules.py::test_no_dangling_rule_refs_in_coverage_pool` | `golden/coverage_pool.json` |

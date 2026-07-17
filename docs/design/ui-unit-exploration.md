@@ -20,9 +20,12 @@ universe (Margaret Vance / Humira / BCBS). To make outputs adoptable:
    every session (start from the demo's theme-aware emerald/purple tokens and
    `TierBadge`/chip idioms; keep light+dark).
 2. **Golden-set cases only** — Ozempic/Cigna, Livdelzi/Cigna,
-   Nexium-pediatric/UHC. New clinical narratives (e.g. an RA step-therapy
-   case) require the CLAUDE.md domain-research rule *before* they appear in a
-   mockup. No invented payers, no invented lab thresholds.
+   Nexium-pediatric/UHC, and (since 2026-07-15) Humira/Cigna, which the
+   golden-governance pass promoted from the mockups' invented universe into a
+   researched anchor (`humira_cigna`, Cigna IP0652 — note: Cigna, not the
+   mockups' invented BCBS). New clinical narratives still require the
+   CLAUDE.md domain-research rule *before* they appear in a mockup. No
+   invented payers, no invented lab thresholds.
 3. **State the persona and plane at the top of each prompt** — the mockup's
    PHI rendering (full chart vs `PT-XXXX` masked) follows from it.
 4. **Every unit mockup shows its empty, streaming/loading, error, and
@@ -34,18 +37,18 @@ universe (Margaret Vance / Humira / BCBS). To make outputs adoptable:
 
 | # | Unit | What it is | Feeds from | Status |
 | --- | --- | --- | --- | --- |
-| O1 | Document viewer with span highlighting | Source doc (denial letter, notes, labs) with glowing claim-anchored spans; scroll-to-highlight | `GroundingRef` claim→span labels (golden set, S0); rendered live post-S4 | S4 |
+| O1 | Document viewer with span highlighting | Source doc (denial letter, notes, labs) with glowing claim-anchored spans; scroll-to-highlight | `GroundingRef` claim→span labels (golden set, S0); rendered live post-S4 | S4 · demo-simulated shipped 2026-07-17 (`SourceDocViewer`, block-tagged fixtures — wire shape decision in ADR-0015) |
 | O2 | Criteria card with source badge + confidence | Checklist row: status chip, confidence %, badge that jumps to O1's span | `CriterionResult.confidence` (LIVE); span link needs S4 | LIVE / S4 |
 | O3 | Letter editor — Edit / Verify modes | Verify mode overlays per-claim citation status; conflict popover (draft value vs source value, "update draft") | S4 blocking claim→citation gatekeeper; `gatekeeper_corrected` provenance | S4 |
 | O4 | Tier-differentiated review surfaces | routine = glance-approve card; complex ("Full Review") = full letter review; exception ("Escalation") = resolver | TierRouter (LIVE), ADR-0010; display labels in `ui.tsx` | LIVE |
 | O5 | Exception resolver (core) | Parked case → reason + justification + edited text → resume | `/api/appeal/resume`, `edited_text`, dual audit records (LIVE) | LIVE |
-| O6 | Exception resolver (evidence discovery) | Auto-discover pharmacy trials, PubMed/guideline search, doc Q&A chat | Gemini spec `/api/discovery/*` — no backend | VISION |
+| O6 | Exception resolver (evidence discovery) | Auto-discover pharmacy trials, PubMed/guideline search, doc Q&A chat | Gemini spec `/api/discovery/*` — no backend | VISION · demo rail shipped 2026-07-17 (`EvidenceDiscoveryConsole`/`FixtureChat`: fixture-honest, free-form Q&A defers) |
 | O7 | Pending-review queue / worklist | Parked runs, tier badges, open-to-resume | ADR-0011 audit-as-queue-index (LIVE) | LIVE |
 | O8 | Case timeline | CRD → assemble → submit → determination → appeal rounds as a dated rail | 05-state-lifecycle; audit `timestamp`/`duration_ms` give real points (LIVE, partial) | LIVE/S5 |
-| O9 | Patient roster + patient file IA | Filterable roster → demographics banner → tabbed file (profile / PA hub / claims / vault) | **Needs tenancy model — does not exist** (ADR-0014 prerequisite) | VISION |
+| O9 | Patient roster + patient file IA | Filterable roster → demographics banner → tabbed file (profile / PA hub / claims / vault) | **Needs tenancy model — does not exist** (ADR-0014 prerequisite) | VISION · demo IA shipped 2026-07-17 (`PatientProfile`/`PriorAuthHub`, `patientRef` grouping — G1 tenancy still the backend gap) |
 | O10 | Transmission / dispatch surface | Rail-accurate send: PAS rail for initial PA, appeal channel for appeals; deterministic `submission_ref`; artifact hash | PAS stub rail + `artifact_ref` (LIVE); package compiler/e-fax | LIVE / VISION |
-| O11 | Doc-gap workflow ("awaiting documentation") | Pre-submission gap ≠ denial: request-records flow, attestation checklist | `CaseStatus 'awaiting_documentation'`, docgap fixture; `workflowPlan` has no backend | VISION |
-| O12 | Multi-round appeal (payer response / counter-offer) | Round 2 flow, counter-offer compare | Demo Round2 panels exist; `counter_offer` signal has **no producer** | VISION |
+| O11 | Doc-gap workflow ("awaiting documentation") | Pre-submission gap ≠ denial: request-records flow, attestation checklist | `CaseStatus 'awaiting_documentation'`, docgap fixture; `workflowPlan` has no backend | VISION · demo dispatch + awaiting-docs semantics shipped 2026-07-17 (activity log snapshots the outbound artifact) |
+| O12 | Multi-round appeal (payer response / counter-offer) | Round 2 flow, counter-offer compare | Demo Round2 panels exist; `counter_offer` signal has **no producer** | VISION · demo dispute-packet flow shipped 2026-07-17 (G3/P10 decision still open) |
 | O13 | Break-glass PHI access | Justification modal → time-boxed reveal → audit entry | New from ADR-0014 — nothing exists | VISION |
 | O14 | Session chrome | Auto-login via `GET /api/auth/me` (today a refresh loses a valid session), expiry warning, re-auth without losing work | ADR-0013; `me()` client exists unused | LIVE (gap) |
 
@@ -109,7 +112,7 @@ reach patient level — the UI should make it *structurally impossible*
 
 | # | Unit | Notes |
 | --- | --- | --- |
-| X1 | PHI-scoping demo moment | Same case viewed across personas: full chart in Operate → `PT-904128` + redactions in Build. The persona switcher becomes the security story. Gemini's redaction treatment is directly reusable. |
+| X1 | PHI-scoping demo moment | Same case viewed across personas: full chart in Operate → `PT-904128` + redactions in Build. The persona switcher becomes the security story. Gemini's redaction treatment is directly reusable. **Shipped in demo 2026-07-17** (`SourceDocViewer` Operate/Build toggle + `RedactionLedger`; render-time stand-in for the ADR-0014 tokenizer). |
 | X2 | Provenance chips | `as_is` / `gatekeeper_corrected` / `human_edited` rendered consistently everywhere an artifact appears (live AuditTrailPanel has the first idiom). |
 | X3 | Correlation-ID thread | Any artifact anywhere → click → full trace (B8 as a global affordance). |
 | X4 | Design-token consolidation | One token sheet (type scale, chips, tiers, planes) all sessions share — see session hygiene. |
