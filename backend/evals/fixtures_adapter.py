@@ -77,6 +77,14 @@ _ANCHOR_META: dict[str, _AnchorMeta] = {
         category_label="Hepatology",
         diagnosis="Primary Biliary Cholangitis (K74.3)",
     ),
+    "humira_cigna": _AnchorMeta(
+        manufacturer="AbbVie",
+        config_file="humira_cigna_ip0652.json",
+        drug_key="humira",
+        category_key="rheumatology",
+        category_label="Rheumatology",
+        diagnosis="Rheumatoid Arthritis (M05.79)",
+    ),
 }
 
 

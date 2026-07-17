@@ -26,6 +26,7 @@ _ALL_ANCHOR_IDS = {
     "ozempic_cigna",
     "esomeprazole_uhc_pediatric",
     "livdelzi_cigna_hepatology",
+    "humira_cigna",
 }
 
 # ── STEP 1: Import gate ───────────────────────────────────────────────────────

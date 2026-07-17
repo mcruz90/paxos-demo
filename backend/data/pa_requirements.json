@@ -32,6 +32,19 @@
       "drug": "Livdelzi (seladelpar)",
       "source_policy": "golden/policies/livdelzi_cigna_hepatology.md",
       "criteria_text": "PA Requirements — Livdelzi (seladelpar) / Cigna (cnf_877)\nSource: Cigna Hepatology – Livdelzi PA Policy (cnf_877); effective 08/13/2025.\n\nCriteria (all must be met):\n1. Confirmed PBC diagnosis in adult (age >= 18): at least 2 of 3 AASLD criteria:\n   a. ALP elevated above ULN per lab reference values\n   b. Positive AMA, or PBC-specific auto-antibodies (sp100 or gp210) if AMA-negative\n   c. Histologic evidence from liver biopsy (not required if both a and b are met)\n2. Specialist prescriber: gastroenterologist, hepatologist, or liver transplant physician.\n3. UDCA step therapy — ONE of:\n   a. Ursodiol therapy for >= 12 months with inadequate response (prescriber attestation)\n   b. Patient unable to tolerate ursodiol (prescriber attestation)\n4. No current or prior hepatic decompensation (ascites, variceal bleeding, hepatic encephalopathy, coagulopathy) — absolute contraindication for both initial and renewal.\n\nConditions not covered: alcoholic liver disease; MASLD/NAFLD/MASH/NASH; concomitant Ocaliva (obeticholic acid) or Iqirvo (elafibranor) use.\nAuthorization periods: 6 months initial, 12 months continuation (continuation requires demonstrated response + no decompensation)."
+    },
+    "humira_cigna": {
+      "anchor_id": "humira_cigna",
+      "drug_key": "humira",
+      "drug_aliases": [
+        "humira",
+        "adalimumab"
+      ],
+      "plan_id": "CIGNA-IP0652-2026",
+      "payer": "Cigna",
+      "drug": "Humira (adalimumab)",
+      "source_policy": "golden/policies/humira_cigna.md",
+      "criteria_text": "PA Requirements — Humira (adalimumab) / Cigna Connect 3000 PPO (IP0652, Rheumatoid Arthritis)\nSource: Cigna Drug Coverage Policy IP0652 — Inflammatory Conditions – Adalimumab Products Prior Authorization Policy; effective 05/01/2026.\n\nInitial therapy (6 months) — ALL of the following (§7.A):\n1. Patient is >= 18 years of age (§7.A.i).\n2. Patient has tried ONE conventional synthetic DMARD (e.g. methotrexate, leflunomide, hydroxychloroquine, sulfasalazine) for at least 3 months (§7.A.ii). Waived if the patient already had a >= 3-month trial of a biologic other than the requested medication; a biosimilar of the requested biologic does not count.\n3. Prescribed by or in consultation with a rheumatologist (§7.A.iii).\n\nStep therapy — preferred-product requirement (p. 5 NOTE): brand Humira is a NON-PREFERRED adalimumab product (NDCs starting 83457 listed as not covered); trial/use of the plan's preferred adalimumab products is required before approval of a non-preferred product. Exception criteria are adjudicated under the cross-referenced Preferred Specialty Management policy (PSM003/PSM013/PSM014).\n\nSafety: concurrent use with another biologic or a targeted synthetic oral small molecule drug is not covered; conventional synthetic DMARDs in combination ARE permitted (Conditions Not Covered §1 + Note).\n\nRenewal (1 year, §7.B): patient established on therapy >= 6 months AND beneficial clinical response (objective measure, e.g. CDAI or DAS-28, or symptom improvement)."
     }
   }
 }
