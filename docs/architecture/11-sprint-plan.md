@@ -151,3 +151,7 @@ simplicity mandate (no defensive branching for states the contract rules out).
 | Hosted backend checklist | CORS tightening, rate limiting (`slowapi` re-entry), deploy target ([08](08-deployment-ci.md)). |
 | E2E unblock | Blocked on the landing-flow UX decision ([frontend-e2e-debt](../frontend-e2e-debt.md)); then re-point `skipToQueue()` + specs. |
 | `scenarios.tsx` split | Post-demo (documented CLAUDE.md debt). |
+| **X5 live/demo seam decision** | Before any new shell surface is built — see [x5-seam-decision-brief](../design/x5-seam-decision-brief.md) (2026-07-17); the UI exploration made waiting more expensive each sprint. |
+| Evidence discovery rail (O6) | X5 decision + S5 retrieval infra (shares the vector-store re-vet). Demo rail shipped 2026-07-17. |
+| Outbound dispatch rail (G7/O11) | Decision on the doc-gap workflow story; pairs with a `workflowPlan` producer design. Demo shipped 2026-07-17. |
+| Device/procedure PA generalization | First real non-medication case; until then `PaTargetType` is display-only (frontend). |
