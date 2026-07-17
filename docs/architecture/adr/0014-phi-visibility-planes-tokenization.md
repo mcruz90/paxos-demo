@@ -1,8 +1,8 @@
 # ADR-0014: PHI visibility planes and the tokenization boundary
 
 - **Status:** Proposed
-- **Date:** 2026-07-12
-- **Decided by:** May (design direction set in the 2026-07-12 drawing-board session; formal acceptance pending)
+- **Date:** 2026-07-12 (amended 2026-07-17 — see §Amendment)
+- **Decided by:** May (design direction set in the 2026-07-12 drawing-board session; amendment direction chosen 2026-07-17; formal acceptance pending)
 
 ## Context
 
@@ -100,3 +100,65 @@ Harder / committed work:
 - Break-glass needs flow + audit support (a new `AuditRecord` reason class).
 - On acceptance: doc 07 gains the plane/boundary model, and
   10-roadmap-traceability gains rows for tokenizer, tenancy, and break-glass.
+
+## Amendment (2026-07-17): hybrid scrub — deterministic gate, NER backstop
+
+Direction chosen by May in the 2026-07-17 architecture review, prompted by
+the requirement that **no direct identifier ever reaches an LLM prompt** and
+the proposal to use a self-hosted healthcare NER model (OpenMed-class) for
+free-text de-identification.
+
+**Terminology precision.** The enforceable invariant is stated over *direct
+identifiers* (Safe Harbor classes), not "all PHI": clinical facts tied to a
+token identity must reach synthesis or no letter can be drafted — this is
+the same honesty scope as the original decision. Marketing/audit language
+follows the original rule ("the LLM never receives direct identifiers").
+
+**Placement constraint (settled).** All scrubbing runs **inside the ETL
+ingest boundary, as the first operation on ingested text** — never upstream
+of the cloud boundary (edge/connector scrub was re-examined and stays
+rejected: if identifiers never reach the server, the token→identity map
+cannot exist server-side, and egress rehydration/letter assembly breaks —
+the same reason the original ADR rejected client-side injection). "Before
+tokenization" is a stage ordering within ingest, not a different trust
+boundary.
+
+**The three layers:**
+
+1. **Deterministic typed tokenization** (unchanged from the original
+   decision) of all known identity values — `{{PATIENT_NAME}}`, `{{DOB}}`,
+   `{{MRN}}`, `{{MEMBER_ID}}`, … — remains the *reversible* layer (the only
+   one rehydration undoes) and the redaction ledger's exact source of truth.
+2. **NER backstop (detector, never authority):** a self-hosted
+   healthcare-NER model scans the already-tokenized text for *residual*
+   identifier-like spans in free narrative. Hits are irreversibly masked
+   (they are not in the token map; nothing rehydrates them) or quarantined
+   for human review at low confidence. Runs as a **sidecar service** in its
+   own container/venv so the model dependency chain (PyTorch/transformers —
+   the same chain that got `easyocr` removed) never enters the main backend
+   tree. Model + weights go through the full CLAUDE.md dependency-security
+   protocol (pinned revisions, safetensors only) before adoption.
+3. **Deterministic leak gate at the `LLMBackend` seam** — the single
+   enforcement point (CLAUDE.md: detection pairs with enforcement). Every
+   outbound prompt is scanned for known identifier values and unresolved
+   NER-flagged spans; a hit **blocks** the call and raises (mirrors the
+   `security_hold` pattern). Because the gate sits at the Protocol seam
+   (ADR-0002), every current and future provider inherits it.
+
+**Why hybrid, not NER-primary:** a model redactor is probabilistic — it can
+*raise recall* on free text but cannot *be* the MUST-guarantee (false
+negatives), and its false positives can destroy clinically load-bearing
+facts (dates are Safe Harbor identifiers *and* the substance of temporal
+criteria). Nondeterminism would also break the byte-identical rehydration
+test. The deterministic layers stay the guarantee; the model only adds
+recall; model failure degrades to the original deterministic baseline,
+never below it.
+
+**Sequencing.** The tokenizer work (P9) splits: **P9a** = deterministic
+tokenizer + LLM-boundary leak gate (gated on this ADR's acceptance, as
+before). **P9b** = NER sidecar, additionally gated on (i) the
+dependency/model vetting protocol and (ii) a **de-identification eval** —
+golden-set documents seeded with planted identifiers, recall/precision
+measured *before* the model is trusted (evals-before-trust, the S4
+discipline). The demo UI's render-time redaction (`redaction.ts`,
+`RedactionLedger`) remains a labeled stand-in for layer 1.
