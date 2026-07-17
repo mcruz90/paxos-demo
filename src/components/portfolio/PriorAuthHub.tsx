@@ -1,15 +1,8 @@
 import { type ReactNode } from 'react'
 import { CheckCircle2, ChevronRight, Clock, XCircle } from 'lucide-react'
-import { type PaTargetType } from '../../types'
 import { getCaseStage } from '../../data/scenarios'
-import { StageBadge, StatusBadge } from '../ui'
+import { StageBadge, StatusBadge, TargetBadge } from '../ui'
 import { type PaHistoryEntry, type Patient } from './patient'
-
-const TARGET_BADGE: Record<PaTargetType, { label: string; cls: string }> = {
-  medication: { label: 'MEDS',   cls: 'bg-slate-800 border-slate-700 text-slate-400' },
-  device:     { label: 'DEVICE', cls: 'bg-violet-500/10 border-violet-500/20 text-violet-300' },
-  procedure:  { label: 'PROC',   cls: 'bg-blue-500/10 border-blue-500/20 text-blue-300' },
-}
 
 const DECISION: Record<PaHistoryEntry['decision'], { label: string; cls: string; Icon: typeof CheckCircle2 }> = {
   approved:  { label: 'Approved',  cls: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25', Icon: CheckCircle2 },
@@ -42,7 +35,6 @@ export function PriorAuthHub({
 
         <div className="space-y-2">
           {patient.cases.map(c => {
-            const target = TARGET_BADGE[c.paTargetType ?? 'medication']
             const active = c.scenarioId === activeScenarioId
             return (
               <button
@@ -56,7 +48,7 @@ export function PriorAuthHub({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold text-white truncate">{c.drug}</span>
-                    <span className={`px-1.5 py-0.5 rounded border text-[9px] font-semibold ${target.cls}`}>{target.label}</span>
+                    <TargetBadge target={c.paTargetType} />
                     <StageBadge stage={getCaseStage(c)} />
                   </div>
                   <p className="text-xs text-slate-500 mt-1">{c.name} · {c.payer}</p>
@@ -68,14 +60,13 @@ export function PriorAuthHub({
           })}
 
           {history.map((h, i) => {
-            const target = TARGET_BADGE[h.targetType]
             const d = DECISION[h.decision]
             return (
               <div key={i} className="w-full flex items-center gap-3 rounded-xl border border-slate-800/60 bg-slate-900/30 px-4 py-3 opacity-90">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-slate-300 truncate">{h.drug}</span>
-                    <span className={`px-1.5 py-0.5 rounded border text-[9px] font-semibold ${target.cls}`}>{target.label}</span>
+                    <TargetBadge target={h.targetType} />
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
                     Filed {h.filedDate}{h.determinationId ? ` · ${h.determinationId}` : ''}

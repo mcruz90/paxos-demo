@@ -1,14 +1,6 @@
-import { type Client, type PaTargetType } from '../../types'
+import { type Client } from '../../types'
 import { getCaseStage } from '../../data/scenarios'
-import { DueBadge, StageBadge, StatusBadge } from '../ui'
-
-// Gemini-roster idiom: a tiny uppercase tag for what the PA targets. All cases
-// today are medications; the badge future-proofs device/procedure lifecycles.
-const TARGET_BADGE: Record<PaTargetType, { label: string; cls: string }> = {
-  medication: { label: 'MEDS',   cls: 'bg-slate-800 border-slate-700 text-slate-400' },
-  device:     { label: 'DEVICE', cls: 'bg-violet-500/10 border-violet-500/20 text-violet-300' },
-  procedure:  { label: 'PROC',   cls: 'bg-blue-500/10 border-blue-500/20 text-blue-300' },
-}
+import { DueBadge, StageBadge, StatusBadge, TargetBadge } from '../ui'
 
 // Compact case card for the queue's left pane. Two lines, minimal required
 // info (roster-scan idiom): identity + status chip, then drug · payer with the
@@ -30,7 +22,6 @@ export function CaseCard({
   isResolved: boolean
 }) {
   const stage = getCaseStage(client)
-  const target = TARGET_BADGE[client.paTargetType ?? 'medication']
 
   const accentCls =
     client.urgency === 'today' ? 'border-l-red-500'
@@ -68,9 +59,7 @@ export function CaseCard({
           {client.drug}{client.payer ? ` · ${client.payer}` : ''}
         </span>
         <span className="flex items-center gap-1.5 shrink-0">
-          <span className={`px-1.5 py-0.5 rounded border text-[9px] font-semibold tracking-wide ${target.cls}`}>
-            {target.label}
-          </span>
+          <TargetBadge target={client.paTargetType} />
           <StageBadge stage={stage} />
           <DueBadge deadline={client.deadline} urgency={client.urgency} />
         </span>

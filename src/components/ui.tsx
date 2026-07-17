@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react'
 import { Activity, Settings, Clock, ShieldAlert, User, Pill, Code, Info, Boxes } from 'lucide-react'
-import { type CaseStatus, type CaseTier, type RuleType, type Urgency } from '../types'
+import { type CaseStatus, type CaseTier, type PaTargetType, type RuleType, type Urgency } from '../types'
 
 export function DueBadge({ deadline, urgency }: { deadline: string; urgency: Urgency }) {
   const cls: Record<Urgency, string> = {
@@ -96,6 +96,23 @@ export function StatusBadge({ status }: { status: CaseStatus }) {
   const { label, className } = config[status]
   return (
     <span className={`px-2 py-0.5 rounded-md text-xs font-medium border ${className}`}>
+      {label}
+    </span>
+  )
+}
+
+// Gemini-roster idiom: a tiny uppercase tag for what the PA targets. All cases
+// today are medications; the badge future-proofs device/procedure lifecycles.
+const TARGET_BADGE: Record<PaTargetType, { label: string; cls: string }> = {
+  medication: { label: 'MEDS',   cls: 'bg-slate-800 border-slate-700 text-slate-400' },
+  device:     { label: 'DEVICE', cls: 'bg-violet-500/10 border-violet-500/20 text-violet-300' },
+  procedure:  { label: 'PROC',   cls: 'bg-blue-500/10 border-blue-500/20 text-blue-300' },
+}
+
+export function TargetBadge({ target }: { target: PaTargetType | undefined }) {
+  const { label, cls } = TARGET_BADGE[target ?? 'medication']
+  return (
+    <span className={`px-1.5 py-0.5 rounded border text-[9px] font-semibold tracking-wide ${cls}`}>
       {label}
     </span>
   )
