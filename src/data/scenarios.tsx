@@ -558,7 +558,9 @@ export const initialClients: Client[] = [
   },
   {
     id: 1, name: 'Case #PH-3102', patientRef: 'PT-3102', drug: 'Ozempic', categoryLabel: 'Endocrinology',
-    patientDisplayName: 'Margaret Vance', patientDob: '11/08/1967', payer: 'Cigna',
+    // DOB follows the shared ozempic scenario narrative (03/14/1972) — the
+    // parity guard requires the banner to agree with the rendered chart.
+    patientDisplayName: 'Margaret Vance', patientDob: '03/14/1972', payer: 'Cigna',
     gapSummary: 'Appeal letter drafted — T2DM indication dispute, coordinator review needed',
     status: 'ready_for_review', clientType: 'patient', lastUpdated: 'Jun 8, 2026',
     scenarioId: 'novo-ozempic',           deadline: 'Due today',      urgency: 'today',
