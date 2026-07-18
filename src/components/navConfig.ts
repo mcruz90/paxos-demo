@@ -52,6 +52,33 @@ export const SECTIONS: readonly NavSection[] = [
   },
 ]
 
+// Maps each view to the role that owns it — used to keep the sidebar in sync
+// when tours or internal navigation jump across role boundaries.
+export const VIEW_ROLE: Record<View, Role> = {
+  landing:      'Operate',
+  portfolio:    'Operate',
+  poc:          'Operate',
+  evals:        'Operate',
+  automation:   'Operate',
+  build_home:   'Build',
+  library:      'Build',
+  specs:        'Build',
+  instructions: 'Build',
+  rubric:       'Build',
+  failures:     'Build',
+  onboarding:   'Scale',
+  platform:     'Scale',
+  sponsor:      'Sponsor',
+}
+
+// Default first view for each role (used when switching roles via the role switcher)
+export const ROLE_DEFAULT_VIEW: Record<Role, View> = {
+  Operate: 'portfolio',
+  Build:   'build_home',
+  Scale:   'onboarding',
+  Sponsor: 'sponsor',
+}
+
 // Active-persona chip color per role (Topbar segmented control).
 export const ROLE_ACTIVE: Record<Role, string> = {
   Operate: 'bg-teal-500/15 text-teal-300 border border-teal-500/25',

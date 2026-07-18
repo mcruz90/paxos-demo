@@ -1,11 +1,12 @@
 /**
- * Live-mode shell (rendered by App only when LIVE_MODE is set).
+ * DEMOTED — developer console, not a product surface (ADR-0016).
  *
- * The opt-in counterpart to the simulated POC: login gate → pick a fixture case
- * → stream a real appeal from the backend → an exception-tier run parks and
- * appears in the pending-review queue → resume it (approve as-is or edit) →
- * the queue clears. Everything is wired through the src/lib client; the
- * simulated flow (App's default path) is untouched and still fully offline.
+ * Reachable only in live mode via `?console=dev`. The product surface for
+ * live units is the single shell (AppShell + capability manifest); this
+ * console only *empties* as units migrate (Workstream SU) — no new units land
+ * here. It remains the manual-verification surface during migration: login
+ * gate → pick a fixture case → stream a real appeal → an exception-tier run
+ * parks → resume it → the queue clears, all through the src/lib client.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { LogOut } from 'lucide-react'

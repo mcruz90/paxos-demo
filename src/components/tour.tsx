@@ -1,5 +1,5 @@
 import { type Step } from 'react-joyride'
-import { type CaseStatus, type View } from '../types'
+import { type CaseStatus, type Role, type View } from '../types'
 
 export const tc = (body: string, note?: string) => (
   <div>
@@ -268,6 +268,30 @@ export const TOURS: Record<TourId, TourMeta> = {
     blurb: 'The whole arc in four beats — Operate, Build, Scale — in about 90 seconds.',
     steps: OVERVIEW_TOUR,
   },
+}
+
+// Tour id → which role it belongs to (so selecting a tour also sets the correct role)
+export const TOUR_ROLE: Record<string, Role> = {
+  operate:  'Operate',
+  build:    'Build',
+  scale:    'Scale',
+  overview: 'Operate',
+}
+
+// Joyride chrome shared by every tour (colors, overlay, buttons) — kept beside
+// JOYRIDE_STYLES so the shell only wires state, not presentation.
+export const JOYRIDE_OPTIONS: Partial<import('react-joyride').Options> = {
+  arrowColor: '#1e293b',
+  backgroundColor: '#1e293b',
+  overlayColor: 'rgba(2, 6, 23, 0.6)',
+  primaryColor: '#10b981',
+  textColor: '#cbd5e1',
+  zIndex: 200,
+  width: 400,
+  buttons: ['back', 'primary', 'skip'],
+  showProgress: true,
+  overlayClickAction: false,
+  skipBeacon: true,
 }
 
 export const JOYRIDE_STYLES: import('react-joyride').PartialDeep<import('react-joyride').Styles> = {
