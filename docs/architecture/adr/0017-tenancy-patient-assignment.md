@@ -59,20 +59,23 @@ Tenant (customer org, e.g. a clinic/MSO)
    the Phase 3 durable store (the panel table is the first thing that
    genuinely needs a DB).
 
-## Open questions for May (the spike's ask)
+## Open questions (answers recorded 2026-07-18)
 
-1. **Is "panel" per-user or per-team?** Clinics often assign coordinators in
-   pools. Proposal: panel = set of `patient_ref`s attached to a *user group*,
-   with single-user groups as the degenerate case. Cheap now, avoids a
-   migration later.
+1. **Is "panel" per-user or per-team?** Proposal: panel = set of
+   `patient_ref`s attached to a *user group*, with single-user groups as the
+   degenerate case. — **Accepted by May, 2026-07-18.**
 2. **Does `tenant_id` enter the correlation ID / idempotency key?**
    Proposal: no — `case_id:aN` stays; tenant is a column, not part of
-   identity. But it must be stamped on every AuditRecord for traceability.
+   identity, but stamped on every AuditRecord. — **Accepted by May,
+   2026-07-18.**
 3. **Where does the demo reviewer land?** Proposal: seeded tenant
-   `tenant_demo` with one user; keeps every existing flow working unchanged.
+   `tenant_demo` with one user; every existing flow unchanged. — **Accepted
+   by May, 2026-07-18.**
 4. **Sequencing:** schema fields + fail-closed scope plumbing could land in
    any sprint (small, testable); actual multi-tenant behavior is Phase 3.
    Is that split acceptable, or should nothing land until the DB exists?
+   — **OPEN.** May asked for a fuller cost/benefit before deciding; the ADR
+   stays Proposed until this is resolved.
 
 ## Consequences (if accepted as proposed)
 
