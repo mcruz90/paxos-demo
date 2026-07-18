@@ -70,10 +70,11 @@ def test_all_records_returns_copy() -> None:
 
 def test_provenance_enum_values() -> None:
     """AI-accountability provenance vocabulary (CLAUDE.md §AI Output
-    Accountability): model output as-is, gatekeeper-corrected, or
-    human-edited/approved."""
+    Accountability): model output as-is, gatekeeper-corrected, human-edited,
+    or human-approved unchanged (ADR-0009 amendment 2026-07-18)."""
     assert {member.value for member in AuditProvenance} == {
         "as_is",
         "gatekeeper_corrected",
         "human_edited",
+        "human_approved",
     }

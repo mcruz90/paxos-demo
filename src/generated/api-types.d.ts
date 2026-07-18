@@ -275,12 +275,14 @@ export interface components {
          *     AI-accountability provenance (CLAUDE.md §AI Output Accountability): the
          *     audit trail must record what was actually verified before an artifact
          *     reached a payer, not just that a pipeline ran. `as_is` = machine output,
-         *     unedited (all pipeline-boundary writes today); `gatekeeper_corrected`
-         *     arrives with the S4 blocking claim→citation gatekeeper; `human_edited`
-         *     arrives with the HITL review flows.
+         *     no human in the loop (all pipeline-boundary writes); `gatekeeper_corrected`
+         *     arrives with the S4 blocking claim→citation gatekeeper; the HITL resume
+         *     flow stamps `human_approved` when a reviewer cleared the draft unchanged
+         *     (a decision, not an edit — May's ruling 2026-07-18, ADR-0009 amendment)
+         *     and `human_edited` only when the letter text actually changed.
          * @enum {string}
          */
-        AuditProvenance: "as_is" | "gatekeeper_corrected" | "human_edited";
+        AuditProvenance: "as_is" | "gatekeeper_corrected" | "human_edited" | "human_approved";
         /**
          * AuditRecord
          * @description One entry per pipeline run — done or error, either lifecycle.
@@ -700,7 +702,8 @@ export interface components {
          *     ``correlation_id`` is the parked run's handle — the value carried on that
          *     run's terminal ``DoneEvent`` (= its checkpoint ``thread_id``). When
          *     ``edited_text`` is present it replaces the drafted letter as the outbound
-         *     artifact; the resume is recorded with ``provenance=human_edited``.
+         *     artifact; the resume records ``provenance=human_edited`` when the text
+         *     actually changed and ``human_approved`` when the draft was cleared as-is.
          */
         ResumeAppealRequest: {
             /** Correlation Id */

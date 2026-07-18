@@ -44,7 +44,8 @@ class ResumeAppealRequest(BaseModel):
     ``correlation_id`` is the parked run's handle — the value carried on that
     run's terminal ``DoneEvent`` (= its checkpoint ``thread_id``). When
     ``edited_text`` is present it replaces the drafted letter as the outbound
-    artifact; the resume is recorded with ``provenance=human_edited``.
+    artifact; the resume records ``provenance=human_edited`` when the text
+    actually changed and ``human_approved`` when the draft was cleared as-is.
     """
 
     model_config = ConfigDict(strict=True)

@@ -138,14 +138,14 @@ def test_unknown_correlation_id_never_appears(client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_audit_records_shows_both_as_is_and_human_edited(client: TestClient) -> None:
+def test_audit_records_shows_both_draft_and_human_sign_off(client: TestClient) -> None:
     corr = _park(client, "introspect-audit")
-    _resume(client, corr)
+    _resume(client, corr)  # no edited_text ⇒ approved as-is (ADR-0009 amendment)
 
     records = client.get("/api/audit/records", headers=_auth()).json()["records"]
     for_corr = [r for r in records if r["correlation_id"] == corr]
     provenances = {r["provenance"] for r in for_corr}
-    assert provenances == {"as_is", "human_edited"}, (
+    assert provenances == {"as_is", "human_approved"}, (
         "the audit listing must show both the machine draft and the human sign-off"
     )
 

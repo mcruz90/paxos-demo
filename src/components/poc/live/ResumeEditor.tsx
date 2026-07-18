@@ -2,9 +2,10 @@
  * Human-review surface for a parked exception-tier run (POST /api/appeal/resume).
  *
  * A reviewer approves the drafted letter as-is (edited_text=null →
- * provenance=as_is) or replaces it with edited text (edited_text →
- * provenance=human_edited). The draft prefills the editor only when it was
- * streamed this session; the queue carries no letter text (PHI rule).
+ * provenance=human_approved) or replaces it with edited text (changed text →
+ * provenance=human_edited; the backend treats draft-identical text as an
+ * approval). The draft prefills the editor only when it was streamed this
+ * session; the queue carries no letter text (PHI rule).
  */
 import { useState } from 'react'
 import { CheckCircle2, PencilLine } from 'lucide-react'

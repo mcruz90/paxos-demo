@@ -16,7 +16,7 @@ export type PaDecision = 'approved' | 'pended' | 'denied'
 // AI-accountability provenance on every AuditRecord: what the outbound
 // artifact was when it left the system. Mirrors backend AuditProvenance
 // (schemas.py) — parity-tested in test_schema_parity.py.
-export type AuditProvenance = 'as_is' | 'gatekeeper_corrected' | 'human_edited'
+export type AuditProvenance = 'as_is' | 'gatekeeper_corrected' | 'human_edited' | 'human_approved'
 
 export interface Rule {
   type: RuleType

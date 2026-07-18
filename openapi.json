@@ -104,11 +104,12 @@
         "type": "object"
       },
       "AuditProvenance": {
-        "description": "What the outbound artifact was when it left the system (S2 Slice 4).\n\nAI-accountability provenance (CLAUDE.md \u00a7AI Output Accountability): the\naudit trail must record what was actually verified before an artifact\nreached a payer, not just that a pipeline ran. `as_is` = machine output,\nunedited (all pipeline-boundary writes today); `gatekeeper_corrected`\narrives with the S4 blocking claim\u2192citation gatekeeper; `human_edited`\narrives with the HITL review flows.",
+        "description": "What the outbound artifact was when it left the system (S2 Slice 4).\n\nAI-accountability provenance (CLAUDE.md \u00a7AI Output Accountability): the\naudit trail must record what was actually verified before an artifact\nreached a payer, not just that a pipeline ran. `as_is` = machine output,\nno human in the loop (all pipeline-boundary writes); `gatekeeper_corrected`\narrives with the S4 blocking claim\u2192citation gatekeeper; the HITL resume\nflow stamps `human_approved` when a reviewer cleared the draft unchanged\n(a decision, not an edit \u2014 May's ruling 2026-07-18, ADR-0009 amendment)\nand `human_edited` only when the letter text actually changed.",
         "enum": [
           "as_is",
           "gatekeeper_corrected",
-          "human_edited"
+          "human_edited",
+          "human_approved"
         ],
         "title": "AuditProvenance",
         "type": "string"
@@ -816,7 +817,7 @@
         "type": "object"
       },
       "ResumeAppealRequest": {
-        "description": "Strict-validated HTTP request body for POST /api/appeal/resume (S3\nSlice 4b): a human clears a parked exception-tier run for submission.\n\n``correlation_id`` is the parked run's handle \u2014 the value carried on that\nrun's terminal ``DoneEvent`` (= its checkpoint ``thread_id``). When\n``edited_text`` is present it replaces the drafted letter as the outbound\nartifact; the resume is recorded with ``provenance=human_edited``.",
+        "description": "Strict-validated HTTP request body for POST /api/appeal/resume (S3\nSlice 4b): a human clears a parked exception-tier run for submission.\n\n``correlation_id`` is the parked run's handle \u2014 the value carried on that\nrun's terminal ``DoneEvent`` (= its checkpoint ``thread_id``). When\n``edited_text`` is present it replaces the drafted letter as the outbound\nartifact; the resume records ``provenance=human_edited`` when the text\nactually changed and ``human_approved`` when the draft was cleared as-is.",
         "properties": {
           "correlation_id": {
             "maxLength": 200,

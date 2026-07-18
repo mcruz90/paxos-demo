@@ -72,7 +72,18 @@ the letter). So the resume record keeps `correlation_id = <case_id>:a<attempt>`
 and takes `idempotency_key = <correlation_id>:resume`
 (`derive_resume_idempotency_key`). The two IDs now differ, exactly as this ADR
 foresaw ("a per-execution ID can hang off the logical key"): the divergence
-buys a distinct `human_edited` record that is not deduped against the draft's
+buys a distinct human sign-off record that is not deduped against the draft's
 `as_is` record — the accountability trail keeps both. Resume idempotency is
 enforced first by the parked-state check (a completed run cannot be resumed
 again) and backstopped by the key.
+
+## Amendment — resume provenance honesty (2026-07-18, May's ruling)
+
+The resume record originally stamped `human_edited` unconditionally, which
+overstated an approve-as-is: clearing the machine draft unchanged is a human
+*decision*, not an edit. `AuditProvenance` gains **`human_approved`**, and
+the resume record's provenance is the pure `resume_provenance` rule
+(`agents/resume.py`): falsy `edited_text` or text byte-identical to the
+parked draft → `human_approved`; actually-changed text → `human_edited`.
+The byte-identity check exists so pasting the letter back unchanged cannot
+inflate into an "edit." Attribution is unchanged (`reviewed_by` on both).

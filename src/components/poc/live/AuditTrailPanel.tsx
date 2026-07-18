@@ -3,8 +3,9 @@
  *
  * Identifiers/hashes only — never letter text (PHI rule; the records are
  * already shaped that way server-side). The compliance story: a resumed
- * exception run shows its `as_is` + `human_edited` pair with the reviewer's id.
- * Provenance → chip style is a lookup map (no if/else chain).
+ * exception run shows its `as_is` draft beside the human sign-off —
+ * `human_approved` (cleared unchanged) or `human_edited` (text changed) —
+ * with the reviewer's id. Provenance → chip style is a lookup map.
  */
 import { ScrollText } from 'lucide-react'
 import { TierBadge } from '../../ui'
@@ -15,6 +16,7 @@ type Provenance = AuditRecord['provenance']
 const PROVENANCE: Record<Provenance, { label: string; cls: string }> = {
   as_is: { label: 'AI as-is', cls: 'bg-slate-500/10 text-slate-300 border-slate-500/20' },
   human_edited: { label: 'Human edited', cls: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
+  human_approved: { label: 'Human approved (as-is)', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
   gatekeeper_corrected: { label: 'Gatekeeper corrected', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
 }
 

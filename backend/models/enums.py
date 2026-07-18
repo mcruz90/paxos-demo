@@ -68,14 +68,17 @@ class AuditProvenance(StrEnum):
     AI-accountability provenance (CLAUDE.md §AI Output Accountability): the
     audit trail must record what was actually verified before an artifact
     reached a payer, not just that a pipeline ran. `as_is` = machine output,
-    unedited (all pipeline-boundary writes today); `gatekeeper_corrected`
-    arrives with the S4 blocking claim→citation gatekeeper; `human_edited`
-    arrives with the HITL review flows.
+    no human in the loop (all pipeline-boundary writes); `gatekeeper_corrected`
+    arrives with the S4 blocking claim→citation gatekeeper; the HITL resume
+    flow stamps `human_approved` when a reviewer cleared the draft unchanged
+    (a decision, not an edit — May's ruling 2026-07-18, ADR-0009 amendment)
+    and `human_edited` only when the letter text actually changed.
     """
 
     as_is = "as_is"
     gatekeeper_corrected = "gatekeeper_corrected"
     human_edited = "human_edited"
+    human_approved = "human_approved"
 
 
 class PaDecision(StrEnum):
