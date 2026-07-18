@@ -124,7 +124,7 @@ reach patient level — the UI should make it *structurally impossible*
 | --- | --- | --- |
 | G1 | **Tenancy / user→patient assignment model** | Nowhere in the backend. Prerequisite for O9, minimum-necessary scoping, and ADR-0014's data plane. Needs a design session of its own. |
 | G2 | **Statutory decision clocks / SLA tracking** | State PA laws and CMS-0057-F impose payer response windows; the demo shows "Due soon" strings, the backend has nothing. A real differentiator for Operate (worklist ordered by regulatory deadline). Research the exact windows before fixing numbers in UI. |
-| G3 | **Counter-offer / multi-round producer** | TierRouter honors a `counter_offer` signal nothing produces; demo has Round-2 UI. Either design the backend story or mark the demo panels roadmap. |
+| G3 | **Counter-offer / multi-round producer** | TierRouter honors a `counter_offer` signal nothing produces; demo has Round-2 UI. Decision brief written 2026-07-18 ([p10-counter-offer-brief](p10-counter-offer-brief.md)) — awaiting May's call. |
 | G4 | **Notification / assignment model** | The queue is pull-only. Who is told when a case parks or a determination lands? Assignment, not just visibility. |
 | G5 | **Break-glass flow** | New ADR-0014 commitment; needs both UI (O13) and an `AuditRecord` reason class. |
 | G6 | **Auto-login gap** | `GET /api/auth/me` exists and is never called — a refresh drops a valid session (O14). Small, fix in the next live-mode slice. |
