@@ -28,8 +28,11 @@ class TierSignals:
     """The typed inputs the tier decision is a pure function of.
 
     ``counter_offer`` and ``novel_denial_reason`` have no upstream producer
-    yet — the node passes their defaults until the multi-round wiring lands
-    (S3 Slice 3+); the rule already honors them so the policy is complete.
+    yet — the node passes their defaults; the rule already honors them so the
+    policy is complete. For ``counter_offer`` that is a recorded decision,
+    not a gap: the producer stays deliberately unbuilt until a real payer
+    rail exists (P10 brief, May 2026-07-18 — the demo's round-2 flow is a
+    manifest-labeled simulated unit, ADR-0016).
     """
 
     # One entry per criterion finding; None = that finding was not assessed.

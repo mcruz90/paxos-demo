@@ -1,9 +1,16 @@
 # P10 — Payer Counter-Offer Producer: Decision Brief
 
 *2026-07-18. Discussion artifact for gap G3 / unit O12 in
-[ui-unit-exploration.md](ui-unit-exploration.md) — **no decision is recorded
-here**; May decides after discussion. Scoped per the handoff: this brief is
-the deliverable, no backend is built until the call is made.*
+[ui-unit-exploration.md](ui-unit-exploration.md).*
+
+**DECIDED (May, 2026-07-18): Option B** — the counter-offer producer stays
+deliberately unbuilt; O12 remains a fixture-driven simulated unit under the
+ADR-0016 manifest, and the async payer-response design folds into the S5
+payer-rail work. **Option A is pre-approved as the fallback** if a
+driveable end-to-end round-2 simulation becomes necessary — no real payer
+responses are expected in this build (real payer involvement would be a new
+conversation, not this decision). The options below remain as the analysis
+behind that call.
 
 ## The gap, precisely
 
