@@ -173,6 +173,7 @@ new units are built once, in the product shell, listed in the manifest.
 | E2E unblock | Blocked on the landing-flow UX decision ([frontend-e2e-debt](../frontend-e2e-debt.md)); then re-point `skipToQueue()` + specs. |
 | `scenarios.tsx` split | Post-demo (documented CLAUDE.md debt). |
 | ~~X5 live/demo seam decision~~ | **Decided 2026-07-17** — [ADR-0016](adr/0016-single-shell-capability-manifest.md) (Option 3); executing as Workstream SU above. |
+| Tenancy seam (P7a) | [ADR-0017](adr/0017-tenancy-patient-assignment.md) **Accepted 2026-07-18**: `tenant_id`/`patient_ref` fields + fail-closed `TenancyScope` on store reads + seeded `tenant_demo`, pre-DB discipline seam. Must land before any new read endpoint (S4+). |
 | Evidence discovery rail (O6) | X5 decision + S5 retrieval infra (shares the vector-store re-vet). Demo rail shipped 2026-07-17. |
 | Outbound dispatch rail (G7/O11) | Decision on the doc-gap workflow story; pairs with a `workflowPlan` producer design. Demo shipped 2026-07-17. |
 | Device/procedure PA generalization | First real non-medication case; until then `PaTargetType` is display-only (frontend). |

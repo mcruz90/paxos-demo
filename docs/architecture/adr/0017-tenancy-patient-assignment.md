@@ -1,9 +1,9 @@
 # ADR-0017: Tenancy and user→patient assignment model
 
-- **Status:** Proposed — P7 design-spike deliverable; **not binding until May
-  accepts.** Open questions below are the discussion agenda.
+- **Status:** Accepted (2026-07-18 — Q1–Q3 accepted as proposed; Q4 resolved
+  same day: the seam lands pre-DB as a discipline seam)
 - **Date:** 2026-07-18
-- **Decided by:** pending (May)
+- **Decided by:** May
 
 ## Context
 
@@ -22,7 +22,7 @@ the demo reviewer; it blocks three committed items:
 - **Minimum necessary** (HIPAA) — per-role *and per-panel* scoping is the
   operative rule, not one permission bit.
 
-## Proposed decision
+## Decision
 
 A four-level model, deliberately minimal (no org hierarchy until a customer
 demands one):
@@ -73,11 +73,16 @@ Tenant (customer org, e.g. a clinic/MSO)
    by May, 2026-07-18.**
 4. **Sequencing:** schema fields + fail-closed scope plumbing could land in
    any sprint (small, testable); actual multi-tenant behavior is Phase 3.
-   Is that split acceptable, or should nothing land until the DB exists?
-   — **OPEN.** May asked for a fuller cost/benefit before deciding; the ADR
-   stays Proposed until this is resolved.
+   — **Resolved (May, 2026-07-18): land the seam now, pre-DB**, documented
+   as a discipline/type seam (the hard multi-tenant guarantee arrives with
+   the durable store). Basis: the seam must predate the S4–S6 read
+   endpoints (retrofit is how today's unscoped endpoints happened); at
+   Phase 3 only the claim *source* changes (session mint → IdP), a joint
+   Phase 3 replaces anyway, while the fields, call sites, policy rules, and
+   enforcement tests carry over — the tests become the DB migration's
+   acceptance suite.
 
-## Consequences (if accepted as proposed)
+## Consequences
 
 - Unblocks the ADR-0014 data plane, O9's backend story, and G5 break-glass
   (which needs a user to attribute and a boundary to cross).

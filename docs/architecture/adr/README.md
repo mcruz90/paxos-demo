@@ -28,7 +28,7 @@ pass. New decisions get new ADRs at decision time.
 | [0014](0014-phi-visibility-planes-tokenization.md) | PHI visibility planes and the tokenization boundary (amended 2026-07-17: hybrid scrub — deterministic gate + NER backstop) | Accepted |
 | [0015](0015-document-anchored-grounding-spans.md) | Document-anchored grounding spans — GroundingRef carries character offsets | Accepted |
 | [0016](0016-single-shell-capability-manifest.md) | Single-shell destination, incremental migration behind a capability manifest (X5 Option 3) | Accepted |
-| [0017](0017-tenancy-patient-assignment.md) | Tenancy and user→patient assignment model (P7 spike) | Proposed |
+| [0017](0017-tenancy-patient-assignment.md) | Tenancy and user→patient assignment model (P7; seam lands pre-DB as a discipline seam) | Accepted |
 
 ## Statuses
 
