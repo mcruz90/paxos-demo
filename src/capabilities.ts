@@ -52,3 +52,29 @@ export function capabilityLabel(cap: UnitCapability): string | null {
   if (cap === 'hidden') return null
   return cap === 'live' ? 'LIVE' : 'SIMULATED'
 }
+
+/** What the shell chrome (Topbar badge, Sidebar wordmark) says this build is.
+ * Both modes are demos of ClearAuth today — the distinction the chrome makes
+ * (May's ruling 2026-07-18) is fixtures-with-zero-backend-calls vs. real
+ * backend connections, so a live build must not wear the Demo badge. */
+export interface ShellModeBadge {
+  label: string
+  wordmark: string
+  /** Tailwind classes for the Topbar badge chip. */
+  cls: string
+}
+
+export function shellModeBadge(liveMode: boolean): ShellModeBadge {
+  if (liveMode) {
+    return {
+      label: 'Live',
+      wordmark: 'ClearAuth',
+      cls: 'text-emerald-400/90 bg-emerald-500/10 border-emerald-500/25',
+    }
+  }
+  return {
+    label: 'Demo',
+    wordmark: 'ClearAuth (Demo)',
+    cls: 'text-amber-400/90 bg-amber-500/10 border-amber-500/25',
+  }
+}

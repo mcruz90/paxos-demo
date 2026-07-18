@@ -63,6 +63,11 @@ Rules, in enforcement order:
   submission from a fixture case) is `hidden` instead.
 - **Demo mode:** no per-unit chips. The deploy itself is the labeled demo
   (ADR-0005); chip-spam would drown the design.
+- **Shell chrome** carries the build's mode (`shellModeBadge`): fixture
+  builds wear the Demo badge / "ClearAuth (Demo)" wordmark, live builds wear
+  Live / "ClearAuth" (May's ruling 2026-07-18 — both modes are demos of the
+  product today; what the chrome distinguishes is zero-backend fixtures vs.
+  real backend connections).
 - The chip component (`CapabilityChip`) is shared UI; units receive their
   capability as a prop from the shell — they never compute it.
 

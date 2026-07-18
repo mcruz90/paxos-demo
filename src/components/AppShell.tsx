@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Joyride, EVENTS, STATUS, ACTIONS } from 'react-joyride'
 import { type CaseStatus, type Client, type ScenarioConfig, type View, type Role } from '../types'
 import { initialClients, newCaseRef, scenarios } from '../data/scenarios'
-import { buildManifest } from '../capabilities'
+import { buildManifest, shellModeBadge } from '../capabilities'
 import { JOYRIDE_OPTIONS, JOYRIDE_STYLES, TOURS, TOUR_ROLE, type TourId, type TourStep } from './tour'
 import { LandingHub } from './LandingHub'
 import { AgentInstructionsView, useInstructionStore } from './instructions'
@@ -33,6 +33,7 @@ import { type LiveShellSession } from './live/SessionGate'
 // the manifest; units never branch on mode themselves.
 export function AppShell({ live }: { live?: LiveShellSession }) {
   const manifest = buildManifest(!!live)
+  const modeBadge = shellModeBadge(!!live)
 
   const [theme, setTheme] = useState<'dark' | 'light'>('light')
   useEffect(() => {
@@ -211,6 +212,7 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
         theme={theme}
         onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
         onStartTour={openTourHub}
+        modeBadge={modeBadge}
       />
       <div className="flex flex-1 overflow-hidden">
       <Sidebar
@@ -220,6 +222,7 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
         onStartTour={openTourHub}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        modeBadge={modeBadge}
       />
       {view === 'landing' && (
         <LandingHub onStartTour={startTour} onRoleChange={handleRoleChange} />

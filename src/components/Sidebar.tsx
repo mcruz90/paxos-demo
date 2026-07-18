@@ -1,15 +1,18 @@
 import { Users, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react'
 import { type View, type Role } from '../types'
+import { type ShellModeBadge } from '../capabilities'
 import { SECTIONS, ROLE_TOP_BORDER, ROLE_TOGGLE_GLOW, OWNER_LABEL } from './navConfig'
 
 // Sidebar — navigation only. The persona switcher and utilities moved to the
 // Topbar so the rail carries a single altitude (the active persona's views),
-// with a quiet persona-identity footer at the bottom.
+// with a quiet persona-identity footer at the bottom. The wordmark comes from
+// the shell's mode badge ("ClearAuth (Demo)" vs "ClearAuth", ADR-0016).
 export function Sidebar({
   view, setView,
   activeRole,
   onStartTour,
   isCollapsed, onToggleCollapse,
+  modeBadge,
 }: {
   view: View
   setView: (v: View) => void
@@ -17,6 +20,7 @@ export function Sidebar({
   onStartTour: () => void
   isCollapsed: boolean
   onToggleCollapse: () => void
+  modeBadge: ShellModeBadge
 }) {
   const activeSection = SECTIONS.find(s => s.name === activeRole) ?? SECTIONS[0]
 
@@ -29,7 +33,7 @@ export function Sidebar({
             <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0">
               <ShieldCheck className="w-4 h-4 text-white" />
             </div>
-            <p className="text-sm font-semibold text-white">ClearAuth (Demo) </p>
+            <p className="text-sm font-semibold text-white">{modeBadge.wordmark} </p>
           </button>
         </div>
 

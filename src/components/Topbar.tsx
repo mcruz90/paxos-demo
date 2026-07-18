@@ -1,32 +1,37 @@
 import { Activity, Sun, Moon } from 'lucide-react'
 import { type Role } from '../types'
+import { type ShellModeBadge } from '../capabilities'
 import { SECTIONS, ROLE_ACTIVE } from './navConfig'
 
-// Topbar — demo chrome, not product chrome. The persona switcher is scaffolding
-// for the demo/pitch (a real customer's coordinator only ever sees one persona),
-// so it lives here at its own altitude, visually marked "DEMO", instead of
-// cluttering the navigation rail. Utilities (theme, guided tour) sit on the right.
+// Topbar — shell chrome. The persona switcher is scaffolding for the
+// demo/pitch (a real customer's coordinator only ever sees one persona), so it
+// lives here at its own altitude, visually marked with the build's mode badge
+// (Demo for fixture builds, Live for backend-connected builds — the shell
+// computes it, ADR-0016), instead of cluttering the navigation rail.
+// Utilities (theme, guided tour) sit on the right.
 export function Topbar({
   activeRole,
   onRoleChange,
   theme,
   onToggleTheme,
   onStartTour,
+  modeBadge,
 }: {
   activeRole: Role
   onRoleChange: (r: Role) => void
   theme: 'dark' | 'light'
   onToggleTheme: () => void
   onStartTour: () => void
+  modeBadge: ShellModeBadge
 }) {
   const activeSection = SECTIONS.find(s => s.name === activeRole) ?? SECTIONS[0]
 
   return (
     <header className="shrink-0 z-40 flex items-center gap-4 px-4 h-12 bg-slate-900 border-b border-slate-800">
-      {/* Demo-marked persona switcher */}
+      {/* Mode-marked persona switcher */}
       <div className="flex items-center gap-2.5 min-w-0">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400/90 bg-amber-500/10 border border-amber-500/25 rounded px-1.5 py-0.5 shrink-0">
-          Demo
+        <span className={`text-[10px] font-bold uppercase tracking-wider border rounded px-1.5 py-0.5 shrink-0 ${modeBadge.cls}`}>
+          {modeBadge.label}
         </span>
         <span className="text-xs text-slate-500 shrink-0 hidden sm:inline">Viewing as</span>
         <div className="inline-flex items-center gap-0.5 rounded-lg bg-slate-800/60 border border-slate-700/50 p-0.5">
