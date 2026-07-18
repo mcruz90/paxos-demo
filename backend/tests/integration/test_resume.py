@@ -2,10 +2,12 @@
 
 ``POST /api/appeal/resume`` drives a human-reviewed exception run from its
 parked checkpoint (S3 Slice 4a) to a ``done`` terminal, and writes a DISTINCT
-``human_edited`` audit entry: same ``correlation_id`` (the saga traces under
-one ID) but a distinct ``idempotency_key`` (``<corr>:resume``), so the
-accountability trail keeps BOTH the machine draft (``as_is``) and the human
-sign-off (``human_edited``) — CLAUDE.md §AI Output Accountability.
+audit entry: same ``correlation_id`` (the saga traces under one ID) but a
+distinct ``idempotency_key`` (``<corr>:resume``), so the accountability trail
+keeps BOTH the machine draft (``as_is``) and the human sign-off —
+``human_approved`` when the draft was cleared unchanged, ``human_edited``
+when the text actually changed (CLAUDE.md §AI Output Accountability;
+May's honesty ruling 2026-07-18).
 
 Run from backend/:
     uv run pytest tests/integration/test_resume.py -v
@@ -91,7 +93,7 @@ async def test_resume_emits_done_and_reaches_clean_end() -> None:
 
 
 @pytest.mark.asyncio
-async def test_resume_writes_distinct_human_edited_record() -> None:
+async def test_resume_as_is_writes_distinct_human_approved_record() -> None:
     corr, _ = await _park("resume-audit")
     assert len(all_records()) == 1
     assert all_records()[0].provenance is AuditProvenance.as_is  # the machine draft
@@ -101,10 +103,21 @@ async def test_resume_writes_distinct_human_edited_record() -> None:
     records = all_records()
     assert len(records) == 2, "resume must append its own record, not dedup against the draft"
     resume_rec = records[1]
-    assert resume_rec.provenance is AuditProvenance.human_edited
+    # Approved unchanged: a human decision, not an edit (May's ruling 2026-07-18).
+    assert resume_rec.provenance is AuditProvenance.human_approved
     assert resume_rec.correlation_id == corr  # same saga, end-to-end traceable
     assert resume_rec.idempotency_key == f"{corr}:resume"  # distinct write
     assert records[0].idempotency_key != resume_rec.idempotency_key
+
+
+@pytest.mark.asyncio
+async def test_resume_with_changed_text_writes_human_edited_record() -> None:
+    corr, _ = await _park("resume-audit-edited")
+    [e async for e in run_resume(corr, edited_text="Materially revised letter body.")]
+
+    records = all_records()
+    assert len(records) == 2
+    assert records[1].provenance is AuditProvenance.human_edited
 
 
 @pytest.mark.asyncio
