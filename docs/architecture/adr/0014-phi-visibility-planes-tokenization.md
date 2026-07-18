@@ -1,8 +1,8 @@
 # ADR-0014: PHI visibility planes and the tokenization boundary
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-07-17, as amended)
 - **Date:** 2026-07-12 (amended 2026-07-17 — see §Amendment)
-- **Decided by:** May (design direction set in the 2026-07-12 drawing-board session; amendment direction chosen 2026-07-17; formal acceptance pending)
+- **Decided by:** May (design direction set in the 2026-07-12 drawing-board session; amendment direction chosen and ADR accepted 2026-07-17)
 
 ## Context
 

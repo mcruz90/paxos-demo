@@ -56,6 +56,33 @@ Controls at each sink:
   deliberate, visible data flow (the `LLM_BACKEND` decision). `mock` keeps
   everything in-process.
 
+## Visibility planes & the tokenization boundary (ADR-0014 — Accepted 2026-07-17)
+
+The single PHI wall above is refined into **three visibility planes** —
+data (Operate: rehydrated PHI, own patients only), control (Build/Scale:
+PHI-free by construction), analytics (Sponsor: suppressed aggregates,
+n ≥ 11) — with a **tokenization boundary at ETL ingest**: direct
+identifiers (Safe Harbor classes) are replaced with typed tokens
+(`{{PATIENT_NAME}}`, `{{DOB}}`, …) as the first operation on ingested text;
+the pipeline, LLM, gatekeeper, evals, and audit all work on the tokenized
+case; rehydration happens only at egress (Operate rendering, final letter
+assembly). The persona × data-class matrix and the enforcement table live in
+[12-phi-data-planes.md](12-phi-data-planes.md).
+
+The 2026-07-17 amendment commits the **hybrid scrub**: (1) deterministic
+typed tokenization (the reversible, testable guarantee), (2) a self-hosted
+healthcare-NER **sidecar** as a detector for residual free-text identifiers
+(hits masked/quarantined, never rehydrated; model chain isolated from the
+backend tree), and (3) a deterministic **leak gate at the `LLMBackend`
+seam** that blocks any outbound prompt containing a known identifier or an
+unresolved NER hit. Honesty scope: the claim is "the LLM never receives
+direct identifiers," never "the AI never sees PHI."
+
+**Enforced today (pre-tokenizer):** the side-channel controls above,
+unchanged. Tokenizer + leak gate land with P9a; the NER sidecar with P9b
+(gated on model vetting + a de-identification eval). Until then this
+section is target posture, per the enforcement table in doc 12.
+
 ## Untrusted-input defenses (documents)
 
 Layered along ETL Flow 1 (diagram in [04-data-flow.md](04-data-flow.md)):

@@ -1,8 +1,8 @@
 # ADR-0015: Document-anchored grounding spans
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-07-17)
 - **Date:** 2026-07-17
-- **Decided by:** May (direction agreed in the 2026-07-17 architecture review; formal acceptance pending)
+- **Decided by:** May (direction agreed and accepted in the 2026-07-17 architecture review)
 
 ## Context
 

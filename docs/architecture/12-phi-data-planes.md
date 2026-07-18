@@ -1,8 +1,9 @@
 # 12 — PHI Data Planes: Persona × Data-Class Matrix
 
 *Companion to [ADR-0014](adr/0014-phi-visibility-planes-tokenization.md)
-(Proposed — this doc describes the **target** posture; the enforced pre-DB
-controls are those in [07-security-architecture.md](07-security-architecture.md)).
+(Accepted 2026-07-17, as amended — this doc describes the **target** posture;
+the enforced pre-DB controls remain those in
+[07-security-architecture.md](07-security-architecture.md) until P9a/P9b land).
 Every UI unit inherits its PHI posture from the persona plane it lives in —
 see [/docs/design/ui-unit-exploration.md](../design/ui-unit-exploration.md).*
 

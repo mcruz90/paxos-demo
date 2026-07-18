@@ -25,8 +25,8 @@ pass. New decisions get new ADRs at decision time.
 | [0011](0011-audit-trail-as-review-queue-index.md) | The audit trail is the parked-run review-queue index | Accepted |
 | [0012](0012-generated-wire-types-from-openapi.md) | Generated TypeScript wire types from OpenAPI; Pydantic is the authored source | Accepted |
 | [0013](0013-fastapi-bff-session-cookie-auth.md) | FastAPI as its own BFF: session-cookie auth beside Bearer | Accepted |
-| [0014](0014-phi-visibility-planes-tokenization.md) | PHI visibility planes and the tokenization boundary (amended 2026-07-17: hybrid scrub — deterministic gate + NER backstop) | Proposed |
-| [0015](0015-document-anchored-grounding-spans.md) | Document-anchored grounding spans — GroundingRef carries character offsets | Proposed |
+| [0014](0014-phi-visibility-planes-tokenization.md) | PHI visibility planes and the tokenization boundary (amended 2026-07-17: hybrid scrub — deterministic gate + NER backstop) | Accepted |
+| [0015](0015-document-anchored-grounding-spans.md) | Document-anchored grounding spans — GroundingRef carries character offsets | Accepted |
 
 ## Statuses
 
