@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { UNIT_IDS, buildManifest, capabilityLabel } from './capabilities'
+import { UNIT_IDS, buildManifest, capabilityLabel, shellModeBadge } from './capabilities'
 
 // ADR-0016 / docs/architecture/13-capability-manifest.md: the manifest is the
 // single projection of the live/demo mode onto UI units.
@@ -35,6 +35,20 @@ describe('buildManifest — live mode', () => {
 
   it('keeps the fixture queue simulated — fixture data never impersonates live', () => {
     expect(manifest.O7_portfolio_queue_sim).toBe('simulated')
+  })
+})
+
+describe('shellModeBadge — chrome says which mode this build is', () => {
+  it('demo build keeps the Demo badge and (Demo) wordmark', () => {
+    const badge = shellModeBadge(false)
+    expect(badge.label).toBe('Demo')
+    expect(badge.wordmark).toBe('ClearAuth (Demo)')
+  })
+
+  it('live build wears Live and drops (Demo) from the wordmark', () => {
+    const badge = shellModeBadge(true)
+    expect(badge.label).toBe('Live')
+    expect(badge.wordmark).toBe('ClearAuth')
   })
 })
 
