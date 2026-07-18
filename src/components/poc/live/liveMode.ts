@@ -7,3 +7,13 @@
  * the mode is decided; components never branch on it themselves.
  */
 export const LIVE_MODE: boolean = !!import.meta.env.VITE_API_BASE_URL
+
+/** True when the query string opts into the demoted LiveApp dev console
+ * (ADR-0016): exactly `console=dev`. Pure so the gate is unit-testable. */
+export function parseDevConsole(search: string): boolean {
+  return new URLSearchParams(search).get('console') === 'dev'
+}
+
+/** The dev console exists only in live mode — a demo deploy never mounts it. */
+export const DEV_CONSOLE: boolean =
+  LIVE_MODE && parseDevConsole(window.location.search)
