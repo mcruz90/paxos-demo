@@ -1,6 +1,6 @@
 # ADR-0005: Dual-branch strategy — `demo` (mock UI) vs `main` (real build)
 
-- **Status:** Accepted
+- **Status:** Accepted (amended 2026-07-17 by [ADR-0016](0016-single-shell-capability-manifest.md) — see §Amendment)
 - **Date:** 2026-07-02 (backfilled; strategy set at project inception)
 - **Decided by:** May
 
@@ -30,6 +30,13 @@ backend breaking the deployed demo).
 ## Consequences
 
 - The deployed demo is stable regardless of backend churn.
+- **Amendment (2026-07-17, ADR-0016 single shell):** the demo is no longer a
+  *separate mock UI* — it is the product shell running the simulated data
+  source (`VITE_API_BASE_URL` unset). Branch/deploy mechanics above are
+  unchanged; "implementation specifics stay off this branch" softens to "the
+  demo branch deploys with live mode off." Per-unit honesty moves from
+  branch separation to the capability manifest
+  ([13-capability-manifest.md](../13-capability-manifest.md)).
 - Periodic `demo` ↔ `main` syncs are manual and must be deliberate (the
   branches have merged before; conflicts concentrate in shared frontend
   files).

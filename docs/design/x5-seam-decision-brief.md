@@ -1,9 +1,12 @@
 # X5 — Live/Demo Seam: Decision Brief
 
 *2026-07-17. Discussion artifact for the X5 open question in
-[ui-unit-exploration.md](ui-unit-exploration.md) — **no decision is recorded
-here**; May decides after discussion. Prepared because the 2026-07-17 UI
-exploration made the question materially more expensive to leave open.*
+[ui-unit-exploration.md](ui-unit-exploration.md). **DECIDED — May chose
+Option 3**, recorded in
+[ADR-0016](../architecture/adr/0016-single-shell-capability-manifest.md)
+(single-shell destination, incremental migration behind the capability
+manifest, [spec](../architecture/13-capability-manifest.md)). This brief
+remains as the option analysis behind that ADR.*
 
 ## Why this is now urgent
 

@@ -28,6 +28,8 @@ orchestration decision lived only in chat history. That decision is now
 | [09-test-architecture.md](09-test-architecture.md) | Test tiers, TDD workflow, eval layer, known test debt |
 | [10-roadmap-traceability.md](10-roadmap-traceability.md) | Target architecture and the roadmap → component → ADR traceability map |
 | [11-sprint-plan.md](11-sprint-plan.md) | Sequenced sprint plan (revised 2026-07-02): slice-level scope for S2–S6, what changed vs. the pre-hardening roadmap |
+| [12-phi-data-planes.md](12-phi-data-planes.md) | PHI visibility planes per persona, the tokenization boundary, break-glass path (ADR-0014) |
+| [13-capability-manifest.md](13-capability-manifest.md) | The single-shell live/demo seam: unit → `live \| simulated \| hidden` manifest, where the seam lives, honest labeling (ADR-0016) |
 | [adr/](adr/README.md) | Architecture Decision Records — the settled (and rejected) decisions |
 
 ## Relationship to other documents

@@ -96,6 +96,27 @@ generate → exception parks → pending queue → resume with edit → dual
 types freshness green; post-sprint code review + security review pass with the
 simplicity mandate (no defensive branching for states the contract rules out).
 
+## Workstream SU — Shell unification *(started 2026-07-17; ADR-0016, X5 Option 3)*
+
+**Goal:** one product shell. The portfolio/demo UI is the destination for
+every unit; `LiveApp` demotes to a developer console (`?console=dev`) and
+empties out; the [capability manifest](13-capability-manifest.md) is the
+single projection of mode onto units. Demo/simulated stays the default
+(ADR-0005 as amended) — the static-site deploy's behavior must be unchanged
+at every slice. Runs beside the numbered sprints; each slice is small and
+independently shippable.
+
+| Slice | Scope | Notes |
+| --- | --- | --- |
+| **1 — Already-live flows** | `src/capabilities.ts` (spec-first manifest types + `buildManifest`, RED-first); session gate over the shell in live mode; O7 pending queue + B8 audit trail + O5 exception resume rendered in the portfolio shell behind the manifest; `CapabilityChip` honest labeling; `LiveApp` behind `?console=dev`. | Started 2026-07-17. Reuses the Sprint FI hooks/components (`usePendingQueue`, `useAuditTrail`, resume) — units migrate, plumbing is already tested. |
+| **2 — Letter generation** | O4/streaming generate onto the portfolio case workspace (the real SSE client replaces `LetterGeneration`'s re-simulation); live DonePanel parity inside the shell. | Kills the first known duplication named in the X5 brief. |
+| **3 — Initial-PA lifecycle** | Live `POST /api/pa/submit` flow in the shell; `PaResultView` concepts merge into the case workspace. | |
+| **4 — Dev-console retirement** | `LiveApp` deleted once slices 2–3 leave it empty; `components/poc/live/` units physically move to their shell homes. | Do not delete early — it is the manual-verification surface during migration. |
+
+**Standing rule (CLAUDE.md):** no new units land in the old shells
+(`LiveApp`, or any demo-only parallel surface) once migration starts —
+new units are built once, in the product shell, listed in the manifest.
+
 ## Sprint 4 — Eval suite
 
 **Goal:** the golden set becomes an executable quality gate.
@@ -151,7 +172,7 @@ simplicity mandate (no defensive branching for states the contract rules out).
 | Hosted backend checklist | CORS tightening, rate limiting (`slowapi` re-entry), deploy target ([08](08-deployment-ci.md)). |
 | E2E unblock | Blocked on the landing-flow UX decision ([frontend-e2e-debt](../frontend-e2e-debt.md)); then re-point `skipToQueue()` + specs. |
 | `scenarios.tsx` split | Post-demo (documented CLAUDE.md debt). |
-| **X5 live/demo seam decision** | Before any new shell surface is built — see [x5-seam-decision-brief](../design/x5-seam-decision-brief.md) (2026-07-17); the UI exploration made waiting more expensive each sprint. |
+| ~~X5 live/demo seam decision~~ | **Decided 2026-07-17** — [ADR-0016](adr/0016-single-shell-capability-manifest.md) (Option 3); executing as Workstream SU above. |
 | Evidence discovery rail (O6) | X5 decision + S5 retrieval infra (shares the vector-store re-vet). Demo rail shipped 2026-07-17. |
 | Outbound dispatch rail (G7/O11) | Decision on the doc-gap workflow story; pairs with a `workflowPlan` producer design. Demo shipped 2026-07-17. |
 | Device/procedure PA generalization | First real non-medication case; until then `PaTargetType` is display-only (frontend). |

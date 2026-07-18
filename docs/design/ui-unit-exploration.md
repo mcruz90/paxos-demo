@@ -116,7 +116,7 @@ reach patient level — the UI should make it *structurally impossible*
 | X2 | Provenance chips | `as_is` / `gatekeeper_corrected` / `human_edited` rendered consistently everywhere an artifact appears (live AuditTrailPanel has the first idiom). |
 | X3 | Correlation-ID thread | Any artifact anywhere → click → full trace (B8 as a global affordance). |
 | X4 | Design-token consolidation | One token sheet (type scale, chips, tiers, planes) all sessions share — see session hygiene. |
-| X5 | Live/demo seam strategy | Open question raised by Gemini's integration analysis: session-gate over the real product UI vs. the current parallel `LiveApp` shell. The redesign forces this choice; decide before building the new shell twice. |
+| X5 | Live/demo seam strategy | **Decided 2026-07-17** ([ADR-0016](../architecture/adr/0016-single-shell-capability-manifest.md)): single-shell destination, incremental migration behind the [capability manifest](../architecture/13-capability-manifest.md). Slice 1 (O5/O7/B8 in the portfolio shell) started same day; `LiveApp` demoted to a dev console. |
 
 ## Gaps noticed — missing from project docs, warrant investigation
 

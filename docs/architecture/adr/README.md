@@ -16,7 +16,7 @@ pass. New decisions get new ADRs at decision time.
 | [0002](0002-provider-neutral-llm-backend.md) | Provider-neutral LLM backend behind a Protocol; no default provider | Accepted |
 | [0003](0003-deterministic-gatekeeper.md) | Deterministic gatekeeper — the generator never grades itself | Accepted |
 | [0004](0004-golden-set-canonical-dataset.md) | The golden set is the canonical test/eval dataset | Accepted |
-| [0005](0005-dual-branch-strategy.md) | Dual-branch strategy: `demo` (mock UI) vs `main` (real build) | Accepted |
+| [0005](0005-dual-branch-strategy.md) | Dual-branch strategy: `demo` (mock UI) vs `main` (real build) (amended 2026-07-17 by ADR-0016: demo = product shell in simulated mode) | Accepted |
 | [0006](0006-sse-streaming-transport.md) | SSE transport with a guaranteed terminal event | Accepted |
 | [0007](0007-deferred-dependencies.md) | Dependencies stay out of the tree until something imports them | Accepted |
 | [0008](0008-event-driven-pubsub-declined.md) | Event-driven pub/sub architecture | Rejected |
@@ -27,6 +27,7 @@ pass. New decisions get new ADRs at decision time.
 | [0013](0013-fastapi-bff-session-cookie-auth.md) | FastAPI as its own BFF: session-cookie auth beside Bearer | Accepted |
 | [0014](0014-phi-visibility-planes-tokenization.md) | PHI visibility planes and the tokenization boundary (amended 2026-07-17: hybrid scrub — deterministic gate + NER backstop) | Accepted |
 | [0015](0015-document-anchored-grounding-spans.md) | Document-anchored grounding spans — GroundingRef carries character offsets | Accepted |
+| [0016](0016-single-shell-capability-manifest.md) | Single-shell destination, incremental migration behind a capability manifest (X5 Option 3) | Accepted |
 
 ## Statuses
 
