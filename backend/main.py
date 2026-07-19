@@ -45,6 +45,7 @@ from models.schemas import (
 )
 from openapi_ext import build_openapi
 from security.sessions import COOKIE_NAME, CSRF_HEADER, get_session
+from security.tenancy import TenancyScope
 from sse import stream_events, stream_initial_pa_events, stream_resume_events
 
 if TYPE_CHECKING:
@@ -266,7 +267,9 @@ async def list_audit_records() -> AuditRecordsResponse:
     Returns every :class:`AuditRecord` as-is (identifiers and hashes by design,
     never letter/request text).
     """
-    return AuditRecordsResponse(records=all_records())
+    # Slice 2: platform scope preserves the current see-everything behavior;
+    # Slice 3 replaces this with the caller's session-derived TenancyScope.
+    return AuditRecordsResponse(records=all_records(TenancyScope.platform()))
 
 
 @app.get("/api/reviews/pending")
@@ -278,8 +281,13 @@ async def list_pending_reviews() -> PendingReviewsResponse:
     queue is derived from the audit trail (ADR-0011); the handler only wires
     the store snapshot and the live parked-check into the pure derivation.
     """
+    # Slice 2: platform scope preserves current behavior; Slice 3 replaces it
+    # with the caller's session-derived TenancyScope. The queue reads through
+    # the same scoped store boundary, so it is tenant-scoped transitively.
     return PendingReviewsResponse(
-        reviews=derive_pending_reviews(all_records(), is_run_parked)
+        reviews=derive_pending_reviews(
+            all_records(TenancyScope.platform()), is_run_parked
+        )
     )
 
 

@@ -53,6 +53,7 @@ from models.schemas import (  # noqa: E402
     Rule,
     RuleType,
 )
+from security.tenancy import TenancyScope  # noqa: E402
 
 # A real Cigna pack (resolves via plan_id → pa_resolution="plan_id", so tier is
 # driven by criteria confidence, not a generic-fallback exception signal).
@@ -126,7 +127,7 @@ async def _run_appeal(scenario_id: str, criteria: list[CriterionResult]) -> Done
 
 
 def _print_pending() -> list:
-    reviews = derive_pending_reviews(all_records(), is_run_parked)
+    reviews = derive_pending_reviews(all_records(TenancyScope.platform()), is_run_parked)
     if not reviews:
         print("    (queue empty)")
     for r in reviews:
@@ -136,7 +137,7 @@ def _print_pending() -> list:
 
 def _print_audit_trail() -> None:
     _banner("AUDIT TRAIL (every run — as_is drafts + human_edited sign-offs)")
-    records = all_records()
+    records = all_records(TenancyScope.platform())
     if not records:
         print("    (no records)")
     for rec in records:

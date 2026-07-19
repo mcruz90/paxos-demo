@@ -29,6 +29,7 @@ from models.schemas import (
     Rule,
     RuleType,
 )
+from security.tenancy import TenancyScope
 from tests.conftest import MockLLMBackend
 
 
@@ -76,7 +77,7 @@ async def _run_initial_pa(request: InitialPaRequest) -> list:
 @pytest.mark.asyncio
 async def test_appeal_done_run_writes_exactly_one_record(base_appeal_request) -> None:
     events = await _run_appeal(base_appeal_request)
-    records = all_records()
+    records = all_records(TenancyScope.platform())
     assert len(records) == 1
 
     record = records[0]
@@ -102,7 +103,7 @@ async def test_appeal_transport_retry_does_not_double_write(base_appeal_request)
     second record."""
     await _run_appeal(base_appeal_request)
     await _run_appeal(base_appeal_request)
-    assert len(all_records()) == 1
+    assert len(all_records(TenancyScope.platform())) == 1
 
 
 @pytest.mark.asyncio
@@ -111,7 +112,7 @@ async def test_appeal_deliberate_resubmission_writes_new_record(base_appeal_requ
     resubmission = base_appeal_request.model_copy(update={"attempt": 2})
     await _run_appeal(resubmission)
 
-    records = all_records()
+    records = all_records(TenancyScope.platform())
     assert len(records) == 2
     assert records[0].idempotency_key != records[1].idempotency_key
 
@@ -130,7 +131,7 @@ async def test_appeal_error_run_writes_record(base_appeal_request) -> None:
     events = [
         e async for e in run_pipeline(base_appeal_request, llm_backend=AlwaysFailBackend())
     ]
-    records = all_records()
+    records = all_records(TenancyScope.platform())
     assert len(records) == 1
     assert records[0].outcome == "error"
     assert records[0].retry_count == 3
@@ -149,7 +150,7 @@ async def test_security_hold_run_is_audited(base_appeal_request) -> None:
         update={"security_hold": True, "security_reason": "injection pattern detected"}
     )
     await _run_appeal(held)
-    records = all_records()
+    records = all_records(TenancyScope.platform())
     assert len(records) == 1
     assert records[0].outcome == "error"
 
@@ -160,7 +161,7 @@ async def test_record_written_before_terminal_event_is_yielded(base_appeal_reque
     event reaches the client."""
     async for event in run_pipeline(base_appeal_request, llm_backend=MockLLMBackend()):
         if isinstance(event, DoneEvent):
-            assert len(all_records()) == 1
+            assert len(all_records(TenancyScope.platform())) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +172,7 @@ async def test_record_written_before_terminal_event_is_yielded(base_appeal_reque
 @pytest.mark.asyncio
 async def test_initial_pa_done_run_writes_record_with_submission_ref() -> None:
     events = await _run_initial_pa(_initial_pa_request())
-    records = all_records()
+    records = all_records(TenancyScope.platform())
     assert len(records) == 1
 
     record = records[0]
@@ -190,7 +191,7 @@ async def test_initial_pa_done_run_writes_record_with_submission_ref() -> None:
 async def test_initial_pa_transport_retry_does_not_double_write() -> None:
     await _run_initial_pa(_initial_pa_request())
     await _run_initial_pa(_initial_pa_request())
-    assert len(all_records()) == 1
+    assert len(all_records(TenancyScope.platform())) == 1
 
 
 @pytest.mark.asyncio
@@ -199,7 +200,7 @@ async def test_initial_pa_and_appeal_records_are_distinct(base_appeal_request) -
     distinct idempotency keys (different lifecycles, different runs)."""
     await _run_initial_pa(_initial_pa_request())
     await _run_appeal(base_appeal_request)
-    assert len(all_records()) == 2
+    assert len(all_records(TenancyScope.platform())) == 2
 
 
 @pytest.mark.asyncio

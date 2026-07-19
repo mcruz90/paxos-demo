@@ -137,12 +137,13 @@ def test_pa_submit_rejects_appeal_shaped_body(client: TestClient) -> None:
 
 def test_pa_submit_writes_one_audit_record(client: TestClient) -> None:
     from audit.store import all_records
+    from security.tenancy import TenancyScope
 
     with client.stream(
         "POST", "/api/pa/submit", json=_valid_payload(), headers=_auth_headers()
     ) as resp:
         resp.read()
 
-    records = all_records()
+    records = all_records(TenancyScope.platform())
     assert len(records) == 1
     assert records[0].correlation_id == "PA-2026-0847:a1"

@@ -12,6 +12,7 @@ import pytest
 
 from audit.store import all_records, reset_audit_log, write_audit_record
 from models.schemas import AuditProvenance, AuditRecord, CaseLifecycle
+from security.tenancy import TenancyScope
 
 
 @pytest.fixture(autouse=True)
@@ -44,7 +45,7 @@ def _record(idempotency_key: str = "PA-2026-0847:a1") -> AuditRecord:
 
 def test_write_appends_record() -> None:
     assert write_audit_record(_record()) is True
-    assert len(all_records()) == 1
+    assert len(all_records(TenancyScope.platform())) == 1
 
 
 def test_write_dedupes_on_idempotency_key() -> None:
@@ -52,20 +53,20 @@ def test_write_dedupes_on_idempotency_key() -> None:
     request maps onto the existing entry, never a duplicate."""
     assert write_audit_record(_record()) is True
     assert write_audit_record(_record()) is False
-    assert len(all_records()) == 1
+    assert len(all_records(TenancyScope.platform())) == 1
 
 
 def test_distinct_attempts_write_distinct_records() -> None:
     write_audit_record(_record("PA-2026-0847:a1"))
     write_audit_record(_record("PA-2026-0847:a2"))
-    assert len(all_records()) == 2
+    assert len(all_records(TenancyScope.platform())) == 2
 
 
 def test_all_records_returns_copy() -> None:
     write_audit_record(_record())
-    snapshot = all_records()
+    snapshot = all_records(TenancyScope.platform())
     snapshot.clear()
-    assert len(all_records()) == 1
+    assert len(all_records(TenancyScope.platform())) == 1
 
 
 def test_provenance_enum_values() -> None:

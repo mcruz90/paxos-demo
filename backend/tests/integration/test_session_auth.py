@@ -25,6 +25,7 @@ from fastapi.testclient import TestClient
 
 from audit.store import all_records, reset_audit_log
 from security import sessions
+from security.tenancy import TenancyScope
 
 
 @pytest.fixture
@@ -232,7 +233,11 @@ def _park_via_stream(client: TestClient, scenario_id: str, headers: dict) -> str
 
 
 def _resume_record():
-    return next(r for r in all_records() if r.idempotency_key.endswith(":resume"))
+    return next(
+        r
+        for r in all_records(TenancyScope.platform())
+        if r.idempotency_key.endswith(":resume")
+    )
 
 
 def test_cookie_resume_sets_reviewed_by_to_session_user(client: TestClient) -> None:
