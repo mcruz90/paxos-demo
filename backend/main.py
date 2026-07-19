@@ -117,6 +117,12 @@ async def auth_middleware(request: Request, call_next):
     - Bearer requests are exempt from CSRF (service/CI identity, no browser).
     - Cookie-authenticated writes (non-GET) require an ``X-CSRF-Token`` header
       matching the session's token (double-submit defense).
+
+    It also resolves the caller's :class:`TenancyScope` onto
+    ``request.state.tenancy_scope`` (ADR-0017): a Bearer/service caller is
+    platform-plane (sees all); a cookie session is scoped to its ``tenant_id``
+    claim; the pre-auth default is fail-closed (no tenant, no rows), so a read
+    path can never see rows without an explicitly resolved scope.
     """
     if not request.url.path.startswith("/api/"):
         return await call_next(request)
@@ -128,20 +134,24 @@ async def auth_middleware(request: Request, call_next):
         return await call_next(request)
 
     request.state.session_user_id = ""
+    # Fail-closed default: until a Bearer key or a session resolves the caller's
+    # scope below, no tenant is bound, so a read path sees no rows (ADR-0017).
+    request.state.tenancy_scope = TenancyScope.for_tenant(None)
 
     if request.url.path == "/api/auth/login":
         return await call_next(request)
 
-    # (a) Bearer path — unchanged, CSRF-exempt.
+    # (a) Bearer path — unchanged, CSRF-exempt. Service calls are platform-plane.
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         token = auth_header[len("Bearer "):]
         secret = _get_secret_key()
         if not secret or not hmac.compare_digest(token, secret):
             return JSONResponse({"detail": "Invalid API key"}, status_code=401)
+        request.state.tenancy_scope = TenancyScope.platform()
         return await call_next(request)
 
-    # (b) Session-cookie path.
+    # (b) Session-cookie path — scoped to the session's tenant claim.
     session = get_session(request.cookies.get(COOKIE_NAME, ""))
     if session is None:
         return JSONResponse(
@@ -154,6 +164,7 @@ async def auth_middleware(request: Request, call_next):
             {"detail": "Missing or invalid CSRF token"}, status_code=403
         )
     request.state.session_user_id = session.user_id
+    request.state.tenancy_scope = TenancyScope.for_tenant(session.tenant_id)
     return await call_next(request)
 
 
@@ -260,33 +271,34 @@ async def resume_appeal(body: ResumeAppealRequest, request: Request) -> Streamin
 
 
 @app.get("/api/audit/records")
-async def list_audit_records() -> AuditRecordsResponse:
+async def list_audit_records(request: Request) -> AuditRecordsResponse:
     """List the audit trail (S3 Task 3) — read-only, metadata + hashes only.
 
-    Authentication: enforced by the auth_middleware before this is reached.
-    Returns every :class:`AuditRecord` as-is (identifiers and hashes by design,
-    never letter/request text).
+    Authentication + tenant scoping: enforced by the auth_middleware before this
+    is reached, which resolves the caller's :class:`TenancyScope` onto
+    ``request.state`` (session tenant, or platform for a Bearer caller). The
+    handler stays logic-free — it reads a plain value and passes it to the
+    fail-closed store boundary; a session sees only its tenant's records
+    (ADR-0017), a service caller sees all.
     """
-    # Slice 2: platform scope preserves the current see-everything behavior;
-    # Slice 3 replaces this with the caller's session-derived TenancyScope.
-    return AuditRecordsResponse(records=all_records(TenancyScope.platform()))
+    return AuditRecordsResponse(records=all_records(request.state.tenancy_scope))
 
 
 @app.get("/api/reviews/pending")
-async def list_pending_reviews() -> PendingReviewsResponse:
+async def list_pending_reviews(request: Request) -> PendingReviewsResponse:
     """List exception-tier runs awaiting human review (S3 Task 3).
 
-    Authentication: enforced by the auth_middleware before this is reached.
-    Metadata only — never the draft body (a deferred Slice 4c surface). The
-    queue is derived from the audit trail (ADR-0011); the handler only wires
-    the store snapshot and the live parked-check into the pure derivation.
+    Authentication + tenant scoping: enforced by the auth_middleware, which
+    resolves the caller's :class:`TenancyScope` onto ``request.state``. Metadata
+    only — never the draft body (a deferred Slice 4c surface). The queue is
+    derived from the audit trail (ADR-0011); the handler wires the tenant-scoped
+    store snapshot and the live parked-check into the pure derivation, so the
+    queue is scoped through the same fail-closed store boundary as the audit
+    listing (a session sees only its tenant's parked runs; a service caller all).
     """
-    # Slice 2: platform scope preserves current behavior; Slice 3 replaces it
-    # with the caller's session-derived TenancyScope. The queue reads through
-    # the same scoped store boundary, so it is tenant-scoped transitively.
     return PendingReviewsResponse(
         reviews=derive_pending_reviews(
-            all_records(TenancyScope.platform()), is_run_parked
+            all_records(request.state.tenancy_scope), is_run_parked
         )
     )
 

@@ -31,6 +31,8 @@ import secrets
 import time
 from dataclasses import dataclass
 
+from models.schemas import SEEDED_TENANT_ID
+
 # Fixed 30-minute TTL, checked on read. No sliding refresh (that would turn
 # every authenticated read into a write) and no background sweeper — an expired
 # record is evicted on the next read of its id or on the next create_session
@@ -50,17 +52,24 @@ class Session:
     user_id: str
     csrf_token: str
     expires_at: float
+    # Tenancy claim (ADR-0017): the customer org this session acts within. The
+    # two read endpoints derive their TenancyScope from it. Pre-DB every login
+    # lands on the single seeded tenant; at Phase 3 the source changes (mint →
+    # IdP), not this field. (Role/panel claims are deferred to the durable store
+    # — there is no pre-DB source to mint them from; ADR-0017 point 2.)
+    tenant_id: str = SEEDED_TENANT_ID
 
 
 _SESSIONS: dict[str, Session] = {}
 
 
-def create_session(user_id: str) -> tuple[str, str]:
-    """Mint a session for *user_id*. Returns ``(session_id, csrf_token)``.
+def create_session(user_id: str, tenant_id: str = SEEDED_TENANT_ID) -> tuple[str, str]:
+    """Mint a session for *user_id* in *tenant_id*. Returns ``(session_id, csrf_token)``.
 
     ``session_id`` becomes the httpOnly cookie value; ``csrf_token`` is returned
     in the login body for the double-submit CSRF check. Both are opaque
-    ``secrets.token_urlsafe`` values.
+    ``secrets.token_urlsafe`` values. ``tenant_id`` is the tenancy claim stamped
+    on the session (ADR-0017); pre-DB it defaults to the single seeded tenant.
 
     Opportunistically purges already-expired sessions first (see the expiry
     policy in the module docstring): login is the only growth event, so this
@@ -76,6 +85,7 @@ def create_session(user_id: str) -> tuple[str, str]:
         user_id=user_id,
         csrf_token=csrf_token,
         expires_at=time.time() + SESSION_TTL_SECONDS,
+        tenant_id=tenant_id,
     )
     return session_id, csrf_token
 
