@@ -101,12 +101,12 @@ export function useVersioned<T>(initial: VersionEntry<T>[], initialExperiments: 
   return { versions, experiments, editing, draft, setDraft, changeNote, setChangeNote, showHistory, setShowHistory, justPublished, latest, current, startEdit, cancelEdit, promote, discardExperiment, revertTo }
 }
 
-export function ArtifactControls({ version, editing, onToggleHistory, onEdit }: { version: number; editing: boolean; onToggleHistory: () => void; onEdit: () => void }) {
+export function ArtifactControls({ version, editing, onToggleHistory, onEdit, editable = true }: { version: number; editing: boolean; onToggleHistory: () => void; onEdit: () => void; editable?: boolean }) {
   return (
     <div className="flex items-center gap-2 shrink-0">
       <span className="text-xs font-mono px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20" title="Live production version">prod v{version}</span>
       <button onClick={onToggleHistory} className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-slate-700/60 hover:bg-slate-700 text-slate-300 transition-colors"><Clock className="w-3 h-3" />History</button>
-      {!editing && <button onClick={onEdit} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-md bg-slate-700 hover:bg-slate-600 text-white transition-colors"><Pencil className="w-3 h-3" />Edit</button>}
+      {editable && !editing && <button onClick={onEdit} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-md bg-slate-700 hover:bg-slate-600 text-white transition-colors"><Pencil className="w-3 h-3" />Edit</button>}
     </div>
   )
 }

@@ -31,6 +31,14 @@ export interface InstructionVersion {
 
 export const INSTRUCTION_ACTOR = 'M. Cruz'
 
+// A node's prompt is editable only when it is LLM-backed. The gatekeeper is a
+// deterministic code validator (ADR-0003) — it has no prompt to edit and must
+// never render an edit affordance, or the view would present deterministic
+// code as a tunable LLM prompt.
+export function isNodeEditable(node: Pick<NodeMeta, 'deterministic'>): boolean {
+  return !node.deterministic
+}
+
 export const NODE_META: NodeMeta[] = [
   { id: 'ingestion',  node: 'Ingestion',  icon: FileText,  inputs: ['denial_letter', 'clinical_record', 'policy_pack'] },
   { id: 'retrieval',  node: 'Retrieval',  icon: Search,    inputs: ['AppealRequest', 'policy_pack'] },
@@ -192,6 +200,7 @@ export function InstructionEditor({ nodeId, store, proposedDraft, clusterCases, 
   onPromoted?: (version: number) => void
 }) {
   const meta = NODE_META.find(n => n.id === nodeId)!
+  const editable = isNodeEditable(meta)
   const versions = store.historyById[nodeId]
   const experiments = store.experimentsById[nodeId] ?? []
   const latest = versions[versions.length - 1]
@@ -258,12 +267,18 @@ export function InstructionEditor({ nodeId, store, proposedDraft, clusterCases, 
           <div className="flex items-center gap-2 mb-3">
             {meta.deterministic && <span className="text-xs font-medium px-2 py-1 rounded-md bg-sky-500/10 text-sky-300 border border-sky-500/20 whitespace-nowrap">Deterministic · no LLM</span>}
             <div className="ml-auto">
-              <ArtifactControls version={latest.version} editing={editing} onToggleHistory={() => setShowHistory(s => !s)} onEdit={() => startEdit()} />
+              <ArtifactControls version={latest.version} editing={editing} onToggleHistory={() => setShowHistory(s => !s)} onEdit={() => startEdit()} editable={editable} />
             </div>
           </div>
           {editing
             ? <textarea value={view.role} onChange={e => setField({ role: e.target.value })} rows={2} className="w-full bg-slate-900/60 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-slate-200 resize-y focus:outline-none focus:border-slate-500" />
             : <p className="text-sm text-slate-200 leading-relaxed">{view.role}</p>}
+          {!editable && (
+            <p className="text-xs text-sky-300/80 leading-relaxed mt-2 flex items-start gap-1.5">
+              <Lock className="w-3 h-3 mt-0.5 shrink-0" />
+              <span>Defined in code, not an editable prompt — this is a deterministic validator the model cannot rewrite or rationalize past (<span className="font-mono">ADR-0003</span>). The checks below are fixed rules, not tunable instructions.</span>
+            </p>
+          )}
         </div>
 
         {section('Inputs', (
