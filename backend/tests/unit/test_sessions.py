@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pytest
 
+from models.schemas import SEEDED_TENANT_ID
 from security import sessions
 
 
@@ -37,6 +38,24 @@ def test_get_session_returns_record_for_valid_id() -> None:
 
 def test_get_session_unknown_id_returns_none() -> None:
     assert sessions.get_session("nope") is None
+
+
+def test_session_carries_seeded_tenant_claim(monkeypatch) -> None:
+    """P7a Slice 3 (ADR-0017): the session mint stamps the tenant claim. Pre-DB
+    every login lands on the single seeded tenant, so demo/live is unchanged;
+    at Phase 3 the claim source changes (mint → IdP), not this shape."""
+    session_id, _ = sessions.create_session("demo")
+    record = sessions.get_session(session_id)
+    assert record is not None
+    assert record.tenant_id == SEEDED_TENANT_ID
+
+
+def test_create_session_defaults_tenant_and_accepts_override() -> None:
+    default_id, _ = sessions.create_session("demo")
+    assert sessions.get_session(default_id).tenant_id == SEEDED_TENANT_ID  # type: ignore[union-attr]
+
+    other_id, _ = sessions.create_session("demo", tenant_id="tenant_other")
+    assert sessions.get_session(other_id).tenant_id == "tenant_other"  # type: ignore[union-attr]
 
 
 def test_delete_session_removes_it() -> None:
