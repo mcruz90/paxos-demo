@@ -1107,7 +1107,7 @@
     },
     "/api/audit/records": {
       "get": {
-        "description": "List the audit trail (S3 Task 3) \u2014 read-only, metadata + hashes only.\n\nAuthentication: enforced by the auth_middleware before this is reached.\nReturns every :class:`AuditRecord` as-is (identifiers and hashes by design,\nnever letter/request text).",
+        "description": "List the audit trail (S3 Task 3) \u2014 read-only, metadata + hashes only.\n\nAuthentication + tenant scoping: enforced by the auth_middleware before this\nis reached, which resolves the caller's :class:`TenancyScope` onto\n``request.state`` (session tenant, or platform for a Bearer caller). The\nhandler stays logic-free \u2014 it reads a plain value and passes it to the\nfail-closed store boundary; a session sees only its tenant's records\n(ADR-0017), a service caller sees all.",
         "operationId": "list_audit_records_api_audit_records_get",
         "responses": {
           "200": {
@@ -1242,7 +1242,7 @@
     },
     "/api/reviews/pending": {
       "get": {
-        "description": "List exception-tier runs awaiting human review (S3 Task 3).\n\nAuthentication: enforced by the auth_middleware before this is reached.\nMetadata only \u2014 never the draft body (a deferred Slice 4c surface). The\nqueue is derived from the audit trail (ADR-0011); the handler only wires\nthe store snapshot and the live parked-check into the pure derivation.",
+        "description": "List exception-tier runs awaiting human review (S3 Task 3).\n\nAuthentication + tenant scoping: enforced by the auth_middleware, which\nresolves the caller's :class:`TenancyScope` onto ``request.state``. Metadata\nonly \u2014 never the draft body (a deferred Slice 4c surface). The queue is\nderived from the audit trail (ADR-0011); the handler wires the tenant-scoped\nstore snapshot and the live parked-check into the pure derivation, so the\nqueue is scoped through the same fail-closed store boundary as the audit\nlisting (a session sees only its tenant's parked runs; a service caller all).",
         "operationId": "list_pending_reviews_api_reviews_pending_get",
         "responses": {
           "200": {

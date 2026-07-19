@@ -71,9 +71,12 @@ export interface paths {
          * List Audit Records
          * @description List the audit trail (S3 Task 3) — read-only, metadata + hashes only.
          *
-         *     Authentication: enforced by the auth_middleware before this is reached.
-         *     Returns every :class:`AuditRecord` as-is (identifiers and hashes by design,
-         *     never letter/request text).
+         *     Authentication + tenant scoping: enforced by the auth_middleware before this
+         *     is reached, which resolves the caller's :class:`TenancyScope` onto
+         *     ``request.state`` (session tenant, or platform for a Bearer caller). The
+         *     handler stays logic-free — it reads a plain value and passes it to the
+         *     fail-closed store boundary; a session sees only its tenant's records
+         *     (ADR-0017), a service caller sees all.
          */
         get: operations["list_audit_records_api_audit_records_get"];
         put?: never;
@@ -181,10 +184,13 @@ export interface paths {
          * List Pending Reviews
          * @description List exception-tier runs awaiting human review (S3 Task 3).
          *
-         *     Authentication: enforced by the auth_middleware before this is reached.
-         *     Metadata only — never the draft body (a deferred Slice 4c surface). The
-         *     queue is derived from the audit trail (ADR-0011); the handler only wires
-         *     the store snapshot and the live parked-check into the pure derivation.
+         *     Authentication + tenant scoping: enforced by the auth_middleware, which
+         *     resolves the caller's :class:`TenancyScope` onto ``request.state``. Metadata
+         *     only — never the draft body (a deferred Slice 4c surface). The queue is
+         *     derived from the audit trail (ADR-0011); the handler wires the tenant-scoped
+         *     store snapshot and the live parked-check into the pure derivation, so the
+         *     queue is scoped through the same fail-closed store boundary as the audit
+         *     listing (a session sees only its tenant's parked runs; a service caller all).
          */
         get: operations["list_pending_reviews_api_reviews_pending_get"];
         put?: never;

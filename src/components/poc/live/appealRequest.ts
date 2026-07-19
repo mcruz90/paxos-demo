@@ -26,5 +26,9 @@ export function buildAppealRequest(scenario: ScenarioConfig, attempt = 1): Appea
     attempt,
     security_hold: false,
     security_reason: '',
+    // Tenancy seam (ADR-0017): pre-DB the demo operates in the single seeded
+    // tenant. At the Phase 3 durable store the owning tenant becomes
+    // session-derived server-side (the client stops asserting it).
+    tenant_id: 'tenant_demo',
   }
 }
