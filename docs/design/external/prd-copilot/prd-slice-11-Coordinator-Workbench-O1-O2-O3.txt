@@ -1,0 +1,1341 @@
+Here is the full PRD. Copy from the code block below.
+
+```markdown
+# Slice 11 — Coordinator Workbench (O1 / O2 / O3)
+**ClearAuth Product Requirements Document**
+Version: 1.0.0 | Status: DRAFT | Date: 2026-07-19
+Owner: Product Engineering | Slice: 11
+
+---
+
+## Table of Contents
+
+1. [Problem Summary](#1-problem-summary)
+2. [Goals](#2-goals)
+3. [Non-Goals](#3-non-goals)
+4. [Requirements](#4-requirements)
+5. [Coordinator Cockpit Layout](#5-coordinator-cockpit-layout)
+6. [Case List Design](#6-case-list-design)
+7. [Case Header Schema](#7-case-header-schema)
+8. [Timeline Modeling](#8-timeline-modeling)
+9. [Evidence Panel Integration](#9-evidence-panel-integration)
+10. [Determination Panel](#10-determination-panel)
+11. [HITL Checkpoints](#11-hitl-checkpoints)
+12. [Review Queue](#12-review-queue)
+13. [Audit Trail Surfaces](#13-audit-trail-surfaces)
+14. [P2P Prep Surfaces](#14-p2p-prep-surfaces)
+15. [Data Model Changes](#15-data-model-changes)
+16. [API Changes](#16-api-changes)
+17. [LangGraph Integration](#17-langgraph-integration)
+18. [UI Surfaces](#18-ui-surfaces)
+19. [Test Cases](#19-test-cases)
+20. [Risks](#20-risks)
+21. [Deliverables](#21-deliverables)
+
+---
+
+## 1. Problem Summary
+
+Prior authorization (PA) coordinators at health systems currently work across 3–7 disconnected tools to manage a single authorization case: a payer portal, an EHR system, an internal tracking spreadsheet, a fax queue, and email. This context-switching introduces delays, missed deadlines, and documentation gaps that result in claim denials, P2P escalations, and compliance exposure.
+
+ClearAuth has automated the AI-assisted extraction, evidence gathering, and clinical scoring layers (Slices 1–10). However, there is no unified human-facing workbench through which coordinators can monitor agent progress, intervene at HITL checkpoints, resolve exceptions, review AI determinations, and manage the full PA case lifecycle end-to-end.
+
+Slice 11 delivers the **Coordinator Workbench**: a three-panel, real-time workspace that serves as the coordinator's single pane of glass across all active PA cases. It surfaces the right information at the right time, routes human attention to where it is required, and records every coordinator action in an auditable trail — while keeping the LangGraph agent graph running with minimal interruption.
+
+---
+
+## 2. Goals
+
+| ID | Goal |
+|----|------|
+| G-01 | Provide a unified case list (O1) that surfaces all active PA cases with tier-based prioritization, SLA countdowns, and exception badges. |
+| G-02 | Provide a case detail workspace (O2) with a persistent three-pane layout: case header, timeline, and evidence/determination panel. |
+| G-03 | Provide an exception resolution and HITL workspace (O3) that enables coordinators to complete interrupt tasks, resume the agent graph, and log decisions. |
+| G-04 | Surface all LangGraph HITL checkpoints as actionable coordinator tasks with full context, input fields, and one-click resume. |
+| G-05 | Expose a fully navigable audit trail on every case, meeting HIPAA and payer audit requirements. |
+| G-06 | Surface P2P prep materials (clinical summary, denial rationale, talking points) in a print/export-ready format when a case reaches `p2p_scheduled` state. |
+| G-07 | Achieve sub-2-second page render for the case list and sub-3-second render for the case detail view at P95 under production load. |
+
+---
+
+## 3. Non-Goals
+
+| ID | Non-Goal | Rationale |
+|----|----------|-----------|
+| NG-01 | Direct payer portal integration (write) | Out of scope until Slice 14; coordinators continue to submit via payer portals manually. |
+| NG-02 | Clinical decision support (CDS) rules engine | ClearAuth defers clinical logic to the LangGraph agent; the workbench only displays agent outputs. |
+| NG-03 | EHR write-back | Read-only EHR context surfaced via FHIR R4; no write path in this slice. |
+| NG-04 | Mobile-responsive layout | Desktop-first; responsive design deferred to Slice 15. |
+| NG-05 | Coordinator scheduling or shift management | Out of scope; handled by workforce management tooling. |
+| NG-06 | Bulk case actions (mass reassign, mass close) | Scoped to Slice 13. |
+
+---
+
+## 4. Requirements
+
+### 4.1 Functional Requirements
+
+| ID | Requirement | Priority | Outcome |
+|----|-------------|----------|---------|
+| FR-01 | The system MUST display all cases assigned to the authenticated coordinator's queue in the case list. | P0 | O1 |
+| FR-02 | The case list MUST support sorting by: SLA deadline (asc/desc), case tier, received date, payer name, patient name. | P0 | O1 |
+| FR-03 | The case list MUST support filtering by: case state, tier (STAT/URGENT/ROUTINE), payer, assigned coordinator, exception flag. | P0 | O1 |
+| FR-04 | Cases in `exception` or `awaiting_documentation` state MUST display a visual exception badge in the case list. | P0 | O1 |
+| FR-05 | The case detail view MUST display the full case header schema (§7) without truncation. | P0 | O2 |
+| FR-06 | The timeline MUST display every state transition, agent step, coordinator action, and external event in chronological order. | P0 | O2 |
+| FR-07 | The evidence panel MUST render all attached clinical documents with confidence scores surfaced by the AI extraction agent. | P1 | O2 |
+| FR-08 | The determination panel MUST display the current AI recommendation with supporting rationale and allow coordinator override with a mandatory comment. | P0 | O2 |
+| FR-09 | Every active HITL checkpoint MUST appear as a task card in the O3 review queue with checkpoint type, required inputs, and case context. | P0 | O3 |
+| FR-10 | Completing a HITL task MUST resume the LangGraph graph from the stored checkpoint without re-running prior nodes. | P0 | O3 |
+| FR-11 | Every coordinator action MUST write an immutable `AuditRecord` with: actor ID, timestamp (UTC), action type, previous value, new value, and case ID. | P0 | O2/O3 |
+| FR-12 | The audit trail surface MUST be accessible from the case detail view and filterable by action type and actor. | P1 | O2 |
+| FR-13 | When a case enters `p2p_scheduled` state, the P2P prep panel MUST auto-populate with: denial summary, clinical rationale, suggested talking points, and relevant clinical criteria citations. | P1 | O3 |
+| FR-14 | The P2P prep panel MUST support PDF export of all prep materials. | P1 | O3 |
+| FR-15 | The SLA countdown timer MUST update in real-time (WebSocket or SSE) without a page reload. | P0 | O1 |
+| FR-16 | The case list MUST support pagination with configurable page size (25 / 50 / 100). | P1 | O1 |
+| FR-17 | Coordinators MUST be able to add free-text notes to any case; notes MUST be stored as `AuditRecord` events. | P1 | O2 |
+| FR-18 | The workbench MUST enforce row-level tenancy: coordinators may only view cases belonging to their tenant. | P0 | All |
+
+### 4.2 Non-Functional Requirements
+
+| ID | Requirement | Target |
+|----|-------------|--------|
+| NFR-01 | Case list initial render (P95) | ≤ 2 000 ms |
+| NFR-02 | Case detail render (P95) | ≤ 3 000 ms |
+| NFR-03 | HITL resume latency (P95) | ≤ 5 000 ms end-to-end |
+| NFR-04 | Audit record write durability | Synchronous; no async buffering |
+| NFR-05 | SLA timer accuracy | ± 1 second |
+| NFR-06 | Concurrent coordinator sessions per tenant | 50 minimum |
+| NFR-07 | Accessibility | WCAG 2.1 AA |
+| NFR-08 | Session token enforcement | JWT + refresh; 15-min access token, 8-hr refresh token |
+
+---
+
+## 5. Coordinator Cockpit Layout
+
+The cockpit follows the **three-pane portfolio shell** established in ADR-0016 (single-shell capability manifest). The layout is fixed at the shell level; panels resize but do not reorder.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  GLOBAL NAV BAR  [Logo] [Queue ▾] [Alerts 🔔 3] [Avatar] [Sign Out] │
+├──────────────────┬──────────────────────────┬────────────────────────┤
+│                  │                          │                        │
+│   CASE LIST      │   CASE DETAIL            │   ACTION PANEL         │
+│   (O1)           │   (O2)                   │   (O3)                 │
+│                  │                          │                        │
+│  ┌────────────┐  │  ┌────────────────────┐  │  ┌──────────────────┐  │
+│  │ Filters /  │  │  │  Case Header       │  │  │  HITL Tasks      │  │
+│  │ Sort Bar   │  │  │  (sticky)          │  │  │  Review Queue    │  │
+│  ├────────────┤  │  ├────────────────────┤  │  ├──────────────────┤  │
+│  │ Case Row   │  │  │  Timeline          │  │  │  Audit Trail     │  │
+│  │ Case Row ● │  │  │  (scrollable)      │  │  │  (filterable)    │  │
+│  │ Case Row   │  │  ├────────────────────┤  │  ├──────────────────┤  │
+│  │ Case Row ⚠ │  │  │  Evidence Panel    │  │  │  P2P Prep        │  │
+│  │ ...        │  │  │  Determination     │  │  │  (conditional)   │  │
+│  └────────────┘  │  │  Panel             │  │  └──────────────────┘  │
+│  [Pagination]    │  └────────────────────┘  │                        │
+└──────────────────┴──────────────────────────┴────────────────────────┘
+```
+
+**Panel sizing (default):**
+- O1 (Case List): 22% viewport width, fixed minimum 280 px
+- O2 (Case Detail): 50% viewport width
+- O3 (Action Panel): 28% viewport width
+
+**Panel resizing:** Draggable gutters between O1/O2 and O2/O3. Minimum widths enforced per panel.
+
+**State persistence:** Panel widths and active filters are persisted in `localStorage` keyed by `tenant_id + coordinator_id`.
+
+---
+
+## 6. Case List Design
+
+### 6.1 Case Row Anatomy
+
+Each row in the case list renders the following fields:
+
+| Field | Source | Display |
+|-------|---------|---------|
+| Patient name | `Case.patient.full_name` | Bold, 14 pt |
+| Case ID | `Case.id` | Monospace, muted |
+| Payer name | `Case.payer.name` | Normal |
+| Procedure code(s) | `Case.procedures[].code` | Comma-separated, max 3 + overflow badge |
+| Case tier | `Case.tier` | Colored pill: STAT=red, URGENT=amber, ROUTINE=blue |
+| Current state | `Case.state` | State chip with icon |
+| SLA deadline | `Case.sla_deadline` | Countdown timer (DD:HH:MM); red when < 4 hr |
+| Assigned coordinator | `Case.assigned_to` | Avatar + name |
+| Exception badge | `Case.exception_active` | ⚠ amber icon if true |
+| HITL pending badge | `Case.hitl_pending` | 🔵 blue dot if true |
+
+### 6.2 Sort Options
+
+| Label | Field | Default Direction |
+|-------|-------|-------------------|
+| SLA Deadline | `sla_deadline` | ASC (soonest first) — **default** |
+| Received | `received_at` | DESC |
+| Patient Name | `patient.last_name` | ASC |
+| Payer | `payer.name` | ASC |
+| Tier | `tier` (STAT > URGENT > ROUTINE) | DESC |
+
+### 6.3 Filter Options
+
+| Filter | Type | Values |
+|--------|------|--------|
+| State | Multi-select | All state enum values |
+| Tier | Multi-select | STAT, URGENT, ROUTINE |
+| Payer | Typeahead | Payer name |
+| Assigned To | Typeahead | Coordinator name |
+| Exception Flag | Toggle | On / Off |
+| HITL Pending | Toggle | On / Off |
+| SLA Breach Risk | Toggle | Shows cases with SLA < 24 hr |
+
+### 6.4 Pagination
+
+- Default page size: 25
+- Options: 25, 50, 100
+- Server-side pagination using `cursor`-based tokens (no offset)
+- Total count displayed: "Showing 25 of 312 cases"
+
+### 6.5 Row Interaction
+
+- **Single click:** Loads case detail in O2 pane; updates URL to `/workbench/{case_id}`; pushes browser history entry.
+- **Keyboard navigation:** Arrow keys move focus between rows; Enter opens detail.
+- **Right-click context menu:** Reassign, Add Note, Copy Case ID, Open in New Tab.
+
+---
+
+## 7. Case Header Schema
+
+The case header is a sticky bar at the top of O2. It always displays the following fields regardless of scroll position within the timeline.
+
+### 7.1 Header Field Definitions
+
+| Field | Type | Source | Notes |
+|-------|------|---------|-------|
+| `case_id` | `string (UUID)` | `Case.id` | Displayed as abbreviated + copy button |
+| `patient_name` | `string` | `Case.patient.full_name` | |
+| `patient_dob` | `date` | `Case.patient.date_of_birth` | Formatted MM/DD/YYYY |
+| `patient_mrn` | `string` | `Case.patient.mrn` | Masked: last 4 visible by default |
+| `payer_name` | `string` | `Case.payer.name` | |
+| `payer_plan` | `string` | `Case.payer.plan_name` | |
+| `member_id` | `string` | `Case.patient.member_id` | Masked: last 4 visible |
+| `group_number` | `string` | `Case.patient.group_number` | |
+| `ordering_provider` | `string` | `Case.ordering_provider.full_name` + NPI | |
+| `facility` | `string` | `Case.facility.name` | |
+| `procedures` | `string[]` | `Case.procedures[].code + description` | |
+| `diagnosis_codes` | `string[]` | `Case.diagnoses[].code + description` | Primary first |
+| `case_tier` | `enum` | `Case.tier` | STAT / URGENT / ROUTINE |
+| `current_state` | `enum` | `Case.state` | Full state label |
+| `sla_deadline` | `datetime` | `Case.sla_deadline` | Live countdown |
+| `received_at` | `datetime` | `Case.received_at` | |
+| `assigned_to` | `string` | `Case.assigned_to.full_name` | Editable via inline dropdown |
+| `payer_reference` | `string` | `Case.payer_reference_number` | Payer-assigned tracking number |
+| `clinical_category` | `string` | `Case.clinical_category` | e.g., Oncology, Cardiology |
+| `urgency_justification` | `string` | `Case.urgency_justification` | Free text; shown for STAT only |
+
+### 7.2 Header Actions
+
+Inline action buttons in the header row:
+
+| Action | Condition | Outcome |
+|--------|-----------|---------|
+| Reassign | Always | Opens coordinator picker modal |
+| Add Note | Always | Opens note input inline |
+| Change Tier | Role: Senior Coordinator | Opens tier picker; writes AuditRecord |
+| Request Documentation | State: `awaiting_documentation` | Triggers outbound request agent |
+| Mark Exception | State: any except `closed` | Sets `exception_active = true`; routes to O3 |
+| Submit to Payer | State: `ready_for_submission` | Opens submission confirmation modal |
+
+---
+
+## 8. Timeline Modeling
+
+### 8.1 Timeline Event Types
+
+The timeline in O2 renders a chronological event stream. Every event type maps to a distinct visual treatment.
+
+| Event Type | Icon | Color Token | Source |
+|------------|------|-------------|--------|
+| `case_created` | 📋 | `--color-neutral-500` | System |
+| `state_transition` | ⟶ | `--color-brand-500` | State machine |
+| `agent_step_started` | 🤖 | `--color-info-400` | LangGraph node emit |
+| `agent_step_completed` | ✅ | `--color-success-500` | LangGraph node emit |
+| `agent_step_failed` | ❌ | `--color-danger-500` | LangGraph node emit |
+| `hitl_checkpoint_raised` | 🔵 | `--color-warning-400` | LangGraph interrupt |
+| `hitl_checkpoint_resolved` | 🟢 | `--color-success-400` | Coordinator action |
+| `evidence_attached` | 📎 | `--color-neutral-400` | Evidence agent |
+| `evidence_reviewed` | 👁 | `--color-neutral-600` | Coordinator action |
+| `determination_issued` | ⚖️ | `--color-brand-600` | AI / Coordinator |
+| `determination_overridden` | ✏️ | `--color-warning-600` | Coordinator action |
+| `coordinator_note` | 💬 | `--color-neutral-300` | Coordinator action |
+| `payer_response_received` | 📬 | `--color-brand-400` | Inbound integration |
+| `p2p_scheduled` | 📞 | `--color-warning-500` | Coordinator action |
+| `p2p_completed` | ✔️ | `--color-success-600` | Coordinator action |
+| `exception_raised` | ⚠️ | `--color-danger-400` | System / Coordinator |
+| `exception_resolved` | ✅ | `--color-success-400` | Coordinator action |
+| `document_requested` | 📤 | `--color-info-500` | Agent / Coordinator |
+| `document_received` | 📥 | `--color-success-300` | Inbound integration |
+
+### 8.2 Timeline Event Data Model
+
+```typescript
+interface TimelineEvent {
+  id: string;                        // UUID
+  case_id: string;
+  event_type: TimelineEventType;
+  occurred_at: string;               // ISO 8601 UTC
+  actor_type: "system" | "agent" | "coordinator" | "payer";
+  actor_id: string | null;
+  actor_display_name: string;
+  title: string;                     // Short human-readable label
+  body: string | null;               // Markdown-safe detail text
+  metadata: Record<string, unknown>; // Event-type-specific payload
+  is_hitl_event: boolean;
+  linked_checkpoint_id: string | null;
+  linked_audit_record_id: string | null;
+}
+```
+
+### 8.3 Timeline Rendering Rules
+
+- Events are sorted by `occurred_at` ascending; newest at bottom.
+- Agent step events are visually grouped under a collapsible "Agent Run" accordion keyed by `run_id`.
+- HITL checkpoint events display an inline task card (see §11) until resolved; the card is replaced by a resolution summary after completion.
+- Coordinator notes render with the coordinator's avatar and are directly editable for 5 minutes post-creation.
+- The timeline is virtualized (windowed rendering) for cases with > 200 events to maintain scroll performance.
+
+---
+
+## 9. Evidence Panel Integration
+
+### 9.1 Panel Layout
+
+The evidence panel occupies the lower half of O2, split into two tabs:
+- **Documents** — all attached clinical documents
+- **Extracted Data** — structured fields extracted by the AI extraction agent
+
+### 9.2 Document List
+
+Each document row displays:
+
+| Field | Source |
+|-------|---------|
+| Document name | `Evidence.filename` |
+| Document type | `Evidence.document_type` (e.g., clinical note, lab result, imaging report) |
+| Source | `Evidence.source` (e.g., EHR pull, manual upload, fax) |
+| Received at | `Evidence.received_at` |
+| AI confidence score | `Evidence.extraction_confidence` (0.00–1.00, displayed as percentage + color bar) |
+| Review status | `Evidence.reviewed_by_coordinator` (boolean) |
+| Actions | View, Download, Mark Reviewed, Flag as Insufficient |
+
+**Confidence color mapping:**
+- ≥ 0.85 → green (`--color-success-500`)
+- 0.60–0.84 → amber (`--color-warning-500`)
+- < 0.60 → red (`--color-danger-500`)
+
+### 9.3 Extracted Data Tab
+
+Displays a structured key-value grid of all fields extracted by the AI agent, grouped by category:
+
+- **Patient demographics** (name, DOB, MRN, insurance IDs)
+- **Clinical indicators** (diagnosis codes, procedure codes, clinical urgency flags)
+- **Supporting documentation** (referenced lab values, imaging findings, prior treatment history)
+- **Coverage information** (benefit category, coverage tier, prior auth requirements from payer rules)
+
+Each extracted field shows:
+- Field label
+- Extracted value
+- Source document (linked)
+- Confidence score
+- Coordinator override input (free text; triggers AuditRecord on change)
+
+### 9.4 Evidence Actions
+
+| Action | Role Required | Outcome |
+|--------|---------------|---------|
+| Mark Document Reviewed | Coordinator | Sets `Evidence.reviewed_by_coordinator = true`; writes AuditRecord |
+| Flag as Insufficient | Coordinator | Sets `Evidence.flagged_insufficient = true`; adds to exception queue |
+| Request Additional Documentation | Coordinator | Triggers `document_requested` event; routes to outbound request agent |
+| Upload Document | Coordinator | Multipart upload to evidence store; triggers re-extraction |
+
+---
+
+## 10. Determination Panel
+
+### 10.1 Panel Layout
+
+The determination panel renders below the evidence panel in O2, or as a full-pane overlay when the coordinator clicks "Review Determination."
+
+### 10.2 AI Recommendation Display
+
+| Field | Display |
+|-------|---------|
+| Recommendation | Large pill: `APPROVE` (green) / `DENY` (red) / `PEND` (amber) |
+| Confidence Score | Percentage + confidence bar |
+| Clinical Rationale | Markdown-rendered text block from agent |
+| Supporting Criteria | Bulleted list of criteria met/not met (e.g., MCG guidelines, payer criteria) |
+| Missing Evidence | Items the agent flagged as absent |
+| Comparable Cases | Optional: anonymized similar case outcomes (if similarity search enabled) |
+
+### 10.3 Coordinator Decision Actions
+
+| Action | Trigger | Behavior |
+|--------|---------|---------|
+| Accept AI Recommendation | Button | Advances case state; writes `determination_issued` AuditRecord |
+| Override — Approve | Button | Opens override modal; requires mandatory comment (min 20 chars); writes `determination_overridden` AuditRecord |
+| Override — Deny | Button | Opens override modal; requires mandatory comment + denial reason code; writes `determination_overridden` AuditRecord |
+| Pend for Additional Info | Button | Transitions case to `awaiting_documentation`; triggers outbound request |
+| Escalate to P2P | Button | Transitions case to `p2p_requested`; unlocks P2P prep panel (§14) |
+
+### 10.4 Override Modal Fields
+
+```
+┌──────────────────────────────────────────────────┐
+│  Override AI Determination                        │
+├──────────────────────────────────────────────────┤
+│  New Decision: [ APPROVE ▾ ]                     │
+│                                                  │
+│  Override Reason Code: [ Select ▾ ]              │
+│  (values: CLINICAL_JUDGEMENT | ADDITIONAL_INFO_  │
+│   AVAILABLE | PAYER_CRITERIA_MISAPPLIED |        │
+│   PATIENT_SPECIFIC_CIRCUMSTANCE | OTHER)         │
+│                                                  │
+│  Comment (required, min 20 chars):               │
+│  ┌────────────────────────────────────────────┐  │
+│  │                                            │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  [ Cancel ]                    [ Confirm Override]│
+└──────────────────────────────────────────────────┘
+```
+
+---
+
+## 11. HITL Checkpoints
+
+### 11.1 Checkpoint Types
+
+The LangGraph agent graph raises HITL interrupts at defined nodes. Each interrupt type maps to a structured coordinator task:
+
+| Checkpoint Type | Trigger Node | Required Coordinator Input | Auto-resume Eligible |
+|----------------|-------------|--------------------------|---------------------|
+| `EVIDENCE_REVIEW` | `evidence_validation_node` | Coordinator marks evidence set complete | No |
+| `CLINICAL_AMBIGUITY` | `clinical_scoring_node` | Coordinator selects clinical interpretation | No |
+| `DETERMINATION_REVIEW` | `determination_node` | Coordinator accepts or overrides | No |
+| `EXCEPTION_TRIAGE` | `exception_handler_node` | Coordinator categorizes and resolves exception | No |
+| `P2P_PREP_REVIEW` | `p2p_prep_node` | Coordinator reviews and approves P2P materials | No |
+| `MISSING_DOCUMENTATION` | `document_validation_node` | Coordinator confirms docs received or requests more | No |
+| `PAYER_RESPONSE_REVIEW` | `payer_response_node` | Coordinator logs payer decision | No |
+| `COVERAGE_CLARIFICATION` | `coverage_check_node` | Coordinator confirms coverage tier | Yes (if timeout 30 min) |
+
+### 11.2 Checkpoint Task Card Structure
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  🔵 HITL Task — DETERMINATION_REVIEW          [OPEN]     │
+│  Case: John Doe · PA-2026-00412 · STAT · SLA: 01:22:15  │
+├──────────────────────────────────────────────────────────┤
+│  The AI agent has issued a recommendation and requires   │
+│  your review before proceeding.                          │
+│                                                          │
+│  AI Recommendation: APPROVE (confidence: 91%)            │
+│  Procedure: 27447 — Total Knee Arthroplasty              │
+│                                                          │
+│  [ View Full Determination ]                             │
+│                                                          │
+│  ─────────────────────────────────────────────────────   │
+│  [ Accept & Resume Agent ]  [ Override ]  [ Pend ]       │
+└──────────────────────────────────────────────────────────┘
+```
+
+### 11.3 Checkpoint Lifecycle
+
+```
+RAISED (agent paused at interrupt)
+  │
+  ▼
+ASSIGNED (coordinator opens task card)
+  │
+  ▼
+IN_PROGRESS (coordinator has submitted at least one input)
+  │
+  ├──► COMPLETED (coordinator confirms) ──► Agent graph resumes from checkpoint
+  │
+  └──► ESCALATED (senior coordinator review required)
+```
+
+### 11.4 Checkpoint Timeout Behavior
+
+- Tasks with `auto_resume_eligible = true` auto-advance after the specified timeout if no coordinator action is taken.
+- All other checkpoints remain open indefinitely and trigger an escalation alert at T+2h, T+4h, and T+SLA-1h.
+- Escalation alerts fire to: assigned coordinator, queue supervisor, on-call coordinator (if SLA < 1h).
+
+---
+
+## 12. Review Queue
+
+### 12.1 Queue Purpose
+
+The Review Queue in O3 is the coordinator's actionable task inbox. It aggregates:
+1. All open HITL checkpoint tasks for cases in the coordinator's queue
+2. All cases in `exception` state requiring triage
+3. All cases with SLA breach risk (< 4 hr remaining)
+4. All cases in `p2p_requested` or `p2p_scheduled` state
+
+### 12.2 Queue Layout
+
+```
+┌──────────────────────────────────────────────┐
+│  Review Queue                    [3 pending]  │
+├──────────────────────────────────────────────┤
+│  Sort: [ Priority ▾ ]   Filter: [ All ▾ ]    │
+├──────────────────────────────────────────────┤
+│  🔴 STAT · SLA 00:47  HITL: DETERMINATION   │
+│  Jane Smith · PA-2026-00398                  │
+│  [ Open Case ]                               │
+├──────────────────────────────────────────────┤
+│  🟡 URGENT · SLA 03:12  EXCEPTION: Missing  │
+│  docs                                        │
+│  Bob Jones · PA-2026-00401                  │
+│  [ Open Case ]                               │
+├──────────────────────────────────────────────┤
+│  🔵 ROUTINE · SLA 11:04  HITL: EVIDENCE    │
+│  REVIEW                                      │
+│  Mary Lee · PA-2026-00389                   │
+│  [ Open Case ]                               │
+└──────────────────────────────────────────────┘
+```
+
+### 12.3 Queue Priority Ordering
+
+Tasks in the review queue are sorted by a composite priority score:
+
+```
+priority_score = (tier_weight × 1000) + (1 / hours_until_sla × 500) + (is_exception × 200) + (hitl_age_hours × 10)
+```
+
+Where `tier_weight`: STAT=3, URGENT=2, ROUTINE=1.
+
+### 12.4 Queue Filtering
+
+| Filter | Options |
+|--------|---------|
+| Task Type | HITL Task, Exception, SLA Risk, P2P |
+| Tier | STAT, URGENT, ROUTINE |
+| Assigned To | Self, All in Team |
+| State | Any case state enum value |
+
+---
+
+## 13. Audit Trail Surfaces
+
+### 13.1 AuditRecord Schema
+
+Every coordinator action and system state change produces an immutable `AuditRecord`. These are written synchronously; no buffering.
+
+```typescript
+interface AuditRecord {
+  id: string;                          // UUID v7 (time-sortable)
+  case_id: string;
+  tenant_id: string;
+  actor_type: "coordinator" | "system" | "agent" | "payer_integration";
+  actor_id: string;
+  actor_display_name: string;
+  action_type: AuditActionType;
+  occurred_at: string;                 // ISO 8601 UTC; immutable
+  previous_value: unknown | null;      // Serialized prior state
+  new_value: unknown | null;           // Serialized new state
+  comment: string | null;             // Mandatory for overrides
+  ip_address: string;                  // IPv4/IPv6 of actor
+  user_agent: string;
+  session_id: string;
+  checkpoint_id: string | null;        // If associated with HITL event
+  signature: string;                   // HMAC-SHA256 of record payload for tamper detection
+}
+```
+
+### 13.2 Audit Action Types
+
+```
+CASE_CREATED | STATE_TRANSITION | TIER_CHANGED | COORDINATOR_REASSIGNED |
+DETERMINATION_ISSUED | DETERMINATION_OVERRIDDEN | EVIDENCE_REVIEWED |
+EVIDENCE_FLAGGED | EVIDENCE_UPLOADED | HITL_RAISED | HITL_RESOLVED |
+HITL_ESCALATED | NOTE_ADDED | NOTE_EDITED | EXCEPTION_RAISED |
+EXCEPTION_RESOLVED | P2P_SCHEDULED | P2P_COMPLETED | P2P_MATERIALS_EXPORTED |
+DOCUMENT_REQUESTED | DOCUMENT_RECEIVED | COVERAGE_OVERRIDE | SLA_EXTENDED |
+CASE_CLOSED
+```
+
+### 13.3 Audit Trail UI Surface
+
+Accessible from O3 panel → "Audit Trail" tab, and from Case Header → "Activity" button.
+
+**Features:**
+- Full paginated list of all `AuditRecord` entries for the case, newest-first
+- Columns: Timestamp, Actor, Action Type, Summary, Details (expandable)
+- Filters: Action Type (multi-select), Actor (typeahead), Date Range
+- Export: Download as CSV or PDF (triggers `P2P_MATERIALS_EXPORTED` audit entry)
+- Tamper detection: UI validates HMAC signature on each record and flags any mismatch in red
+
+### 13.4 Compliance Surface
+
+For payer audits, a "Compliance Export" button generates a structured PDF containing:
+- Full case header
+- Chronological audit trail (all records, validated)
+- All coordinator decisions with comments
+- All HITL checkpoint resolutions
+- Signed PDF with ClearAuth system certificate
+
+---
+
+## 14. P2P Prep Surfaces
+
+### 14.1 Trigger Conditions
+
+The P2P Prep panel activates when `Case.state` transitions to `p2p_requested` or `p2p_scheduled`. It is accessible from the O3 action panel.
+
+### 14.2 P2P Prep Panel Content
+
+The panel auto-populates with AI-generated content from the `p2p_prep_node` in the LangGraph graph:
+
+| Section | Content | Source |
+|---------|---------|--------|
+| Denial Summary | Payer denial reason, denial codes, date | `Case.payer_response` |
+| Clinical Summary | 2–4 paragraph narrative of patient clinical situation | AI generation from clinical evidence |
+| Supporting Clinical Criteria | Relevant MCG / InterQual criteria that support medical necessity | Clinical scoring agent |
+| Anticipated Payer Arguments | Likely payer objections based on denial codes | AI generation |
+| Suggested Talking Points | Bullet list of evidence-backed arguments for approval | AI generation |
+| Key Document References | Specific pages/sections of attached documents to cite | Extraction agent |
+| Precedent Cases | Anonymized similar cases with outcomes (if enabled) | Similarity search |
+
+### 14.3 Coordinator Editing
+
+All AI-generated text sections in the P2P prep panel are editable via an inline rich-text editor. Edits are auto-saved every 30 seconds. Each edit writes an `AuditRecord` with `action_type = NOTE_ADDED` and diff metadata.
+
+### 14.4 P2P Scheduling Block
+
+```
+┌──────────────────────────────────────────────────┐
+│  P2P Call Details                                 │
+├──────────────────────────────────────────────────┤
+│  Date/Time: [ Date picker ] [ Time picker ]      │
+│  Payer Reviewer: [ Free text ]                   │
+│  Phone Number: [ Free text ]                     │
+│  ClearAuth Presenter: [ Coordinator picker ]     │
+│  Notes: [ Textarea ]                             │
+│                                                  │
+│  [ Save P2P Details ]                            │
+└──────────────────────────────────────────────────┘
+```
+
+Saving writes a `p2p_scheduled` AuditRecord and transitions state to `p2p_scheduled`.
+
+### 14.5 P2P Export
+
+"Export P2P Packet" button generates a PDF containing:
+- Cover sheet (patient name, case ID, payer, procedure, coordinator)
+- Clinical summary
+- Supporting criteria with citations
+- Talking points
+- Attached document reference list
+
+PDF is stamped with generation timestamp and coordinator name. Export writes `P2P_MATERIALS_EXPORTED` AuditRecord.
+
+---
+
+## 15. Data Model Changes
+
+### 15.1 New Fields on `Case`
+
+```sql
+-- Migration: slice_11_coordinator_workbench
+
+ALTER TABLE cases ADD COLUMN tier                   TEXT NOT NULL DEFAULT 'ROUTINE'
+                                                    CHECK (tier IN ('STAT','URGENT','ROUTINE'));
+ALTER TABLE cases ADD COLUMN exception_active       BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE cases ADD COLUMN hitl_pending           BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE cases ADD COLUMN hitl_pending_type      TEXT;
+ALTER TABLE cases ADD COLUMN payer_reference_number TEXT;
+ALTER TABLE cases ADD COLUMN urgency_justification  TEXT;
+ALTER TABLE cases ADD COLUMN clinical_category      TEXT;
+ALTER TABLE cases ADD COLUMN sla_deadline           TIMESTAMPTZ;
+ALTER TABLE cases ADD COLUMN p2p_scheduled_at       TIMESTAMPTZ;
+ALTER TABLE cases ADD COLUMN p2p_reviewer_name      TEXT;
+ALTER TABLE cases ADD COLUMN p2p_reviewer_phone     TEXT;
+ALTER TABLE cases ADD COLUMN p2p_presenter_id       UUID REFERENCES coordinators(id);
+```
+
+### 15.2 New Table: `hitl_checkpoints`
+
+```sql
+CREATE TABLE hitl_checkpoints (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  case_id              UUID NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+  checkpoint_type      TEXT NOT NULL,
+  status               TEXT NOT NULL DEFAULT 'RAISED'
+                       CHECK (status IN ('RAISED','ASSIGNED','IN_PROGRESS','COMPLETED','ESCALATED')),
+  langgraph_thread_id  TEXT NOT NULL,
+  langgraph_run_id     TEXT NOT NULL,
+  checkpoint_ns        TEXT NOT NULL,           -- LangGraph checkpoint namespace
+  raised_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  assigned_to          UUID REFERENCES coordinators(id),
+  resolved_at          TIMESTAMPTZ,
+  resolved_by          UUID REFERENCES coordinators(id),
+  resolution_payload   JSONB,                   -- Coordinator-provided inputs
+  auto_resume_eligible BOOLEAN NOT NULL DEFAULT FALSE,
+  auto_resume_timeout  INTERVAL,
+  escalated_at         TIMESTAMPTZ,
+  tenant_id            UUID NOT NULL REFERENCES tenants(id)
+);
+
+CREATE INDEX idx_hitl_checkpoints_case_id ON hitl_checkpoints(case_id);
+CREATE INDEX idx_hitl_checkpoints_status  ON hitl_checkpoints(status);
+CREATE INDEX idx_hitl_checkpoints_tenant  ON hitl_checkpoints(tenant_id);
+```
+
+### 15.3 New Table: `audit_records`
+
+```sql
+CREATE TABLE audit_records (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),  -- UUID v7
+  case_id               UUID NOT NULL REFERENCES cases(id),
+  tenant_id             UUID NOT NULL REFERENCES tenants(id),
+  actor_type            TEXT NOT NULL,
+  actor_id              UUID,
+  actor_display_name    TEXT NOT NULL,
+  action_type           TEXT NOT NULL,
+  occurred_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  previous_value        JSONB,
+  new_value             JSONB,
+  comment               TEXT,
+  ip_address            INET,
+  user_agent            TEXT,
+  session_id            TEXT,
+  checkpoint_id         UUID REFERENCES hitl_checkpoints(id),
+  signature             TEXT NOT NULL               -- HMAC-SHA256
+);
+
+-- No UPDATE or DELETE permitted; enforced via row-level security policy
+ALTER TABLE audit_records ENABLE ROW LEVEL SECURITY;
+CREATE POLICY audit_records_insert_only ON audit_records
+  AS PERMISSIVE FOR INSERT TO clearauth_api WITH CHECK (true);
+CREATE POLICY audit_records_select ON audit_records
+  AS PERMISSIVE FOR SELECT TO clearauth_api USING (tenant_id = current_setting('app.tenant_id')::uuid);
+
+CREATE INDEX idx_audit_records_case_id     ON audit_records(case_id);
+CREATE INDEX idx_audit_records_occurred_at ON audit_records(occurred_at DESC);
+CREATE INDEX idx_audit_records_tenant      ON audit_records(tenant_id);
+```
+
+### 15.4 New Table: `timeline_events`
+
+```sql
+CREATE TABLE timeline_events (
+  id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  case_id                  UUID NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+  event_type               TEXT NOT NULL,
+  occurred_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  actor_type               TEXT NOT NULL,
+  actor_id                 UUID,
+  actor_display_name       TEXT NOT NULL,
+  title                    TEXT NOT NULL,
+  body                     TEXT,
+  metadata                 JSONB,
+  is_hitl_event            BOOLEAN NOT NULL DEFAULT FALSE,
+  linked_checkpoint_id     UUID REFERENCES hitl_checkpoints(id),
+  linked_audit_record_id   UUID REFERENCES audit_records(id),
+  tenant_id                UUID NOT NULL REFERENCES tenants(id)
+);
+
+CREATE INDEX idx_timeline_events_case_id     ON timeline_events(case_id);
+CREATE INDEX idx_timeline_events_occurred_at ON timeline_events(occurred_at ASC);
+```
+
+### 15.5 New Table: `p2p_prep`
+
+```sql
+CREATE TABLE p2p_prep (
+  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  case_id                UUID NOT NULL UNIQUE REFERENCES cases(id) ON DELETE CASCADE,
+  denial_summary         TEXT,
+  clinical_summary       TEXT,
+  supporting_criteria    JSONB,        -- Array of {criterion, met, rationale}
+  anticipated_objections JSONB,
+  talking_points         JSONB,        -- Ordered array of strings
+  document_references    JSONB,        -- Array of {evidence_id, page, excerpt}
+  generated_at           TIMESTAMPTZ,
+  last_edited_at         TIMESTAMPTZ,
+  last_edited_by         UUID REFERENCES coordinators(id),
+  export_count           INTEGER NOT NULL DEFAULT 0,
+  last_exported_at       TIMESTAMPTZ,
+  tenant_id              UUID NOT NULL REFERENCES tenants(id)
+);
+```
+
+---
+
+## 16. API Changes
+
+All new endpoints follow the existing REST conventions: versioned under `/api/v1/`, JWT-authenticated, tenant-scoped, and returning `application/json`.
+
+### 16.1 Case List Endpoint
+
+```
+GET /api/v1/cases
+
+Query Parameters:
+  page_size     integer   25 | 50 | 100        default: 25
+  cursor        string    Pagination cursor     optional
+  sort          string    sla_deadline | received_at | tier | payer | patient_name
+  sort_dir      string    asc | desc            default: asc
+  state[]       string[]  Filter by state
+  tier[]        string[]  STAT | URGENT | ROUTINE
+  payer_id      string    Filter by payer UUID
+  assigned_to   string    Coordinator UUID or "me"
+  exception     boolean   Filter exception_active=true
+  hitl_pending  boolean   Filter hitl_pending=true
+  sla_risk      boolean   Filter SLA < 4h
+
+Response:
+  200 OK
+  {
+    "data": [ CaseListItem[] ],
+    "meta": {
+      "total": integer,
+      "cursor_next": string | null,
+      "cursor_prev": string | null,
+      "page_size": integer
+    }
+  }
+```
+
+### 16.2 Case Detail Endpoint
+
+```
+GET /api/v1/cases/{case_id}
+
+Response:
+  200 OK — Full CaseDetail object (header schema + current state + SLA)
+  403 Forbidden — Tenant mismatch
+  404 Not Found
+```
+
+### 16.3 Timeline Endpoint
+
+```
+GET /api/v1/cases/{case_id}/timeline
+
+Query Parameters:
+  limit       integer   default: 100, max: 500
+  cursor      string    Cursor for pagination
+  event_type  string[]  Filter by event type
+
+Response:
+  200 OK
+  {
+    "data": [ TimelineEvent[] ],
+    "meta": { "cursor_next": string | null }
+  }
+```
+
+### 16.4 HITL Checkpoint Endpoints
+
+```
+GET  /api/v1/cases/{case_id}/checkpoints
+     Returns all checkpoints for a case
+
+GET  /api/v1/checkpoints/{checkpoint_id}
+     Returns full checkpoint detail
+
+PATCH /api/v1/checkpoints/{checkpoint_id}/resolve
+  Body: {
+    "resolution_payload": { ... },  // Checkpoint-type-specific
+    "comment": string               // Optional
+  }
+  Response: 200 OK — Updated checkpoint + resumed run confirmation
+  Behavior: Validates payload schema for checkpoint_type, writes AuditRecord,
+            calls LangGraph resume API, updates case.hitl_pending
+
+GET /api/v1/review-queue
+  Query: assigned_to=me | all | {coordinator_id}
+         tier[], task_type[], sort=priority|sla|raised_at
+  Response: Ordered list of ReviewQueueItem (HITL tasks + exceptions + SLA risks)
+```
+
+### 16.5 Audit Trail Endpoints
+
+```
+GET /api/v1/cases/{case_id}/audit
+  Query: action_type[], actor_id, start_date, end_date, limit, cursor
+  Response: Paginated AuditRecord[]
+
+GET /api/v1/cases/{case_id}/audit/export
+  Query: format=csv|pdf
+  Response: 200 OK — File stream (Content-Disposition: attachment)
+  Behavior: Generates export, writes P2P_MATERIALS_EXPORTED AuditRecord
+```
+
+### 16.6 P2P Prep Endpoints
+
+```
+GET  /api/v1/cases/{case_id}/p2p-prep
+     Returns current P2PPrep record; 404 if not yet generated
+
+POST /api/v1/cases/{case_id}/p2p-prep/generate
+     Triggers p2p_prep_node in LangGraph; returns 202 Accepted
+
+PATCH /api/v1/cases/{case_id}/p2p-prep
+  Body: Partial<P2PPrep> — Coordinator edits
+  Response: 200 OK — Updated record + writes AuditRecord
+
+POST /api/v1/cases/{case_id}/p2p-prep/export
+  Response: 200 OK — PDF stream
+  Behavior: Generates PDF, increments export_count, writes AuditRecord
+
+PATCH /api/v1/cases/{case_id}/p2p-schedule
+  Body: {
+    "scheduled_at": string (ISO 8601),
+    "reviewer_name": string,
+    "reviewer_phone": string,
+    "presenter_id": string,
+    "notes": string
+  }
+  Response: 200 OK — Updated case; transitions state to p2p_scheduled
+```
+
+### 16.7 Coordinator Actions Endpoints
+
+```
+PATCH /api/v1/cases/{case_id}/tier
+  Body: { "tier": "STAT" | "URGENT" | "ROUTINE", "comment": string }
+
+PATCH /api/v1/cases/{case_id}/assign
+  Body: { "coordinator_id": string }
+
+POST  /api/v1/cases/{case_id}/notes
+  Body: { "body": string }
+
+PATCH /api/v1/cases/{case_id}/exception
+  Body: { "active": boolean, "reason": string }
+
+PATCH /api/v1/cases/{case_id}/determination/override
+  Body: {
+    "decision": "APPROVE" | "DENY" | "PEND",
+    "reason_code": OverrideReasonCode,
+    "comment": string
+  }
+```
+
+### 16.8 Real-Time: SSE Event Stream
+
+```
+GET /api/v1/cases/{case_id}/stream
+  Headers: Accept: text/event-stream
+  Response: SSE stream
+  Events emitted:
+    - state_transition
+    - hitl_checkpoint_raised
+    - hitl_checkpoint_resolved
+    - sla_updated
+    - timeline_event_added
+    - agent_step_update
+```
+
+---
+
+## 17. LangGraph Integration
+
+### 17.1 HITL Interrupt Pattern
+
+ClearAuth uses LangGraph's `interrupt()` mechanism at designated nodes. The coordinator workbench interacts with LangGraph via the LangGraph Platform API (LangGraph Cloud or self-hosted).
+
+**Interrupt flow:**
+
+```
+1. Agent graph reaches a HITL node
+2. Node calls interrupt(payload) — graph pauses; thread persists in checkpointer
+3. LangGraph Platform emits run status update: status = "interrupted"
+4. ClearAuth backend polling job (or webhook) detects interruption
+5. Backend creates hitl_checkpoints record with status = RAISED
+6. Backend sets cases.hitl_pending = true, cases.hitl_pending_type = checkpoint_type
+7. Backend writes HITL_RAISED AuditRecord and timeline_event
+8. SSE stream emits hitl_checkpoint_raised event to connected coordinators
+9. Coordinator sees task card in Review Queue (O3)
+10. Coordinator completes task → PATCH /checkpoints/{id}/resolve
+11. Backend calls LangGraph: POST /threads/{thread_id}/runs
+    with action = { "type": "resume", "resume": resolution_payload }
+12. Graph resumes from checkpoint; proceeds to next node
+13. Backend sets cases.hitl_pending = false, checkpoint.status = COMPLETED
+14. Backend writes HITL_RESOLVED AuditRecord and timeline_event
+15. SSE stream emits hitl_checkpoint_resolved event
+```
+
+### 17.2 LangGraph Thread / Run Mapping
+
+| ClearAuth Entity | LangGraph Concept |
+|-----------------|-------------------|
+| `Case.id` | `thread_id` (1:1 mapping) |
+| Agent processing run | `run_id` |
+| HITL checkpoint | `checkpoint_ns` within interrupted run |
+| Resume action | New run on same thread with `resume` input |
+
+### 17.3 HITL Node Definitions in Graph
+
+Each node that may raise a HITL interrupt is annotated in the graph definition:
+
+```python
+# Example: determination_node
+def determination_node(state: ClearAuthState) -> ClearAuthState:
+    recommendation = run_clinical_scoring(state)
+    if recommendation.confidence < CONFIDENCE_THRESHOLD or state.tier == "STAT":
+        human_decision = interrupt({
+            "checkpoint_type": "DETERMINATION_REVIEW",
+            "recommendation": recommendation.model_dump(),
+            "case_summary": state.case_summary,
+        })
+        return {**state, "determination": human_decision["decision"],
+                "determination_comment": human_decision.get("comment")}
+    return {**state, "determination": recommendation}
+```
+
+### 17.4 Checkpointer Configuration
+
+```python
+from langgraph.checkpoint.postgres import PostgresSaver
+
+checkpointer = PostgresSaver.from_conn_string(
+    settings.DATABASE_URL,
+    schema_name="langgraph_checkpoints"
+)
+```
+
+- Checkpoints stored in Postgres for durability and auditability.
+- Thread state is retained indefinitely until case is closed.
+- On case close, thread is archived (checkpoint data retained for 7 years per HIPAA).
+
+### 17.5 Interrupt Payload Schema per Checkpoint Type
+
+```typescript
+// DETERMINATION_REVIEW
+interface DeterminationReviewPayload {
+  checkpoint_type: "DETERMINATION_REVIEW";
+  recommendation: {
+    decision: "APPROVE" | "DENY" | "PEND";
+    confidence: number;
+    rationale: string;
+    criteria_met: string[];
+    criteria_not_met: string[];
+    missing_evidence: string[];
+  };
+  case_summary: CaseSummary;
+}
+
+// Resolution input from coordinator:
+interface DeterminationReviewResolution {
+  decision: "APPROVE" | "DENY" | "PEND";
+  accepted_ai_recommendation: boolean;
+  override_reason_code?: OverrideReasonCode;
+  comment?: string;
+}
+
+// EVIDENCE_REVIEW
+interface EvidenceReviewPayload {
+  checkpoint_type: "EVIDENCE_REVIEW";
+  evidence_items: EvidenceSummary[];
+  flagged_insufficient: string[];   // Evidence IDs
+}
+
+// Resolution:
+interface EvidenceReviewResolution {
+  evidence_complete: boolean;
+  flagged_ids: string[];
+  coordinator_notes: string;
+}
+```
+
+---
+
+## 18. UI Surfaces
+
+### 18.1 Route Structure
+
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/workbench` | `WorkbenchShell` | Three-pane shell; O1 always visible |
+| `/workbench/{case_id}` | `WorkbenchShell` + `CaseDetail` | O2 loads case detail |
+| `/workbench/{case_id}/checkpoint/{checkpoint_id}` | Full-screen checkpoint overlay | HITL task full-screen mode |
+| `/workbench/{case_id}/audit` | Audit Trail tab in O3 | Direct deep-link to audit view |
+| `/workbench/{case_id}/p2p` | P2P Prep panel in O3 | Direct deep-link to P2P prep |
+
+### 18.2 Component Hierarchy
+
+```
+WorkbenchShell
+├── GlobalNavBar
+│   ├── QueueSelector
+│   ├── AlertBell
+│   └── CoordinatorAvatar
+├── CaseListPane (O1)
+│   ├── FilterSortBar
+│   ├── CaseListVirtualized
+│   │   └── CaseRow[]
+│   └── Pagination
+├── CaseDetailPane (O2)
+│   ├── CaseHeader (sticky)
+│   │   └── CaseHeaderActions
+│   ├── TimelinePanel
+│   │   ├── TimelineEventList (virtualized)
+│   │   │   └── TimelineEventRow[]
+│   │   └── AgentRunAccordion[]
+│   └── EvidenceDeterminationPanel
+│       ├── EvidenceTab
+│       │   ├── DocumentList
+│       │   └── ExtractedDataGrid
+│       └── DeterminationPanel
+│           └── OverrideModal
+└── ActionPane (O3)
+    ├── ReviewQueue
+    │   └── CheckpointTaskCard[]
+    ├── AuditTrailTab
+    │   ├── AuditRecordList
+    │   └── AuditExportButton
+    └── P2PPrepPanel (conditional)
+        ├── P2PContentSections[]
+        ├── P2PScheduleBlock
+        └── P2PExportButton
+```
+
+### 18.3 State Management
+
+- **Server state:** TanStack Query (React Query) with `staleTime: 30_000` for case list; `staleTime: 0` for timeline and checkpoints.
+- **Real-time updates:** SSE connection per open case; events invalidate relevant TanStack Query cache keys.
+- **UI state:** Zustand store for: active case ID, panel widths, active filter set, open checkpoint ID.
+- **Form state:** React Hook Form with Zod validation schemas mirroring API request bodies.
+
+### 18.4 Accessibility Requirements
+
+- All interactive elements reachable by keyboard; logical tab order enforced.
+- ARIA roles on case list (`role="listbox"`), case rows (`role="option"`), timeline (`role="log"`).
+- SLA countdown announced to screen readers on each minute tick via `aria-live="polite"`.
+- Color is never the sole indicator of state; icons + text labels accompany all color-coded elements.
+- Focus is returned to the triggering element when modals close.
+
+---
+
+## 19. Test Cases
+
+### 19.1 Unit Tests
+
+| ID | Test | Expected |
+|----|------|----------|
+| UT-01 | `priority_score()` with STAT tier, 0.5 hr SLA, exception active | Score > all URGENT and ROUTINE cases |
+| UT-02 | `AuditRecord` HMAC signature generation and validation | Signature validates; tampered record fails |
+| UT-03 | `CaseHeader` renders masked MRN (last 4 visible) | MRN "123456789" renders as "•••••6789" |
+| UT-04 | Override modal blocks submission when comment < 20 chars | Submit button disabled; error message shown |
+| UT-05 | Timeline virtualization renders only visible rows | DOM nodes < 20 for a 500-event timeline |
+| UT-06 | `hitl_checkpoint_raised` SSE event updates review queue without page reload | Task card appears within 1 second |
+| UT-07 | P2P export increments `export_count` and writes AuditRecord | DB record updated; audit entry present |
+| UT-08 | Case row keyboard navigation (arrow keys) | Focus moves between rows; Enter opens detail |
+
+### 19.2 Integration Tests
+
+| ID | Test | Expected |
+|----|------|----------|
+| IT-01 | Coordinator resolves `DETERMINATION_REVIEW` checkpoint | LangGraph thread resumes; `hitl_pending` = false; timeline updated |
+| IT-02 | Case tier changed by senior coordinator | AuditRecord written; timeline event emitted; SSE pushes update to all connected sessions |
+| IT-03 | Case with `exception_active=true` appears at top of STAT queue | Correct priority ordering in response |
+| IT-04 | Audit trail export (PDF) for HIPAA compliance | PDF generated; contains all records; HMAC validation passes |
+| IT-05 | Tenant isolation: coordinator in Tenant A cannot fetch cases from Tenant B | 403 Forbidden |
+| IT-06 | SSE stream delivers `state_transition` event within 3 seconds of state change | Event received within SLA |
+| IT-07 | P2P prep generation triggers `p2p_prep_node` in LangGraph | Node executes; prep record populated; timeline event written |
+| IT-08 | Auto-resume of `COVERAGE_CLARIFICATION` checkpoint after 30-min timeout | Graph resumes; AuditRecord with actor_type = system |
+
+### 19.3 End-to-End Tests
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| E2E-01 | Full HITL determination flow | 1. Case enters `ready_for_review`; 2. Agent raises DETERMINATION_REVIEW checkpoint; 3. Coordinator opens task card; 4. Coordinator accepts AI recommendation; 5. Graph resumes; 6. Case transitions to `submitted` | All state transitions correct; audit trail complete; timeline fully populated |
+| E2E-02 | Exception triage and resolution | 1. Case enters `exception` state; 2. Exception badge appears in case list; 3. Coordinator opens exception task; 4. Coordinator resolves exception; 5. Case returns to prior state | Exception cleared; AuditRecord written; review queue updated |
+| E2E-03 | P2P prep end-to-end | 1. Case denied by payer; 2. Coordinator clicks "Escalate to P2P"; 3. P2P prep generated; 4. Coordinator edits talking points; 5. Coordinator schedules P2P; 6. Coordinator exports PDF packet | PDF generated with edits; state = `p2p_scheduled`; all AuditRecords present |
+| E2E-04 | SLA breach escalation | 1. Case SLA < 1 hr; 2. Assigned coordinator, supervisor, on-call alerted; 3. Case sorted to top of review queue | All alerts fired; correct sort order |
+
+### 19.4 Performance Tests
+
+| ID | Test | Target |
+|----|------|--------|
+| PT-01 | Case list render with 100 cases, 50 concurrent coordinators | P95 ≤ 2 000 ms |
+| PT-02 | Case detail render with 500 timeline events | P95 ≤ 3 000 ms |
+| PT-03 | HITL checkpoint resolve end-to-end (API + LangGraph resume) | P95 ≤ 5 000 ms |
+| PT-04 | SSE event delivery latency (state change → client receipt) | P95 ≤ 3 000 ms |
+| PT-05 | Audit trail export (1 000 records, PDF) | P95 ≤ 10 000 ms |
+
+---
+
+## 20. Risks
+
+| ID | Risk | Probability | Impact | Mitigation |
+|----|------|-------------|--------|------------|
+| R-01 | LangGraph resume latency exceeds 5-second SLA under high load | Medium | High | Implement resume job queue with priority lanes by tier; add circuit breaker |
+| R-02 | SSE connections not scaling under 50+ concurrent coordinators per tenant | Medium | High | Use Redis Pub/Sub as SSE fan-out backend; load-test before release |
+| R-03 | AuditRecord write failures under DB contention | Low | Critical | Use dedicated audit write pool; asynchronous replication to WORM store |
+| R-04 | P2P prep AI generation quality insufficient for live P2P calls | Medium | High | Coordinator editing capability is first-class; human review always required before export |
+| R-05 | HITL checkpoint timeouts causing unintended auto-resume in clinical edge cases | Low | High | Auto-resume only for `COVERAGE_CLARIFICATION`; all clinical checkpoints require explicit coordinator action |
+| R-06 | Panel layout performance regression on timeline with 500+ events | Medium | Medium | Virtualize timeline from day one; add automated performance regression test |
+| R-07 | Tenant isolation bypass via crafted cursor token | Low | Critical | Cursor tokens are HMAC-signed and include `tenant_id`; validated server-side on every request |
+| R-08 | Coordinator override audit trail manipulated | Very Low | Critical | Append-only table enforced at DB level via RLS; HMAC signature on every record |
+
+---
+
+## 21. Deliverables
+
+### 21.1 Backend Deliverables
+
+| # | Deliverable | Owner | Slice |
+|---|-------------|-------|-------|
+| D-01 | DB migrations: `cases` column additions, `hitl_checkpoints`, `audit_records`, `timeline_events`, `p2p_prep` tables | Backend | 11 |
+| D-02 | `GET /api/v1/cases` — paginated, filtered, sorted case list endpoint | Backend | 11 |
+| D-03 | `GET /api/v1/cases/{case_id}` — full case detail endpoint | Backend | 11 |
+| D-04 | `GET /api/v1/cases/{case_id}/timeline` — paginated timeline endpoint | Backend | 11 |
+| D-05 | `GET|PATCH /api/v1/checkpoints/{checkpoint_id}` — HITL checkpoint read + resolve endpoints | Backend | 11 |
+| D-06 | `GET /api/v1/review-queue` — prioritized coordinator task queue endpoint | Backend | 11 |
+| D-07 | `GET /api/v1/cases/{case_id}/audit` — audit trail read + export endpoints | Backend | 11 |
+| D-08 | `GET|POST|PATCH /api/v1/cases/{case_id}/p2p-prep` — P2P prep CRUD + export endpoints | Backend | 11 |
+| D-09 | `PATCH /api/v1/cases/{case_id}/p2p-schedule` — P2P scheduling endpoint | Backend | 11 |
+| D-10 | Coordinator action endpoints: tier, assign, notes, exception, determination override | Backend | 11 |
+| D-11 | SSE event stream: `GET /api/v1/cases/{case_id}/stream` | Backend | 11 |
+| D-12 | `AuditRecord` write service with HMAC-SHA256 signing and append-only RLS enforcement | Backend | 11 |
+| D-13 | LangGraph interrupt detection job (polling or webhook) + `hitl_checkpoints` record creation | Backend | 11 |
+| D-14 | LangGraph resume service: validates resolution payload per checkpoint type, calls Platform API | Backend | 11 |
+| D-15 | PostgresSaver checkpointer configuration and schema migration under `langgraph_checkpoints` schema | Backend | 11 |
+| D-16 | P2P prep PDF generation service (clinical summary, talking points, document references, cover sheet) | Backend | 11 |
+| D-17 | Audit compliance PDF export service with HMAC validation and system certificate stamping | Backend | 11 |
+| D-18 | SLA deadline computation service: `CaseTier` × payer-specific SLA rules → `sla_deadline` | Backend | 11 |
+| D-19 | HITL escalation alert service: fires at T+2h, T+4h, T+SLA-1h to assigned coordinator + supervisor | Backend | 11 |
+
+### 21.2 Frontend Deliverables
+
+| # | Deliverable | Owner | Slice |
+|---|-------------|-------|-------|
+| D-20 | `WorkbenchShell` — three-pane layout with draggable gutters, localStorage persistence | Frontend | 11 |
+| D-21 | `GlobalNavBar` — queue selector, alert bell with badge count, coordinator avatar | Frontend | 11 |
+| D-22 | `CaseListPane` (O1) — virtualized case rows, filter/sort bar, pagination, real-time badge updates | Frontend | 11 |
+| D-23 | `CaseRow` — full field set per §6.1, tier pill, SLA countdown, exception/HITL badges | Frontend | 11 |
+| D-24 | `FilterSortBar` — all filter types per §6.3, URL-synced filter state | Frontend | 11 |
+| D-25 | `CaseDetailPane` (O2) — full panel with sticky header, scrollable timeline, evidence/determination tabs | Frontend | 11 |
+| D-26 | `CaseHeader` — all fields per §7.1, inline actions per §7.2, live SLA countdown (SSE-driven) | Frontend | 11 |
+| D-27 | `TimelinePanel` — virtualized event list, agent run accordions, event type icons + color tokens | Frontend | 11 |
+| D-28 | `EvidenceTab` — document list with confidence scores + color bars, mark reviewed, flag insufficient | Frontend | 11 |
+| D-29 | `ExtractedDataGrid` — structured key-value grid grouped by category, coordinator override inputs | Frontend | 11 |
+| D-30 | `DeterminationPanel` — AI recommendation display, accept/override/pend/escalate actions | Frontend | 11 |
+| D-31 | `OverrideModal` — decision picker, reason code select, validated comment field (min 20 chars) | Frontend | 11 |
+| D-32 | `ActionPane` (O3) — tabbed container for Review Queue, Audit Trail, P2P Prep | Frontend | 11 |
+| D-33 | `ReviewQueue` — prioritized task list, `CheckpointTaskCard` per §11.2, filter controls per §12.4 | Frontend | 11 |
+| D-34 | `CheckpointTaskCard` — checkpoint type display, case context, action buttons, full-screen mode | Frontend | 11 |
+| D-35 | `AuditTrailTab` — paginated audit record list, action type + actor filters, CSV/PDF export | Frontend | 11 |
+| D-36 | `P2PPrepPanel` — all content sections per §14.2, inline rich-text editor, 30-second auto-save | Frontend | 11 |
+| D-37 | `P2PScheduleBlock` — date/time picker, reviewer fields, coordinator picker, save action | Frontend | 11 |
+| D-38 | `P2PExportButton` — PDF packet generation trigger, download handling | Frontend | 11 |
+| D-39 | Zustand workbench store: active case ID, panel widths, filter set, open checkpoint ID | Frontend | 11 |
+| D-40 | TanStack Query setup: cache keys, stale times, SSE-triggered invalidation hooks | Frontend | 11 |
+| D-41 | SSE client hook: `useWorkbenchStream(caseId)` — connects, parses events, dispatches cache invalidations | Frontend | 11 |
+| D-42 | React Hook Form + Zod schemas for all coordinator action forms | Frontend | 11 |
+| D-43 | WCAG 2.1 AA audit pass: ARIA roles, keyboard nav, focus management, `aria-live` regions | Frontend | 11 |
+
+### 21.3 Testing Deliverables
+
+| # | Deliverable | Owner | Slice |
+|---|-------------|-------|-------|
+| D-44 | Unit test suite for all backend services (audit signing, priority scoring, SLA computation) | QA/Backend | 11 |
+| D-45 | Unit test suite for all frontend components (CaseRow, OverrideModal, TimelinePanel, CheckpointTaskCard) | QA/Frontend | 11 |
+| D-46 | Integration test suite for all API endpoints (happy path + error cases + tenant isolation) | QA | 11 |
+| D-47 | Integration test: full HITL determination flow (interrupt → resolve → resume) | QA | 11 |
+| D-48 | E2E test suite (Playwright): E2E-01 through E2E-04 per §19.3 | QA | 11 |
+| D-49 | Performance test suite: PT-01 through PT-05 per §19.4, baseline recorded in CI | QA/Infra | 11 |
+| D-50 | Accessibility audit report (axe-core automated + manual screen reader pass) | QA/Frontend | 11 |
+
+### 21.4 Documentation Deliverables
+
+| # | Deliverable | Owner | Slice |
+|---|-------------|-------|-------|
+| D-51 | OpenAPI spec additions for all new endpoints (§16) merged into `openapi.yaml` | Backend | 11 |
+| D-52 | ADR-0018: Coordinator Workbench three-pane shell architecture decisions | Tech Lead | 11 |
+| D-53 | ADR-0019: HITL checkpoint storage and resume pattern (PostgresSaver vs InMemorySaver) | Tech Lead | 11 |
+| D-54 | Coordinator Workbench user guide (internal ops documentation) | Product | 11 |
+| D-55 | Runbook: HITL checkpoint stuck / escalation recovery procedure | Infra | 11 |
+
+### 21.5 Acceptance Criteria Summary
+
+A Slice 11 release is considered complete when all of the following are true:
+
+- [ ] All 55 deliverables above are merged to `main` and passing CI.
+- [ ] All NFRs (§4.2) are met as measured by the performance test suite in a staging environment with production-scale data volume.
+- [ ] E2E-01 through E2E-04 pass against the staging environment.
+- [ ] Zero open P0 or P1 bugs against Slice 11 functionality.
+- [ ] WCAG 2.1 AA audit report shows zero critical or serious violations.
+- [ ] Security review signed off: tenant isolation confirmed, audit trail tamper detection validated, JWT enforcement verified on all new endpoints.
+- [ ] Product Owner sign-off on coordinator workflow walkthrough in staging.
+
+---
+
+## Appendix A — State Lifecycle Reference
+
+The following states are defined in the ClearAuth state machine and are referenced throughout this document:
+
+| State | Description | HITL Possible |
+|-------|-------------|---------------|
+| `received` | Case ingested; extraction not yet started | No |
+| `processing` | AI agent actively running | Yes (any node) |
+| `awaiting_documentation` | Agent paused; missing clinical docs requested | Yes |
+| `ready_for_review` | Agent completed; awaiting coordinator determination review | Yes — DETERMINATION_REVIEW |
+| `exception` | Case flagged for manual triage | Yes — EXCEPTION_TRIAGE |
+| `submitted` | Case submitted to payer | No |
+| `payer_response` | Payer decision received | Yes — PAYER_RESPONSE_REVIEW |
+| `approved` | Payer approved; case closed | No |
+| `denied` | Payer denied; P2P escalation path available | No |
+| `p2p_requested` | Coordinator has escalated for peer-to-peer review | No |
+| `p2p_scheduled` | P2P call scheduled; prep materials locked | No |
+| `p2p_completed` | P2P call concluded; outcome logged | No |
+| `closed` | Case fully resolved; no further action | No |
+| `withdrawn` | Case withdrawn by requesting provider | No |
+
+---
+
+## Appendix B — Glossary
+
+| Term | Definition |
+|------|------------|
+| **HITL** | Human-in-the-Loop. A pattern where an AI agent pauses execution and requires a human decision before proceeding. |
+| **Checkpoint** | A persisted snapshot of LangGraph agent state at the moment of an interrupt. Enables graph resumption without re-execution of prior nodes. |
+| **CaseTier** | Priority classification of a PA case: STAT (life/limb threatening, ≤24h SLA), URGENT (clinically time-sensitive, ≤72h SLA), ROUTINE (standard, ≤10 business day SLA). |
+| **P2P** | Peer-to-Peer review. A clinical appeal process where the requesting provider's physician speaks directly with the payer's medical reviewer to contest a denial. |
+| **AuditRecord** | An immutable, HMAC-signed log entry recording every state change and coordinator action on a case. |
+| **SSE** | Server-Sent Events. A unidirectional HTTP streaming protocol used to push real-time updates from the ClearAuth backend to connected coordinator sessions. |
+| **PA** | Prior Authorization. A payer requirement that a provider obtain approval before delivering certain services or medications. |
+| **LangGraph** | An orchestration framework for stateful, multi-step AI agent graphs with built-in interrupt and resume support. |
+| **MCG** | Milliman Care Guidelines. Evidence-based clinical criteria commonly used by payers to evaluate medical necessity. |
+| **ADR** | Architecture Decision Record. A document capturing a significant architectural decision and its rationale. |
+| **O1 / O2 / O3** | Outcome designations for Slice 11: O1 = Case Queue & List, O2 = Case Detail Workspace, O3 = Exception Resolution & HITL Workbench. |
+
+---
+
+## Appendix C — Related Slices & Dependencies
+
+| Slice | Title | Relationship to Slice 11 |
+|-------|-------|--------------------------|
+| Slice 1 | Case Ingestion | Produces `Case` records consumed by O1 case list |
+| Slice 2 | FHIR R4 EHR Pull | Provides clinical evidence displayed in O2 evidence panel |
+| Slice 3 | AI Extraction Agent | Produces `Evidence` records and confidence scores rendered in O2 |
+| Slice 4 | Clinical Scoring Agent | Issues determination recommendations displayed in O2 determination panel |
+| Slice 5 | Payer Rules Engine | Produces coverage criteria displayed in determination panel |
+| Slice 6 | Document Validation Agent | Raises `MISSING_DOCUMENTATION` HITL checkpoints resolved in O3 |
+| Slice 7 | Payer Submission | Consumes coordinator-approved determinations; transitions state to `submitted` |
+| Slice 8 | Payer Response Ingestion | Produces `payer_response` events displayed in timeline and triggers `PAYER_RESPONSE_REVIEW` HITL |
+| Slice 9 | Notification Service | Delivers HITL escalation alerts (D-19) to coordinators and supervisors |
+| Slice 10 | Tenant & Auth Management | Provides JWT enforcement, row-level tenancy, and coordinator identity consumed by all Slice 11 APIs |
+| Slice 13 | Bulk Case Actions | Depends on O1 case list multi-select UI scaffolded in Slice 11 |
+| Slice 14 | Payer Portal Integration | Depends on coordinator-approved determination state produced by O2 |
+
+---
+
+*End of document — Slice 11: Coordinator Workbench (O1/O2/O3)*
+*ClearAuth PRD v1.0.0 | 2026-07-19*

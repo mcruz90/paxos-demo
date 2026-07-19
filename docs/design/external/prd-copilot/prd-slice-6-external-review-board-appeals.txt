@@ -1,0 +1,711 @@
+# PRD — Slice 6: External Review & Board Appeals
+
+**Status:** Proposed  
+**Sprint target:** Sprint 6 (following Slice 5 benefit-type expansion close)  
+**Owner:** Platform Engineering  
+**Last updated:** 2026-07-19  
+**Depends on:** S3 TierRouter (live), S3 Slice 4b resume endpoint (live), P7a Tenancy (live), Sprint FI live-wiring (live), Slice 4 CRD/DTR (for shared audit patterns), Slice 5 PaTargetType (for benefit-type-aware routing)  
+**Referenced ADRs:** ADR-0001 (LangGraph), ADR-0003 (deterministic gatekeeper), ADR-0006 (SSE transport), ADR-0009 (idempotency/audit), ADR-0010 (in-memory checkpointer), ADR-0011 (audit-trail-as-queue-index), ADR-0013 (BFF session auth), ADR-0017 (tenancy)  
+**Regulatory context:** Most US states mandate Independent Medical Review (IMR) / External Review rights after an internal appeal denial; 29 CFR §2590.715-2719 (federal); ACA §2719; many states add Board of Appeals pathways for government programs (Medicaid, CHIP, Medicare Advantage)
+
+---
+
+## 1. Problem Summary
+
+ClearAuth handles the internal appeal lifecycle end-to-end (generate → review → submit → payer response). But when a payer **denies the internal appeal**, the patient and provider have federal and state-mandated rights to:
+
+1. **External Independent Medical Review (IMR/IRO):** An accredited Independent Review Organization (IRO) reviews the case de novo, free from payer influence. The payer must submit the case file; the IRO issues a binding determination within statutory deadlines (72 hours for urgent; 45/60 days standard, state-dependent).
+2. **Administrative Board Appeals:** For Medicaid, CHIP, and many Medicare Advantage plans, the next-level remedy is a state Medicaid fair hearing, a Medicare Part C/D ALJ appeal, or an insurer's internal Board of Appeals panel — each with its own case file format, deadline structure, and submission channel.
+
+Today, when `payer_response → denied` arrives on a case, the system records a `payer_response` `CaseStatus` and presents a "dispute → next round" edge. This edge launches a **round-2 internal appeal** — it does not model the legally distinct external review pathway at all. Failing to surface the IMR/external review option is both a product gap and a compliance risk: the platform cannot claim to handle the full PA dispute lifecycle.
+
+Three specific gaps:
+
+1. **No IMR/IRO case file assembly.** External reviewers require a structured case file (denial letter, clinical notes, drug/procedure history, payer criteria, prior appeals) in a specific format. No assembly exists.
+2. **No regulatory deadline tracking.** IMR deadlines are statutory; missing them can constitute a violation. No timer or escalation exists.
+3. **No board appeal routing.** Medicaid/MA board appeals require a different cover letter, different submission channel, and a different appeal standard ("arbitrary and capricious" vs. clinical necessity) — none of this is modeled.
+
+---
+
+## 2. Goals
+
+| # | Goal |
+|---|------|
+| G1 | Add a new `external_review` lifecycle stage that activates when a payer denies the internal appeal, surfacing IMR and board appeal pathways alongside the existing round-2 option |
+| G2 | Implement an **IRO Case File Assembler** that packages the full case record (denial letter, prior appeal letter, clinical evidence, payer criteria) into a structured PDF/JSON bundle accepted by accredited IROs |
+| G3 | Track statutory IMR deadlines per benefit type and urgency class; surface deadline countdowns in the queue workspace and emit audit warnings when a deadline is ≤ 48 hours away |
+| G4 | Extend the appeal synthesis pipeline with an **External Review Appeal mode** that generates an IRO submission cover letter tailored to the external review standard (de novo clinical necessity, not contra-payer-policy) |
+| G5 | Add a **Board Appeals pathway** with a configurable per-plan routing table: Medicaid fair hearing \| Medicare Part C/D ALJ \| insurer Board of Appeals; generate the appropriate cover letter variant |
+| G6 | Extend the audit trail with external review outcome records so the full case history (PA → internal appeal → external review → IRO determination) is queryable in one place |
+| G7 | Preserve all existing pipeline guarantees (security-hold gate, terminal-event contract, idempotent audit writes, TierRouter tiering, checkpointer compatibility) |
+
+---
+
+## 3. Non-Goals
+
+| # | Non-Goal |
+|---|----------|
+| NG1 | Electronic submission to IRO portals (most IROs accept fax or secure upload; electronic API submission is a future platform integration requiring IRO-specific connectors) |
+| NG2 | Implementing the full Medicare Part C/D ALJ hearing workflow (complex multi-party process requiring attorney coordination; this slice generates the appeal brief and case file only) |
+| NG3 | Automating the Medicaid fair hearing request form filing (state-by-state variation is too high; the platform generates the request letter and case file; filing is human-executed) |
+| NG4 | Real-time statutory deadline lookup (deadlines are seeded as a configurable table per benefit type + urgency + state; a future regulatory rules integration updates this table) |
+| NG5 | Multi-round external review (if the IRO denies, the next step is judicial review — out of scope) |
+| NG6 | Durable PostgreSQL storage — still the Phase 3 milestone; external review records use the in-memory audit store |
+
+---
+
+## 4. Requirements
+
+### Functional
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| F1 | When a case reaches `payer_response` with `decision = denied` (for a case that has already gone through at least one internal appeal), the system MUST present both the existing round-2 internal appeal option AND the new external review pathway | P0 |
+| F2 | A new `CaseLifecycle.external_review` value MUST exist in the domain model | P0 |
+| F3 | The IRO Case File Assembler (`etl/iro_case_file/assembler.py`) MUST produce a structured bundle containing: denial letter text, prior internal appeal letter(s), clinical evidence (`CriterionResult[]`), payer PA criteria (from the retrieval pack), and a standardized cover sheet with case identifiers, dates, and statutory basis | P0 |
+| F4 | The assembler MUST output both a machine-readable JSON manifest and a human-readable PDF-ready markdown document (PDF rendering is deferred to a future slice) | P0 |
+| F5 | A new `POST /api/appeal/external-review` endpoint MUST accept an `ExternalReviewRequest` and stream the IRO case file assembly + external review letter generation as SSE events | P0 |
+| F6 | The appeal synthesis pipeline MUST support an `appeal_mode: internal \| external_review \| board_appeal` parameter that selects the appropriate prompt template | P0 |
+| F7 | The `external_review` prompt template MUST instruct the LLM to argue on de novo clinical necessity grounds (not payer-policy grounds) and cite peer-reviewed clinical guidelines, distinct from the internal appeal template | P0 |
+| F8 | A `board_appeal` prompt template MUST support three variants: `medicaid_fair_hearing`, `medicare_alj`, `insurer_board`, selected from the per-plan routing table | P0 |
+| F9 | Statutory deadline tracking MUST be implemented as a `DeadlineCalculator` (`etl/regulatory/deadline_calculator.py`) that returns `DeadlineSet` (standard, expedited, urgent) based on `target_type`, `urgency_class`, and `state_of_jurisdiction` | P1 |
+| F10 | When a deadline is ≤ 48 hours away, `GET /api/reviews/pending` MUST include a `deadline_warning: true` flag and `hours_remaining` on the affected review entry | P1 |
+| F11 | The `AuditRecord` MUST record external review outcomes: `lifecycle = "external_review"`, `artifact_ref` = case file bundle hash, `outcome` = `done` \| `error` | P1 |
+| F12 | A new `GET /api/cases/{correlation_id}/timeline` endpoint MUST return the full audit trail for one case across all lifecycles (initial PA → internal appeal → external review), ordered chronologically | P1 |
+| F13 | The existing payer-response handler in the queue workspace MUST present a three-way choice on denial: "File Round 2 Appeal", "Request External Review", "Request Board Appeal" | P1 |
+| F14 | The `ExternalReviewRequest` MUST be idempotent on `case_ref + attempt`; a duplicate request with the same key MUST NOT produce a second case file bundle | P1 |
+| F15 | All external review records MUST be tenant-scoped; `GET /api/cases/{correlation_id}/timeline` MUST enforce `TenancyScope` at the query boundary | P1 |
+
+### Non-Functional
+
+| ID | Requirement |
+|----|-------------|
+| NF1 | The IRO case file assembler MUST run deterministically — same inputs, same output (same bundle hash) — so the audit `artifact_ref` is reproducible |
+| NF2 | The `DeadlineCalculator` MUST have 100% branch coverage in unit tests — deadline miscalculation is a compliance risk |
+| NF3 | PHI in the case file bundle MUST be handled under the same tokenization protocol as the rest of the pipeline; the JSON manifest carries tokenized identifiers; the human-readable document carries display-safe versions |
+| NF4 | The external review letter prompt MUST include a mandatory anti-hallucination instruction: the LLM MUST NOT fabricate clinical studies or guidelines not present in `<pa_requirements>` |
+| NF5 | The board appeal routing table MUST be configurable per tenant (some tenants operate only in certain states/programs); the default table covers the three federal program types |
+| NF6 | CI smoke tour MUST cover: external review assembly, external review letter generation, board appeal letter generation (all via mock LLM) |
+
+---
+
+## 5. Workflow Modeling
+
+### 5.1 Post-denial pathway selection
+
+```
+Case reaches payer_response with decision = "denied"
+  │
+  └── Prior internal appeal exists? (audit trail has ≥ 1 internal appeal record)
+        │
+        └── Yes → operator sees three-way choice:
+              ├── Round 2 Internal Appeal  → existing processing → pipeline run
+              ├── External Review (IMR)    → POST /api/appeal/external-review (appeal_mode = external_review)
+              └── Board Appeal             → POST /api/appeal/external-review (appeal_mode = board_appeal)
+```
+
+### 5.2 External review pipeline (POST /api/appeal/external-review)
+
+```
+POST /api/appeal/external-review
+  │
+  ▼
+security_gate ──(hold)──→ error_event
+  │
+  ▼
+ext_ingestion → ExternalReviewState
+  │
+  ▼
+case_file_assembly  ← fetches full audit trail for correlation_id
+  │  Assembles: denial letter, prior appeal letter(s), criteria, clinical evidence
+  │  Outputs: IroCaseFileManifest (JSON) + case_file_hash
+  ▼
+retrieval  ← same retrieval node, extends pa_context with external-review criteria
+  │
+  ▼
+synthesis  ← appeal_mode selects external_review | board_appeal template
+  │  (synthesis → gatekeeper retry loop — unchanged from internal appeal)
+  ▼
+gatekeeper
+  │
+  ├── pass → tier_router → finalize
+  │             │
+  │             └── DoneEvent (carries case_file_hash, appeal_mode, deadline_set)
+  │
+  └── fail (3×) → ErrorEvent
+```
+
+### 5.3 Deadline tracking
+
+```
+ExternalReviewRequest received
+  │
+  ▼
+DeadlineCalculator.compute(target_type, urgency_class, state_of_jurisdiction)
+  │
+  └── returns DeadlineSet:
+        standard_days:   int  (e.g. 45 days — standard IMR)
+        expedited_days:  int  (e.g. 30 days — expedited review)
+        urgent_hours:    int  (e.g. 72 hours — urgent/concurrent review)
+        statutory_basis: str  (e.g. "29 CFR §2590.715-2719(d)(2)(i)")
+        calendar_deadline: datetime (computed from request timestamp)
+  │
+  └── stored on ExternalReviewState.deadline_set
+      written to AuditRecord.deadline_set
+      surfaced on GET /api/reviews/pending entries where deadline_warning = True
+```
+
+### 5.4 Board appeal routing
+
+```
+appeal_mode = board_appeal
+  │
+  ├── plan_type = medicaid | chip  → board_variant = "medicaid_fair_hearing"
+  ├── plan_type = medicare_advantage  → board_variant = "medicare_alj"
+  └── plan_type = commercial | individual  → board_variant = "insurer_board"
+      (or override from per-tenant routing table)
+  │
+  └── synthesis selects board_appeal/{board_variant} template
+      cover letter cites:
+        medicaid_fair_hearing: 42 CFR §431.200 series
+        medicare_alj: 42 CFR §405.1000 series
+        insurer_board: plan-specific appeals procedure (from payer_procedures registry)
+```
+
+---
+
+## 6. Data Model Changes
+
+### 6.1 New enums and types (backend/models/schemas.py)
+
+```python
+class CaseLifecycle(str, Enum):
+    initial_pa      = "initial_pa"
+    appeal          = "appeal"
+    external_review = "external_review"   # NEW
+
+class AppealMode(str, Enum):
+    internal        = "internal"
+    external_review = "external_review"
+    board_appeal    = "board_appeal"
+
+class BoardVariant(str, Enum):
+    medicaid_fair_hearing = "medicaid_fair_hearing"
+    medicare_alj          = "medicare_alj"
+    insurer_board         = "insurer_board"
+
+class UrgencyClass(str, Enum):
+    standard  = "standard"
+    expedited = "expedited"
+    urgent    = "urgent"   # concurrent/urgent review — 72-hour clock
+
+class DeadlineSet(BaseModel):
+    standard_days:    int
+    expedited_days:   int
+    urgent_hours:     int
+    statutory_basis:  str
+    calendar_deadline: datetime   # computed from request timestamp
+    urgency_class:    UrgencyClass
+
+class IroCaseFileManifest(BaseModel):
+    """Machine-readable case file index — PHI-tokenized."""
+    case_file_id:     str           # deterministic hash of all inputs
+    case_ref:         str
+    tenant_id:        str
+    patient_ref:      str | None    # tokenized PT-XXXX
+    correlation_ids:  list[str]     # all audit records included (PA + appeals)
+    denial_letter_hash: str
+    appeal_letter_hashes: list[str]
+    criteria_count:   int
+    assembled_at:     datetime
+    statutory_basis:  str
+
+class ExternalReviewRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+    scenario_id:          str   = Field(..., max_length=64, pattern=r"^[a-z0-9\-]+$")
+    case_ref:             str   = Field(default="", max_length=64)
+    correlation_id:       str   = Field(..., max_length=200)  # the denied internal appeal's ID
+    appeal_mode:          AppealMode
+    board_variant:        BoardVariant | None = None   # required when appeal_mode = board_appeal
+    urgency_class:        UrgencyClass = UrgencyClass.standard
+    state_of_jurisdiction: str | None = None   # ISO 3166-2 US state, e.g. "US-CA"
+    diagnosis:            str   = Field(..., max_length=200)
+    plan:                 str   = Field(..., max_length=200)
+    plan_id:              str   = Field(..., max_length=100)
+    plan_type:            str   = Field(default="commercial", max_length=50)
+    criteria_results:     list[CriterionResult] = []
+    attempt:              int   = Field(default=1, ge=1)
+    security_hold:        bool  = False
+    security_reason:      str   = ""
+    tenant_id:            str   = ""
+    patient_ref:          str | None = None
+    # target_type carried from the originating case (Slice 5)
+    target_type:          PaTargetType = PaTargetType.medication
+    target_detail:        PaTargetDetail | None = None
+```
+
+### 6.2 ExternalReviewState (new TypedDict)
+
+```python
+class ExternalReviewState(TypedDict):
+    request:             ExternalReviewRequest
+    appeal_mode:         AppealMode
+    board_variant:       BoardVariant | None
+    case_file_manifest:  IroCaseFileManifest | None
+    case_file_hash:      str
+    deadline_set:        DeadlineSet | None
+    pa_context:          str
+    pa_resolution:       PaResolution
+    appeal_text:         str
+    model_name:          str
+    passed_gatekeeper:   bool
+    retry_count:         int
+    errors:              list[str]
+    tier:                CaseTier | None
+```
+
+### 6.3 DoneEvent additions (external review variant)
+
+The external review terminal event reuses `DoneEvent` shape with two additive fields (ignored by consumers that don't know them):
+
+```python
+class DoneEvent(BaseModel):
+    # existing fields unchanged
+    event:              Literal["done"] = "done"
+    model:              str
+    ref:                str
+    structural_scores:  dict[str, float]
+    pa_resolution:      PaResolution
+    retry_count:        int
+    correlation_id:     str
+    target_type:        PaTargetType       # from Slice 5
+    # new (external review only; None for internal appeals)
+    case_file_hash:     str | None = None
+    appeal_mode:        AppealMode | None = None
+    deadline_set:       DeadlineSet | None = None
+```
+
+### 6.4 AuditRecord additions
+
+```python
+class AuditRecord(BaseModel):
+    # existing fields unchanged
+    correlation_id:       str
+    idempotency_key:      str
+    tenant_id:            str
+    patient_ref:          str | None
+    lifecycle:            CaseLifecycle   # gains "external_review"
+    case_ref:             str
+    scenario_id:          str
+    drug:                 str             # empty for non-medication (Slice 5)
+    plan:                 str
+    denial_reason:        str
+    timestamp:            datetime
+    duration_ms:          int
+    outcome:              AuditOutcome    # gains "awaiting_documentation" from Slice 4
+    model_name:           str
+    prompt_tokens:        int
+    completion_tokens:    int
+    artifact_ref:         str            # case_file_hash for external_review; letter hash for appeal
+    gatekeeper_passed:    bool
+    retry_count:          int
+    structural_eval_scores: dict
+    pa_resolution:        PaResolution
+    provenance:           AuditProvenance
+    target_type:          PaTargetType   # from Slice 5
+    # new (external review only)
+    appeal_mode:          AppealMode | None = None
+    case_file_id:         str | None = None   # IroCaseFileManifest.case_file_id
+    deadline_set:         DeadlineSet | None = None
+```
+
+### 6.5 GET /api/reviews/pending — response extension
+
+```python
+class PendingReview(BaseModel):
+    # existing fields
+    correlation_id:  str
+    scenario_id:     str
+    drug:            str
+    plan:            str
+    tier:            CaseTier
+    parked_at:       datetime
+    target_type:     PaTargetType      # from Slice 5
+    # new
+    deadline_warning: bool = False
+    hours_remaining:  float | None = None   # None when no deadline tracked
+    appeal_mode:      AppealMode | None = None
+```
+
+### 6.6 New: CaseTimeline response type
+
+```python
+class CaseTimelineEvent(BaseModel):
+    correlation_id:  str
+    lifecycle:       CaseLifecycle
+    appeal_mode:     AppealMode | None
+    timestamp:       datetime
+    outcome:         AuditOutcome
+    artifact_ref:    str
+    provenance:      AuditProvenance
+    target_type:     PaTargetType
+
+class CaseTimelineResponse(BaseModel):
+    case_ref:        str
+    events:          list[CaseTimelineEvent]   # chronological
+```
+
+### 6.7 Regulatory deadlines seed data
+
+New file: `backend/data/regulatory_deadlines.json` — seeded table of `(benefit_type, urgency_class, state) → DeadlineSet`. Default federal baseline:
+
+| Urgency class | Standard | Expedited | Urgent |
+|---------------|----------|-----------|--------|
+| standard | 45 days | 30 days | 72 hours |
+| expedited | 30 days | 30 days | 72 hours |
+| urgent | N/A | N/A | 72 hours |
+
+State overrides (California, Texas, New York, Illinois, Florida) pre-seeded; additional states added as configuration, not code.
+
+### 6.8 Board appeal routing table seed data
+
+New file: `backend/data/board_appeal_routing.json` — maps `(plan_type, tenant_id?) → BoardVariant`. Tenant override takes precedence over plan_type default.
+
+### 6.9 Frontend parity
+
+All new enums (`CaseLifecycle.external_review`, `AppealMode`, `BoardVariant`, `UrgencyClass`) MUST be mirrored in `src/types.ts`. `test_schema_parity.py` extended accordingly.
+
+---
+
+## 7. API Changes
+
+### 7.1 New: `POST /api/appeal/external-review`
+
+Assembles the IRO case file and generates an external review or board appeal letter as SSE.
+
+**Auth:** dual scheme (Bearer or session cookie + CSRF).  
+**With LLM** — this route uses the configured `LLM_BACKEND`; `LLM_BACKEND` must be set.
+
+**Request body:** `ExternalReviewRequest` (see §6.1).
+
+**Events:**
+
+| Event | Step value | Meaning |
+|-------|-----------|---------|
+| `step` | `"case_file_assembly"` | IRO case file bundle being assembled |
+| `step` | `"deadline_calculation"` | Statutory deadlines computed |
+| `step` | `"retrieval"` | External review criteria retrieved |
+| `step` | `"synthesis"` | LLM generating cover letter |
+| `chunk` | — | Token stream of the letter |
+| `done` | — | Terminal; carries `case_file_hash`, `appeal_mode`, `deadline_set` |
+| `error` | — | Failure terminal |
+
+**Terminal `done` event:**
+
+```json
+{
+  "event": "done",
+  "model": "llama3-8b-8192",
+  "ref": "a1b2c3d4e5f6",
+  "structural_scores": { "drug_name_present": 1.0, "…": "…" },
+  "pa_resolution": "plan_id",
+  "retry_count": 0,
+  "correlation_id": "extrev-livdelzi-cigna:a1",
+  "target_type": "medication",
+  "case_file_hash": "8f3a2c9d1e4b",
+  "appeal_mode": "external_review",
+  "deadline_set": {
+    "standard_days": 45,
+    "expedited_days": 30,
+    "urgent_hours": 72,
+    "statutory_basis": "29 CFR §2590.715-2719(d)(2)(i)",
+    "calendar_deadline": "2026-09-02T13:10:00-04:00",
+    "urgency_class": "standard"
+  }
+}
+```
+
+**Audit:** one `AuditRecord` written before the terminal event. `lifecycle = "external_review"`, `artifact_ref = case_file_hash`, `appeal_mode` and `deadline_set` present.
+
+**Idempotency:** `idempotency_key = <case_ref>:extrev:<attempt>`. A request with a matching key that already has an `AuditRecord` returns its existing `correlation_id` in the terminal `done` event without re-running the pipeline.
+
+### 7.2 New: `GET /api/cases/{correlation_id}/timeline`
+
+Returns the full chronological audit trail for one case across all lifecycles.
+
+**Auth:** dual scheme. **Tenant-scoped** via `TenancyScope` — same fail-closed pattern as `/api/audit/records`.  
+**Path param:** `correlation_id` — the originating PA or appeal correlation ID; the endpoint resolves all related records by `case_ref`.
+
+**Response:** `200` `CaseTimelineResponse` (see §6.6).  
+**404** when no records found for the `correlation_id` within the caller's tenant scope.
+
+### 7.3 Modified: `GET /api/reviews/pending`
+
+Response entries gain `deadline_warning`, `hours_remaining`, and `appeal_mode` fields (additive; existing consumers unaffected).
+
+The endpoint gains an optional `?lifecycle=external_review` query parameter to filter to only external review parked runs.
+
+### 7.4 Modified: `GET /api/audit/records`
+
+Records for `lifecycle = "external_review"` now appear in the audit trail response. Records carry `appeal_mode` and `case_file_id` when present. Additive change; no existing consumers break.
+
+### 7.5 New environment variables
+
+| Var | Required | Meaning |
+|-----|----------|---------|
+| `REGULATORY_DEADLINES_PATH` | no | Path to `regulatory_deadlines.json` override; defaults to `data/regulatory_deadlines.json` |
+| `BOARD_ROUTING_PATH` | no | Path to `board_appeal_routing.json` override; defaults to `data/board_appeal_routing.json` |
+| `DEADLINE_WARNING_HOURS` | no | Hours remaining threshold for `deadline_warning = true`; default 48 |
+
+---
+
+## 8. LangGraph Integration
+
+### 8.1 New StateGraph: external review pipeline (agents/ext_review_graph.py)
+
+A third `StateGraph(ExternalReviewState)` is defined alongside the existing appeal graph (`graph.py`) and initial-PA graph (`initial_pa_graph.py`). It compiles once at import with an `InMemorySaver` checkpointer, keyed by `thread_id = correlation_id`.
+
+**Graph topology:**
+
+```
+ext_ingestion → case_file_assembly → deadline_calculation → retrieval → synthesis ⇄ gatekeeper → tier_router → finalize
+```
+
+| Node | File | Contract |
+|------|------|----------|
+| `ext_ingestion` | `agents/nodes/ext_ingestion.py` | `(ExternalReviewRequest) → ExternalReviewState`; initializes state; applies security-hold gate before any node runs |
+| `case_file_assembly` | `agents/nodes/case_file_assembly.py` | `(ExternalReviewState) → ExternalReviewState`; fetches all audit records for `case_ref` via `audit/store`; assembles `IroCaseFileManifest`; deterministic hash; PHI-tokenized |
+| `deadline_calculation` | `agents/nodes/deadline_calculation.py` | `(ExternalReviewState) → ExternalReviewState`; calls `DeadlineCalculator`; sets `deadline_set` on state; pure |
+| `retrieval` | existing `agents/nodes/retrieval.py` | Reused unchanged — same retrieval logic; `target_type` already parameterized (Slice 5) |
+| `synthesis` | existing `agents/nodes/synthesis.py` | Reused; `build_prompt()` dispatches to `external_review` or `board_appeal/{variant}` template based on `state["appeal_mode"]` |
+| `gatekeeper` | existing `agents/nodes/gatekeeper.py` | Reused unchanged — deterministic checks apply equally to external review letters |
+| `tier_router` | existing `agents/nodes/tier_router.py` | Reused unchanged — tiering logic is appeal-content-based, not lifecycle-based |
+| `finalize` | adapted from `agents/nodes/finalize.py` | Extended to include `case_file_hash` and `deadline_set` on `DoneEvent`; exception tier → `hold` node via `interrupt()` (same pattern as appeal graph) |
+
+**Entrypoints:**
+
+```python
+# agents/ext_review_generate.py
+async def run_ext_review_pipeline(
+    request: ExternalReviewRequest,
+    llm_backend: LLMBackend
+) -> AsyncGenerator[ExternalReviewEvent, None]:
+    ...
+
+# Re-uses run_resume() from agents/resume.py for exception-tier parked external review runs
+# (same resume endpoint POST /api/appeal/resume — correlation_id is the handle)
+```
+
+### 8.2 Prompt templates (agents/prompts.py)
+
+Three new templates added following the XML-slot structure:
+
+**`external_review` template:**
+```
+<pa_requirements>{pa_context}</pa_requirements>
+<prior_appeal>{prior_appeal_summary}</prior_appeal>
+<denial_letter>{denial_text}</denial_letter>
+<case_context>
+  Drug/Procedure: {treatment}
+  Diagnosis: {diagnosis}
+  Plan: {plan}
+  Primary CPT/HCPCS: {primary_code}
+  Statutory basis for review: {statutory_basis}
+</case_context>
+
+You are preparing an Independent Medical Review (IMR) submission cover letter.
+Argue on de novo clinical necessity grounds. Cite only guidelines present in
+<pa_requirements>. Do NOT fabricate studies or guidelines not present in the context.
+Do not argue payer-policy compliance — argue clinical necessity independently.
+```
+
+**`board_appeal/medicaid_fair_hearing` template:**
+```
+<pa_requirements>{pa_context}</pa_requirements>
+<prior_appeal>{prior_appeal_summary}</prior_appeal>
+<denial_letter>{denial_text}</denial_letter>
+<case_context>…</case_context>
+
+You are preparing a Medicaid Fair Hearing request letter under 42 CFR §431.200.
+The standard of review is whether the agency decision was arbitrary and capricious.
+Argue procedural correctness AND clinical necessity. Cite {statutory_basis}.
+```
+
+**`board_appeal/medicare_alj` template:**
+```
+…under 42 CFR §405.1000 (Medicare Part C/D ALJ appeal)…
+The standard of review requires de novo consideration of all evidence…
+```
+
+**`board_appeal/insurer_board` template:**
+```
+…pursuant to the plan's internal Board of Appeals procedure…
+Cite the plan's Evidence of Coverage appeals procedure and state insurance code…
+```
+
+### 8.3 Gatekeeper extension for external review letters
+
+The existing gatekeeper checks `drug_present` in the letter. External review letters for imaging/procedure/DME cases (Slice 5) may not contain a drug name. The gatekeeper node gains a `target_type`-aware check: for non-medication cases, `treatment_identifier_present` (drug name OR CPT/HCPCS code) is checked instead of `drug_present`. This resolves the Slice 5 workaround (see Slice 5 NG4) and is the follow-on ADR change.
+
+New gatekeeper check sequence (in order):
+1. Length ≥ 300 chars
+2. `treatment_identifier_present` (drug name OR CPT/HCPCS code, based on `target_type`)
+3. Diagnosis present
+4. No refusal/AI-identity phrases
+5. **NEW:** No fabricated citation phrases ("studies show", "according to [generic source]" without a specific named guideline) — applies only when `appeal_mode != internal`
+
+### 8.4 Shared graph nodes
+
+`retrieval.py`, `gatekeeper.py`, and `tier_router.py` are imported unmodified into the external review graph. **No code duplication.** The compiled graph singleton for external review (`_EXT_REVIEW_PIPELINE`) is separate from `_PIPELINE` (appeal) and `_PA_PIPELINE` (initial-PA) to maintain independent checkpoint keyspaces.
+
+---
+
+## 9. UI Surfaces
+
+### 9.1 Payer response panel — three-way choice
+
+When the queue workspace renders a case in `payer_response` state with a denied determination and at least one prior internal appeal:
+
+```
+Payer has denied your appeal.
+
+What would you like to do next?
+
+  [File Round 2 Appeal]    →  triggers existing appeal pipeline (internal)
+  [Request External Review (IMR)]  →  opens External Review modal
+  [Request Board Appeal]   →  opens Board Appeal modal
+```
+
+The "Request External Review (IMR)" option is displayed only when the case's `state_of_jurisdiction` or tenant config has an IMR pathway configured. The "Request Board Appeal" option is displayed based on `plan_type`.
+
+### 9.2 External Review modal
+
+- **Plan details pre-populated** from the case record (read-only)
+- **Urgency class selector:** Standard / Expedited / Urgent (with tooltip explaining each statutory class)
+- **State of jurisdiction picker** (US state dropdown, defaults to tenant's registered state)
+- **Deadline preview:** "Standard deadline: {calendar_deadline}" computed client-side from `regulatory_deadlines.json` seed (no API call required for display)
+- **Submit** → calls `POST /api/appeal/external-review` and streams the SSE pipeline into the existing streaming panel
+
+### 9.3 Board Appeal modal
+
+- **Board type auto-selected** based on `plan_type` (displayed, not editable unless tenant override)
+- **Board variant badge:** "Medicaid Fair Hearing" / "Medicare ALJ" / "Insurer Board of Appeals"
+- **Statutory basis displayed** (read-only, sourced from routing table)
+- **Submit** → calls `POST /api/appeal/external-review` with `appeal_mode = board_appeal`
+
+### 9.4 Case timeline panel
+
+A new **Timeline** tab in the case detail view (queue workspace) calls `GET /api/cases/{correlation_id}/timeline` and renders a vertical timeline:
+
+```
+[Initial PA]           2026-07-01 — Approved / Denied / Pending
+[Internal Appeal R1]   2026-07-08 — Done (exception tier) → Denied by payer
+[External Review]      2026-07-19 — In progress (deadline: 2026-09-02)
+```
+
+Timeline events are color-coded by lifecycle; denied payer responses include the denial reason.
+
+### 9.5 Deadline warning badge
+
+Cases in the queue workspace with `deadline_warning = true` show a ⏰ badge with `"{hours_remaining}h remaining"` in amber (≤ 48h) or red (≤ 24h).
+
+### 9.6 Scenario fixture additions
+
+`src/data/scenarios.tsx` gains two new scenario chains:
+- `livdelzi-cigna-external-review` — a denied internal appeal on the existing `livdelzi_cigna_hepatology` anchor that proceeds to IMR
+- `ozempic-cigna-medicaid-board` — a Medicaid plan scenario proceeding to a fair hearing
+
+Each scenario demonstrates the full pathway in offline demo mode.
+
+### 9.7 Capability manifest
+
+New capability units in `src/capabilities.ts`:
+- `O16` (`"external_review_iro"`) — External Review (IMR) pipeline; initially `simulated`
+- `O17` (`"board_appeal"`) — Board Appeal letter generation; initially `simulated`
+
+Both become `live` once the external review endpoint is confirmed working in the integration environment.
+
+---
+
+## 10. Test Cases
+
+### 10.1 Unit tests
+
+| Test module | Cases |
+|-------------|-------|
+| `tests/unit/test_case_file_assembler.py` | Full assembly with 3 audit records → manifest shape correct; deterministic hash (same inputs = same hash); PHI tokenized in manifest; empty prior appeals → manifest still valid |
+| `tests/unit/test_deadline_calculator.py` | Standard IMR (45 days); expedited (30 days); urgent (72 hours); state override (CA: 30 days standard); unknown state → federal baseline; 100% branch coverage |
+| `tests/unit/test_ext_ingestion_node.py` | Security hold → error terminal before any node; state initialized correctly; `appeal_mode` echoed to state |
+| `tests/unit/test_ext_review_prompts.py` | `external_review` template renders `statutory_basis`; `board_appeal/medicaid_fair_hearing` cites 42 CFR §431.200; `board_appeal/medicare_alj` cites 42 CFR §405.1000; `board_appeal/insurer_board` cites plan name; fabricated-citation check instruction present |
+| `tests/unit/test_gatekeeper_node.py` (extended) | `treatment_identifier_present` check: imaging target (CPT code present) → pass; imaging target (no CPT, no drug) → fail; medication target unchanged; fabricated-citation phrase triggers fail when `appeal_mode != internal` |
+| `tests/unit/test_board_appeal_routing.py` | medicaid plan → `medicaid_fair_hearing`; MA plan → `medicare_alj`; commercial → `insurer_board`; tenant override wins over plan_type default |
+| `tests/unit/test_deadline_warning.py` | `hours_remaining ≤ 48` → `deadline_warning = true`; `hours_remaining > 48` → false; no deadline tracked → `deadline_warning = false`, `hours_remaining = null` |
+| `tests/unit/test_schema_parity.py` (extended) | `CaseLifecycle.external_review`, `AppealMode`, `BoardVariant`, `UrgencyClass` all present in Python and TypeScript |
+
+### 10.2 Integration tests
+
+| Test | Description |
+|------|-------------|
+| `tests/integration/test_ext_review_pipeline.py` | Full external review run with mock LLM; all step events in order (`case_file_assembly`, `deadline_calculation`, `retrieval`, `synthesis`); terminal `done` carries `case_file_hash` and `deadline_set`; `AuditRecord` written with `lifecycle = "external_review"` |
+| `tests/integration/test_board_appeal_pipeline.py` | Board appeal run, medicaid variant; prompt contains fair hearing citation; `appeal_mode = "board_appeal"` on DoneEvent |
+| `tests/integration/test_case_timeline.py` | Insert two audit records (PA + internal appeal) for same `case_ref`; `GET /api/cases/{correlation_id}/timeline` returns both in chronological order; tenant scoping enforced (second tenant cannot see first tenant's timeline) |
+| `tests/integration/test_deadline_warning_endpoint.py` | External review audit record with `calendar_deadline` 24h from now → `GET /api/reviews/pending` returns `deadline_warning = true`, `hours_remaining ≤ 24` |
+| `tests/integration/test_ext_review_idempotent.py` | Same `case_ref:extrev:1` submitted twice; second call returns existing `correlation_id` from audit; no second pipeline run; no duplicate AuditRecord |
+| `tests/integration/test_sse_endpoint.py` (extended) | `POST /api/appeal/external-review` auth enforced; cookie write requires CSRF; Bearer does not |
+
+### 10.3 Contract tests
+
+- `test_schema_parity.py` extended: all §6.1 new enums and types mirrored in TypeScript
+- Wire-types freshness CI job: `openapi.json` and `api-types.d.ts` regenerated including new route and response types
+- `scenarios_parity.test.ts`: two new scenario chains validated
+
+### 10.4 Security tests
+
+- `test_phi_redact.py` (extended): `IroCaseFileManifest` JSON manifest carries only tokenized `patient_ref`; `redact_phi()` applied before any log
+- `test_prompt_injection.py` (extended): adversarial prior appeal text in `<prior_appeal>` slot → sanitized; fabricated-citation gatekeeper check fires on injected "studies show…" phrase
+- `test_auth_middleware.py` (extended): `POST /api/appeal/external-review` requires auth; `GET /api/cases/{correlation_id}/timeline` requires auth; tenant scope enforced on timeline
+
+### 10.5 Eval additions
+
+Two new `EvalScenario` entries in `scenarios.json` (one external review, one board appeal) with:
+- `eval_dimensions` covering all five dimensions; `safety` dimension specifically checks that the letter does NOT contain fabricated guideline citations
+- `expected_outcome.defensive_behavior` for redteam variants: security hold fires on injection-phrase denial letter; fabricated-citation gatekeeper check fires on adversarial prompt
+
+---
+
+## 11. Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Statutory deadlines are jurisdiction-specific and change periodically; the seed table can become stale | High | High | `REGULATORY_DEADLINES_PATH` allows hot-swap without a deploy; a quarterly regulatory review process (documented in ops runbook) keeps the table current; `statutory_basis` field on every deadline makes the source auditable |
+| LLM fabricates clinical guidelines in external review letters (higher risk than internal appeals because the `external_review` template explicitly prompts for guideline citation) | Medium | Critical | Dedicated anti-hallucination instruction in the template (NF4); new gatekeeper check for fabricated-citation phrases; redteam eval scenario asserts defensive behavior; human reviewer sees the letter before IRO submission |
+| `InMemorySaver` for the ext_review graph shards under multi-worker (same issue as appeal and PA graphs) | High (pre-Phase 3) | High | Documented; single-worker constraint until Phase 3; `GET /api/cases/{correlation_id}/timeline` reads the audit store (shared in-process list, not the checkpointer) so timeline works correctly even without sticky sessions |
+| Board appeal routing table misconfiguration silently routes Medicaid cases to `insurer_board` template | Medium | High | `board_variant` is written to the `AuditRecord`; the timeline view shows it; a configuration validation script (`tools/validate_routing_table.py`) runs at startup and fails loudly on malformed entries |
+| IRO case file assembly may pull in PHI from prior appeal letters stored in AuditRecord | High | Critical | `AuditRecord.artifact_ref` is a hash, not letter text (ADR-0009). The assembler fetches the letter text only if a future durable store exposes it; today the assembler uses only the hash as a provenance reference, not the letter body |
+| The new gatekeeper fabricated-citation check has false positive rate on valid guideline mentions | Medium | Medium | Check uses a phrase-match denylist (not semantic similarity); denylist seeded conservatively with 12 high-signal phrases; false positive rate validated against the golden set before merge |
+
+---
+
+## 12. Deliverables
+
+| # | Deliverable | Acceptance Criteria |
+|---|-------------|---------------------|
+| D1 | `CaseLifecycle.external_review`, `AppealMode`, `BoardVariant`, `UrgencyClass`, `DeadlineSet`, `IroCaseFileManifest`, `ExternalReviewRequest`, `ExternalReviewState` in `models/schemas.py` | Schema parity test green; OpenAPI updated |
+| D2 | `etl/iro_case_file/assembler.py` — deterministic IRO case file assembler | Deterministic hash; PHI-tokenized manifest; unit tests; 100% branch coverage |
+| D3 | `etl/regulatory/deadline_calculator.py` — statutory deadline engine | 100% branch coverage; federal baseline + 5 state overrides seeded; state override wins |
+| D4 | `data/regulatory_deadlines.json` + `data/board_appeal_routing.json` seed tables | Validation script passes at startup; all entries have `statutory_basis` |
+| D5 | `agents/nodes/ext_ingestion.py`, `agents/nodes/case_file_assembly.py`, `agents/nodes/deadline_calculation.py` | Pure node contracts; no I/O inside pure functions; security-hold gate enforced |
+| D6 | `agents/ext_review_graph.py` — compiled `StateGraph(ExternalReviewState)` with `InMemorySaver` | Independent checkpoint keyspace from appeal and PA graphs; all step events emitted |
+| D7 | `agents/ext_review_generate.py` — `run_ext_review_pipeline()` entrypoint | SSE contract matches appeal generate; terminal-event guarantee holds |
+| D8 | Four prompt templates in `agents/prompts.py` (external_review + 3 board variants) | XML-slot structure; anti-hallucination instruction present; fabricated-citation denylist in gatekeeper |
+| D9 | Updated `gatekeeper.py`: `treatment_identifier_present` check + fabricated-citation check | All unit and integration tests pass; medication gatekeeper behavior unchanged |
+| D10 | `POST /api/appeal/external-review` route in `main.py` | Auth enforced; idempotency on `case_ref:extrev:attempt`; AuditRecord written before terminal |
+| D11 | `GET /api/cases/{correlation_id}/timeline` route in `main.py` | Tenant-scoped; chronological order; 404 on unknown/out-of-scope correlation_id |
+| D12 | `GET /api/reviews/pending` extended with `deadline_warning`, `hours_remaining`, `appeal_mode`, `?lifecycle` filter | Existing callers unaffected; new fields present |
+| D13 | `src/types.ts` additions + `src/lib/wire.ts` + `src/lib/api.ts` (`streamExternalReview`, `getCaseTimeline`) | `test_schema_parity.py` green; typed client compiles; wire-types freshness gate passes |
+| D14 | Queue workspace: three-way payer-response panel, External Review modal, Board Appeal modal, Timeline tab, deadline warning badges | Renders in offline demo; calls live endpoints in live mode |
+| D15 | Two new scenario chains in `src/data/scenarios.tsx` + two new `EvalScenario` entries | `scenarios_parity.test.ts` green; eval dimensions and confidence labels present |
+| D16 | `O16`, `O17` capability units in `src/capabilities.ts` | Manifest validates; status `simulated` at merge |
+| D17 | Full test suite (unit + integration + contract + security + eval) | All CI gates green; no regressions on appeal or initial-PA pipelines; 100% branch coverage on deadline calculator and case file assembler |
+| D18 | Docs updated: `02-backend-architecture.md`, `03-domain-model.md`, `05-state-lifecycle.md`, `06-api-contract.md`, `10-roadmap-traceability.md` | All struct-change docs in same PR; roadmap items `O16`, `O17` added and marked "In progress" |
+| D19 | New ADR: gatekeeper generalization (`treatment_identifier_present` + fabricated-citation check) | ADR merged before feature branch opens; decision record explains why gatekeeper changed rather than adding a post-gatekeeper eval node |

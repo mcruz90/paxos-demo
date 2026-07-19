@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClearAuth — Regulatory Priority Worklist (Unit W1)</title>
+  <style>
+    /* ── Shared Design System & Token Sheet ──
+       Tailwind-style utility aesthetics. Dark slate palette with emerald primary and violet accents.
+       Light mode swap implemented via html.light class. */
+    :root {
+      --bg: #020617;            /* slate-955 */
+      --surface: #0f172a;       /* slate-900 */
+      --surface-2: #1e293b;     /* slate-800 */
+      --border: #334155;        /* slate-700 */
+      --border-soft: rgba(51, 65, 85, 0.4);
+      --text: #f8fafc;          /* slate-50 */
+      --text-2: #cbd5e1;        /* slate-300 */
+      --text-3: #94a3b8;        /* slate-400 */
+      --text-4: #64748b;        /* slate-500 */
+      --primary: #10b981;       /* emerald-500 */
+      --primary-soft: rgba(16, 185, 129, 0.12);
+      --accent: #8b5cf6;        /* violet-500 */
+      --accent-soft: rgba(139, 92, 246, 0.12);
+      --amber: #f59e0b;         /* amber-500 */
+      --amber-soft: rgba(245, 158, 11, 0.12);
+      --red: #f87171;           /* red-400 */
+      --red-soft: rgba(248, 113, 113, 0.12);
+      --sky: #38bdf8;           /* sky-400 */
+      --sky-soft: rgba(56, 189, 248, 0.12);
+      --violet: #a78bfa;        /* violet-400 */
+      --violet-soft: rgba(167, 139, 250, 0.12);
+      --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+      --sans: Inter, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* Light Theme Variables */
+    html.light {
+      --bg: #f8fafc;            /* slate-50 */
+      --surface: #ffffff;       /* white */
+      --surface-2: #f1f5f9;     /* slate-100 */
+      --border: #cbd5e1;        /* slate-300 */
+      --border-soft: rgba(203, 213, 225, 0.6);
+      --text: #0f172a;          /* slate-900 */
+      --text-2: #334155;        /* slate-700 */
+      --text-3: #64748b;        /* slate-500 */
+      --text-4: #94a3b8;        /* slate-400 */
+      --primary: #059669;       /* emerald-600 */
+      --primary-soft: rgba(5, 150, 105, 0.1);
+      --accent: #7c3aed;        /* violet-600 */
+      --accent-soft: rgba(124, 58, 237, 0.1);
+      --amber: #d97706;         /* amber-600 */
+      --amber-soft: rgba(217, 119, 6, 0.1);
+      --red: #dc2626;           /* red-600 */
+      --red-soft: rgba(220, 38, 38, 0.1);
+      --sky: #0284c7;           /* sky-600 */
+      --sky-soft: rgba(2, 132, 199, 0.1);
+      --violet: #6d28d9;        /* violet-700 */
+      --violet-soft: rgba(109, 40, 217, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 var(--sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Typography & Hierarchy */
+    h1, h2, h3, h4 {
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    /* Top Navigation bar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .topbar h1 {
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .topbar .sub {
+      font-size: 12px;
+      color: var(--text-4);
+      margin-top: 2px;
+    }
+
+    /* Control segments */
+    .seg {
+      display: flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+    }
+    .seg button {
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-3);
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .seg button.on {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+    .seg button.on.operate {
+      box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.3);
+      color: var(--primary);
+    }
+    .seg button.on.build {
+      box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.4);
+      color: var(--violet);
+    }
+
+    .statesel {
+      display: flex;
+      gap: 4px;
+      background: var(--surface-2);
+      padding: 2px;
+      border-radius: 8px;
+      border: 1px solid var(--border-soft);
+    }
+    .statesel button {
+      font-size: 11px;
+      color: var(--text-3);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: none;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .statesel button.on {
+      border-color: var(--border);
+      color: var(--text);
+      background: var(--surface);
+    }
+
+    /* Control Plane banner (X1) */
+    .plane-banner {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 24px;
+      font-size: 12px;
+      color: var(--violet);
+      background: var(--violet-soft);
+      border-bottom: 1px solid rgba(167, 139, 250, 0.2);
+    }
+    body.persona-build .plane-banner {
+      display: flex;
+    }
+
+    /* Persona-dependent layout */
+    .phi {
+      display: block;
+    }
+    .redacted {
+      display: none;
+      background: var(--surface-2);
+      color: var(--text-4);
+      font-family: var(--mono);
+      font-size: 11.5px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-soft);
+      letter-spacing: 0.05em;
+    }
+    body.persona-build .phi {
+      display: none;
+    }
+    body.persona-build .redacted {
+      display: inline-block;
+    }
+
+    /* Dashboard Layout */
+    .container {
+      flex: 1;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Stats Panel */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card .label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-4);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .stat-card .value {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-card .desc {
+      font-size: 12px;
+      color: var(--text-3);
+      margin-top: 4px;
+    }
+    .stat-card.stat-breached {
+      border-left: 4px solid var(--red);
+    }
+    .stat-card.stat-breached .value {
+      color: var(--red);
+    }
+    .stat-card.stat-warning {
+      border-left: 4px solid var(--amber);
+    }
+    .stat-card.stat-warning .value {
+      color: var(--amber);
+    }
+    .stat-card.stat-ok {
+      border-left: 4px solid var(--primary);
+    }
+    .stat-card.stat-ok .value {
+      color: var(--primary);
+    }
+
+    /* Worklist Board */
+    .board {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Table styling */
+    .worklist-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    .worklist-table th {
+      background: rgba(15, 23, 42, 0.4);
+      padding: 12px 18px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text-4);
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid var(--border);
+    }
+    .worklist-table td {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border-soft);
+      vertical-align: top;
+    }
+    .worklist-table tr:last-child td {
+      border-bottom: none;
+    }
+    .worklist-table tr:hover td {
+      background: rgba(255, 255, 255, 0.015);
+    }
+    html.light .worklist-table tr:hover td {
+      background: rgba(0, 0, 0, 0.008);
+    }
+
+    /* Badges & Chips */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2.5px 8px;
+      border-radius: 6px;
+      border: 1px solid;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .chip.ok {
+      color: var(--primary);
+      border-color: rgba(16, 185, 129, 0.2);
+      background: var(--primary-soft);
+    }
+    .chip.warn {
+      color: var(--amber);
+      border-color: rgba(245, 158, 11, 0.2);
+      background: var(--amber-soft);
+    }
+    .chip.bad {
+      color: var(--red);
+      border-color: rgba(248, 113, 113, 0.2);
+      background: var(--red-soft);
+    }
+    .chip.info {
+      color: var(--sky);
+      border-color: rgba(56, 189, 248, 0.25);
+      background: var(--sky-soft);
+    }
+    .chip.plane {
+      color: var(--violet);
+      border-color: rgba(167, 139, 250, 0.3);
+      background: var(--violet-soft);
+    }
+
+    /* Decision Clocks styling */
+    .clock-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      border: 1px solid;
+    }
+    .clock-badge.red {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+    .clock-badge.amber {
+      color: #f59e0b;
+      background: rgba(245, 158, 11, 0.1);
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+    .clock-badge.green {
+      color: #10b981;
+      background: rgba(16, 185, 129, 0.1);
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    .clock-timer {
+      font-family: var(--mono);
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+      margin-top: 4px;
+    }
+    .clock-timer.red { color: var(--red); }
+    .clock-timer.amber { color: var(--amber); }
+    .clock-timer.green { color: var(--primary); }
+
+    .clock-progress-bg {
+      width: 100px;
+      height: 4px;
+      background: var(--surface-2);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .clock-progress-bar {
+      height: 100%;
+      border-radius: 999px;
+    }
+    .clock-progress-bar.red { background: var(--red); }
+    .clock-progress-bar.amber { background: var(--amber); }
+    .clock-progress-bar.green { background: var(--primary); }
+
+    /* Button utilities */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-2);
+      border: 1px solid var(--border);
+      background: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+    .btn.primary {
+      background: var(--primary);
+      color: #052e22;
+      border: 1px solid transparent;
+    }
+    .btn.primary:hover {
+      background: #34d399;
+      color: #022c22;
+    }
+    .btn.primary:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .btn.ghost {
+      border: 1px solid transparent;
+    }
+    .btn.ghost:hover {
+      background: var(--surface-2);
+    }
+    .btn.danger {
+      border-color: rgba(248, 113, 113, 0.4);
+      color: var(--red);
+    }
+    .btn.danger:hover {
+      background: var(--red-soft);
+      color: #ffffff;
+    }
+
+    /* State Management Layouts */
+    .state-panel {
+      display: none;
+      padding: 60px 24px;
+      text-align: center;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .state-panel svg {
+      width: 48px;
+      height: 48px;
+      color: var(--text-4);
+      margin-bottom: 16px;
+    }
+    .state-panel h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .state-panel p {
+      font-size: 13px;
+      color: var(--text-3);
+      max-width: 400px;
+      margin-bottom: 20px;
+    }
+
+    /* Error Bar */
+    .error-banner {
+      display: none;
+      margin-bottom: 16px;
+      background: var(--red-soft);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: #fca5a5;
+      font-size: 13px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    html.light .error-banner {
+      color: #b91c1c;
+    }
+
+    /* Skeleton Loading CSS */
+    .skeleton-row td {
+      padding: 20px 18px;
+    }
+    .skeleton-text {
+      height: 12px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%);
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.5s infinite linear;
+    }
+    @keyframes skeleton-shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Controlling display based on body state classes */
+    body.state-happy #happyState { display: block; }
+    body.state-happy .stats-grid { display: grid; }
+
+    body.state-empty #emptyState { display: flex; }
+    body.state-empty #happyState { display: none; }
+    body.state-empty .stats-grid { display: grid; } /* Stats show 0 */
+
+    body.state-loading #loadingState { display: block; }
+    body.state-loading #happyState { display: none; }
+    body.state-loading .stats-grid { display: grid; } /* Stats show loading */
+
+    body.state-error #happyState { display: block; }
+    body.state-error .error-banner { display: flex; }
+    body.state-error .stats-grid { display: grid; }
+
+    body.state-denied #deniedState { display: flex; }
+    body.state-denied #happyState { display: none; }
+    body.state-denied .stats-grid { display: none; } /* Stats hidden when denied */
+  </style>
+</head>
+<body class="persona-operate state-happy">
+
+  <!-- Top bar Navigation -->
+  <div class="topbar">
+    <div>
+      <h1>
+        ClearAuth
+        <span class="chip info">Prioritization Engine</span>
+      </h1>
+      <div class="sub">Prior Authorization & Appeals Regulatory Deadline Queue</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:16px">
+      <!-- State Switcher (Unit State Hygiene) -->
+      <div class="statesel" title="Hygiene Rule: Toggle and review all four UI states">
+        <button class="on" data-state="state-happy">Happy Path</button>
+        <button data-state="state-empty">Empty State</button>
+        <button data-state="state-loading">Loading</button>
+        <button data-state="state-error">Error State</button>
+        <button data-state="state-denied">Access Denied</button>
+      </div>
+
+      <!-- Persona Switcher (Operate vs Build) -->
+      <div class="seg" id="personaSeg" title="Toggle between Operate and Build personas">
+        <button class="on operate" data-persona="persona-operate">Operate (Clinician)</button>
+        <button data-persona="persona-build">Build (Engineer)</button>
+      </div>
+
+      <!-- Theme Selector -->
+      <button id="themeToggle" class="btn ghost" style="padding: 4px 8px; font-size: 11px;">☀️ Theme</button>
+    </div>
+  </div>
+
+  <!-- Control Plane Redaction Banner (X1) -->
+  <div class="plane-banner">
+    <span class="chip plane">Control Plane</span>
+    PHI-redacted view active. Identifiers tokenized or scrubbed (ADR-0014). Break-glass auditing required for full patient access.
+  </div>
+
+  <!-- Main Content Area -->
+  <div class="container">
+
+    <!-- Sync Error Banner -->
+    <div class="error-banner" id="errorBanner">
+      <div style="display:flex; align-items:center; gap:8px">
+        <svg style="width:16px; height:16px; flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span><strong>Sync Failed:</strong> Connection to EHR Gateways timed out (EHR-503-TIMEOUT). Shown items may be out-of-date. Correlation ID: <code style="font-family:var(--mono); font-size:11.5px">ERR-CLK-90812</code>.</span>
+      </div>
+      <button class="btn danger text-xs" style="padding: 4px 10px;" onclick="retrySync()">Retry Synchronize</button>
+    </div>
+
+    <!-- Summary Statistics Grid -->
+    <div class="stats-grid">
+      <div class="stat-card stat-breached">
+        <div class="label">Breached Clocks</div>
+        <div class="value" id="statsBreached">1</div>
+        <div class="desc" id="statsBreachedDesc">Deemed approvals triggered</div>
+      </div>
+      <div class="stat-card stat-warning">
+        <div class="label">Urgent Warnings</div>
+        <div class="value" id="statsWarning">2</div>
+        <div class="desc" id="statsWarningDesc">Under 24 hours remaining</div>
+      </div>
+      <div class="stat-card stat-ok">
+        <div class="label">Standard Queue</div>
+        <div class="value" id="statsOk">1</div>
+        <div class="desc" id="statsOkDesc">Over 48 hours remaining</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Total Reviews</div>
+        <div class="value" id="statsTotal">4</div>
+        <div class="desc" id="statsTotalDesc">Awaiting clinician review</div>
+      </div>
+    </div>
+
+    <!-- Worklist Main Board -->
+    <div class="board">
+
+      <!-- 1. Happy Path Board View -->
+      <div id="happyState" class="ws-page">
+        <table class="worklist-table">
+          <thead>
+            <tr>
+              <th style="width: 175px;">Regulatory Clock</th>
+              <th style="width: 250px;">Patient Identity</th>
+              <th style="width: 220px;">Requested Coverage</th>
+              <th>Clinical Summary</th>
+              <th style="width: 240px;">Governing Rule & Breach Consequence</th>
+              <th style="text-align: right; width: 180px;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            <!-- Case 1: Jordan R. Peterman / Nexium (Red/Breached) -->
+            <tr>
+              <td>
+                <div class="clock-badge red">BREACHED</div>
+                <div class="clock-timer red">-02h 14m</div>
+                <div class="clock-progress-bg">
+                  <div class="clock-progress-bar red" style="width: 100%"></div>
+                </div>
+              </td>
+              <td>
+                <div class="phi">
+                  <strong style="color: var(--text)">Jordan R. Peterman</strong>
+                  <div class="text-xs text-3" style="margin-top: 2px;">DOB: 2017-09-22 (Age 7)</div>
+                  <div class="text-xs text-4" style="font-family: var(--mono);">ID: UHC88542190</div>
+                </div>
+                <div class="redacted">
+                  <strong>PT-9051 · J.P.</strong>
+                  <div class="text-xs text-4" style="margin-top: 1px;">DOB: 2017-XX-XX</div>
+                  <div class="text-xs text-4">ID: [REDACTED BY EHR]</div>
+                </div>
+              </td>
+              <td>
+                <div style="font-weight:600; color: var(--text)">Nexium Oral Suspension</div>
+                <div class="text-xs text-3" style="margin-top: 2px;">UnitedHealthcare Choice Plus</div>
+                <span class="chip bad" style="margin-top: 6px;">Pediatric Step Therapy</span>
+              </td>
+              <td>
+                <div class="text-xs text-2">
+                  Indication: Gastro-esophageal reflux disease with esophagitis (<strong style="font-family: var(--mono)">K21.0</strong>), confirmed by endoscopy. Omeprazole 10mg failed.
+                </div>
+                <div class="text-xs text-4" style="margin-top: 4px;">
+                  <strong>Review Hold:</strong> Ped. Gastro clinician (Dr. Yolanda Ekwueme) noted oral dysphagia, but pediatric note indicates child is "tolerating crushed tablets." Step therapy requires rabeprazole and pantoprazole trial unless dysphagia is confirmed.
+                </div>
+              </td>
+              <td>
+                <div style="font-size:12px; font-weight:600; color:#ef4444; margin-bottom: 2px;">DEEMED APPROVED</div>
+                <div class="text-xs text-3">
+                  <strong>New York Insurance Law § 4903(b)</strong>: Urgent PA request. Plan failed to respond within 24-hour limit. INDICATION DEEMED APPROVED.
+                </div>
+              </td>
+              <td style="text-align: right;">
+                <button class="btn primary text-xs" onclick="generateDeemedApprovalNotice('Jordan R. Peterman', 'UHC88542190', 'Nexium', 'New York Insurance Law § 4903(b)')">Generate Legal Notice</button>
+              </td>
+            </tr>
+
+            <!-- Case 2: Marcus T. Halverson / Ozempic (Amber / Warning) -->
+            <tr>
+              <td>
+                <div class="clock-badge amber">CRITICAL</div>
+                <div class="clock-timer amber">03h 15m</div>
+                <div class="clock-progress-bg">
+                  <div class="clock-progress-bar amber" style="width: 4.5%"></div>
+                </div>
+              </td>
+              <td>
+                <div class="phi">
+                  <strong style="color: var(--text)">Marcus T. Halverson</strong>
+                  <div class="text-xs text-3" style="margin-top: 2px;">DOB: 1972-03-14 (Age 52)</div>
+                  <div class="text-xs text-4" style="font-family: var(--mono);">ID: CGN00123456</div>
+                </div>
+                <div class="redacted">
+                  <strong>PT-9052 · M.H.</strong>
+                  <div class="text-xs text-4" style="margin-top: 1px;">DOB: 1972-XX-XX</div>
+                  <div class="text-xs text-4">ID: [REDACTED BY EHR]</div>
+                </div>
+              </td>
+              <td>
+                <div style="font-weight:600; color: var(--text)">Ozempic (semaglutide)</div>
+                <div class="text-xs text-3" style="margin-top: 2px;">Cigna Connect 500 PPO</div>
+                <span class="chip warn" style="margin-top: 6px;">Step Therapy Exemption</span>
+              </td>
+              <td>
+                <div class="text-xs text-2">
+                  Indication: Type II Diabetes Mellitus (<strong style="font-family: var(--mono)">E11.9</strong>), HbA1c 8.2%, fasting glucose 187 mg/dL. Active Metformin 1000mg.
+                </div>
+                <div class="text-xs text-4" style="margin-top: 4px;">
+                  <strong>Review Hold:</strong> Prescriber attestation needed. Chart notes BMI 33.2 kg/m² and "weight management goals discussed." Payer policy <strong style="font-family: var(--mono)">cnf_360</strong> excludes weight loss; must verify T2DM glycemic control is sole indication.
+                </div>
+              </td>
+              <td>
+                <div style="font-size:12px; font-weight:600; color:#f59e0b; margin-bottom: 2px;">REGULATORY PENALTY</div>
+                <div class="text-xs text-3">
+                  <strong>Texas Insurance Code § 1369.304</strong>: Prescription Drug 72-hour clock. Breach triggers administrative audits, fines, and provider credit for preauth exemption.
+                </div>
+              </td>
+              <td style="text-align: right;">
+                <button class="btn text-xs" onclick="alert('Mock: Routing to Cigna Connect Ozempic appeal generation workspace.')">Draft Appeal Letter</button>
+              </td>
+            </tr>
+
+            <!-- Case 3: Diane K. Rourke / Livdelzi (Amber / Warning) -->
+            <tr>
+              <td>
+                <div class="clock-badge amber">WARNING</div>
+                <div class="clock-timer amber">18h 42m</div>
+                <div class="clock-progress-bg">
+                  <div class="clock-progress-bar amber" style="width: 25.9%"></div>
+                </div>
+              </td>
+              <td>
+                <div class="phi">
+                  <strong style="color: var(--text)">Diane K. Rourke</strong>
+                  <div class="text-xs text-3" style="margin-top: 2px;">DOB: 1970-11-07 (Age 54)</div>
+                  <div class="text-xs text-4" style="font-family: var(--mono);">ID: CGN00987654</div>
+                </div>
+                <div class="redacted">
+                  <strong>PT-9053 · D.R.</strong>
+                  <div class="text-xs text-4" style="margin-top: 1px;">DOB: 1970-XX-XX</div>
+                  <div class="text-xs text-4">ID: [REDACTED BY EHR]</div>
+                </div>
+              </td>
+              <td>
+                <div style="font-weight:600; color: var(--text)">Livdelzi (seladelpar)</div>
+                <div class="text-xs text-3" style="margin-top: 2px;">Cigna Connect 500 PPO</div>
+                <span class="chip info" style="margin-top: 6px;">Hepatology Specialty</span>
+              </td>
+              <td>
+                <div class="text-xs text-2">
+                  Indication: Primary Biliary Cholangitis (<strong style="font-family: var(--mono)">K74.3</strong>). ALP 198 U/L (elevated), AMA positive. Prescribed by Dr. Samuel Okonkwo (Hepatology).
+                </div>
+                <div class="text-xs text-4" style="margin-top: 4px;">
+                  <strong>Review Hold:</strong> Ursodiol trial is 8 months. Policy <strong style="font-family: var(--mono)">cnf_877</strong> requires ≥ 12 months trial with inadequate response. Clinician must verify incomplete trial justification due to liver panels.
+                </div>
+              </td>
+              <td>
+                <div style="font-size:12px; font-weight:600; color:#cbd5e1; margin-bottom: 2px;">COMPLIANCE AUDIT</div>
+                <div class="text-xs text-3">
+                  <strong>California Health & Safety Code § 1367.01(h)</strong>: 72-hour Urgent clock. Breach triggers DMHC investigation and administrative corrective actions.
+                </div>
+              </td>
+              <td style="text-align: right;">
+                <button class="btn text-xs" onclick="alert('Mock: Routing to Cigna Livdelzi appeal generation workspace.')">Draft Appeal Letter</button>
+              </td>
+            </tr>
+
+            <!-- Case 4: Yvonne M. Castellano / Humira (Green / On Track) -->
+            <tr>
+              <td>
+                <div class="clock-badge green">ON TRACK</div>
+                <div class="clock-timer green">5d 12h</div>
+                <div class="clock-progress-bg">
+                  <div class="clock-progress-bar green" style="width: 78.5%"></div>
+                </div>
+              </td>
+              <td>
+                <div class="phi">
+                  <strong style="color: var(--text)">Yvonne M. Castellano</strong>
+                  <div class="text-xs text-3" style="margin-top: 2px;">DOB: 1968-05-19 (Age 58)</div>
+                  <div class="text-xs text-4" style="font-family: var(--mono);">ID: CGN00456789</div>
+                </div>
+                <div class="redacted">
+                  <strong>PT-9054 · Y.C.</strong>
+                  <div class="text-xs text-4" style="margin-top: 1px;">DOB: 1968-XX-XX</div>
+                  <div class="text-xs text-4">ID: [REDACTED BY EHR]</div>
+                </div>
+              </td>
+              <td>
+                <div style="font-weight:600; color: var(--text)">Humira (adalimumab)</div>
+                <div class="text-xs text-3" style="margin-top: 2px;">Cigna Connect 3000 PPO</div>
+                <span class="chip warn" style="margin-top: 6px;">Preferred Step Therapy</span>
+              </td>
+              <td>
+                <div class="text-xs text-2">
+                  Indication: Rheumatoid Arthritis (<strong style="font-family: var(--mono)">M05.79</strong>), RF positive (78 IU/mL), CDAI 28. Conventional DMARD methotrexate trial completed (11 months).
+                </div>
+                <div class="text-xs text-4" style="margin-top: 4px;">
+                  <strong>Review Hold:</strong> Humira is non-preferred (policy <strong style="font-family: var(--mono)">IP0652</strong>). Patient completed Cyltezo switch, but suffered loss of efficacy and injection-site reactions. Exception documentation under policy <strong style="font-family: var(--mono)">PSM013</strong> required.
+                </div>
+              </td>
+              <td>
+                <div style="font-size:12px; font-weight:600; color:#cbd5e1; margin-bottom: 2px;">CMS REPORTABLE FAILURE</div>
+                <div class="text-xs text-3">
+                  <strong>CMS-0057-F</strong>: 7-calendar-day Standard PA Clock. Breach is a reportable service violation subject to Medicare Advantage penalties.
+                </div>
+              </td>
+              <td style="text-align: right;">
+                <button class="btn text-xs" onclick="alert('Mock: Routing to Cigna Humira appeal generation workspace.')">Draft Appeal Letter</button>
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 2. Loading State (Skeletons Shimmering) -->
+      <div id="loadingState" class="ws-page" style="display:none;">
+        <table class="worklist-table">
+          <thead>
+            <tr>
+              <th style="width: 175px;"><div class="skeleton-text" style="width: 60px;"></div></th>
+              <th style="width: 250px;"><div class="skeleton-text" style="width: 100px;"></div></th>
+              <th style="width: 220px;"><div class="skeleton-text" style="width: 90px;"></div></th>
+              <th><div class="skeleton-text" style="width: 200px;"></div></th>
+              <th style="width: 240px;"><div class="skeleton-text" style="width: 120px;"></div></th>
+              <th style="text-align: right; width: 180px;"><div class="skeleton-text" style="width: 50px; margin-left: auto;"></div></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="skeleton-row">
+              <td>
+                <div class="skeleton-text" style="width: 80px; height: 18px; margin-bottom: 6px;"></div>
+                <div class="skeleton-text" style="width: 100px; height: 22px;"></div>
+                <div class="skeleton-text" style="width: 100px; height: 4px; margin-top: 6px;"></div>
+              </td>
+              <td>
+                <div class="skeleton-text" style="width: 130px; height: 16px; margin-bottom: 6px;"></div>
+                <div class="skeleton-text" style="width: 110px; height: 12px; margin-bottom: 4px;"></div>
+                <div class="skeleton-text" style="width: 90px; height: 12px;"></div>
+              </td>
+              <td>
+                <div class="skeleton-text" style="width: 140px; height: 16px; margin-bottom: 6px;"></div>
+                <div class="skeleton-text" style="width: 120px; height: 12px; margin-bottom: 6px;"></div>
+                <div class="skeleton-text" style="width: 80px; height: 16px;"></div>
+              </td>
+              <td>
+                <div class="skeleton-text" style="width: 95%; height: 14px; margin-bottom: 6px;"></div>
+                <div class="skeleton-text" style="width: 80%; height: 12px; margin-bottom: 4px;"></div>
+                <div class="skeleton-text" style="width: 60%; height: 12px;"></div>
+              </td>
+              <td>
+                <div class="skeleton-text" style="width: 110px; height: 14px; margin-bottom: 4px;"></div>
+                <div class="skeleton-text" style="width: 100%; height: 12px;"></div>
+              </td>
+              <td style="text-align: right; vertical-align: middle;">
+                <div class="skeleton-text" style="width: 90px; height: 28px; border-radius: 8px; margin-left: auto;"></div>
+              </td>
+            </tr>
+            <tr class="skeleton-row">
+              <td>
+                <div class="skeleton-text" style="width: 80px; height: 18px; margin-bottom: 6px;"></div>
+                <div class="skeleton-text" style="width: 90px; height: 22px;"></div>
+                <div class="skeleton-text" style="width: 100px; height: 4px; margin-top: 6px;"></div>
+              </td>
+              <td>
+                <div class="skeleton-text" style="width: 140px; height: 16px; margin-bottom: 6px;"></div>
+                <div class="skeleton-text" style="width: 100px; height: 12px; margin-bottom: 4px;"></div>
+                <div class="skeleton-text" style="width: 80px; height: 12px;"></div>
+              </td>
+              <td>
+                <div class="skeleton-text" style="width: 130px; height: 16px; margin-bottom: 6px;"></div>
+                <div class="skeleton-text" style="width: 110px; height: 12px; margin-bottom: 6px;"></div>
+                <div class="skeleton-text" style="width: 80px; height: 16px;"></div>
+              </td>
+              <td>
+                <div class="skeleton-text" style="width: 90%; height: 14px; margin-bottom: 6px;"></div>
+                <div class="skeleton-text" style="width: 85%; height: 12px; margin-bottom: 4px;"></div>
+                <div class="skeleton-text" style="width: 70%; height: 12px;"></div>
+              </td>
+              <td>
+                <div class="skeleton-text" style="width: 90px; height: 14px; margin-bottom: 4px;"></div>
+                <div class="skeleton-text" style="width: 100%; height: 12px;"></div>
+              </td>
+              <td style="text-align: right; vertical-align: middle;">
+                <div class="skeleton-text" style="width: 90px; height: 28px; border-radius: 8px; margin-left: auto;"></div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 3. Empty State -->
+      <div id="emptyState" class="state-panel">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <h3>Prioritization Queue Clear</h3>
+        <p>No active prior authorizations or appeals currently require clinician review. Clocks are fully synchronized.</p>
+        <button class="btn" onclick="toggleState('state-happy')">Load Sandbox Scenarios</button>
+      </div>
+
+      <!-- 4. Access Denied State (Unit Permission Hygiene) -->
+      <div id="deniedState" class="state-panel">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+        <h3 style="color: var(--red);">Clearance Required</h3>
+        <p>Your current user role lacks the <code>ClearAuth.Operate</code> authorization scope. Access to patient PHI and clinical prior authorization clocks is restricted.</p>
+        <div style="display:flex; gap:10px">
+          <button class="btn primary" onclick="alert('Mock: Requesting role elevation via Okta. Ticket scope: ClearAuth.Operate.tenant_1001')">Elevate Scope via Okta</button>
+          <button class="btn" onclick="toggleState('state-happy')">Reset to Sandbox</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- JavaScript Code for Toggle States and Mock Interactions -->
+  <script>
+    // State management
+    const stateButtons = document.querySelectorAll('.statesel button');
+    const personaButtons = document.querySelectorAll('#personaSeg button');
+    const themeToggle = document.getElementById('themeToggle');
+
+    // Switch between worklist states
+    function toggleState(stateClass) {
+      document.body.classList.remove('state-happy', 'state-empty', 'state-loading', 'state-error', 'state-denied');
+      document.body.classList.add(stateClass);
+
+      // Manage active buttons in state switcher
+      stateButtons.forEach(btn => {
+        btn.classList.toggle('on', btn.getAttribute('data-state') === stateClass);
+      });
+
+      // Update mock stats counter to reflect state
+      const statsTotal = document.getElementById('statsTotal');
+      const statsBreached = document.getElementById('statsBreached');
+      const statsWarning = document.getElementById('statsWarning');
+      const statsOk = document.getElementById('statsOk');
+
+      if (stateClass === 'state-empty') {
+        statsTotal.textContent = '0';
+        statsBreached.textContent = '0';
+        statsWarning.textContent = '0';
+        statsOk.textContent = '0';
+      } else if (stateClass === 'state-loading') {
+        statsTotal.textContent = '...';
+        statsBreached.textContent = '...';
+        statsWarning.textContent = '...';
+        statsOk.textContent = '...';
+      } else {
+        statsTotal.textContent = '4';
+        statsBreached.textContent = '1';
+        statsWarning.textContent = '2';
+        statsOk.textContent = '1';
+      }
+    }
+
+    stateButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        toggleState(btn.getAttribute('data-state'));
+      });
+    });
+
+    // Switch between personas
+    personaButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        personaButtons.forEach(x => x.classList.remove('on'));
+        btn.classList.add('on');
+        
+        const isBuild = btn.getAttribute('data-persona') === 'persona-build';
+        document.body.classList.toggle('persona-operate', !isBuild);
+        document.body.classList.toggle('persona-build', isBuild);
+      });
+    });
+
+    // Theme toggle
+    themeToggle.addEventListener('click', () => {
+      document.documentElement.classList.toggle('light');
+    });
+
+    // Sync button retry logic
+    function retrySync() {
+      toggleState('state-loading');
+      setTimeout(() => {
+        toggleState('state-happy');
+      }, 1000);
+    }
+
+    // Special clinical action: Deemed Approval Generator
+    function generateDeemedApprovalNotice(patient, id, drug, governingLaw) {
+      const template = `NOTICE OF DEEMED APPROVAL UNDER NEW YORK INSURANCE LAW § 4903(b)
+Date: ${new Date().toLocaleDateString()}
+To: UnitedHealthcare Choice Plus - Appeals and Grievances Department
+Member: ${patient} (Member ID: ${id})
+Requested Drug: ${drug} Oral Suspension
+Indication: GERD with Esophagitis (ICD-10 K21.0)
+Submitted Date: [PLACEHOLDER — needs research]
+
+This letter serves as a formal Notice of Deemed Approval for the prior authorization request referenced above. Pursuant to New York Insurance Law § 4903(b), prior authorization determinations for urgent/expedited care must be completed and communicated within 24 hours of receipt.
+
+The request was submitted on [PLACEHOLDER — needs research] and was received by the plan on [PLACEHOLDER — needs research]. A determination was not received within the 24-hour statutory period, breaching the regulatory clock by -2 hours 14 minutes.
+
+Therefore, this request is legally DEEMED APPROVED. UnitedHealthcare is required to cover the requested service as an in-network benefit immediately. Please update the authorization status in your portal to prevent claim rejection.
+
+ClearAuth Prioritization Engine Auto-Signoff
+Correlation ID: CLK-NY4903-DEEMED-90812`;
+
+      alert(`Generating legal Deemed Approval notice:\n\n${template}`);
+      console.log(template);
+    }
+  </script>
+</body>
+</html>

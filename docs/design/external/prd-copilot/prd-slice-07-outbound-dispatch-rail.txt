@@ -1,0 +1,433 @@
+# PRD -- Slice 7: Outbound Dispatch Rail
+
+Sprint: Phase 2 / Workstream Backend
+Status: Proposed (2026-07-19)
+Ticket handle: PAXOS-S7-DISPATCH
+Owner: Platform Engineering
+Last updated: 2026-07-19
+
+================================================================================
+1. PROBLEM SUMMARY
+================================================================================
+
+ClearAuth today can draft an appeal letter and park it at `ready_for_review`,
+but the platform has no backend mechanism for transmitting provider-facing
+requests -- fax, EHR task creation, or portal submission -- once a reviewer
+approves. The `WorkflowPlan` field on `CriterionResult` already encodes the
+`action`, `recipient`, `channel`, and `turnaround` a coordinator should
+execute, and the queue workspace demo dispatches outbound workflows visually,
+but there is no live backend adapter behind it.
+
+Separately, the `awaiting_documentation` CaseStatus represents a pre-submission
+documentation gap (e.g., a missing chart note before the PA can be filed), but
+no mechanism currently transitions a case into that state via an API action or
+writes it durably to the audit trail. Coordinators track this state in their
+heads or in side channels.
+
+This means:
+
+- Approved letters sit in `ready_for_review` permanently; no outbound
+  transmission happens.
+- The `WorkflowPlan.channel` field (fax / EHR-task / portal) carries no
+  actionable backend semantics.
+- The `awaiting_documentation` lifecycle branch in 05-state-lifecycle.md is
+  modeled but never reachable from a real API action.
+- Gap G7 / unit O11 in the roadmap (doc 10) is listed as "demo dispatch
+  shipped; no backend."
+
+================================================================================
+2. GOALS
+================================================================================
+
+1. Implement an outbound dispatch adapter (`etl/outbound_dispatch/`) that
+   accepts a canonical `DispatchRequest` and routes it to the correct channel
+   adapter (fax stub, EHR-task stub, portal stub), following the same adapter
+   pattern as `etl/pas_rail/`.
+
+2. Add a `POST /api/cases/{correlation_id}/dispatch` endpoint that drives the
+   dispatch adapter and transitions the case to `awaiting_documentation` or
+   `submitted` depending on dispatch outcome.
+
+3. Extend the `AuditRecord` with a `dispatch_ref` field tracking what was
+   transmitted and on which channel, written before the terminal event per
+   ADR-0009.
+
+4. Wire `WorkflowPlan` production into the `tier_router` node so that an
+   `exception`-tier run includes the recommended workflow plan for the first
+   flagged criterion.
+
+5. Produce a new `DispatchEvent` SSE terminal for the dispatch route.
+
+6. Ensure all three channel stubs (fax / EHR-task / portal) produce a
+   deterministic `dispatch_ref` (same idempotency semantics as `submission_ref`
+   on the PAS rail).
+
+7. Pass all new code through the standard TDD cycle (RED -> GREEN) with unit +
+   integration coverage.
+
+================================================================================
+3. NON-GOALS
+================================================================================
+
+- Live fax/EHR integration. This slice ships stubs only; real channel adapters
+  are per-connector work (roadmap "Payer/EHR connectors").
+- Automated submission without human approval. Dispatch is always triggered by
+  an explicit API call; the approval gate is never bypassed.
+- Round-trip determination polling. The dispatch rail sends; payer response
+  arrives via a separate future connector, not this slice.
+- UI for dispatch. The queue workspace already has a demo dispatch surface;
+  wiring it to the live endpoint is a frontend live-integration task
+  (Workstream SU), not in scope here.
+- SMTP / SMS channels. Only fax, EHR-task, and portal stubs are in scope.
+- Changing the PAS rail. The initial-PA dispatch path (`etl/pas_rail/`) is
+  separate and unaffected.
+
+================================================================================
+4. REQUIREMENTS
+================================================================================
+
+Functional
+----------
+
+D-1  POST /api/cases/{correlation_id}/dispatch accepts a DispatchRequest body
+     (correlation_id, channel, recipient, payload_ref) and returns a
+     DispatchResponse with a dispatch_ref, channel, and timestamp.
+
+D-2  The dispatch endpoint transitions CaseStatus from ready_for_review ->
+     awaiting_documentation (if WorkflowPlan.channel triggered an outbound doc
+     request) or ready_for_review -> submitted (if no doc gap, direct
+     transmission).
+
+D-3  The dispatch adapter (etl/outbound_dispatch/adapter.py) accepts a
+     canonical DispatchRequest and produces a DispatchOutcome; the channel is
+     selected by a DispatchRouter strategy, never branched on inline.
+
+D-4  Three channel stubs are required: FaxAdapter, EhrTaskAdapter,
+     PortalAdapter. Each produces a deterministic dispatch_ref =
+     {channel}-{sha256(correlation_id+recipient)[:12]} so a retry never mints
+     a second rail identity.
+
+D-5  AuditRecord gains a nullable dispatch_ref: str | None and
+     dispatch_channel: str | None; the dispatch endpoint writes a new
+     AuditRecord with provenance=dispatched before returning.
+
+D-6  tier_router.py populates PipelineState.workflow_plan with the WorkflowPlan
+     from the first needs_review or conflict CriterionResult when
+     tier == exception.
+
+D-7  The dispatch endpoint is dual-auth (Bearer or session cookie + CSRF)
+     consistent with every other /api/* route and is tenant-scoped: a session
+     can only dispatch cases belonging to its tenant_id.
+
+D-8  A dispatch of an already-dispatched correlation_id is idempotent: if an
+     AuditRecord with provenance=dispatched and the same correlation_id already
+     exists, return the existing dispatch_ref without re-dispatching.
+
+Non-functional
+--------------
+
+D-9  Stub adapters complete in < 50 ms (no I/O). Real adapters inherit a 30 s
+     timeout + circuit breaker from CircuitBreaker in ml/llm_backend.py (the
+     shared primitive).
+
+D-10 PHI in payload_ref is never logged; the audit record carries only the
+     dispatch_ref hash, not letter text.
+
+D-11 The endpoint is gated by the same security-hold check as the generation
+     pipeline: a held request cannot be dispatched.
+
+================================================================================
+5. WORKFLOW MODELING
+================================================================================
+
+POST /api/cases/{correlation_id}/dispatch
+          |
+          v
+  auth_middleware (dual-scheme, 401 before body parse)
+          |
+          v
+  TenancyScope.assert_owns(correlation_id)  <- fail-closed, 403 if mismatch
+          |
+          v
+  load AuditRecord for correlation_id
+  |-- no record found -> 404
+  |-- provenance == dispatched (idempotent) -> 200 existing dispatch_ref
+  +-- outcome != done -> 409 (letter not yet finalized)
+          |
+          v
+  DispatchRouter.route(channel) -> ChannelAdapter
+          |
+  ChannelAdapter.dispatch(DispatchRequest) -> DispatchOutcome
+  |-- ok  -> dispatch_ref, channel, timestamp
+  +-- err -> ErrorEvent, no audit written for outcome
+          |
+          v
+  AuditRecord(provenance=dispatched, dispatch_ref, dispatch_channel)
+  written BEFORE response (ADR-0009 durability rule)
+          |
+          v
+  CaseStatus transition:
+  |-- workflow_plan present -> awaiting_documentation
+  +-- no workflow_plan      -> submitted
+          |
+          v
+  DispatchResponse { dispatch_ref, channel, status, case_status }
+
+State transition integration (extends 05-state-lifecycle.md):
+
+  ready_for_review
+      |  POST /api/cases/{id}/dispatch
+      |-- [workflow dispatched] --> awaiting_documentation
+      +-- [no doc gap]          --> submitted
+
+================================================================================
+6. DATA MODEL CHANGES
+================================================================================
+
+New models (backend/models/schemas.py)
+--------------------------------------
+
+  class DispatchChannel(str, Enum):
+      fax      = "fax"
+      ehr_task = "ehr_task"
+      portal   = "portal"
+
+  class DispatchRequest(BaseModel):
+      model_config = ConfigDict(strict=True)
+      correlation_id : str            # <= 200 chars -- parked run handle
+      channel        : DispatchChannel
+      recipient      : str            # <= 500 chars -- fax number / EHR endpoint / portal URL
+      payload_ref    : str            # <= 200 chars -- artifact hash (letter ref or doc ref)
+      tenant_id      : str            # stamped from session; not client-supplied
+
+  class DispatchOutcome(BaseModel):
+      dispatch_ref   : str            # deterministic channel-scoped ID
+      channel        : DispatchChannel
+      dispatched_at  : datetime
+      status         : Literal["ok", "error"]
+      error_message  : str = ""
+
+  class DispatchResponse(BaseModel):
+      dispatch_ref   : str
+      channel        : DispatchChannel
+      case_status    : CaseStatus
+      dispatched_at  : datetime
+
+AuditRecord additions
+---------------------
+
+  dispatch_ref     : str | None = None
+  dispatch_channel : str | None = None
+  # provenance gains new value: AuditProvenance.dispatched = "dispatched"
+
+PipelineState addition
+----------------------
+
+  workflow_plan : WorkflowPlan | None = None
+  # populated by tier_router for exception tier
+
+Parity requirement: DispatchChannel, DispatchRequest, DispatchResponse mirror
+into src/types.ts (parity-tested per hard-3); AuditProvenance.dispatched added
+to both sides in the same commit.
+
+================================================================================
+7. API CHANGES
+================================================================================
+
+New endpoint
+------------
+
+POST /api/cases/{correlation_id}/dispatch
+
+  Auth    : Dual scheme (Bearer or cookie + CSRF). Tenant-scoped.
+  Param   : correlation_id -- the parked/finalized run handle.
+  Body    : DispatchRequest (strict Pydantic; tenant_id stamped by middleware).
+  200     : DispatchResponse
+  404     : case not found or not owned by tenant
+  409     : letter not yet finalized (outcome != done)
+  200 (idempotent) : pre-existing dispatch_ref returned unchanged
+
+GET /api/audit/records extension
+---------------------------------
+
+No route change; AuditRecord gains two nullable fields. Existing consumers see
+no breakage (additive change).
+
+OpenAPI / wire-types update
+----------------------------
+
+`npm run api:dump` + `npm run api:types` re-run; wire-types-freshness CI job
+gates on no diff.
+
+================================================================================
+8. LANGGRAPH INTEGRATION
+================================================================================
+
+tier_router node update (agents/nodes/tier_router.py)
+------------------------------------------------------
+
+  run_tier_router(state: PipelineState) -> PipelineState
+    if tier == exception:
+        first_flagged = next(
+            (cr for cr in state.request.criteria_results
+             if cr.status in (CriterionStatus.needs_review, CriterionStatus.conflict)
+             and cr.workflow_plan is not None),
+            None
+        )
+        state["workflow_plan"] = first_flagged.workflow_plan if first_flagged else None
+    return state
+
+- The node remains pure ((PipelineState) -> PipelineState); no I/O.
+- workflow_plan rides DoneEvent as an optional field (additive, no client
+  breakage).
+- No new graph edges; this is an in-node enrichment.
+
+Graph (agents/graph.py)
+------------------------
+
+No topology change. PipelineState gains workflow_plan: WorkflowPlan | None =
+None (default None -- does not affect existing runs).
+
+================================================================================
+9. NEW MODULE: etl/outbound_dispatch/
+================================================================================
+
+  backend/etl/outbound_dispatch/
+  |-- __init__.py
+  |-- adapter.py          # DispatchRouter + ChannelAdapter Protocol
+  |-- fax_adapter.py      # FaxAdapter stub
+  |-- ehr_task_adapter.py # EhrTaskAdapter stub
+  +-- portal_adapter.py   # PortalAdapter stub
+
+ChannelAdapter Protocol:
+
+  class ChannelAdapter(Protocol):
+      def dispatch(self, req: DispatchRequest) -> DispatchOutcome: ...
+
+Deterministic dispatch_ref:
+
+  def _make_dispatch_ref(channel: str, correlation_id: str, recipient: str) -> str:
+      raw = f"{correlation_id}:{recipient}"
+      return f"{channel}-{hashlib.sha256(raw.encode()).hexdigest()[:12]}"
+
+Stubs return status="ok" synchronously; real adapters will wrap I/O in the
+shared CircuitBreaker.
+
+================================================================================
+10. UI SURFACES
+================================================================================
+
+UI wiring is out of scope for this backend slice. The queue workspace
+(src/components/portfolio/) already renders a dispatch surface driven by
+fixture data. When the live dispatch endpoint exists, the Workstream SU
+single-shell migration (unit O11 behind the capability manifest
+src/capabilities.ts) wires the dispatch button to
+POST /api/cases/{id}/dispatch via the typed API client (src/lib/api.ts).
+
+Demo-surface note: the awaiting_documentation -> processing transition (docs
+received) is modeled in the state machine but has no backend trigger yet; that
+remains a future slice.
+
+================================================================================
+11. TEST CASES
+================================================================================
+
+Unit (backend/tests/unit/)
+---------------------------
+
+Module: test_dispatch_adapter.py
+  - FaxAdapter produces deterministic ref
+  - retry returns same ref
+  - EhrTaskAdapter and PortalAdapter produce distinct channel-prefixed refs
+  - DispatchRouter routes by channel
+  - unknown channel raises typed error
+
+Module: test_tier_router_node.py (extend)
+  - exception-tier run with flagged criterion + workflow_plan populates
+    state.workflow_plan
+  - exception-tier run with no flagged workflow_plan leaves field None
+  - routine/complex runs leave field None
+
+Module: test_audit_dispatch.py
+  - AuditRecord with provenance=dispatched serializes/deserializes
+  - parity mirror test for AuditProvenance.dispatched
+
+Module: test_dispatch_idempotency.py
+  - second dispatch call with same correlation_id returns existing dispatch_ref
+    without re-dispatching
+
+Contract
+--------
+
+test_schema_parity.py extended: DispatchChannel, AuditProvenance.dispatched
+present in both schemas.py and src/types.ts.
+
+Integration (backend/tests/integration/)
+-----------------------------------------
+
+Module: test_dispatch_endpoint.py
+  - Bearer auth dispatches successfully
+  - cookie + CSRF auth dispatches
+  - wrong tenant 403
+  - not-yet-finalized case 409
+  - unknown correlation_id 404
+  - idempotent second call 200 same ref
+  - audit record written before response
+  - case_status transitions correctly
+
+Eval / security
+---------------
+
+  test_phi_redact.py extended: dispatch_ref in audit contains no PHI-shaped
+  content.
+  test_prompt_injection.py: recipient field sanitized (no injection phrases
+  accepted).
+
+================================================================================
+12. RISKS
+================================================================================
+
+Risk: correlation_id not yet in audit store at dispatch call time (race)
+  Likelihood: Low | Impact: Medium
+  Mitigation: Dispatch endpoint reads audit store with required scope
+  (fail-closed); 404 if not found; client retries.
+
+Risk: Real fax/EHR adapters introduce PHI-in-transit risk
+  Likelihood: Medium | Impact: High
+  Mitigation: Stub-only in this slice; real adapters require a dedicated
+  security review + ADR before landing.
+
+Risk: dispatch_ref collision across tenants
+  Likelihood: Very Low | Impact: Low
+  Mitigation: Deterministic ref includes correlation_id (already tenant-scoped
+  via audit boundary).
+
+Risk: CaseStatus transition bypasses approval gate
+  Likelihood: Low | Impact: High
+  Mitigation: Dispatch endpoint only accepts ready_for_review cases; any other
+  status returns 409.
+
+Risk: Parity drift for new AuditProvenance.dispatched
+  Likelihood: Low | Impact: Medium
+  Mitigation: Parity test added in same commit; wire-types-freshness CI gate
+  catches OpenAPI drift.
+
+================================================================================
+13. DELIVERABLES
+================================================================================
+
+#   Artifact                                    Path
+--  ------------------------------------------  ----------------------------------------
+1   Outbound dispatch adapter                   backend/etl/outbound_dispatch/ (adapter + 3 stubs)
+2   Dispatch endpoint                           backend/main.py + new route handler (logic-free per CLAUDE.md)
+3   DispatchRequest/Outcome/Response models     backend/models/schemas.py
+4   PipelineState.workflow_plan field           backend/models/schemas.py
+5   AuditRecord.dispatch_ref/channel +          backend/models/schemas.py
+    provenance=dispatched
+6   tier_router workflow_plan enrichment        backend/agents/nodes/tier_router.py
+7   TypeScript parity mirrors                   src/types.ts
+8   Unit test suite                             backend/tests/unit/test_dispatch_*.py
+9   Integration test suite                      backend/tests/integration/test_dispatch_endpoint.py
+10  ADR for dispatch rail design                docs/adr/0018-outbound-dispatch-rail.md
+11  Updated 04-data-flow.md,                    docs/architecture/
+    05-state-lifecycle.md, 06-api-contract.md

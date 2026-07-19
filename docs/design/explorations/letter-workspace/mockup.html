@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClearAuth — Letter Workspace (Multi-Case Exploration)</title>
+<!-- Include Google Fonts for Inter and DM Serif Display -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Serif+Display&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── Shared Design Tokens ── */
+:root {
+  --bg: #020617;            /* slate-950 */
+  --surface: #0f172a;       /* slate-900 */
+  --surface-2: #1e293b;     /* slate-800 */
+  --border: #334155;        /* slate-700 */
+  --border-soft: rgba(51, 65, 85, 0.6);
+  --text: #f8fafc;
+  --text-2: #cbd5e1;        /* slate-300 */
+  --text-3: #94a3b8;        /* slate-400 */
+  --text-4: #64748b;        /* slate-500 */
+  --primary: #10b981;       /* emerald-500 */
+  --primary-soft: rgba(16, 185, 129, 0.12);
+  --primary-border: rgba(16, 185, 129, 0.25);
+  --accent: #a78bfa;        /* purple accent - violet-400 */
+  --accent-soft: rgba(167, 139, 250, 0.12);
+  --amber: #f59e0b;         /* amber-500 */
+  --amber-soft: rgba(245, 158, 11, 0.12);
+  --red: #f87171;           /* red-400 */
+  --red-soft: rgba(248, 113, 113, 0.12);
+  --sky: #38bdf8;           /* sky-400 */
+  --sky-soft: rgba(56, 189, 248, 0.12);
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --display: 'DM Serif Display', Georgia, serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --radius: 0.375rem;       /* Clinical rounded corners */
+}
+
+/* ── Light Mode Inversion (matching src/style.css tokens) ── */
+body.light {
+  --bg: #f8fafc;            /* slate-50 */
+  --surface: #f1f5f9;       /* slate-100 */
+  --surface-2: #e2e8f0;     /* slate-200 */
+  --border: #cbd5e1;        /* slate-300 */
+  --border-soft: rgba(203, 213, 225, 0.6);
+  --text: #0f172a;          /* slate-900 */
+  --text-2: #1e293b;        /* slate-800 */
+  --text-3: #475569;        /* slate-600 */
+  --text-4: #64748b;        /* slate-500 */
+  
+  /* Primary changes from emerald to ClearAuth plum in light mode */
+  --primary: #4c1d95;       /* violet-800 / plum */
+  --primary-soft: #f5f3ff;
+  --primary-border: rgba(76, 29, 149, 0.2);
+  
+  --accent: #7c3aed;        /* violet-600 */
+  --accent-soft: rgba(124, 58, 237, 0.1);
+  --amber: #d97706;         /* amber-600 */
+  --amber-soft: #fffbeb;
+  --red: #dc2626;           /* red-600 */
+  --red-soft: #fff1f2;
+  --sky: #0284c7;           /* sky-700 */
+  --sky-soft: #f0f9ff;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.5 var(--sans); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+button, input, select, textarea { font: inherit; color: inherit; background: none; border: none; }
+button { cursor: pointer; }
+b, strong { font-weight: 600; color: var(--text); }
+
+/* ── UI Elements & Chips ── */
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: 99px; border: 1px solid; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.05em; }
+.chip.ok     { color: #34d399; border-color: rgba(16,185,129,.25); background: rgba(16,185,129,.1); }
+body.light .chip.ok { color: #047857; border-color: rgba(4,120,87,.25); background: rgba(4,120,87,.08); }
+.chip.warn   { color: #fbbf24; border-color: rgba(245,158,11,.25); background: var(--amber-soft); }
+.chip.bad    { color: var(--red); border-color: rgba(248,113,113,.25); background: var(--red-soft); }
+.chip.info   { color: var(--sky); border-color: rgba(56,189,248,.25); background: var(--sky-soft); }
+.chip.purple { color: var(--accent); border-color: rgba(167,139,250,.3); background: var(--accent-soft); }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px;
+  font-weight: 600; padding: 8px 16px; border-radius: var(--radius); transition: all 0.15s ease; border: 1px solid transparent; }
+.btn.primary { background: var(--primary); color: #fff; }
+body.light .btn.primary { color: #fff; }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.1); }
+.btn.primary:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn.ghost { border-color: var(--border); color: var(--text-2); }
+.btn.ghost:hover { background: var(--surface-2); }
+.btn.danger { border-color: rgba(248, 113, 113, 0.4); color: var(--red); }
+.btn.danger:hover { background: var(--red-soft); }
+
+/* ── Top Navigation Bar ── */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.topbar-title h1 { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.topbar-title .sub { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+.control-group { display: flex; align-items: center; gap: 12px; }
+.seg { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 2px; }
+.seg button { padding: 4px 12px; border-radius: calc(var(--radius) - 2px); font-size: 12px; font-weight: 600; color: var(--text-3); transition: all 0.15s; }
+.seg button.on { background: var(--surface-2); color: var(--text); }
+.seg button.on.operate { box-shadow: inset 0 0 0 1px var(--primary-border); color: var(--primary); }
+.seg button.on.build   { box-shadow: inset 0 0 0 1px rgba(167,139,250,.4); color: var(--accent); }
+
+/* Theme toggle */
+.theme-btn { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; color: var(--text-2); }
+.theme-btn:hover { background: var(--surface-2); }
+
+/* Select dropdowns */
+.state-select { background: var(--bg); border: 1px solid var(--border); color: var(--text-2); font-size: 12px; font-weight: 600;
+  padding: 4px 10px; border-radius: var(--radius); outline: none; cursor: pointer; }
+
+/* ── Persona PHI Plane Banner ── */
+.plane-banner { display: flex; align-items: center; gap: 10px; padding: 8px 20px; font-size: 12px;
+  color: var(--accent); background: var(--accent-soft); border-bottom: 1px solid rgba(167, 139, 250, 0.2); }
+.plane-banner.operate-plane { color: var(--primary); background: var(--primary-soft); border-bottom: 1px solid var(--primary-border); }
+
+/* ── Patient Profile Header Banner ── */
+.patient-banner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 10px 20px;
+  border-bottom: 1px solid var(--border); background: rgba(15,23,42,0.3); font-size: 13px; }
+.patient-banner-info { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.patient-banner-info b { font-size: 14px; }
+.patient-banner .kv { color: var(--text-4); }
+.patient-banner .kv span { color: var(--text-2); font-weight: 500; }
+
+.redacted { display: none; background: var(--surface-2); color: var(--text-3); font-family: var(--mono);
+  font-size: 11px; padding: 0px 6px; border-radius: 3px; font-weight: 600; }
+body.persona-build .phi { display: none; }
+body.persona-build .redacted { display: inline-block; }
+
+/* Break Glass indicator */
+.break-glass-status { display: none; align-items: center; gap: 6px; color: var(--accent); font-weight: 600; font-size: 12px; font-family: var(--mono); }
+
+/* ── Main Layout Split ── */
+.split { display: flex; flex: 1; min-height: 0; }
+.pane { display: flex; flex-direction: column; min-width: 0; height: 100%; }
+.pane.left { flex: 9; border-right: 1px solid var(--border); }
+.pane.right { flex: 10; background: rgba(15,23,42,0.1); }
+
+.pane-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px;
+  border-bottom: 1px solid var(--border); background: var(--surface); }
+.pane-head-tabs { display: flex; align-items: center; gap: 4px; }
+.pane-head .label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-4); margin-right: 8px; }
+.tab-btn { padding: 6px 12px; border-radius: var(--radius); font-size: 12.5px; color: var(--text-3); font-weight: 500; white-space: nowrap; }
+.tab-btn.on { background: var(--surface-2); color: var(--text); font-weight: 600; }
+.tab-btn:hover:not(.on) { color: var(--text-2); }
+
+.pane-body { flex: 1; overflow-y: auto; padding: 20px; position: relative; }
+
+/* ── Document Viewer (Left Pane) ── */
+.doc-card { max-width: 680px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 28px 32px; font-size: 13.5px; color: var(--text-2); line-height: 1.6; }
+.doc-card h2 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.doc-card .meta { font-size: 11.5px; color: var(--text-4); margin-bottom: 16px; font-family: var(--mono); border-bottom: 1px dashed var(--border); padding-bottom: 8px; }
+.doc-card p { margin-bottom: 12px; }
+.doc-card b { color: var(--text); }
+.doc-page { display: none; }
+.doc-page.on { display: block; }
+
+/* Highlight spans */
+.span-hl { border-radius: 3px; padding: 1px 3px; transition: all 0.25s ease; border-bottom: 1px dashed transparent; }
+.span-hl.lit { background: rgba(56, 189, 248, 0.18); border-bottom: 1px solid var(--sky); box-shadow: 0 0 12px rgba(56, 189, 248, 0.15); }
+body.light .span-hl.lit { background: rgba(2, 132, 199, 0.08); border-bottom: 1px solid var(--sky); }
+
+/* ── Step-by-Step Workspace (Right Pane) ── */
+.workspace-steps { display: flex; align-items: center; justify-content: space-around; padding: 10px 16px;
+  background: var(--surface); border-bottom: 1px solid var(--border); }
+.step-indicator { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--text-4); position: relative; }
+.step-indicator .num { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; }
+.step-indicator.active { color: var(--primary); }
+.step-indicator.active .num { border-color: var(--primary); background: var(--primary-soft); }
+.step-indicator.complete { color: var(--text-2); }
+.step-indicator.complete .num { border-color: var(--primary); background: var(--primary); color: #020617; }
+.step-line { flex: 1; height: 1px; background: var(--border); margin: 0 12px; }
+
+.ws-page { display: none; height: 100%; flex-direction: column; }
+.ws-page.on { display: flex; }
+
+/* ── Step 1: Policy Gate ── */
+.policy-gate-card { display: flex; flex-direction: column; gap: 16px; }
+.policy-intro { font-size: 13.5px; color: var(--text-3); line-height: 1.5; }
+.criteria-list { display: flex; flex-direction: column; gap: 12px; }
+
+.crit-row { border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius); padding: 14px 16px; transition: all 0.2s ease; }
+.crit-row:hover { border-color: var(--border-soft); }
+.crit-row.gap { border-left: 3px solid var(--amber); }
+.crit-row.resolved { border-left: 3px solid var(--primary); }
+
+.crit-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.crit-title { font-weight: 600; font-size: 13.5px; color: var(--text); }
+.crit-desc { font-size: 12px; color: var(--text-3); margin-top: 4px; line-height: 1.5; }
+.crit-meta { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.crit-confidence { font-size: 11px; color: var(--text-4); font-family: var(--mono); }
+.crit-confidence b { color: var(--text-2); }
+
+/* Gap Resolver Inline Box */
+.resolver-box { margin-top: 12px; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+.resolver-box-title { font-size: 12.5px; font-weight: 600; color: var(--amber); display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.resolver-options { display: flex; flex-direction: column; gap: 8px; }
+.resolver-opt { display: flex; align-items: flex-start; gap: 8px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; text-align: left; }
+.resolver-opt:hover { background: var(--surface-2); border-color: var(--text-4); }
+.resolver-opt input { margin-top: 3px; }
+.resolver-opt-text b { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 2px; }
+.resolver-opt-text p { font-size: 11px; color: var(--text-3); }
+
+/* ── Step 2: Streaming Synthesis Canvas ── */
+.canvas-container { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 16px; }
+.stream-header { display: flex; align-items: center; justify-content: space-between; }
+.stream-status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+
+/* Calm quiet log lines box */
+.log-console { background: #020617; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; font-family: var(--mono); font-size: 11.5px; color: var(--text-3); height: 110px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+body.light .log-console { background: #0f172a; color: #94a3b8; }
+.log-line { line-height: 1.4; }
+.log-line.warn { color: var(--amber); }
+.log-line.ok { color: var(--primary); }
+.log-line b { font-weight: 500; }
+
+.editor-paper { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; font-size: 13.5px; color: var(--text-2); line-height: 1.6; overflow-y: auto; flex: 1; position: relative; }
+.editor-paper p { margin-bottom: 12px; }
+.editor-paper .streaming-cursor { display: inline-block; width: 6px; height: 14px; background: var(--primary); margin-left: 2px; animation: blink 0.8s infinite; vertical-align: middle; }
+
+@keyframes blink { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+
+/* ── Step 3: Verify & Sign-Off ── */
+.verify-controls { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
+.verify-stats { display: flex; align-items: center; gap: 6px; }
+
+/* Highlight Claims in Verify Mode */
+.letter-editor { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; font-size: 13.5px; color: var(--text-2); line-height: 1.6; overflow-y: auto; flex: 1; }
+.letter-editor p { margin-bottom: 12px; }
+.letter-editor[contenteditable="true"] { outline: 1px dashed var(--primary-border); }
+
+.claim { border-radius: 2px; transition: all 0.2s ease; display: inline; }
+.claim.removed { text-decoration: line-through; opacity: 0.35; border-bottom: none !important; background: none !important; }
+.token { display: none; font-family: var(--mono); font-size: 11.5px; color: var(--accent); background: var(--accent-soft); border-radius: 3px; padding: 0px 4px; font-weight: 600; }
+
+body.persona-build .token { display: inline; }
+body.persona-build .letter-editor .phi { display: none; }
+body.persona-build .letter-editor[contenteditable] { pointer-events: none; }
+
+/* Verification Styling */
+body.mode-verify .claim.cited { border-bottom: 2px solid var(--primary); cursor: pointer; }
+body.mode-verify .claim.conflict { border-bottom: 2px solid var(--amber); background: var(--amber-soft); cursor: pointer; }
+body.mode-verify .claim.uncited { border-bottom: 2px solid var(--red); background: var(--red-soft); cursor: pointer; }
+
+body.light.mode-verify .claim.cited { border-bottom: 2px solid #10b981; } /* keep emerald green for cited underlines */
+body.light.mode-verify .claim.conflict { border-bottom: 2px solid #d97706; background: rgba(217, 119, 6, 0.05); }
+body.light.mode-verify .claim.uncited { border-bottom: 2px solid #dc2626; background: rgba(220, 38, 38, 0.05); }
+
+/* Edit Mode Claims style */
+body.mode-edit .claim { border-bottom: 1px dashed var(--border); padding: 0 2px; }
+body.mode-edit .claim.cited { border-bottom: 1px dashed var(--primary); }
+body.mode-edit .claim.conflict { border-bottom: 1px dashed var(--amber); background: rgba(245, 158, 11, 0.04); }
+body.mode-edit .claim.uncited { border-bottom: 1px dashed var(--red); background: rgba(248, 113, 113, 0.04); }
+
+/* Inline Warnings in Edit Mode */
+.inline-warn-badge { display: inline-flex; align-items: center; font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; user-select: none; }
+.inline-warn-badge.conflict { color: var(--amber); background: var(--amber-soft); border: 1px solid rgba(245, 158, 11, 0.25); }
+body.light .inline-warn-badge.conflict { color: #d97706; border-color: rgba(217, 119, 6, 0.25); }
+.inline-warn-badge.uncited { color: var(--red); background: var(--red-soft); border: 1px solid rgba(248, 113, 113, 0.25); }
+body.light .inline-warn-badge.uncited { color: #dc2626; border-color: rgba(220, 38, 38, 0.25); }
+
+/* Claim Verification Popover Styles */
+.popover { position: absolute; z-index: 500; width: 360px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; box-shadow: 0 12px 36px rgba(0,0,0,0.55); display: none; text-align: left; }
+body.light .popover { background: var(--surface); box-shadow: 0 12px 36px rgba(15, 23, 42, 0.15); }
+.popover h4 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.popover .desc { font-size: 12px; color: var(--text-3); margin-bottom: 12px; line-height: 1.5; }
+.popover .opt-btn { display: block; width: 100%; text-align: left; font-size: 11.5px; padding: 8px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); margin-bottom: 8px; color: var(--text-2); transition: all 0.15s ease; cursor: pointer; }
+.popover .opt-btn:hover { background: rgba(56, 189, 248, 0.08); border-color: var(--sky); color: var(--text); }
+.popover .opt-btn b { display: block; font-size: 12px; color: var(--text); margin-bottom: 2px; }
+.popover .fine { font-size: 10.5px; color: var(--text-4); margin-top: 6px; line-height: 1.4; }
+
+/* Gatekeeper Footer Bar */
+.gk-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px;
+  padding: 12px 16px; border-radius: var(--radius); border: 1px solid; }
+.gk-footer.blocked { border-color: rgba(248, 113, 113, 0.3); background: var(--red-soft); color: var(--red); }
+.gk-footer.clear { border-color: var(--primary-border); background: var(--primary-soft); color: var(--primary); }
+body.light .gk-footer.clear { color: #047857; }
+
+/* ── State Visualizations ── */
+
+/* Error Banner for SSE Stream Drop */
+.error-banner { display: none; margin-bottom: 12px; border-radius: var(--radius); padding: 12px 16px; font-size: 13px;
+  border: 1px solid rgba(248, 113, 113, 0.35); background: var(--red-soft); color: #fca5a5; line-height: 1.5; }
+body.light .error-banner { color: #b91c1c; }
+body.state-error .error-banner { display: block; }
+body.state-error .editor-paper { border-color: rgba(248, 113, 113, 0.3); }
+
+/* Permission Denied Overlay (Shield View) */
+.permission-overlay { display: none; position: absolute; inset: 0; background: var(--bg); z-index: 200;
+  align-items: center; justify-content: center; padding: 40px; }
+body.state-denied .permission-overlay { display: flex; }
+.shield-box { max-width: 480px; text-align: center; border: 1px solid var(--border); background: var(--surface);
+  border-radius: 8px; padding: 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); display: flex; flex-direction: column; align-items: center; }
+.shield-icon { width: 56px; height: 56px; border-radius: 50%; background: var(--accent-soft); border: 2px dashed var(--accent);
+  display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 24px; margin-bottom: 20px; }
+.shield-box h2 { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+.shield-box p { font-size: 13px; color: var(--text-3); margin-bottom: 24px; line-height: 1.6; }
+
+/* Break glass form modal */
+.glass-modal { display: none; position: fixed; inset: 0; background: rgba(2,6,23,0.85); z-index: 300; align-items: center; justify-content: center; padding: 20px; }
+.glass-box { width: 440px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
+.glass-box h3 { font-size: 16px; font-weight: 700; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.glass-box p { font-size: 12.5px; color: var(--text-3); margin-bottom: 16px; line-height: 1.5; }
+.glass-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.glass-field label { font-size: 11.5px; font-weight: 600; color: var(--text-2); text-transform: uppercase; }
+.glass-field select, .glass-field textarea { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; color: var(--text); outline: none; }
+.glass-field select:focus, .glass-field textarea:focus { border-color: var(--accent); }
+.glass-field textarea { resize: none; height: 70px; }
+.glass-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--text-2); margin: 18px 0; }
+.glass-check input { margin-top: 2px; }
+
+/* Empty State Dashboard View */
+.empty-overlay { display: none; position: absolute; inset: 0; background: var(--bg); z-index: 10;
+  align-items: center; justify-content: center; padding: 40px; }
+body.state-empty .empty-overlay { display: flex; }
+.empty-box { max-width: 500px; text-align: center; padding: 40px; }
+.empty-box h2 { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.empty-box p { font-size: 13.5px; color: var(--text-3); margin-bottom: 24px; }
+.case-grid { display: grid; grid-template-columns: 1fr; gap: 12px; text-align: left; }
+.case-select-card { border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; transition: all 0.15s; }
+.case-select-card:hover { border-color: var(--primary); background: var(--surface-2); }
+.case-select-card-title { font-weight: 600; font-size: 13.5px; color: var(--text); display: flex; justify-content: space-between; }
+.case-select-card-desc { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+
+/* Skeletons */
+.skeleton { display: none; height: 13px; border-radius: 4px; background: linear-gradient(90deg, var(--surface-2), var(--border), var(--surface-2));
+  background-size: 200% 100%; animation: sh 1.4s infinite; margin: 10px 0; }
+@keyframes sh { to { background-position: -200% 0; } }
+body.state-streaming .skeleton { display: block; }
+</style>
+</head>
+<body class="persona-operate mode-verify">
+
+<!-- ── Top Nav Chrome ── -->
+<div class="topbar">
+  <div class="topbar-title">
+    <h1>ClearAuth <span class="chip info">Letter Workspace mock</span></h1>
+    <div class="sub">Prior Authorization Appeals Integration Platform · Sprint 4 Unit O12 + O3 + O5</div>
+  </div>
+  
+  <div class="control-group">
+    <!-- Case Selector (The Four Paths Toggle) -->
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <span style="font-size: 11px; color: var(--text-4); font-weight: 600; text-transform: uppercase;">Path:</span>
+      <select class="state-select" id="caseSelect" title="Select clinical case profile (4 paths)">
+        <option value="ozempic_cigna">Marcus T. Halverson (Ozempic/Cigna)</option>
+        <option value="livdelzi_cigna_hepatology">Diane K. Rourke (Livdelzi/Cigna)</option>
+        <option value="esomeprazole_uhc_pediatric">Jordan R. Peterman (Nexium/UHC)</option>
+        <option value="humira_cigna">Yvonne M. Castellano (Humira/Cigna)</option>
+      </select>
+    </div>
+
+    <!-- State Selector (Hygiene Rule 5) -->
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <span style="font-size: 11px; color: var(--text-4); font-weight: 600; text-transform: uppercase;">State:</span>
+      <select class="state-select" id="stateSelect" title="Select workspace mock state for review">
+        <option value="default">Default (Happy Path)</option>
+        <option value="empty">Empty State</option>
+        <option value="state-streaming">Streaming Synthesis</option>
+        <option value="state-error">SSE Stream Drop (Error)</option>
+        <option value="state-denied">Permission Denied</option>
+      </select>
+    </div>
+
+    <!-- Light/Dark Toggle -->
+    <button class="theme-btn" id="themeToggle" title="Toggle Light/Dark Theme">
+      <span class="theme-icon">☼</span>
+    </button>
+
+    <!-- Persona Segmented Control (Rule 4) -->
+    <div class="seg" id="personaSeg" title="Switch view persona (Rule 4)">
+      <button class="on operate" data-persona="persona-operate">Operate</button>
+      <button data-persona="persona-build">Build</button>
+    </div>
+  </div>
+</div>
+
+<!-- Persona Plane Banner -->
+<div class="plane-banner operate-plane" id="planeBanner">
+  <span class="chip ok" id="planeChip">Operate Persona</span>
+  <span id="planeBannerText">Full clinical context & Patient PHI active. Reviewer holds authorization to resume, verify, and transmit appeal materials.</span>
+  <div class="break-glass-status" id="bgTimer">🔒 BREAK-GLASS SECURE RECORDING (59:59)</div>
+</div>
+
+<!-- Patient Info Banner -->
+<div class="patient-banner" id="patientBanner">
+  <!-- Injected dynamically by JS -->
+</div>
+
+<!-- Workspace Layout Split -->
+<div class="split" style="position: relative;">
+
+  <!-- ── Left Pane: EHR Document Viewer ── -->
+  <div class="pane left" id="leftPane">
+    <div class="pane-head">
+      <span class="label">Source Documents</span>
+      <div class="pane-head-tabs" id="docTabs">
+        <!-- Injected dynamically by JS -->
+      </div>
+    </div>
+    
+    <div class="pane-body" id="docBody">
+      <!-- Document cards injected dynamically by JS -->
+    </div>
+  </div>
+
+  <!-- ── Right Pane: Workspace Console ── -->
+  <div class="pane right" id="rightPane">
+    <!-- Step Header -->
+    <div class="workspace-steps">
+      <div class="step-indicator active" id="step1Indicator">
+        <div class="num">1</div>
+        <span>Policy Gate</span>
+      </div>
+      <div class="step-line" id="line1"></div>
+      <div class="step-indicator" id="step2Indicator">
+        <div class="num">2</div>
+        <span>Streaming Synthesis</span>
+      </div>
+      <div class="step-line" id="line2"></div>
+      <div class="step-indicator" id="step3Indicator">
+        <div class="num">3</div>
+        <span>Verify &amp; Sign-Off</span>
+      </div>
+    </div>
+
+    <!-- STEP 1 PAGE: POLICY GATE -->
+    <div class="pane-body ws-page on" id="page-step1">
+      <div class="policy-gate-card">
+        <div class="policy-intro">
+          <p>Before initiating appeal letter generation, the system validates the case record against the payer's policy rules. Gaps must be addressed to unblock synthesis.</p>
+        </div>
+
+        <div class="criteria-list" id="criteriaList">
+          <!-- Injected dynamically by JS -->
+        </div>
+
+        <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+          <button class="btn primary" id="btnStartGenerate" disabled>
+            <span>Generate Appeal Draft</span> →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2 PAGE: STREAMING CANVAS -->
+    <div class="pane-body ws-page" id="page-step2">
+      <div class="canvas-container">
+        <div class="stream-header">
+          <div class="stream-status">
+            <span class="chip info" id="streamStatusChip" style="text-transform:none; font-family:var(--mono);">generation active</span>
+            <span id="streamStatusText">Streaming appeal letter draft...</span>
+          </div>
+          <span style="font-size:11px; font-family:var(--mono); color:var(--text-4);" id="streamTime">Attempt #1 · 0.0s</span>
+        </div>
+
+        <!-- Quiet Log Lines console -->
+        <div class="log-console" id="logConsole">
+          <!-- Log lines injected dynamically by JS -->
+        </div>
+
+        <!-- Streaming paper text -->
+        <div class="editor-paper" id="streamPaper">
+          <p id="streamText"></p>
+          <span class="streaming-cursor" id="streamCursor"></span>
+          <div class="skeleton" style="width:85%;"></div>
+          <div class="skeleton" style="width:90%;"></div>
+          <div class="skeleton" style="width:72%;"></div>
+        </div>
+
+        <!-- Inline Error Banner (Hidden by default, shown in Error State) -->
+        <div class="error-banner" id="streamErrorBanner">
+          <b>⚠️ SSE Connection Disconnected (mid-synthesis)</b><br>
+          The stream terminated abruptly. Network connection was lost mid-generation (ADR-0006). A partial letter draft is retained. You can recover this draft to edit manually or retry the generation.
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center;" id="streamControls">
+          <div>
+            <button class="btn danger" style="display:none;" id="btnErrorRecovery" onclick="recoverPartialDraft()">Save Partial Draft</button>
+          </div>
+          <button class="btn primary" id="btnNextToVerify" disabled onclick="transitionToStep3()">
+            <span>Proceed to Verification</span> →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3 PAGE: VERIFY & SIGN-OFF -->
+    <div class="pane-body ws-page" id="page-step3">
+      <div class="verify-controls">
+        <div class="seg" id="modeSeg">
+          <button data-mode="mode-edit" onclick="setEditorMode('edit')">Edit Mode</button>
+          <button class="on" data-mode="mode-verify" onclick="setEditorMode('verify')">Verify Mode</button>
+        </div>
+        <div class="verify-stats" id="verifyStats">
+          <!-- Stats badges injected by JS -->
+        </div>
+      </div>
+
+      <!-- Letter Editor Surface -->
+      <div class="letter-editor" id="letterEditor" contenteditable="false">
+        <!-- Draft injected by JS -->
+      </div>
+
+      <!-- Gatekeeper Footer -->
+      <div class="gk-footer blocked" id="gkFooter">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STATE VISUALIZATIONS OVERLAYS ── -->
+
+  <!-- Permission Denied View -->
+  <div class="permission-overlay" id="deniedOverlay">
+    <div class="shield-box">
+      <div class="shield-icon">🔒</div>
+      <h2>Access Restricted</h2>
+      <p id="deniedMessage">This case contains Protected Health Information (PHI). Your current role does not have authorization to view this data plane directly (ADR-0014). To proceed, you must invoke break-glass authorization.</p>
+      <button class="btn primary" onclick="openGlassModal()" style="background:var(--accent);">Request Break-Glass Access</button>
+    </div>
+  </div>
+
+  <!-- Empty State View -->
+  <div class="empty-overlay" id="emptyOverlay">
+    <div class="empty-box">
+      <div style="font-size: 32px; margin-bottom: 12px;">🗂️</div>
+      <h2>No Appeal Selected</h2>
+      <p style="color: var(--text-3); margin-top: 6px;">Select an active clinical scenario from the golden set to open the appeal workspace.</p>
+      
+      <div class="case-grid">
+        <div class="case-select-card" onclick="loadCase('ozempic_cigna')">
+          <div class="case-select-card-title">
+            <span>Marcus T. Halverson</span>
+            <span class="chip info" style="font-size: 9px; padding: 1px 6px;">Ozempic / Cigna</span>
+          </div>
+          <div class="case-select-card-desc">T2DM step-therapy · plan Cigna Connect 500 PPO · Ref: PA-2026-0847</div>
+        </div>
+
+        <div class="case-select-card" onclick="loadCase('livdelzi_cigna_hepatology')">
+          <div class="case-select-card-title">
+            <span>Diane K. Rourke</span>
+            <span class="chip info" style="font-size: 9px; padding: 1px 6px;">Livdelzi / Cigna</span>
+          </div>
+          <div class="case-select-card-desc">Hepatology PBC · plan Cigna Connect 500 PPO · Ref: PA-2026-0381</div>
+        </div>
+
+        <div class="case-select-card" onclick="loadCase('esomeprazole_uhc_pediatric')">
+          <div class="case-select-card-title">
+            <span>Jordan R. Peterman</span>
+            <span class="chip info" style="font-size: 9px; padding: 1px 6px;">Nexium / UHC</span>
+          </div>
+          <div class="case-select-card-desc">Pediatric GERD step-therapy · UnitedHealthcare · Ref: PA-2026-1120</div>
+        </div>
+
+        <div class="case-select-card" onclick="loadCase('humira_cigna')">
+          <div class="case-select-card-title">
+            <span>Yvonne M. Castellano</span>
+            <span class="chip info" style="font-size: 9px; padding: 1px 6px;">Humira / Cigna</span>
+          </div>
+          <div class="case-select-card-desc">Adalimumab policy IP0652 · Cigna Commercial · Ref: PA-2026-0715</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Break-Glass Modal Form -->
+<div class="glass-modal" id="glassModal">
+  <div class="glass-box">
+    <h3>🔑 Break-Glass Attestation</h3>
+    <p>You are requesting temporary, time-boxed access to Protected Health Information (PHI) for the selected case under BAA plane containment guidelines (ADR-0014).</p>
+    
+    <div class="glass-field">
+      <label for="glassReason">Access Justification Reason</label>
+      <textarea id="glassReason" placeholder="e.g. Preparing urgent clinical appeal for Cigna denying therapy..."></textarea>
+    </div>
+
+    <div class="glass-field">
+      <label for="glassDuration">Authorized Timebox Duration</label>
+      <select id="glassDuration">
+        <option value="15">15 Minutes (Standard Review)</option>
+        <option value="60" selected>1 Hour (Complex Appeal Preparation)</option>
+        <option value="240">4 Hours (Extended Peer-to-Peer Dispute)</option>
+      </select>
+    </div>
+
+    <div class="glass-check">
+      <input type="checkbox" id="glassAttest">
+      <label for="glassAttest">I attest that I have read the BAA guidelines and that this PHI access is strictly required to complete the prior authorization appeal. I understand this action is recorded in the immutable audit trail.</label>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top: 10px;">
+      <button class="btn ghost" onclick="closeGlassModal()">Cancel</button>
+      <button class="btn primary" id="btnGlassSubmit" style="background:var(--accent);" disabled onclick="authorizeBreakGlass()">Authorize &amp; Decrypt</button>
+    </div>
+  </div>
+</div>
+
+<!-- Claim Verification Popover -->
+<div class="popover" id="popover"></div>
+
+<script>
+// ── Global App State ──
+let state = 'default'; // 'default', 'empty', 'state-streaming', 'state-error', 'state-denied'
+let persona = 'persona-operate'; // 'persona-operate', 'persona-build'
+let currentCaseId = 'ozempic_cigna';
+let currentStep = 'step1'; // 'step1', 'step2', 'step3'
+let gapResolved = false;
+let isLightTheme = false;
+let isBreakGlassActive = false;
+
+// ── Multi-Case Database (Verbatim Researched Golden-Set Content) ──
+const CASES_DATA = {
+  ozempic_cigna: {
+    patientName: "Marcus T. Halverson",
+    patientDOB: "03/14/1972",
+    patientAge: "52",
+    patientSex: "M",
+    memberId: "CGN00123456",
+    groupId: "GRP-78001",
+    caseRef: "PA-2026-0847",
+    drug: "Ozempic (semaglutide)",
+    payer: "Cigna Connect 500 PPO",
+    planId: "CIGNA-CNF360-2024",
+    policyId: "CNF-360",
+    docs: [
+      {
+        id: "doc-denial",
+        title: "Cigna Healthcare — Coverage Determination",
+        meta: "CNF-360 · Date: June 8, 2026 · Ref: DEN-77120",
+        html: `<p>Dear <span class="phi">Mr. Halverson</span><span class="redacted">[PATIENT]</span>,</p>
+               <p>This letter concerns the prior authorization request for <b>Ozempic (semaglutide)</b> submitted under plan Cigna Connect 500 PPO.</p>
+               <p id="span-denial" class="span-hl">Coverage is denied: the indication is not confirmed as limited to Type 2 Diabetes Mellitus glycemic control. The chart documents BMI 33.2 kg/m² and weight-management goals, which may indicate weight-loss use excluded under policy cnf_360.</p>
+               <p>You may appeal this determination within 180 days. A prescriber attestation addressing the indication may be included with the appeal.</p>`
+      },
+      {
+        id: "doc-consult",
+        title: "Specialist Consult — Endocrinology",
+        meta: "Encounter: February 8, 2026 · Source: Epic EHR · Author: Dr. Priya Ananthakrishnan, MD",
+        html: `<p><span class="phi">Patient: Marcus T. Halverson, 52-year-old male. DOB: 03/14/1972.</span><span class="redacted">[IDENTIFIERS REDACTED]</span></p>
+               <p><b>Chief Complaint:</b> Follow-up for glycemic management.</p>
+               <p id="span-t2dm" class="span-hl"><b>History of Present Illness:</b> Patient was diagnosed with Type 2 Diabetes Mellitus (E11.9) in 2021. Chart history indicates active ICD-10 coding on file since 2019. HbA1c is currently elevated at 8.2% on metformin monotherapy (1000mg BID). Fasting glucose checked on 02/05/2026 was 187 mg/dL.</p>
+               <p id="span-age" class="span-hl"><b>Discussion:</b> Patient is age 52 at time of request. Cigna GLP-1 policy cnf_360 minimum age threshold of 18 years is met.</p>
+               <p><b>Assessment & Plan:</b> Metformin is maximized. Glycemic control is suboptimal. Will initiate Ozempic 0.5mg subcutaneous injection weekly to improve glycemic control.</p>`
+      },
+      {
+        id: "doc-meds",
+        title: "Active Medication List",
+        meta: "Reviewed Date: March 14, 2026 · Source: Epic EHR",
+        html: `<p>The following active therapies are verified in patient profile:</p>
+               <ul style="margin-left: 20px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;">
+                 <li><b>Metformin 1000 mg</b> oral tablet, active, BID (started 2021)</li>
+                 <li><b>Lisinopril 10 mg</b> oral tablet, active, QD (started 2020)</li>
+                 <li><b>Atorvastatin 40 mg</b> oral tablet, active, QD (started 2020)</li>
+               </ul>
+               <p id="span-meds" class="span-hl"><b>Safety Check:</b> No other active GLP-1 or GLP-1/GIP receptor agonists are listed on active profile (no concomitant Wegovy, Saxenda, Mounjaro, Rybelsus, or Trulicity).</p>`
+      },
+      {
+        id: "doc-visit",
+        title: "Office Visit Notes",
+        meta: "Visit Date: January 10, 2026 · Source: Epic EHR · Provider: Dr. Priya Ananthakrishnan, MD",
+        html: `<p><b>Vitals:</b> BP 132/82, HR 74, Temp 98.6°F. Weight 230 lbs. Height 5'10".</p>
+               <p id="span-bmi" class="span-hl"><b>Physical Exam / Anthropometrics:</b> BMI measured at 33.2 kg/m².</p>
+               <p id="span-weight-goals" class="span-hl"><b>Notes:</b> Discussed long-term health risks and weight management goals. Patient has express interest in weight-loss benefits of GLP-1 therapies. However, diabetes glycemic management remains the primary indication for Ozempic due to suboptimal glycemic control on metformin (HbA1c 8.2%).</p>
+               <p><b>Plan:</b> Attestation will be provided to Cigna confirming Ozempic is intended solely for glycemic control of T2DM, not weight loss.</p>`
+      }
+    ],
+    criteria: [
+      { key: "c1", label: "Confirmed Diagnosis of Type 2 Diabetes Mellitus (T2DM)", status: "resolved", desc: "Metformin therapy, fasting glucose of 187 mg/dL, and active ICD-10 E11.9 on file since 2019 confirm diagnosis.", confidence: "98%", doc: "doc-consult", span: "span-t2dm", docLabel: "Endocrinology Consult" },
+      { key: "c2", label: "Patient Age ≥ 18 Years (Ozempic Specific Threshold)", status: "resolved", desc: "Marcus T. Halverson is age 52, satisfying the 18+ requirement.", confidence: "99%", doc: "doc-consult", span: "span-age", docLabel: "Endocrinology Consult" },
+      { key: "c3", label: "No Concomitant GLP-1 or GLP-1/GIP Agonist Therapy", status: "resolved", desc: "EHR active medication profile reviewed; no other GLP-1 medications are active.", confidence: "92%", doc: "doc-meds", span: "span-meds", docLabel: "Medication List" },
+      { key: "c4", label: "Indication Confirmed as Glycemic Control (No Excluded Weight-Loss Indication)", status: "gap", desc: "Office note documents a BMI of 33.2 kg/m² and weight goals. Cigna CNF-360 excludes weight loss. Attestation required.", confidence: "74%", doc: "doc-visit", span: "span-weight-goals", docLabel: "Office Visit Notes" }
+    ],
+    resolverHtml: `<div class="resolver-box-title">⚡ Inline Appeal Resolver</div>
+                   <p style="font-size:11.5px; color:var(--text-3); margin-bottom:8px;">Payer requests clinical verification that glycemic control is the primary driver. Apply clinical attestation to resolve the gap.</p>
+                   <div class="resolver-options">
+                     <div class="resolver-opt" onclick="resolvePolicyGap()">
+                       <input type="radio" name="resolverOpt" id="attestRadio" style="margin-top: 4px;">
+                       <div class="resolver-opt-text">
+                         <b>Apply Prescriber Attestation Statement</b>
+                         <p>"Diabetes glycemic management remains the primary indication for Ozempic due to suboptimal control on metformin (HbA1c 8.2%). Weight goals are secondary/supportive."</p>
+                       </div>
+                     </div>
+                   </div>`,
+    claims: {
+      c1: { id: "c1", status: "cited", docId: "doc-consult", spanId: "span-t2dm", sourceText: "Endocrinology Consult · p. 1", draftVal: "Marcus T. Halverson carries an established diagnosis of Type 2 Diabetes Mellitus (E11.9), documented since 2021, with active ICD-10 coding on file since 2019.", description: "Verified diagnosis of T2DM E11.9 on file since 2021 with history from 2019." },
+      c2: { id: "c2", status: "cited", docId: "doc-consult", spanId: "span-t2dm", sourceText: "Endocrinology Consult · p. 1", draftVal: "His fasting glucose checked on 02/05/2026 was 187 mg/dL, and his active medication list shows metformin 1000mg BID and no concomitant GLP-1 agonists.", description: "Verified glucose measurement and metformin therapy on active profile." },
+      c3: { id: "c3", status: "conflict", docId: "doc-visit", spanId: "span-bmi", sourceText: "Office Visit Notes · p. 2", entity: "BMI", draftVal: "BMI of 32.8 kg/m²", truthVal: "BMI of 33.2 kg/m²", description: "Value Conflict: Draft says 32.8 kg/m², but Office Notes record 33.2 kg/m²." },
+      c4: { id: "c4", status: "cited", docId: "doc-visit", spanId: "span-weight-goals", sourceText: "Office Visit Notes · p. 2", draftVal: "The prescribing endocrinologist's plan initiates Ozempic weekly subcutaneous injection solely for glycemic control of T2DM.", description: "Grounded by the applied prescriber attestation statement resolved in Step 1." },
+      c5: { id: "c5", status: "uncited", draftVal: "Additionally, the patient's HbA1c has improved by 1.2% on current therapy, demonstrating therapeutic adherence.", description: "Uncited: There is no historical HbA1c baseline in the retrieved chart to support a 1.2% improvement." }
+    },
+    draftTemplate: `Re: Appeal of prior authorization denial DEN-77120 — Ozempic (semaglutide) injection. Patient: [PATIENT], DOB [DOB], Member ID [MEMBER_ID].
+
+Dear Appeals Committee,
+
+We are appealing the coverage denial for Ozempic (semaglutide) weekly injection for glycemic control. [CLAIM-C1]
+
+[CLAIM-C2] Cigna Policy CNF-360 clinical criteria for GLP-1 coverage are fully satisfied by this patient.
+
+[CLAIM-C3] body-mass index goals discussed during the January encounter do not displace the primary diabetic indication; [CLAIM-C4]
+
+[CLAIM-C5]
+
+Therefore, we request that the determination be reversed and coverage approved for one year.`,
+    streamLogs: [
+      "<b>[SYSTEM]</b> Initializing generation pipeline for case PA-2026-0847...",
+      "<b>[SYSTEM]</b> Sourcing requirements from plan CIGNA-CNF360-2024...",
+      "<b>[SYSTEM]</b> Sourced Endocrinology Consult, Medication List, and Office Visit Notes.",
+      "<b>[LLM]</b> Compiling clinical evidence and starting appeal synthesis...",
+      "<b>[GATEKEEPER]</b> Running pre-transmission check on generated tokens...",
+      "<span class='log-line warn'><b>[GATEKEEPER]</b> Attempt #1 failed: Uncited claim detected ('patient has been on metformin since 2018'). Chart indicates metformin started in 2021.</span>",
+      "<b>[SYSTEM]</b> Re-routing generation to model with negative constraint (Attempt #2)...",
+      "<b>[LLM]</b> Generating corrected appeal draft...",
+      "<b>[GATEKEEPER]</b> Running verification scan on corrected draft...",
+      "<span class='log-line ok'><b>[GATEKEEPER]</b> Attempt #2 passed: All clinical assertions mapped to valid source grounding spans.</span>",
+      "<b>[SYSTEM]</b> Synthesis finalized in 2 attempts. Ready for verification."
+    ]
+  },
+
+  livdelzi_cigna_hepatology: {
+    patientName: "Diane K. Rourke",
+    patientDOB: "1970-11-07",
+    patientAge: "54",
+    patientSex: "F",
+    memberId: "CGN00987654",
+    groupId: "GRP-78014",
+    caseRef: "PA-2026-0381",
+    drug: "Livdelzi (seladelpar)",
+    payer: "Cigna Connect 500 PPO",
+    planId: "CIGNA-CNF877-2024",
+    policyId: "CNF-877",
+    docs: [
+      {
+        id: "doc-denial",
+        title: "Cigna Healthcare — Coverage Determination",
+        meta: "CNF-877 · Date: June 26, 2026 · Ref: DEN-8890",
+        html: `<p>Dear <span class="phi">Ms. Rourke</span><span class="redacted">[PATIENT]</span>,</p>
+               <p>This letter concerns your prior authorization request for <b>Livdelzi (seladelpar)</b>.</p>
+               <p id="span-denial" class="span-hl">Coverage is denied: Cigna policy cnf_877 requires a documented trial and inadequate response to ursodiol (UDCA) for at least 12 months. Current pharmacy claims and medical records indicate ursodiol was initiated 8 months ago, which does not satisfy the 12-month requirement.</p>
+               <p>If you cannot tolerate ursodiol, a prescriber attestation of ursodiol intolerance may be submitted to satisfy the exception criteria.</p>`
+      },
+      {
+        id: "doc-consult",
+        title: "Specialist Consult — Hepatology",
+        meta: "Encounter: February 10, 2026 · Source: Epic EHR · Author: Dr. Samuel Okonkwo, MD",
+        html: `<p><span class="phi">Patient: Diane K. Rourke, DOB: 11/07/1970.</span><span class="redacted">[IDENTIFIERS REDACTED]</span></p>
+               <p><b>History:</b> Patient was diagnosed with Primary Biliary Cholangitis (PBC, K74.3) in 2022. Board-certified Hepatologist consultation confirmed diagnosis.</p>
+               <p id="span-t2dm" class="span-hl"><b>Clinical Findings:</b> Lab check on 02/05/2026: Alkaline Phosphatase (ALP) is elevated at 198 U/L (reference range <115 U/L). AMA is positive (titer 1:640), satisfying 2 of 3 AASLD 2021 diagnostic criteria. MELD score is 9. No signs of ascites or varices.</p>
+               <p id="span-age" class="span-hl"><b>Demographics:</b> Patient age 54. satisfying Cigna minimum age threshold of 18 years. Board-certified Hepatology specialist prescriber confirmed.</p>`
+      },
+      {
+        id: "doc-meds",
+        title: "Active Medication List",
+        meta: "Reviewed Date: February 20, 2026 · Source: Epic EHR",
+        html: `<p>Verified active medication profile:</p>
+               <ul style="margin-left: 20px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;">
+                 <li><b>Ursodiol 300 mg</b> oral capsule, active, TID (started 06/15/2023)</li>
+                 <li><b>Lisinopril 20 mg</b> oral tablet, active, QD (started 2020)</li>
+               </ul>
+               <p id="span-meds" class="span-hl"><b>Safety Exclusions:</b> No active Ocaliva (obeticholic acid) or Iqirvo (elafibranor) listed on active profile (no concomitant PPAR-alpha agonists or obeticholic acid).</p>`
+      },
+      {
+        id: "doc-visit",
+        title: "Office Visit Notes",
+        meta: "Visit Date: February 20, 2026 · Source: Epic EHR · Provider: Dr. Samuel Okonkwo, MD",
+        html: `<p><b>Subjective:</b> Patient reports severe gastrointestinal intolerance to ursodiol including intractable nausea, severe diarrhea, and abdominal cramps since initiation. Adherence is poor (<50%) due to persistent intolerance.</p>
+               <p id="span-weight-goals" class="span-hl"><b>Assessment & Plan:</b> Patient has ursodiol intolerance. Attestation of UDCA intolerance is documented. Will discontinue Ursodiol and initiate Livdelzi 10mg oral capsule daily as monotherapy.</p>
+               <p id="span-bmi" class="span-hl">Patient has no history of ascites, variceal bleeding, or encephalopathy. Liver decompensation check: negative. Child-Pugh Class A.</p>`
+      }
+    ],
+    criteria: [
+      { key: "c1", label: "Confirmed Diagnosis of Primary Biliary Cholangitis (PBC)", status: "resolved", desc: "PBC confirmed by elevated ALP 198 U/L and positive anti-mitochondrial antibodies (AMA titer 1:640). Meets AASLD criteria.", confidence: "98%", doc: "doc-consult", span: "span-t2dm", docLabel: "Hepatology Consult" },
+      { key: "c2", label: "Patient Age ≥ 18 Years & Prescribed by Hepatologist", status: "resolved", desc: "Diane K. Rourke is age 54. Prescribed by Dr. Samuel Okonkwo, MD (specialist).", confidence: "99%", doc: "doc-consult", span: "span-age", docLabel: "Hepatology Consult" },
+      { key: "c3", label: "No Current or Historical Hepatic Decompensation", status: "resolved", desc: "No ascites, variceal bleeding, or hepatic encephalopathy through 02/2026; Child-Pugh A.", confidence: "93%", doc: "doc-visit", span: "span-bmi", docLabel: "Office Visit Notes" },
+      { key: "c4", label: "UDCA Step Therapy (Ursodiol ≥12 Months or Intolerance)", status: "gap", desc: "Ursodiol initiated 06/15/2023 (~8 months). 12-month duration gap exists. Prescriber attestation of intolerance required.", confidence: "72%", doc: "doc-visit", span: "span-weight-goals", docLabel: "Office Visit Notes" }
+    ],
+    resolverHtml: `<div class="resolver-box-title">⚡ Inline Appeal Resolver</div>
+                   <p style="font-size:11.5px; color:var(--text-3); margin-bottom:8px;">Payer policy allows exception if UDCA cannot be tolerated. Apply intolerance attestation to satisfy the step-therapy criteria.</p>
+                   <div class="resolver-options">
+                     <div class="resolver-opt" onclick="resolvePolicyGap()">
+                       <input type="radio" name="resolverOpt" id="attestRadio" style="margin-top: 4px;">
+                       <div class="resolver-opt-text">
+                         <b>Apply Prescriber Attestation of Ursodiol Intolerance</b>
+                         <p>"Patient has experienced severe gastrointestinal side effects (intractable nausea, vomiting, diarrhea) on ursodiol, making monotherapy with Livdelzi medically necessary."</p>
+                       </div>
+                     </div>
+                   </div>`,
+    claims: {
+      c1: { id: "c1", status: "cited", docId: "doc-consult", spanId: "span-t2dm", sourceText: "Hepatology Consult · p. 1", draftVal: "Diane K. Rourke has a confirmed diagnosis of Primary Biliary Cholangitis (K74.3) with elevated ALP of 198 U/L and positive anti-mitochondrial antibodies (1:640 titer).", description: "Verified PBC diagnostic criteria are met." },
+      c2: { id: "c2", status: "cited", docId: "doc-consult", spanId: "span-age", sourceText: "Hepatology Consult · p. 1", draftVal: "The therapy is prescribed by board-certified Hepatologist Dr. Samuel Okonkwo, MD.", description: "Specialist prescriber criteria met." },
+      c3: { id: "c3", status: "conflict", docId: "doc-consult", spanId: "span-t2dm", sourceText: "Hepatology Consult · p. 1", entity: "MELD", draftVal: "MELD score is 7", truthVal: "MELD score is 9", description: "Value Conflict: Draft says MELD 7, but EHR notes MELD 9." },
+      c4: { id: "c4", status: "cited", docId: "doc-visit", spanId: "span-weight-goals", sourceText: "Office Visit Notes · p. 2", draftVal: "Due to severe ursodiol gastrointestinal intolerance (nausea/vomiting), she is unable to complete the 12-month step-therapy, warranting monotherapy.", description: "UDCA step-therapy exception attestation grounded." },
+      c5: { id: "c5", status: "uncited", draftVal: "Additionally, the patient has been taking generic Ocaliva concomitantly to manage advanced MASLD.", description: "Uncited & safety exclusion: Concomitant Ocaliva is ungrounded and clinically contraindicated." }
+    },
+    draftTemplate: `Re: Appeal of prior authorization denial DEN-8890 — Livdelzi (seladelpar) 10mg capsules. Patient: [PATIENT], DOB [DOB], Member ID [MEMBER_ID].
+
+Dear Appeals Committee,
+
+We are appealing the prior authorization denial for Gilead's Livdelzi (seladelpar). [CLAIM-C1]
+
+[CLAIM-C2] [CLAIM-C3]
+
+[CLAIM-C4] Under policy cnf_877, this attestation fully satisfies the exception criteria.
+
+[CLAIM-C5]
+
+Therefore, we request that the determination be reversed and coverage approved for Livdelzi.`,
+    streamLogs: [
+      "<b>[SYSTEM]</b> Initializing generation pipeline for case PA-2026-0381...",
+      "<b>[SYSTEM]</b> Sourcing requirements from plan CIGNA-CNF877-2024...",
+      "<b>[SYSTEM]</b> Sourced Hepatology Consult, Medication List, and Office Visit Notes.",
+      "<b>[LLM]</b> Compiling clinical evidence and starting appeal synthesis...",
+      "<b>[GATEKEEPER]</b> Running pre-transmission check on generated tokens...",
+      "<span class='log-line warn'><b>[GATEKEEPER]</b> Attempt #1 failed: Uncited safety exclusion claim detected ('concomitant Ocaliva use'). Ocaliva combination is not supported by policy.</span>",
+      "<b>[SYSTEM]</b> Re-routing generation to model with negative constraint (Attempt #2)...",
+      "<b>[LLM]</b> Generating corrected appeal draft...",
+      "<b>[GATEKEEPER]</b> Running verification scan on corrected draft...",
+      "<span class='log-line ok'><b>[GATEKEEPER]</b> Attempt #2 passed: All clinical assertions mapped to valid source grounding spans.</span>",
+      "<b>[SYSTEM]</b> Synthesis finalized in 2 attempts. Ready for verification."
+    ]
+  },
+
+  esomeprazole_uhc_pediatric: {
+    patientName: "Jordan R. Peterman",
+    patientDOB: "2017-09-22",
+    patientAge: "7",
+    patientSex: "M",
+    memberId: "UHC88542190",
+    groupId: "GRP-40052",
+    caseRef: "PA-2026-1120",
+    drug: "Nexium for Oral Suspension",
+    payer: "UnitedHealthcare Choice Plus",
+    planId: "UHC-CHOICE-2024",
+    policyId: "UHC-PPI-STEP",
+    docs: [
+      {
+        id: "doc-denial",
+        title: "UnitedHealthcare — Coverage Determination",
+        meta: "UHC-PPI-STEP · Date: June 25, 2026 · Ref: DEN-3341",
+        html: `<p>Dear Prescriber,</p>
+               <p>The prior authorization request for <b>Nexium for Oral Suspension (esomeprazole)</b> is denied under UnitedHealthcare Choice Plus policy.</p>
+               <p id="span-denial" class="span-hl">Step-therapy criteria require documented trial and failure of generic omeprazole, pantoprazole, and rabeprazole. The patient's pharmacy records only show failure of omeprazole. In addition, the patient has no documented oral-motor dysphagia or swallowing limitations that prevent taking generic tablets.</p>
+               <p>Please submit clinical evidence of dysphagia or intolerance to the preferred agents to appeal this decision.</p>`
+      },
+      {
+        id: "doc-consult",
+        title: "Specialist Consult — Pediatric Gastroenterology",
+        meta: "Encounter: November 15, 2023 · Source: Epic EHR · Author: Dr. Yolanda Ekwueme, MD",
+        html: `<p><span class="phi">Patient: Jordan R. Peterman, DOB: 09/22/2017.</span><span class="redacted">[IDENTIFIERS REDACTED]</span></p>
+               <p><b>Diagnosis:</b> Severe gastroesophageal reflux disease (GERD) with erosive esophagitis (K21.0).</p>
+               <p id="span-t2dm" class="span-hl"><b>Findings:</b> Upper endoscopy performed on 11/15/2023 showed Los Angeles Grade A esophagitis. Patient has severe regurgitation and retrosternal pain. Prescribed omeprazole 10mg suspension trial.</p>
+               <p id="span-age" class="span-hl"><b>Demographics:</b> Patient age is 7 years at time of request. UHC step-therapy criteria are applicable as patient is age 6 or older (children <6 are exempt from preferred PPI step therapy).</p>`
+      },
+      {
+        id: "doc-meds",
+        title: "Active Medication List",
+        meta: "Reviewed Date: January 15, 2024 · Source: Epic EHR",
+        html: `<p>Verified medication profile:</p>
+               <ul style="margin-left: 20px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;">
+                 <li><b>Omeprazole 10 mg/5mL</b> oral suspension, discontinued (QD x 8 weeks, started 11/16/2023, discontinued 01/11/2024 due to therapeutic failure).</li>
+               </ul>
+               <p id="span-meds" class="span-hl"><b>PPI History:</b> Failed omeprazole trial. Pantoprazole and rabeprazole have not been trialed due to lack of liquid formulations and patient's swallowing limitation.</p>`
+      },
+      {
+        id: "doc-visit",
+        title: "Office Visit Notes & Speech Consult",
+        meta: "Visit Date: January 15, 2024 · Source: Epic EHR · Provider: Dr. Yolanda Ekwueme, MD",
+        html: `<p><b>Notes:</b> Patient reports poor response to omeprazole. Heartburn and acid regurgitation persist daily.</p>
+               <p id="span-weight-goals" class="span-hl"><b>Speech-Language Pathology (SLP) Consult (12/02/2023):</b> Evaluated for oral-motor dysphagia. SLP confirms moderate dysphagia. Patient cannot safely swallow solid tablets/capsules due to high risk of aspiration.</p>
+               <p id="span-bmi" class="span-hl"><b>Clinical Discrepancy:</b> Office visit summary contains template text noting patient was 'tolerating crushed omeprazole without difficulty'. However, crushed tablets are unapproved and SLP clinical dysphagia report is primary.</p>`
+      }
+    ],
+    criteria: [
+      { key: "c1", label: "GERD / Erosive Esophagitis Diagnosis Documented", status: "resolved", desc: "Confirmed via upper endoscopy showing Los Angeles Grade A esophagitis; ICD-10 K21.0 active.", confidence: "98%", doc: "doc-consult", span: "span-t2dm", docLabel: "Pediatric GI Consult" },
+      { key: "c2", label: "Patient Age ≥ 6 Years (Step Therapy Governed)", status: "resolved", desc: "Jordan R. Peterman is age 7, placing him under the PPI step-therapy mandate.", confidence: "99%", doc: "doc-consult", span: "span-age", docLabel: "Pediatric GI Consult" },
+      { key: "c3", label: "PPI Step Therapy (Omeprazole, Pantoprazole, and Rabeprazole)", status: "gap", desc: "Omeprazole suspension trial failed. Pantoprazole/rabeprazole not trialed. Class exception required due to lack of liquid preferred alternatives.", confidence: "78%", doc: "doc-meds", span: "span-meds", docLabel: "Medication List" },
+      { key: "c4", label: "Swallowing Limitation / Oral-Motor Dysphagia Verified", status: "gap", desc: "SLP consult confirms moderate dysphagia, but office notes contain conflict ('tolerates crushed tablets'). Attestation required.", confidence: "45%", doc: "doc-visit", span: "span-weight-goals", docLabel: "Office Visit Notes" }
+    ],
+    resolverHtml: `<div class="resolver-box-title">⚡ Inline Appeal Resolver</div>
+                   <p style="font-size:11.5px; color:var(--text-3); margin-bottom:8px;">Two gaps require resolution. Select the clinical justification to unblock appeal draft generation.</p>
+                   <div class="resolver-options">
+                     <div class="resolver-opt" onclick="resolvePolicyGap()">
+                       <input type="radio" name="resolverOpt" id="attestRadio" style="margin-top: 4px;">
+                       <div class="resolver-opt-text">
+                         <b>Apply Dysphagia &amp; Suspension Attestation</b>
+                         <p>Attest that: (1) Patient has SLP-confirmed moderate oral-motor dysphagia (aspiration risk). (2) Pantoprazole and rabeprazole do not have approved liquid formulations, justifying Nexium suspension.</p>
+                       </div>
+                     </div>
+                   </div>`,
+    claims: {
+      c1: { id: "c1", status: "cited", docId: "doc-consult", spanId: "span-t2dm", sourceText: "Pediatric GI Consult · p. 1", draftVal: "Jordan R. Peterman has a diagnosis of gastro-esophageal reflux disease with esophagitis (K21.0), confirmed via endoscopy showing Grade A erosions.", description: "GERD diagnosis verified." },
+      c2: { id: "c2", status: "cited", docId: "doc-meds", spanId: "span-meds", sourceText: "Medication List · p. 3", draftVal: "The patient failed an 8-week trial of generic omeprazole 10mg suspension due to lack of therapeutic efficacy.", description: "Omeprazole failure verified." },
+      c3: { id: "c3", status: "conflict", docId: "doc-consult", spanId: "span-age", sourceText: "Pediatric GI Consult · p. 1", entity: "DOB", draftVal: "patient DOB is 09/22/2018", truthVal: "patient DOB is 09/22/2017", description: "Value Conflict: Draft says DOB 2018, but EHR records DOB 2017." },
+      c4: { id: "c4", status: "cited", docId: "doc-visit", spanId: "span-weight-goals", sourceText: "Office Visit Notes · p. 2", draftVal: "Speech-Language Pathology consult (12/02/2023) confirms moderate oral-motor dysphagia and aspiration risk, requiring liquid formulations.", description: "Dysphagia grounded, overriding crushed pill template text." },
+      c5: { id: "c5", status: "uncited", draftVal: "Additionally, the patient previously tolerated a trial of Aciphex oral tablets without difficulty.", description: "Uncited: Conflicting with dysphagia and ungrounded in EHR." }
+    },
+    draftTemplate: `Re: Appeal of prior authorization denial DEN-3341 — Nexium for Oral Suspension. Patient: [PATIENT], DOB [DOB], Member ID [MEMBER_ID].
+
+Dear Appeals Committee,
+
+We are appealing the prior authorization denial for Nexium for Oral Suspension. [CLAIM-C1]
+
+[CLAIM-C2] preferred PPI step therapy is contraindicated because the alternative preferred agents do not have liquid formulations. [CLAIM-C3]
+
+[CLAIM-C4] Crushing tablets is not clinically indicated.
+
+[CLAIM-C5]
+
+Therefore, we request that Nexium suspension be approved under UHC step-therapy exception guidelines.`,
+    streamLogs: [
+      "<b>[SYSTEM]</b> Initializing generation pipeline for case PA-2026-1120...",
+      "<b>[SYSTEM]</b> Sourcing requirements from plan UHC-CHOICE-2024...",
+      "<b>[SYSTEM]</b> Sourced Pediatric GI Consult, Medication List, and Office Visit Notes.",
+      "<b>[LLM]</b> Compiling clinical evidence and starting appeal synthesis...",
+      "<b>[GATEKEEPER]</b> Running pre-transmission check on generated tokens...",
+      "<span class='log-line warn'><b>[GATEKEEPER]</b> Attempt #1 failed: Uncited and conflicting claim detected ('tolerated Aciphex tablets'). Contradicts dysphagia profile.</span>",
+      "<b>[SYSTEM]</b> Re-routing generation to model with negative constraint (Attempt #2)...",
+      "<b>[LLM]</b> Generating corrected appeal draft...",
+      "<b>[GATEKEEPER]</b> Running verification scan on corrected draft...",
+      "<span class='log-line ok'><b>[GATEKEEPER]</b> Attempt #2 passed: All clinical assertions mapped to valid source grounding spans.</span>",
+      "<b>[SYSTEM]</b> Synthesis finalized in 2 attempts. Ready for verification."
+    ]
+  },
+
+  humira_cigna: {
+    patientName: "Yvonne M. Castellano",
+    patientDOB: "1968-05-19",
+    patientAge: "58",
+    patientSex: "F",
+    memberId: "CGN00456789",
+    groupId: "GRP-78022",
+    caseRef: "PA-2026-0715",
+    drug: "Humira (adalimumab)",
+    payer: "Cigna Connect 3000 PPO",
+    planId: "CIGNA-IP0652-2026",
+    policyId: "IP0652",
+    docs: [
+      {
+        id: "doc-denial",
+        title: "Cigna Healthcare — Coverage Determination",
+        meta: "IP0652 · Date: June 27, 2026 · Ref: DEN-0652",
+        html: `<p>Dear Prescriber,</p>
+               <p>Your request for brand <b>Humira (adalimumab)</b> has been denied under plan Cigna Connect 3000 PPO.</p>
+               <p id="span-denial" class="span-hl">Cigna Policy IP0652 designates brand Humira as non-preferred. Step therapy requires trial and failure of the plan's preferred adalimumab biosimilars (adalimumab-adbm / Cyltezo) first. Exception requests require documented therapeutic failure or intolerance to the preferred biosimilar.</p>
+               <p>Please submit clinical documentation of preferred product trial outcomes to appeal this decision.</p>`
+      },
+      {
+        id: "doc-consult",
+        title: "Specialist Consult — Rheumatology",
+        meta: "Encounter: September 12, 2025 · Source: Epic EHR · Author: Dr. Helena Brandt, MD",
+        html: `<p><span class="phi">Patient: Yvonne M. Castellano, DOB: 05/19/1968.</span><span class="redacted">[IDENTIFIERS REDACTED]</span></p>
+               <p><b>Diagnosis:</b> Moderately-to-severely active seropositive Rheumatoid Arthritis (RA, M05.79).</p>
+               <p id="span-t2dm" class="span-hl"><b>Findings:</b> Rheumatoid Factor positive (78 IU/mL) and anti-CCP positive (>250 U/mL) on 09/12/2025. CDAI score is 28 (high activity). Patient has had RA since 2021. Meets ACR/EULAR classification.</p>
+               <p id="span-age" class="span-hl"><b>Demographics:</b> Patient age 58. satisfying Cigna IP0652 RA minimum age 18 years. Board-certified Rheumatologist specialist prescriber confirmed.</p>`
+      },
+      {
+        id: "doc-meds",
+        title: "Active Medication List",
+        meta: "Reviewed Date: July 15, 2025 · Source: Epic EHR",
+        html: `<p>Verified active medication profile:</p>
+               <ul style="margin-left: 20px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;">
+                 <li><b>Methotrexate 20 mg</b> oral tablet, active, weekly (started 02/2024, continued in combination).</li>
+                 <li><b>Cyltezo (adalimumab-adbm) 40 mg</b> SC injection, active, weekly (started 06/15/2025).</li>
+               </ul>
+               <p id="span-meds" class="span-hl"><b>History:</b> Methotrexate 20mg weekly trialed for 11 months with inadequate response (CDAI remained >22). Brand Humira was active and stable for 6 months (CDAI 8) prior to plan's mandated switch to Cyltezo biosimilar.</p>`
+      },
+      {
+        id: "doc-visit",
+        title: "Office Visit Notes",
+        meta: "Visit Date: July 15, 2025 · Source: Epic EHR · Provider: Dr. Helena Brandt, MD",
+        html: `<p><b>Subjective:</b> Patient transitioned to Cyltezo in June 2025 per plan formulary mandate. Presents today with severe loss of efficacy (rheumatoid arthritis flare, severe joint pain/stiffness, CDAI rose to 22).</p>
+               <p id="span-weight-goals" class="span-hl"><b>Physical Exam:</b> Extensive injection-site reactions on thighs, featuring severe erythema, induration, and pruritus. Patient requests return to brand Humira.</p>
+               <p id="span-bmi" class="span-hl"><b>Plan:</b> Discontinue Cyltezo due to therapeutic failure and local intolerance. Medical necessity exception requested to return patient to brand Humira.</p>`
+      }
+    ],
+    criteria: [
+      { key: "c1", label: "Confirmed Diagnosis of Seropositive Rheumatoid Arthritis", status: "resolved", desc: "RA confirmed via positive RF (78 IU/mL), anti-CCP (>250 U/mL), and CDAI 28.", confidence: "97%", doc: "doc-consult", span: "span-t2dm", docLabel: "Rheumatology Consult" },
+      { key: "c2", label: "Patient Age ≥ 18 Years & Rheumatologist Specialist Prescriber", status: "resolved", desc: "Yvonne M. Castellano is age 58. Prescribed by Dr. Helena Brandt, MD (Rheumatology).", confidence: "99%", doc: "doc-consult", span: "span-age", docLabel: "Rheumatology Consult" },
+      { key: "c3", label: "Conventional Synthetic DMARD Trial ≥ 3 Months", status: "resolved", desc: "Methotrexate 20mg weekly trialed for 11 months with inadequate response.", confidence: "96%", doc: "doc-meds", span: "span-meds", docLabel: "Medication List" },
+      { key: "c4", label: "Preferred Biosimilar Step Therapy / Exception Met", status: "gap", desc: "Cigna requires trial of Cyltezo biosimilar first. Cyltezo was trialed for 4 weeks. Exception requested due to therapeutic failure and local reactions.", confidence: "71%", doc: "doc-visit", span: "span-weight-goals", docLabel: "Office Visit Notes" }
+    ],
+    resolverHtml: `<div class="resolver-box-title">⚡ Inline Appeal Resolver</div>
+                   <p style="font-size:11.5px; color:var(--text-3); margin-bottom:8px;">Payer requires biosimilar trial first. Apply attestation of biosimilar failure to satisfy Preferred Specialty Management (PSM) rules.</p>
+                   <div class="resolver-options">
+                     <div class="resolver-opt" onclick="resolvePolicyGap()">
+                       <input type="radio" name="resolverOpt" id="attestRadio" style="margin-top: 4px;">
+                       <div class="resolver-opt-text">
+                         <b>Apply Attestation of Cyltezo Therapeutic Failure</b>
+                         <p>"Patient experienced severe loss of efficacy (CDAI rose from 8 to 22) and local injection-site reactions (erythema, induration) on Cyltezo, making brand Humira medically necessary."</p>
+                       </div>
+                     </div>
+                   </div>`,
+    claims: {
+      c1: { id: "c1", status: "cited", docId: "doc-consult", spanId: "span-t2dm", sourceText: "Rheumatology Consult · p. 1", draftVal: "Yvonne M. Castellano carries an established diagnosis of seropositive rheumatoid arthritis (M05.79), confirmed by positive RF and anti-CCP levels.", description: "RA diagnosis verified." },
+      c2: { id: "c2", status: "cited", docId: "doc-meds", spanId: "span-meds", sourceText: "Medication List · p. 3", draftVal: "She failed an 11-month trial of methotrexate 20mg weekly before starting biological therapy.", description: "Methotrexate trial failure verified." },
+      c3: { id: "c3", status: "conflict", docId: "doc-meds", spanId: "span-meds", sourceText: "Medication List · p. 3", entity: "CDAI", draftVal: "CDAI score rose to 18 on Cyltezo", truthVal: "CDAI score rose to 22 on Cyltezo", description: "Value Conflict: Draft says CDAI rose to 18, but EHR notes CDAI rose to 22." },
+      c4: { id: "c4", status: "cited", docId: "doc-visit", spanId: "span-weight-goals", sourceText: "Office Visit Notes · p. 2", draftVal: "Her switch to the plan-preferred biosimilar Cyltezo resulted in therapeutic failure and severe injection-site reactions, justifying a return to brand Humira.", description: "Biosimilar failure exception grounded." },
+      c5: { id: "c5", status: "uncited", draftVal: "Additionally, the patient previously tolerated a trial of generic Enbrel concomitantly.", description: "Uncited & safety exclusion: Concomitant biologics are ungrounded and clinically contraindicated." }
+    },
+    draftTemplate: `Re: Appeal of prior authorization denial DEN-0652 — Humira (adalimumab) 40mg injection. Patient: [PATIENT], DOB [DOB], Member ID [MEMBER_ID].
+
+Dear Appeals Committee,
+
+We are appealing the prior authorization denial for brand Humira (adalimumab). [CLAIM-C1]
+
+[CLAIM-C2] [CLAIM-C3]
+
+[CLAIM-C4] Swapping preferred biosimilars is contraindicated due to local adverse events.
+
+[CLAIM-C5]
+
+Therefore, we request that brand Humira coverage be reinstated under Cigna step-therapy exception guidelines.`,
+    streamLogs: [
+      "<b>[SYSTEM]</b> Initializing generation pipeline for case PA-2026-0715...",
+      "<b>[SYSTEM]</b> Sourcing requirements from plan CIGNA-IP0652-2026...",
+      "<b>[SYSTEM]</b> Sourced Rheumatology Consult, Medication List, and Office Visit Notes.",
+      "<b>[LLM]</b> Compiling clinical evidence and starting appeal synthesis...",
+      "<b>[GATEKEEPER]</b> Running pre-transmission check on generated tokens...",
+      "<span class='log-line warn'><b>[GATEKEEPER]</b> Attempt #1 failed: Uncited safety exclusion claim detected ('concomitant Enbrel use'). Dual biologics are prohibited.</span>",
+      "<b>[SYSTEM]</b> Re-routing generation to model with negative constraint (Attempt #2)...",
+      "<b>[LLM]</b> Generating corrected appeal draft...",
+      "<b>[GATEKEEPER]</b> Running verification scan on corrected draft...",
+      "<span class='log-line ok'><b>[GATEKEEPER]</b> Attempt #2 passed: All clinical assertions mapped to valid source grounding spans.</span>",
+      "<b>[SYSTEM]</b> Synthesis finalized in 2 attempts. Ready for verification."
+    ]
+  }
+};
+
+// ── DOM Helpers ──
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+// ── Case Loader (Dyn-Binding of the 4 Paths) ──
+function loadCase(caseId) {
+  currentCaseId = caseId;
+  $('#caseSelect').value = caseId;
+  const cData = CASES_DATA[caseId];
+  
+  // 1. Reset Gap Resolution State
+  gapResolved = false;
+  
+  // 2. Populate Patient Banner
+  const banner = $('#patientBanner');
+  banner.innerHTML = `
+    <div class="patient-banner-info">
+      <b><span class="phi">${cData.patientName}</span><span class="redacted">PT-${cData.memberId.replace('CGN', '').replace('UHC', '')} (${getInitials(cData.patientName)})</span></b>
+      <span class="kv">DOB: <span><span class="phi">${cData.patientDOB} (Age ${cData.patientAge})</span><span class="redacted">XX/XX/${cData.patientDOB.split('-')[0] || cData.patientDOB.split('/')[2]}</span></span></span>
+      <span class="kv">Gender: <span>${cData.patientSex}</span></span>
+      <span class="kv">Member ID: <span><span class="phi">${cData.memberId}</span><span class="redacted">[REDACTED BY EHR GATE]</span></span></span>
+      <span class="kv">Group: <span>${cData.groupId}</span></span>
+      <span class="kv">Payer: <span>${cData.payer}</span></span>
+    </div>
+    <div>
+      <span class="chip warn">Awaiting Appeal Verification</span>
+    </div>
+  `;
+
+  // 3. Populate Document Tabs & Contents in Left Pane
+  const tabs = $('#docTabs');
+  const body = $('#docBody');
+  tabs.innerHTML = "";
+  body.innerHTML = "";
+
+  cData.docs.forEach((doc, idx) => {
+    // Tab Button
+    const btn = document.createElement('button');
+    btn.className = `tab-btn ${idx === 0 ? 'on' : ''}`;
+    btn.dataset.doc = doc.id;
+    btn.textContent = doc.title.replace('Cigna Healthcare — ', '').replace('UnitedHealthcare — ', '');
+    btn.onclick = () => {
+      $$('.tab-btn').forEach(b => b.classList.toggle('on', b === btn));
+      $$('.doc-page').forEach(page => page.classList.toggle('on', page.id === doc.id));
+      $$('.span-hl').forEach(s => s.classList.remove('lit'));
+    };
+    tabs.appendChild(btn);
+
+    // Document Card
+    const card = document.createElement('div');
+    card.className = `doc-card doc-page ${idx === 0 ? 'on' : ''}`;
+    card.id = doc.id;
+    card.innerHTML = `
+      <h2>${doc.title}</h2>
+      <div class="meta">${doc.meta}</div>
+      ${doc.html}
+    `;
+    body.appendChild(card);
+  });
+
+  // 4. Populate Step 1 Policy Gate List
+  const criteriaList = $('#criteriaList');
+  criteriaList.innerHTML = "";
+  
+  cData.criteria.forEach(crit => {
+    const isGap = crit.status === 'gap';
+    const critRow = document.createElement('div');
+    critRow.className = `crit-row ${isGap ? 'gap' : 'resolved'}`;
+    critRow.id = crit.key + 'Row';
+    critRow.innerHTML = `
+      <div class="crit-header">
+        <span class="crit-title">${crit.label}</span>
+        <span class="chip ${isGap ? 'warn' : 'ok'}" id="${crit.key}Badge">${isGap ? 'Gap Detected' : 'Resolved'}</span>
+      </div>
+      <p class="crit-desc">${crit.desc}</p>
+      <div class="crit-meta" id="${crit.key}Meta">
+        <span class="crit-confidence">Confidence: <b>${crit.confidence}</b> ${isGap ? '(Needs Review)' : ''}</span>
+        <button class="srcbadge-btn" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--sky); font-weight:600;" data-doc="${crit.doc}" data-span="${crit.span}">⤷ ${crit.docLabel}</button>
+      </div>
+    `;
+
+    // Add inline resolver if it is a Gap
+    if (isGap) {
+      const resolver = document.createElement('div');
+      resolver.className = 'resolver-box';
+      resolver.id = 'resolverBox';
+      resolver.innerHTML = cData.resolverHtml;
+      critRow.appendChild(resolver);
+    }
+
+    criteriaList.appendChild(critRow);
+  });
+
+  // Reset Generate Appeal Draft Button
+  $('#btnStartGenerate').setAttribute('disabled', 'true');
+
+  // 5. Setup Step 2 Streaming Canvas Text & Logs
+  $('#streamText').innerHTML = "";
+  $('#logConsole').innerHTML = "";
+
+  // 6. Reset Step 3 Claims state
+  claimsState = JSON.parse(JSON.stringify(cData.claims));
+  editorMode = 'verify';
+  document.body.classList.add('mode-verify');
+  $('#letterEditor').setAttribute('contenteditable', 'false');
+  $$('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === 'mode-verify'));
+
+  // If inDenied or inEmpty overlay, hide them if we are loading standard path
+  if (state !== 'empty' && state !== 'state-denied') {
+    triggerStateChange(state);
+  }
+}
+
+function getInitials(name) {
+  return name.split(' ').map(p => p[0]).join('.');
+}
+
+// ── Gap Resolver ──
+function resolvePolicyGap() {
+  gapResolved = true;
+  
+  // Select all gap rows and resolve them
+  const cData = CASES_DATA[currentCaseId];
+  cData.criteria.forEach(crit => {
+    if (crit.status === 'gap') {
+      const row = $('#' + crit.key + 'Row');
+      const badge = $('#' + crit.key + 'Badge');
+      if (row) row.className = 'crit-row resolved';
+      if (badge) {
+        badge.className = 'chip ok';
+        badge.textContent = 'Resolved';
+      }
+    }
+  });
+
+  const resolver = $('#resolverBox');
+  if (resolver) resolver.style.display = 'none';
+  $('#btnStartGenerate').removeAttribute('disabled');
+}
+
+// ── Workspace Step Toggling (Interactive Navigation) ──
+function showStep(stepId) {
+  currentStep = stepId;
+  $$('.step-indicator').forEach(ind => {
+    ind.className = 'step-indicator';
+    if (ind.id === stepId + 'Indicator') {
+      ind.classList.add('active');
+    }
+  });
+
+  // Complete lines / indicators
+  if (stepId === 'step2') {
+    $('#step1Indicator').className = 'step-indicator complete';
+  } else if (stepId === 'step3') {
+    $('#step1Indicator').className = 'step-indicator complete';
+    $('#step2Indicator').className = 'step-indicator complete';
+  }
+
+  $$('.ws-page').forEach(page => page.classList.remove('on'));
+  $('#page-' + stepId).classList.add('on');
+  hidePop();
+}
+
+// Attach Step Header Toggles
+$('#step1Indicator').onclick = () => { if (currentStep !== 'step1') showStep('step1'); };
+$('#step2Indicator').onclick = () => { if (gapResolved && currentStep !== 'step2') showStep('step2'); };
+$('#step3Indicator').onclick = () => { if (currentStep === 'step3' || $('#step2Indicator').classList.contains('complete')) showStep('step3'); };
+
+// Generate button action
+$('#btnStartGenerate').onclick = () => {
+  $('#stateSelect').value = 'state-streaming';
+  triggerStateChange('state-streaming');
+};
+
+// ── Streaming Animation ──
+let streamInterval = null;
+let streamIndex = 0;
+
+function simulateStreaming() {
+  clearInterval(streamInterval);
+  const cData = CASES_DATA[currentCaseId];
+  
+  $('#streamText').innerHTML = "";
+  $('#logConsole').innerHTML = "";
+  $('#btnNextToVerify').setAttribute('disabled', 'true');
+  $('#btnErrorRecovery').style.display = 'none';
+  $('#streamErrorBanner').style.display = 'none';
+  $('#streamStatusChip').className = 'chip info';
+  $('#streamStatusChip').textContent = 'generation active';
+  $('#streamStatusText').textContent = 'Streaming appeal letter draft...';
+  $('#streamCursor').style.display = 'inline-block';
+  
+  // Show skeletons
+  $$('.skeleton').forEach(sk => sk.style.display = 'block');
+
+  // Initial logs
+  const logConsole = $('#logConsole');
+  let logIdx = 0;
+  
+  // Format template
+  let draftText = cData.draftTemplate
+    .replace("[PATIENT]", cData.patientName)
+    .replace("[DOB]", cData.patientDOB)
+    .replace("[MEMBER_ID]", cData.memberId)
+    .replace("[CLAIM-C1]", cData.claims.c1.draftVal)
+    .replace("[CLAIM-C2]", cData.claims.c2.draftVal)
+    .replace("[CLAIM-C3]", cData.claims.c3.draftVal)
+    .replace("[CLAIM-C4]", cData.claims.c4.draftVal)
+    .replace("[CLAIM-C5]", cData.claims.c5.draftVal);
+
+  let currentText = "";
+  let wordList = draftText.split(" ");
+  let wordIdx = 0;
+  let timeElapsed = 0.0;
+
+  streamInterval = setInterval(() => {
+    timeElapsed += 0.2;
+    $('#streamTime').textContent = `Attempt #${logIdx < 6 ? '1' : '2'} · ${timeElapsed.toFixed(1)}s`;
+
+    // Stream logs
+    if (logIdx < cData.streamLogs.length && wordIdx % 15 === 0) {
+      const line = document.createElement('div');
+      line.className = 'log-line';
+      line.innerHTML = cData.streamLogs[logIdx];
+      logConsole.appendChild(line);
+      logConsole.scrollTop = logConsole.scrollHeight;
+      logIdx++;
+    }
+
+    // Stream text
+    if (wordIdx < wordList.length) {
+      currentText += wordList[wordIdx] + " ";
+      $('#streamText').innerHTML = currentText.replace(/\n\n/g, '<br><br>');
+      $('#streamPaper').scrollTop = $('#streamPaper').scrollHeight;
+      wordIdx++;
+    } else {
+      // Completed streaming
+      clearInterval(streamInterval);
+      $('#streamCursor').style.display = 'none';
+      $('#streamStatusChip').className = 'chip ok';
+      $('#streamStatusChip').textContent = 'synthesis complete';
+      $('#streamStatusText').textContent = 'Appeal draft synthesized successfully (2 attempts).';
+      $('#btnNextToVerify').removeAttribute('disabled');
+      $$('.skeleton').forEach(sk => sk.style.display = 'none');
+    }
+  }, 100);
+}
+
+function stopStreaming() {
+  clearInterval(streamInterval);
+}
+
+function transitionToStep3() {
+  showStep('step3');
+  setEditorMode('verify');
+}
+
+// ── Step 3: Verify / Edit Mode ──
+function setEditorMode(mode) {
+  editorMode = mode;
+  $$('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === 'mode-' + mode));
+  document.body.classList.toggle('mode-verify', mode === 'verify');
+  document.body.classList.toggle('mode-edit', mode === 'edit');
+  $('#letterEditor').setAttribute('contenteditable', String(mode === 'edit'));
+  hidePop();
+  renderVerifyTab();
+}
+
+function renderVerifyTab() {
+  const editor = $('#letterEditor');
+  const cData = CASES_DATA[currentCaseId];
+
+  if (editorMode === 'edit') {
+    // Render draft with highlights and inline warning badges for Edit Mode
+    let html = cData.draftTemplate
+      .replace("[PATIENT]", `<span class="phi">${cData.patientName}</span>`)
+      .replace("[DOB]", `<span class="phi">${cData.patientDOB}</span>`)
+      .replace("[MEMBER_ID]", `<span class="phi">${cData.memberId}</span>`);
+
+    Object.values(claimsState).forEach(claim => {
+      let claimHtml = "";
+      if (claim.status === 'removed') {
+        claimHtml = `<span class="claim removed" data-claim="${claim.id}">${claim.draftVal}</span>`;
+      } else if (claim.status === 'cited') {
+        claimHtml = `<span class="claim cited" data-claim="${claim.id}">${claim.draftVal}</span>`;
+      } else if (claim.status === 'conflict') {
+        claimHtml = `<span class="claim conflict" data-claim="${claim.id}">${claim.draftVal}</span> <span class="inline-warn-badge conflict" contenteditable="false">⚠️ Conflict: Source says '${claim.truthVal}'</span>`;
+      } else if (claim.status === 'uncited') {
+        claimHtml = `<span class="claim uncited" data-claim="${claim.id}">${claim.draftVal}</span> <span class="inline-warn-badge uncited" contenteditable="false">⛔ Uncited: No source record</span>`;
+      }
+      html = html.replace(`[CLAIM-${claim.id.toUpperCase()}]`, claimHtml);
+    });
+
+    editor.innerHTML = html.replace(/\n\n/g, '<br><br>');
+    editor.setAttribute('contenteditable', 'true');
+    
+    $('#verifyStats').innerHTML = `<span style="font-size:12px; color:var(--text-4); font-weight:600; text-transform:uppercase;">Custom Editing Active</span>`;
+    
+    // Edit Mode Footer: Re-Scan option
+    $('#gkFooter').className = 'gk-footer blocked'; // amber or red-ish
+    $('#gkFooter').style.borderColor = 'var(--amber)';
+    $('#gkFooter').style.background = 'var(--amber-soft)';
+    $('#gkFooter').style.color = 'var(--amber)';
+    $('#gkFooter').innerHTML = `<span>📝 <b>Edit Mode Active</b>: Review the highlighted claims and warning tags. You must validate your edits before transmission.</span>
+       <button class="btn primary" id="btnReScan" onclick="runGatekeeperScan()">Re-Scan with Gatekeeper</button>`;
+    return;
+  }
+
+  // Verify Mode highlight tags
+  let html = cData.draftTemplate
+    .replace("[PATIENT]", `<span class="phi">${cData.patientName}</span><span class="token">{{PATIENT_NAME}}</span>`)
+    .replace("[DOB]", `<span class="phi">${cData.patientDOB}</span><span class="token">{{PATIENT_DOB}}</span>`)
+    .replace("[MEMBER_ID]", `<span class="phi">${cData.memberId}</span><span class="token">{{MEMBER_ID}}</span>`)
+    .replace("[CLAIM-C1]", `<span class="claim ${claimsState.c1.status} ${claimsState.c1.status === 'removed' ? 'removed' : ''}" data-claim="c1">${claimsState.c1.draftVal}</span>`)
+    .replace("[CLAIM-C2]", `<span class="claim ${claimsState.c2.status} ${claimsState.c2.status === 'removed' ? 'removed' : ''}" data-claim="c2">${claimsState.c2.draftVal}</span>`)
+    .replace("[CLAIM-C3]", `<span class="claim ${claimsState.c3.status} ${claimsState.c3.status === 'removed' ? 'removed' : ''}" data-claim="c3">${claimsState.c3.draftVal}</span>`)
+    .replace("[CLAIM-C4]", `<span class="claim ${claimsState.c4.status} ${claimsState.c4.status === 'removed' ? 'removed' : ''}" data-claim="c4">${claimsState.c4.draftVal}</span>`)
+    .replace("[CLAIM-C5]", `<span class="claim ${claimsState.c5.status} ${claimsState.c5.status === 'removed' ? 'removed' : ''}" data-claim="c5">${claimsState.c5.draftVal}</span>`);
+
+  editor.innerHTML = html.replace(/\n\n/g, '<br><br>');
+
+  // Calculate verify counts
+  const activeClaims = Object.values(claimsState).filter(c => c.status !== 'removed');
+  const citedCount = activeClaims.filter(c => c.status === 'cited').length;
+  const conflictCount = activeClaims.filter(c => c.status === 'conflict').length;
+  const uncitedCount = activeClaims.filter(c => c.status === 'uncited').length;
+
+  $('#verifyStats').innerHTML = 
+    `<span class="chip ok">${citedCount} cited</span>` +
+    (conflictCount ? `<span class="chip warn" style="margin-left:6px">${conflictCount} conflict</span>` : '') +
+    (uncitedCount ? `<span class="chip bad" style="margin-left:6px">${uncitedCount} uncited</span>` : '');
+
+  const footer = $('#gkFooter');
+  const blocked = conflictCount + uncitedCount > 0;
+  
+  if (blocked) {
+    footer.className = 'gk-footer blocked';
+    footer.innerHTML = `<span>⛔ <b>Gatekeeper Blocked</b>: Transmission blocked due to ${uncitedCount} uncited claim(s) and ${conflictCount} value conflict(s). Every clinical statement must trace to a validated source document.</span>
+       <button class="btn primary" disabled>Transmit appeal</button>`;
+  } else {
+    footer.className = 'gk-footer clear';
+    footer.innerHTML = `<span>✓ <b>Gatekeeper Cleared</b>: All active clinical claims validated. Sign-off will record <b>provenance: human_approved</b> in the immutable audit trail.</span>
+       <button class="btn primary" onclick="transmitAppeal('human_approved')">Transmit appeal</button>`;
+  }
+}
+
+// ── Popover Claims Resolution ──
+const popover = $('#popover');
+
+function hidePop() {
+  popover.style.display = 'none';
+}
+
+function showPopover(el) {
+  const claimId = el.dataset.claim;
+  const claim = claimsState[claimId];
+  let html = "";
+  
+  if (el.classList.contains('removed')) {
+    html = `<h4>Claim Removed</h4>
+      <p class="desc">This claim is excluded from the final letter and gatekeeper calculations.</p>
+      <button class="opt-btn" onclick="restoreClaim('${claimId}')"><b>Restore Claim</b>Re-evaluates the sentence against gatekeeper rules.</button>`;
+  } else if (claim.status === 'cited') {
+    html = `<h4><span class="chip ok">Cited &amp; Grounded</span></h4>
+      <p class="desc">Verified against historical clinical evidence. Source document: <b>${claim.sourceText}</b>.</p>
+      <button class="opt-btn" data-doc="${claim.docId}" data-span="${claim.spanId}" onclick="hidePop()"><b>Jump to source span</b>Highlight grounding evidence in EHR pane.</button>`;
+  } else if (claim.status === 'conflict') {
+    html = `<h4><span class="chip warn">Value Conflict</span></h4>
+      <p class="desc">The generated draft contains a value (<b>${claim.draftVal}</b>) that does not match the source records (<b>${claim.truthVal}</b>).</p>
+      <button class="opt-btn" onclick="resolveConflict('${claimId}')"><b>Update draft to source value</b>Automatically substitute '${claim.truthVal}' in letter.</button>
+      <button class="opt-btn" data-doc="${claim.docId}" data-span="${claim.spanId}" onclick="hidePop()"><b>Jump to source record</b>Inspect original measurement of ${CASES_DATA[currentCaseId].patientName}.</button>`;
+  } else if (claim.status === 'uncited') {
+    html = `<h4><span class="chip bad">Uncited Clinical Claim</span></h4>
+      <p class="desc">No grounding span exists in the retrieved medical files to support this assertion.</p>
+      <button class="opt-btn" onclick="removeClaim('${claimId}')"><b>Remove claim from draft</b>Strikes out the sentence to satisfy the gatekeeper.</button>
+      <button class="opt-btn" onclick="parkCaseDocGap()"><b>Request records (Doc-Gap)</b>Park case and request clinical records verification from EHR.</button>
+      <p class="fine">Reviewer cannot manually overwrite uncited text in Verify mode. Edit mode must be used for custom phrasing, which triggers a complete gatekeeper re-scan.</p>`;
+  }
+
+  popover.innerHTML = html;
+  const rect = el.getBoundingClientRect();
+  
+  popover.style.display = 'block';
+  popover.style.left = Math.min(rect.left, window.innerWidth - 380) + 'px';
+  popover.style.top = Math.min(rect.bottom + window.pageYOffset + 8, window.innerHeight - 250) + 'px';
+}
+
+document.addEventListener('click', e => {
+  const claimEl = e.target.closest('.claim');
+  if (claimEl && editorMode === 'verify' && persona === 'persona-operate') {
+    e.stopPropagation();
+    showPopover(claimEl);
+    return;
+  }
+  if (!e.target.closest('#popover')) {
+    hidePop();
+  }
+});
+
+function resolveConflict(id) {
+  claimsState[id].draftVal = claimsState[id].truthVal;
+  claimsState[id].status = 'cited';
+  hidePop();
+  renderVerifyTab();
+}
+
+function removeClaim(id) {
+  claimsState[id].status = 'removed';
+  hidePop();
+  renderVerifyTab();
+}
+
+function restoreClaim(id) {
+  claimsState[id].status = CASES_DATA[currentCaseId].claims[id].status; // Restore initial status
+  hidePop();
+  renderVerifyTab();
+}
+
+function parkCaseDocGap() {
+  hidePop();
+  alert(`Mock Action: POST /api/appeal/park-records\n\nStatus set to 'awaiting_documentation' (O11 workflow).\nCase is parked in the reviews queue; clinic outreach request queued for historical laboratory reports.`);
+}
+
+function transmitAppeal(provenance) {
+  alert(`Mock Action: POST /api/appeal/resume\n\nTransmission Success!\n\nCorrelation ID: case_id:PA-2026-${CASES_DATA[currentCaseId].caseRef.split('-')[2]}:attempt1\nProvenance Flag: ${provenance}\nReviewer ID: REV-9821\nAuditRecord committed to store.`);
+}
+
+function runGatekeeperScan() {
+  const footer = $('#gkFooter');
+  const editor = $('#letterEditor');
+  
+  // Disable editor during scan
+  editor.setAttribute('contenteditable', 'false');
+  
+  // Show scanning loading state in footer
+  footer.className = 'gk-footer clear';
+  footer.style.borderColor = 'var(--sky)';
+  footer.style.background = 'var(--sky-soft)';
+  footer.style.color = 'var(--sky)';
+  footer.innerHTML = `<span>⚡ <b>Gatekeeper Scan In Progress</b>: Analyzing edited text and checking EHR grounding alignment...</span>
+     <button class="btn primary" disabled>Scanning...</button>`;
+     
+  setTimeout(() => {
+    // Read the current text from the editor to check if they fixed the conflicts/uncited assertions
+    const currentText = editor.innerText || editor.textContent;
+    const cData = CASES_DATA[currentCaseId];
+    
+    // We dynamically evaluate the changes based on case:
+    if (currentCaseId === 'ozempic_cigna') {
+      // 1. Conflict: check if 32.8 was changed to 33.2
+      if (currentText.includes("33.2") && !currentText.includes("32.8")) {
+        claimsState.c3.draftVal = "BMI of 33.2 kg/m²";
+        claimsState.c3.status = "cited";
+      }
+      // 2. Uncited: check if "improved by 1.2%" was removed or changed
+      if (!currentText.includes("improved by 1.2%")) {
+        claimsState.c5.status = "removed";
+      }
+    } 
+    else if (currentCaseId === 'livdelzi_cigna_hepatology') {
+      // 1. Conflict: check if MELD 7 was changed to MELD 9
+      if (currentText.includes("MELD score is 9") || (currentText.includes("9") && !currentText.includes("7"))) {
+        claimsState.c3.draftVal = "MELD score is 9";
+        claimsState.c3.status = "cited";
+      }
+      // 2. Uncited: check if "Ocaliva" was removed
+      if (!currentText.includes("Ocaliva")) {
+        claimsState.c5.status = "removed";
+      }
+    } 
+    else if (currentCaseId === 'esomeprazole_uhc_pediatric') {
+      // 1. Conflict: check if DOB 2018 was changed to 2017
+      if (currentText.includes("2017") && !currentText.includes("2018")) {
+        claimsState.c3.draftVal = "patient DOB is 09/22/2017";
+        claimsState.c3.status = "cited";
+      }
+      // 2. Uncited: check if "Aciphex" was removed
+      if (!currentText.includes("Aciphex")) {
+        claimsState.c5.status = "removed";
+      }
+    } 
+    else if (currentCaseId === 'humira_cigna') {
+      // 1. Conflict: check if CDAI 18 was changed to 22
+      if (currentText.includes("22") && !currentText.includes("18")) {
+        claimsState.c3.draftVal = "CDAI score rose to 22 on Cyltezo";
+        claimsState.c3.status = "cited";
+      }
+      // 2. Uncited: check if "Enbrel" was removed
+      if (!currentText.includes("Enbrel")) {
+        claimsState.c5.status = "removed";
+      }
+    }
+
+    // Go back to Verify Mode to see updated state!
+    setEditorMode('verify');
+    
+    // Alert the user about the scan outcome
+    const activeClaims = Object.values(claimsState).filter(c => c.status !== 'removed');
+    const conflictCount = activeClaims.filter(c => c.status === 'conflict').length;
+    const uncitedCount = activeClaims.filter(c => c.status === 'uncited').length;
+    
+    if (conflictCount + uncitedCount === 0) {
+      alert("Gatekeeper Scan Complete: 100% Grounded!\n\nAll clinical claims are aligned with the EHR source. Transmission is now unlocked.");
+    } else {
+      alert(`Gatekeeper Scan Complete: Remaining issues found.\n\nStill detected: ${conflictCount} conflict(s) and ${uncitedCount} uncited claim(s). Please review the warning highlights.`);
+    }
+  }, 1500);
+}
+
+// ── State & Path Event Bindings ──
+const caseSelect = $('#caseSelect');
+const stateSelect = $('#stateSelect');
+const personaSeg = $('#personaSeg');
+const themeToggle = $('#themeToggle');
+
+caseSelect.onchange = (e) => {
+  loadCase(e.target.value);
+};
+
+function triggerStateChange(targetState) {
+  state = targetState;
+  document.body.className = '';
+  if (isLightTheme) document.body.classList.add('light');
+  document.body.classList.add(persona);
+
+  // Stop active streams
+  stopStreaming();
+  hidePop();
+  
+  // Reset overlays
+  $('#deniedOverlay').style.display = 'none';
+  $('#emptyOverlay').style.display = 'none';
+  $('#streamErrorBanner').style.display = 'none';
+  $('#btnErrorRecovery').style.display = 'none';
+  
+  // Reset UI elements
+  $('#leftPane').style.opacity = '1';
+  $('#rightPane').style.opacity = '1';
+  const cData = CASES_DATA[currentCaseId];
+
+  if (state === 'empty') {
+    $('#emptyOverlay').style.display = 'flex';
+  } else if (state === 'state-denied') {
+    $('#deniedOverlay').style.display = 'flex';
+    $('#deniedMessage').innerHTML = `This case (${cData.caseRef}) contains Protected Health Information (PHI). Your current role does not have authorization to view this data plane directly (ADR-0014). To proceed, you must invoke break-glass authorization.`;
+  } else if (state === 'state-streaming') {
+    document.body.classList.add('state-streaming');
+    showStep('step2');
+    simulateStreaming();
+  } else if (state === 'state-error') {
+    document.body.classList.add('state-error');
+    showStep('step2');
+    
+    // Simulate cut-off draft
+    let draftText = cData.draftTemplate
+      .replace("[PATIENT]", cData.patientName)
+      .replace("[DOB]", cData.patientDOB)
+      .replace("[MEMBER_ID]", cData.memberId)
+      .replace("[CLAIM-C1]", cData.claims.c1.draftVal)
+      .replace("[CLAIM-C2]", cData.claims.c2.draftVal)
+      .replace("[CLAIM-C3]", cData.claims.c3.draftVal)
+      .replace("[CLAIM-C4]", cData.claims.c4.draftVal)
+      .replace("[CLAIM-C5]", cData.claims.c5.draftVal);
+      
+    let cutoffIdx = Math.floor(draftText.length * 0.72);
+    $('#streamText').innerHTML = draftText.slice(0, cutoffIdx).replace(/\n\n/g, '<br><br>') + "... [CONNECTION INTERRUPTED]";
+    
+    $('#logConsole').innerHTML = `
+      <div class="log-line"><b>[SYSTEM]</b> Initializing generation pipeline...</div>
+      <div class="log-line"><b>[SYSTEM]</b> Sourcing requirements from plan ${cData.planId}...</div>
+      <div class="log-line"><b>[LLM]</b> Streaming draft...</div>
+      <div class="log-line warn"><b>[CONNECTION]</b> 🚨 SSE Connection dropped: transport stream closed unexpectedly.</div>
+    `;
+    
+    $('#streamCursor').style.display = 'none';
+    $$('.skeleton').forEach(sk => sk.style.display = 'none');
+    $('#streamErrorBanner').style.display = 'block';
+    $('#btnErrorRecovery').style.display = 'block';
+    $('#btnNextToVerify').setAttribute('disabled', 'true');
+    $('#streamStatusChip').className = 'chip bad';
+    $('#streamStatusChip').textContent = 'stream drop';
+    $('#streamStatusText').textContent = 'Generation failed: connection dropped.';
+  } else {
+    // Default (Happy path)
+    showStep('step1');
+  }
+}
+
+stateSelect.onchange = (e) => {
+  triggerStateChange(e.target.value);
+};
+
+// Persona Switcher
+personaSeg.onclick = (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  
+  $$('#personaSeg button').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  persona = btn.dataset.persona;
+  
+  const isBuild = persona === 'persona-build';
+  document.body.className = '';
+  if (isLightTheme) document.body.classList.add('light');
+  document.body.classList.add(persona);
+
+  const banner = $('#planeBanner');
+  const chip = $('#planeChip');
+  const text = $('#planeBannerText');
+
+  if (isBuild) {
+    banner.className = "plane-banner";
+    chip.className = "chip purple";
+    chip.textContent = "Control Plane (Build)";
+    text.textContent = "PHI-free by construction (ADR-0014). All patient identifiers are tokenized or redacted. Synthesis editing is disabled.";
+    hidePop();
+  } else {
+    banner.className = "plane-banner operate-plane";
+    chip.className = "chip ok";
+    chip.textContent = "Data Plane (Operate)";
+    text.textContent = "Full clinical context & Patient PHI active. Reviewer holds authorization to resume, verify, and transmit appeal materials.";
+  }
+
+  triggerStateChange(stateSelect.value);
+};
+
+// Theme Toggle
+themeToggle.onclick = () => {
+  isLightTheme = !isLightTheme;
+  document.body.classList.toggle('light', isLightTheme);
+  $('#themeToggle').innerHTML = isLightTheme ? '<span class="theme-icon">☾</span>' : '<span class="theme-icon">☼</span>';
+};
+
+// Recover partial draft action
+function recoverPartialDraft() {
+  claimsState.c5.status = 'removed';
+  showStep('step3');
+  setEditorMode('edit');
+  $('#letterEditor').innerHTML = $('#streamText').innerHTML;
+  alert("Success: Partial stream draft recovered into Edit Mode!\n\nAutomatic gatekeeper is de-activated. You may now complete writing the letter manually.");
+}
+
+// ── Break-Glass Flow ──
+const glassModal = $('#glassModal');
+const glassAttest = $('#glassAttest');
+const glassReason = $('#glassReason');
+const btnGlassSubmit = $('#btnGlassSubmit');
+
+function openGlassModal() {
+  glassModal.style.display = 'flex';
+  glassAttest.checked = false;
+  glassReason.value = "";
+  btnGlassSubmit.setAttribute('disabled', 'true');
+}
+
+function closeGlassModal() {
+  glassModal.style.display = 'none';
+}
+
+glassAttest.onchange = () => {
+  if (glassAttest.checked && glassReason.value.trim().length > 3) {
+    btnGlassSubmit.removeAttribute('disabled');
+  } else {
+    btnGlassSubmit.setAttribute('disabled', 'true');
+  }
+};
+
+glassReason.oninput = () => {
+  if (glassAttest.checked && glassReason.value.trim().length > 3) {
+    btnGlassSubmit.removeAttribute('disabled');
+  } else {
+    btnGlassSubmit.setAttribute('disabled', 'true');
+  }
+};
+
+function authorizeBreakGlass() {
+  isBreakGlassActive = true;
+  closeGlassModal();
+  
+  // Set state back to default
+  $('#stateSelect').value = 'default';
+  triggerStateChange('default');
+  
+  // Enable timer chip
+  $('#bgTimer').style.display = 'flex';
+  alert(`Break-Glass Authorization Granted!\n\nJustification and coordinator session registered in the immutable audit trail (AuditRecord.provenance = 'as_is' + break_glass_attestation).`);
+}
+
+// Initialize on page load
+loadCase('ozempic_cigna');
+</script>
+</body>
+</html>

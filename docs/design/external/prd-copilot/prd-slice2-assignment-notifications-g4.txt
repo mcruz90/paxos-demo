@@ -1,0 +1,1020 @@
+# PRD — Slice 2: Assignment & Notifications (G4)
+
+*Status: Draft — 2026-07-19*
+*Author: ClearAuth Platform Engineering*
+*Branch target: `feature/g4-assignment-notifications`*
+*Depends on: P7a (ADR-0017 live), S3 Slice 4b (resume endpoint live), Sprint FI Slice 4 (live POC wiring)*
+
+---
+
+## Table of Contents
+
+1. [Problem Summary](#1-problem-summary)
+2. [Goals](#2-goals)
+3. [Non-Goals](#3-non-goals)
+4. [Requirements](#4-requirements)
+   - 4.1 Functional
+   - 4.2 Non-Functional
+5. [Assignment Model](#5-assignment-model)
+6. [Notification System](#6-notification-system)
+7. [Data Model Changes](#7-data-model-changes)
+8. [API Changes](#8-api-changes)
+9. [LangGraph Integration](#9-langgraph-integration)
+10. [UI Surfaces](#10-ui-surfaces)
+11. [Test Cases](#11-test-cases)
+12. [Risks](#12-risks)
+13. [Deliverables & Acceptance Criteria](#13-deliverables--acceptance-criteria)
+
+---
+
+## 1. Problem Summary
+
+### Background
+
+ClearAuth's exception-tier appeal runs park at the `hold` node via
+`interrupt()` and surface in `GET /api/reviews/pending` — a tenant-scoped
+queue listing runs that have a `done` audit record, no `human_edited` record,
+and a live LangGraph checkpoint (ADR-0011). Since S3 Slice 4b the resume
+endpoint (`POST /api/appeal/resume`) is live and the `reviewed_by` field on
+the `AuditRecord` is stamped from the session's `user_id` (ADR-0013).
+
+However, the queue today is a **pool, not a workqueue**: any authenticated
+reviewer in a tenant can call resume on any parked run. There is no mechanism
+to:
+
+- **Assign** a parked case to a named reviewer, preventing duplicate work and
+  establishing clear accountability.
+- **Notify** the assigned reviewer that a case is waiting, or alert a
+  supervisor when an SLA threshold is approaching.
+- **Track** who claimed a case and when, separate from who ultimately submitted
+  the resume.
+
+### The Gap (G4)
+
+Gap G4 — *Assignment & Notifications* — was identified during the 2026-07-17
+platform review as a pre-requisite to the Operate role's production readiness.
+Without assignment and notifications the `ready_for_review` and `exception`
+queues can only be worked by reviewers who proactively poll the UI, and a case
+can be silently double-claimed or abandoned at handoff. Regulatory turnaround
+clocks (state-level prior-authorization statutes: Illinois SB 1451, MD HB
+1563) make silent abandonment a compliance risk.
+
+### Current State Inventory
+
+| Capability | Status |
+|---|---|
+| Exception-tier park + resume (`hold` node, ADR-0010) | Live |
+| `GET /api/reviews/pending` — tenant-scoped queue (ADR-0011) | Live |
+| `reviewed_by` stamped on resume `AuditRecord` (ADR-0013) | Live |
+| Tenancy fields on all case-bearing objects (ADR-0017) | Live |
+| `TenancyScope` fail-closed at store boundary | Live |
+| Assignment of a case to a named reviewer | **Missing** |
+| Claim / unclaim lifecycle on the queue item | **Missing** |
+| In-app notification delivery | **Missing** |
+| SLA / urgency-driven notification escalation | **Missing** |
+| Supervisor override (re-assign a claimed case) | **Missing** |
+
+---
+
+## 2. Goals
+
+**G4-01.** A reviewer (Operate role) can claim a pending case from the
+exception queue, producing a durable `AssignmentRecord` that links the
+`correlation_id` of the parked run to a `user_id` and a `tenant_id`.
+
+**G4-02.** Once claimed, the case is **locked** to that reviewer: attempts by
+a second reviewer to claim the same `correlation_id` return a typed conflict
+response rather than silently racing.
+
+**G4-03.** The assigned reviewer can release a claim (unclaim), returning the
+case to the pool — with an audit entry.
+
+**G4-04.** A supervisor (a user with the `supervisor` role claim — see
+ADR-0017 Q4's deferred `role` field, which G4 adds) can forcibly re-assign a
+claimed case to another reviewer.
+
+**G4-05.** The notification system delivers an in-app notification to the
+assigned reviewer when a case is claimed against them (supervisor-assign path)
+or when a new exception-tier run parks in their tenant (pool notification).
+
+**G4-06.** SLA-age notifications fire when a parked run has been in the queue
+past configurable thresholds (default: **2 h** first reminder, **4 h**
+escalation to supervisor).
+
+**G4-07.** Notifications are tenant-scoped, delivered over the existing SSE
+transport extended with a persistent `notification` event, and retrievable via
+a new `GET /api/notifications` endpoint.
+
+**G4-08.** All assignment and notification state is stored in the pre-Phase-3
+in-memory stores (same caveat as the audit list and session store; PostgreSQL
+migration lands at Phase 3 with the rest of the durable store).
+
+**G4-09.** The LangGraph pipeline emits an `AssignmentHook` after the `hold`
+interrupt fires, allowing the notification subsystem to send the initial
+"case parked" tenant notification without coupling the pipeline to HTTP or a
+message broker.
+
+**G4-10.** The change is **behavior-preserving** for the existing resume path:
+`POST /api/appeal/resume` continues to work as-is; the assignment layer is
+additive, not a gate on resume for this slice (enforcement gate deferred to G4
+Slice 2).
+
+---
+
+## 3. Non-Goals
+
+- **Email or SMS notifications.** Only in-app SSE delivery is in scope. Push
+  email is a distinct integration (outbound dispatch rail, gap G7).
+- **Role-based access control enforcement on resume.** The assignment record
+  establishes attribution this slice; blocking unclaimed resumes is deferred.
+- **Notification delivery guarantees (at-least-once / exactly-once).** The
+  in-memory store is best-effort pre-Phase-3; notifications that arrive before
+  a client connects are readable via the REST endpoint but not re-pushed.
+- **SLA clock integration with regulatory deadlines.** Thresholds are
+  operator-configured flat durations; real regulatory-deadline logic (drug ×
+  payer × state) is a later roadmap item.
+- **Assignment of `routine` or `complex` tier cases.** Those tiers do not park
+  at `hold` and are not in the exception queue; queue workspace assignment is a
+  separate track.
+- **Multi-tenant admin panel.** Platform-plane (Bearer) visibility of
+  cross-tenant assignments is read-only this slice.
+- **Qdrant or PostgreSQL.** No new external dependencies introduced; stores
+  remain in-process.
+- **`demo` branch changes.** The assignment/notification surfaces ship only in
+  `main`; the demo SPA continues to run from fixtures.
+
+---
+
+## 4. Requirements
+
+### 4.1 Functional Requirements
+
+| ID | Requirement |
+|---|---|
+| FR-01 | `POST /api/cases/{correlation_id}/assign` — claim or assign a parked case; body specifies optional `assignee_id` (supervisor path) or defaults to the session user. |
+| FR-02 | A second claim on an already-assigned `correlation_id` returns `409 Conflict` with the current `AssignmentRecord` in the body. |
+| FR-03 | `DELETE /api/cases/{correlation_id}/assign` — release (unclaim) a case; only the current assignee or a supervisor may unclaim. |
+| FR-04 | `PATCH /api/cases/{correlation_id}/assign` — re-assign (supervisor only); atomically replaces `assignee_id` and writes a new `AssignmentEvent`. |
+| FR-05 | `GET /api/reviews/pending` response is extended (additive, non-breaking) with an optional `assignee_id: str \| null` field per review item. |
+| FR-06 | `GET /api/notifications` returns the authenticated user's (tenant-scoped) notification list, ordered newest-first, with read/unread state. |
+| FR-07 | `POST /api/notifications/{notification_id}/read` marks a single notification read. |
+| FR-08 | `POST /api/notifications/read-all` marks all of the user's notifications read. |
+| FR-09 | The SSE stream for `GET /api/reviews/stream` (new; see §8) pushes `notification` events to connected clients in real time. |
+| FR-10 | When an exception-tier run parks (`hold` node fires), a tenant-wide `case_parked` notification is created for all Operate-role users in the tenant within 500 ms. |
+| FR-11 | When a supervisor assigns a case to a specific reviewer, a `case_assigned` notification targets that reviewer's `user_id`. |
+| FR-12 | SLA-age notifications fire at configurable intervals; defaults are 2 h (`sla_reminder`) and 4 h (`sla_escalation`), the latter targeting supervisors. |
+| FR-13 | Notification records carry `correlation_id`, `tenant_id`, `target_user_id` (or `null` = tenant-wide), `notification_type`, `created_at`, `read_at`, and a short `message` string (no PHI — identifiers only, per ADR-0009 §side-channel rules). |
+| FR-14 | The `AssignmentRecord` carries `correlation_id`, `tenant_id`, `assignee_id`, `assigned_by`, `assigned_at`, `released_at \| null`. |
+| FR-15 | `AuditRecord` gains an `assignment_ref: str \| null` field stamped with the `assignee_id` at resume time when a claim exists, so the audit trail closes the claim→review→submit loop. |
+| FR-16 | All new read paths are fail-closed through `TenancyScope` — no scope, no rows (same invariant as §7 of 07-security-architecture.md). |
+| FR-17 | A Bearer/platform caller sees all tenants' assignment and notification records (platform-plane read, consistent with ADR-0017). |
+
+### 4.2 Non-Functional Requirements
+
+| ID | Requirement |
+|---|---|
+| NFR-01 | Claim/unclaim/re-assign operations are idempotent within a `(correlation_id, attempt)` window — a duplicate claim by the same `user_id` within 30 s returns `200` with the existing record (not `409`). |
+| NFR-02 | In-memory assignment store must be read-consistent within the same Python process (single-worker pre-Phase-3, matching the audit and session store caveats in ADR-0009). |
+| NFR-03 | The SSE notification stream (`GET /api/reviews/stream`) must not block appeal generation — it runs on a separate route with its own async generator and does not share state with the pipeline SSE routes. |
+| NFR-04 | SLA-age checks are driven by a lightweight `asyncio` background task started at `main.py` startup — no Celery, no external scheduler (deferred dep rule, ADR-0007). |
+| NFR-05 | No PHI in any notification message field — only `correlation_id`, `scenario_id`, `drug` (drug name is not PHI), `plan`, and `tier`. |
+| NFR-06 | All new Pydantic models follow the strict-mode pattern (`ConfigDict(strict=True)`) established in `models/schemas.py`. |
+| NFR-07 | Frontend/backend parity: new enums and shared shapes are mirrored in `src/types.ts` in the same commit; parity enforced by `test_schema_parity.py` (existing gate). |
+| NFR-08 | New routes are covered by at least one integration test in `tests/integration/` before the PR merges (TDD — RED before GREEN). |
+| NFR-09 | SLA thresholds are configurable via environment variables (`SLA_REMINDER_HOURS`, `SLA_ESCALATION_HOURS`) with the defaults above; no hard-coded magic numbers in production code. |
+
+---
+
+## 5. Assignment Model
+
+### 5.1 Conceptual Design
+
+The assignment model is a **thin claim layer over the existing queue index**
+(ADR-0011). It does not replace or duplicate the audit-trail-derived queue; it
+adds a mutable `AssignmentRecord` keyed by `correlation_id` that the queue
+read path joins into its response.
+
+```
+pending review queue (audit-derived, immutable)
+        │
+        │  joined at read time
+        ▼
+AssignmentRecord (mutable, keyed by correlation_id)
+        │
+        │  stamped at resume time
+        ▼
+AuditRecord (human_edited, assignment_ref field)
+```
+
+### 5.2 Claim Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> unassigned : exception run parks (hold node)
+    unassigned --> assigned : POST /assign (self-claim or supervisor-assign)
+    assigned --> unassigned : DELETE /assign (release by assignee or supervisor)
+    assigned --> assigned : PATCH /assign (supervisor re-assign — replaces assignee_id)
+    assigned --> resolved : POST /api/appeal/resume succeeds → human_edited AuditRecord written
+    unassigned --> resolved : resume by any reviewer (no claim — assignment_ref = null)
+    resolved --> [*]
+```
+
+### 5.3 Claim Conflict Semantics
+
+A `correlation_id` maps to **at most one live `AssignmentRecord`**. The store
+enforces this with a compare-and-swap write — if a record already exists for
+the `correlation_id` and its `released_at` is `null`, the write is rejected and
+the store returns the existing record. The route translates this into `409`.
+
+Idempotent window (NFR-01): the same `(correlation_id, user_id)` pair within
+30 s is treated as a transport retry and returns `200` with the existing record.
+This mirrors the audit idempotency semantics (ADR-0009) without re-inventing
+the `idempotency_key` scheme for a mutable entity.
+
+### 5.4 Role Model (Additive to ADR-0017)
+
+ADR-0017 deferred the `role` claim on the session to Phase 3. G4 needs it
+for the supervisor path. This slice adds a minimal `UserRole` enum and a
+`role` field to `LoginResponse` / `MeResponse` without a full RBAC overhaul:
+
+| Role | Capabilities added by G4 |
+|---|---|
+| `reviewer` | Self-claim, unclaim own cases, resume any case in tenant |
+| `supervisor` | All reviewer capabilities + assign to others, force re-assign, receive `sla_escalation` notifications |
+| `service` | Bearer callers — platform-plane read, no assignment operations |
+
+The pre-DB implementation seeds `DEMO_USER` as `reviewer` and a new
+`DEMO_SUPERVISOR_USER` / `DEMO_SUPERVISOR_PASSWORD` as `supervisor`. A future
+ADR covers role persistence in PostgreSQL.
+
+### 5.5 Integration with Resume
+
+`POST /api/appeal/resume` is unchanged in signature. The route handler gains
+one additive step:
+
+```
+1. auth_middleware resolves session user_id (existing)
+2. look up AssignmentRecord for correlation_id (new — assignment_store.get())
+3. if record exists → stamp assignment_ref = record.assignee_id on the
+   AuditRecord written by run_resume (new field, null if no claim)
+4. mark record released_at = now (new — assignment_store.release())
+5. run_resume() as before (unchanged)
+```
+
+This is **not** a blocking gate — an unclaimed resume succeeds with
+`assignment_ref = null`. The blocking gate (only the assignee may resume) is
+deferred to G4 Slice 2.
+
+---
+
+## 6. Notification System
+
+### 6.1 Architecture
+
+The notification system is a **lightweight in-process pub/sub** with three
+components:
+
+1. **`NotificationStore`** (`backend/notifications/store.py`) — in-memory
+   `dict[str, list[NotificationRecord]]` keyed by `tenant_id`; a secondary
+   index by `target_user_id`; bounded to 1000 records per tenant (LRU eviction
+   on oldest-read). Thread-safe via `asyncio.Lock` (single-event-loop
+   assumption, pre-Phase-3).
+
+2. **`NotificationBus`** (`backend/notifications/bus.py`) — an
+   `asyncio.Queue`-backed fan-out. Publishers push `NotificationRecord` objects
+   in; active SSE streams (one per connected client) drain from a per-client
+   sub-queue. The bus is a module-level singleton (same pattern as the compiled
+   `_PIPELINE` in `agents/graph.py`).
+
+3. **SLA ticker** (`backend/notifications/sla_ticker.py`) — an `asyncio`
+   background task (started in `main.py`'s `lifespan` handler) that wakes
+   every 5 minutes, scans the pending-review queue, and emits `sla_reminder` /
+   `sla_escalation` events for runs older than the configured thresholds.
+
+### 6.2 Notification Types
+
+| `notification_type` | Trigger | `target_user_id` |
+|---|---|---|
+| `case_parked` | Exception-tier `hold` node fires | `null` (tenant-wide) |
+| `case_assigned` | Supervisor assigns to a specific reviewer | Assignee's `user_id` |
+| `case_released` | Assignee or supervisor unclaims a case | `null` (tenant-wide) |
+| `case_reassigned` | Supervisor re-assigns a claimed case | New assignee's `user_id`; old assignee also notified |
+| `case_resolved` | `human_edited` `AuditRecord` written | `null` (tenant-wide) |
+| `sla_reminder` | Case in queue past `SLA_REMINDER_HOURS` (default 2 h) | Assignee if claimed, else `null` |
+| `sla_escalation` | Case in queue past `SLA_ESCALATION_HOURS` (default 4 h) | All supervisors in tenant |
+
+### 6.3 Notification Record Shape
+
+```python
+class NotificationRecord(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    notification_id: str          # uuid4 hex
+    tenant_id: str
+    target_user_id: str | None    # None = tenant-wide
+    notification_type: NotificationType
+    correlation_id: str           # parked run's handle
+    scenario_id: str
+    drug: str                     # not PHI
+    plan: str                     # not PHI
+    tier: CaseTier
+    message: str                  # ≤ 200 chars; identifiers only, no PHI
+    created_at: datetime
+    read_at: datetime | None      # None = unread
+```
+
+`NotificationType` is a new enum in `backend/models/schemas.py` (mirrored in
+`src/types.ts`):
+
+```
+case_parked | case_assigned | case_released | case_reassigned
+| case_resolved | sla_reminder | sla_escalation
+```
+
+### 6.4 SSE Notification Event
+
+The notification event rides the existing SSE wire format
+(`event: notification\ndata: <JSON>\n\n`) on the **new** stream route
+`GET /api/reviews/stream`. This is intentionally a **separate route** from
+`/api/appeal/generate` — the notification stream is long-lived (client keeps
+it open) while the generation routes are per-request and terminate. The
+existing `AppealEvent` discriminated union is not extended.
+
+```json
+{
+  "event": "notification",
+  "notification_id": "3f7a…",
+  "notification_type": "case_parked",
+  "correlation_id": "livdelzi-cigna:a1",
+  "scenario_id": "livdelzi-cigna",
+  "drug": "Livdelzi (seladelpar)",
+  "plan": "Cigna PPO",
+  "tier": "exception",
+  "message": "Exception-tier case livdelzi-cigna:a1 is awaiting review.",
+  "created_at": "2026-07-19T14:30:00+00:00"
+}
+```
+
+A `keepalive` comment frame (`:\n\n`) is sent every 15 s to prevent proxy
+timeouts.
+
+### 6.5 Pipeline → Notification Hook (`AssignmentHook`)
+
+The `hold` node in `agents/graph.py` currently calls `interrupt()` and emits
+no further events (the SSE stream terminates with the earlier `done` event).
+G4 adds a **post-interrupt hook** that publishes to the `NotificationBus` after
+`interrupt()` returns:
+
+```python
+# agents/nodes/hold.py  (new behaviour in existing node)
+
+async def hold_node(state: PipelineState, config: RunnableConfig) -> PipelineState:
+    writer = get_stream_writer()
+    await writer({"type": "hold", "correlation_id": state["correlation_id"]})
+    # Publish case_parked notification — fire-and-forget, never blocks pipeline
+    notification_bus.publish_nowait(
+        build_case_parked_notification(state)
+    )
+    interrupt({"reason": "exception_tier_review"})
+    return state
+```
+
+`build_case_parked_notification` is a pure function
+(`notifications/events.py`) — it constructs a `NotificationRecord` from
+`PipelineState` fields without any I/O, consistent with the node-purity rule
+(CLAUDE.md §File Organization, doc 02). The bus enqueues without awaiting
+delivery, so `interrupt()` is never delayed by notification fan-out.
+
+### 6.6 SLA Ticker Design
+
+```python
+# notifications/sla_ticker.py
+
+async def sla_ticker_task(
+    review_queue_fn: Callable[[], list[PendingReview]],
+    notification_store: NotificationStore,
+    notification_bus: NotificationBus,
+    *,
+    poll_interval_s: int = 300,
+    reminder_hours: float,
+    escalation_hours: float,
+) -> None:
+    while True:
+        await asyncio.sleep(poll_interval_s)
+        now = datetime.now(UTC)
+        for review in review_queue_fn():
+            age = now - review.parked_at
+            if age >= timedelta(hours=escalation_hours):
+                _maybe_emit(notification_store, notification_bus, review,
+                            NotificationType.sla_escalation)
+            elif age >= timedelta(hours=reminder_hours):
+                _maybe_emit(notification_store, notification_bus, review,
+                            NotificationType.sla_reminder)
+```
+
+`_maybe_emit` checks whether a notification of that type for that
+`correlation_id` was already emitted in this interval (deduplication via
+`NotificationStore.has_recent(correlation_id, notification_type,
+within=poll_interval_s)`) — prevents duplicate SLA alerts on each tick.
+
+The ticker is injected with the same `derive_pending_reviews` + `is_run_parked`
+pair used by the `/api/reviews/pending` route (ADR-0011), so it shares the
+queue index logic without re-implementing it.
+
+---
+
+## 7. Data Model Changes
+
+### 7.1 New Pydantic Models (`backend/models/schemas.py`)
+
+```python
+class UserRole(str, Enum):
+    reviewer = "reviewer"
+    supervisor = "supervisor"
+    service = "service"
+
+class NotificationType(str, Enum):
+    case_parked     = "case_parked"
+    case_assigned   = "case_assigned"
+    case_released   = "case_released"
+    case_reassigned = "case_reassigned"
+    case_resolved   = "case_resolved"
+    sla_reminder    = "sla_reminder"
+    sla_escalation  = "sla_escalation"
+
+class AssignmentRecord(BaseModel):
+    model_config = ConfigDict(strict=True)
+    assignment_id: str             # uuid4 hex
+    correlation_id: str
+    tenant_id: str
+    assignee_id: str               # user_id of the claimed reviewer
+    assigned_by: str               # user_id of the actor (self or supervisor)
+    assigned_at: datetime
+    released_at: datetime | None   # None = still claimed
+
+class AssignmentEvent(BaseModel):
+    """Immutable log entry per assignment state transition."""
+    model_config = ConfigDict(strict=True)
+    event_id: str
+    correlation_id: str
+    tenant_id: str
+    event_type: Literal["claimed", "released", "reassigned"]
+    actor_id: str
+    target_id: str                 # new assignee_id (or "" for release)
+    timestamp: datetime
+
+class NotificationRecord(BaseModel):
+    model_config = ConfigDict(strict=True)
+    notification_id: str
+    tenant_id: str
+    target_user_id: str | None
+    notification_type: NotificationType
+    correlation_id: str
+    scenario_id: str
+    drug: str
+    plan: str
+    tier: CaseTier
+    message: str                   # ≤ 200 chars
+    created_at: datetime
+    read_at: datetime | None
+```
+
+### 7.2 Modifications to Existing Models
+
+**`AuditRecord`** (additive field — no breaking change):
+```python
+assignment_ref: str | None = None   # assignee_id at resume time; null if unclaimed
+```
+
+**`MeResponse`** (additive):
+```python
+role: UserRole = UserRole.reviewer
+```
+
+**`LoginResponse`** (additive):
+```python
+role: UserRole = UserRole.reviewer
+```
+
+**`PendingReview`** (the per-item shape in `PendingReviewsResponse` — additive):
+```python
+assignee_id: str | None = None      # null if unassigned
+assigned_at: datetime | None = None
+```
+
+### 7.3 New Enums Added to `src/types.ts` (parity required)
+
+```typescript
+export type UserRole = "reviewer" | "supervisor" | "service";
+
+export type NotificationType =
+  | "case_parked"
+  | "case_assigned"
+  | "case_released"
+  | "case_reassigned"
+  | "case_resolved"
+  | "sla_reminder"
+  | "sla_escalation";
+```
+
+Frontend `LoginResponse` / `MeResponse` types gain the `role: UserRole` field
+in the generated `api-types.d.ts` (regenerated by `npm run api:dump &&
+npm run api:types`; freshness gate in CI catches any drift — doc 08).
+
+### 7.4 New Store Modules
+
+```
+backend/
+  notifications/
+    __init__.py
+    store.py          # NotificationStore — in-memory dict + LRU
+    bus.py            # NotificationBus — asyncio.Queue fan-out singleton
+    sla_ticker.py     # background task
+    events.py         # pure builder functions (no I/O)
+  assignment/
+    __init__.py
+    store.py          # AssignmentStore — compare-and-swap dict
+    events.py         # pure AssignmentEvent builders
+```
+
+Layer rule: `notifications/` and `assignment/` are new cross-cutting modules
+at the same level as `audit/` — they are not inside `agents/`. Route handlers
+remain logic-free; all derivation logic lives in these modules (testability,
+CLAUDE.md §File Organization).
+
+---
+
+## 8. API Changes
+
+All new routes follow the dual Bearer/cookie auth scheme (ADR-0013) and the
+`TenancyScope` fail-closed boundary (ADR-0017). Cookie-authenticated non-GET
+requests require `X-CSRF-Token`.
+
+### 8.1 Assignment Routes
+
+#### `POST /api/cases/{correlation_id}/assign`
+
+Claim or assign a parked case.
+
+**Auth:** dual scheme. Cookie writes need CSRF token.
+
+**Path param:** `correlation_id` — must match a parked run in the review queue
+(i.e., an exception-tier `done` record + live checkpoint + no `human_edited`
+record). If the run is not parked, `404`.
+
+**Request body:**
+```json
+{ "assignee_id": "user-42" }
+```
+`assignee_id` is optional — omit to self-claim (defaults to session `user_id`).
+Providing `assignee_id != session_user_id` requires the `supervisor` role
+(returns `403` otherwise).
+
+**Responses:**
+
+| Code | Meaning |
+|---|---|
+| `200` | Claim created or idempotent match — returns `AssignmentRecord` |
+| `403` | Insufficient role (reviewer attempting to assign to another user) |
+| `404` | `correlation_id` not in the pending queue |
+| `409` | Already claimed by a different user — returns existing `AssignmentRecord` in body |
+| `422` | Body validation failure |
+
+#### `DELETE /api/cases/{correlation_id}/assign`
+
+Release a claim (unclaim).
+
+**Auth:** dual scheme. The session user must be the current `assignee_id` OR
+have the `supervisor` role.
+
+**Responses:** `204` (released), `403` (not assignee and not supervisor),
+`404` (no live claim for `correlation_id`).
+
+#### `PATCH /api/cases/{correlation_id}/assign`
+
+Re-assign to a different reviewer (supervisor only).
+
+**Auth:** dual scheme; requires `supervisor` role.
+
+**Request body:**
+```json
+{ "assignee_id": "user-99" }
+```
+
+**Responses:** `200` `AssignmentRecord` (updated), `403` (not supervisor),
+`404` (no live claim or `correlation_id` not in queue).
+
+### 8.2 Notification Routes
+
+#### `GET /api/notifications`
+
+Returns the authenticated user's notification list, tenant-scoped.
+
+**Auth:** dual scheme. A Bearer/platform caller sees all tenants (platform-plane).
+
+**Query params:**
+- `unread_only: bool` (default `false`)
+- `limit: int` (default `50`, max `200`)
+
+**Response:**
+```json
+{
+  "notifications": [
+    {
+      "notification_id": "3f7a…",
+      "notification_type": "case_parked",
+      "correlation_id": "livdelzi-cigna:a1",
+      "scenario_id": "livdelzi-cigna",
+      "drug": "Livdelzi (seladelpar)",
+      "plan": "Cigna PPO",
+      "tier": "exception",
+      "message": "Exception-tier case livdelzi-cigna:a1 is awaiting review.",
+      "created_at": "2026-07-19T14:30:00+00:00",
+      "read_at": null
+    }
+  ],
+  "unread_count": 1
+}
+```
+
+#### `POST /api/notifications/{notification_id}/read`
+
+Mark a single notification read.
+
+**Auth:** dual scheme; the session user must own the notification or be a
+supervisor in the tenant. `204` on success, `404` if unknown.
+
+#### `POST /api/notifications/read-all`
+
+Mark all of the authenticated user's notifications read.
+
+**Auth:** dual scheme. `204`, no body.
+
+#### `GET /api/reviews/stream`
+
+Long-lived SSE stream delivering `notification` events in real time to the
+authenticated client.
+
+**Auth:** dual scheme (Bearer or cookie). Cookie-authenticated — CSRF not
+required for GET.
+
+**Response:** `200 text/event-stream`, same headers as the generation routes.
+Events:
+
+```
+event: notification
+data: { ...NotificationRecord fields... }
+
+```
+
+```
+:keepalive
+
+```
+
+The client closes the connection to end the stream. On reconnect the client
+should call `GET /api/notifications?unread_only=true` to catch any missed
+events (not replayed on reconnect — no event-ID replay in this slice;
+EventSource retry semantics are a Phase 3 enhancement).
+
+### 8.3 Modified Route Responses
+
+#### `GET /api/reviews/pending` (additive change)
+
+The `reviews` array items gain two optional fields:
+
+```json
+{
+  "correlation_id": "livdelzi-cigna:a1",
+  "scenario_id": "livdelzi-cigna",
+  "drug": "Livdelzi (seladelpar)",
+  "plan": "Cigna PPO",
+  "tier": "exception",
+  "parked_at": "2026-07-19T12:00:00+00:00",
+  "assignee_id": "user-42",
+  "assigned_at": "2026-07-19T12:15:00+00:00"
+}
+```
+
+`assignee_id` and `assigned_at` are `null` when unassigned. Clients that do
+not use these fields are unaffected (additive JSON fields).
+
+#### `GET /api/auth/me` (additive change)
+
+```json
+{ "user_id": "reviewer-1", "role": "reviewer" }
+```
+
+#### `POST /api/auth/login` (additive change)
+
+```json
+{ "user_id": "reviewer-1", "csrf_token": "…", "role": "reviewer" }
+```
+
+### 8.4 Environment Variables (New)
+
+| Var | Required | Default | Meaning |
+|---|---|---|---|
+| `DEMO_SUPERVISOR_USER` | for supervisor login | — | Demo supervisor credentials |
+| `DEMO_SUPERVISOR_PASSWORD` | for supervisor login | — | Demo supervisor credentials |
+| `SLA_REMINDER_HOURS` | no | `2.0` | Age (hours) triggering `sla_reminder` notification |
+| `SLA_ESCALATION_HOURS` | no | `4.0` | Age (hours) triggering `sla_escalation` to supervisors |
+| `SLA_POLL_INTERVAL_SECONDS` | no | `300` | SLA ticker wake interval |
+| `NOTIFICATION_STORE_LIMIT` | no | `1000` | Max notifications per tenant (LRU evict oldest-read) |
+
+---
+
+## 9. LangGraph Integration
+
+### 9.1 Changes to `agents/graph.py`
+
+The compiled `_PIPELINE` (`StateGraph(PipelineState)`) receives one additive
+node-level change: the existing `hold` node wrapper gains a `publish_nowait`
+call after `interrupt()`. **The graph topology is unchanged** — no new nodes,
+no new edges, no new conditional routing.
+
+```mermaid
+stateDiagram-v2
+    [*] --> ingestion
+    ingestion --> retrieval
+    retrieval --> synthesis
+    synthesis --> gatekeeper
+    gatekeeper --> tier_router : passed
+    tier_router --> finalize
+    finalize --> done_event
+    done_event --> hold : tier == exception
+    hold --> [*] : interrupt() + publish_nowait(case_parked) ← NEW
+    gatekeeper --> synthesis : failed < 3
+    gatekeeper --> error_event : failed == 3
+    done_event --> [*] : routine / complex
+    error_event --> [*]
+```
+
+### 9.2 `PipelineState` changes
+
+One additive field — `correlation_id` already exists (it is the
+`thread_id = correlation_id` config value). No `PipelineState` schema change
+is needed because `correlation_id` is carried in `config["configurable"]`
+and already accessible in all node wrappers.
+
+### 9.3 `hold` node implementation (modified)
+
+```python
+# agents/nodes/hold.py  (node wrapper — thin, no business logic)
+
+async def hold_node(state: PipelineState, config: RunnableConfig) -> PipelineState:
+    from notifications.bus import notification_bus      # module-level singleton
+    from notifications.events import build_case_parked  # pure builder
+
+    writer = get_stream_writer()
+    correlation_id: str = config["configurable"]["thread_id"]
+
+    # Publish before interrupt so the notification lands even if interrupt
+    # raises (LangGraph interrupt() raises GraphInterrupt internally).
+    record = build_case_parked(state, correlation_id=correlation_id)
+    notification_bus.publish_nowait(record)   # fire-and-forget
+
+    await writer({"type": "hold", "correlation_id": correlation_id})
+    interrupt({"reason": "exception_tier_review"})
+    return state
+```
+
+`publish_nowait` uses `asyncio.Queue.put_nowait` — it does not block and does
+not raise if the queue is full (the bus drops the oldest undelivered event
+under backpressure, acceptable for best-effort pre-Phase-3 delivery).
+
+### 9.4 `resume_finalize` node (modified)
+
+The `resume_finalize` node in `agents/resume.py` stamps `assignment_ref` on
+the `AuditRecord` it writes. The assignment store is queried via a pure helper:
+
+```python
+assignment_ref = assignment_store.get_assignee(correlation_id)
+# Returns assignee_id str or None; store.release() called after AuditRecord written
+```
+
+After the audit write succeeds, the store's `release` is called to set
+`released_at = now`. This order guarantees the audit record lands before the
+claim is cleared — matching the "durability before terminal event" invariant
+(CLAUDE.md §ACID).
+
+### 9.5 Backward Compatibility
+
+The resume path is contract-stable: `POST /api/appeal/resume` callers see no
+change in request shape, SSE event shape, or HTTP status codes. The
+`assignment_ref` field on `AuditRecord` is `null` for all runs resumed before
+G4 deploys and for unclaimed resumes thereafter.
+
+---
+
+## 10. UI Surfaces
+
+These surfaces ship in the `main` branch only (doc 01 — dual-branch strategy,
+ADR-0005). The demo SPA (`demo` branch) continues to render from fixtures.
+
+### 10.1 Pending Review Queue — `src/components/portfolio/ReviewQueue.tsx`
+
+**Current:** renders the list returned by `GET /api/reviews/pending` with
+`correlation_id`, drug, plan, tier, and `parked_at`.
+
+**G4 additions (all live-mode only):**
+
+- **Claim button** — for unassigned rows: calls `POST /api/cases/{id}/assign`
+  (self-claim). On `409`, shows a tooltip "Assigned to {assignee_id}".
+- **Assignee badge** — for assigned rows: shows the `assignee_id` and
+  `assigned_at` as a chip. Supervisor sessions show a "Re-assign" action.
+- **Release link** — visible to the current assignee: calls
+  `DELETE /api/cases/{id}/assign`. Requires confirmation dialog.
+- **SLA age indicator** — computes `now − parked_at` client-side; shows amber
+  at 2 h, red at 4 h (matches server-side SLA thresholds).
+
+### 10.2 Notification Bell — `src/components/shared/NotificationBell.tsx`
+
+New component added to the Operate-role header bar.
+
+- Unread count badge (integer, capped display at `99+`).
+- Click opens a dropdown panel listing the 10 most recent notifications with
+  type icon, message, relative timestamp (`parked 12 min ago`), and a link to
+  the relevant case in the queue workspace.
+- "Mark all read" button calls `POST /api/notifications/read-all`.
+- Component mounts `GET /api/reviews/stream` SSE connection on login; incoming
+  `notification` events increment the badge and prepend to the dropdown. On
+  disconnect it falls back to polling `GET /api/notifications` every 30 s.
+
+### 10.3 Supervisor Assignment Modal — `src/components/portfolio/AssignModal.tsx`
+
+Supervisor-only modal (role-gated: renders only when `me.role === "supervisor"`).
+
+- Triggered from the "Re-assign" queue row action.
+- Dropdown of `reviewer`-role users in the tenant (populated from a new
+  `GET /api/users` stub — returns the seeded demo users; full user directory
+  is Phase 3).
+- Submit calls `PATCH /api/cases/{id}/assign`.
+
+### 10.4 Capability Manifest Entry
+
+Following ADR-0016 (single-shell capability manifest), G4 adds two entries to
+`src/capabilities.ts`:
+
+```typescript
+{
+  unit: "O14",
+  label: "Case Assignment",
+  route: "/queue/assignment",
+  live: true,              // live mode: real API
+  simulated: false,        // no offline fixture path this slice
+  hidden: false,
+},
+{
+  unit: "O15",
+  label: "Notifications",
+  route: "/notifications",
+  live: true,
+  simulated: false,
+  hidden: false,
+},
+```
+
+`simulated: false` means the Operate view hides these panels when
+`VITE_API_BASE_URL` is unset (offline demo mode). This is intentional — the
+demo SPA has no fixture path for assignment state.
+
+---
+
+## 11. Test Cases
+
+Tests follow the TDD convention (doc 09): RED commit before GREEN commit, named
+`test(g4-NNN): RED` / `fix(g4-NNN): GREEN`.
+
+### 11.1 Unit Tests — `backend/tests/unit/`
+
+| Module | Test IDs | What is tested |
+|---|---|---|
+| `test_assignment_store.py` | G4-U-01 | Claim creates `AssignmentRecord`; idempotent re-claim by same user returns existing record |
+| | G4-U-02 | Second claim by different user raises conflict; record returned |
+| | G4-U-03 | `release()` sets `released_at`; subsequent claim succeeds |
+| | G4-U-04 | `get_assignee()` returns `None` for unknown `correlation_id` |
+| `test_notification_store.py` | G4-U-05 | `add()` stores record; `get_for_user()` returns tenant-scoped + target-user-matching records |
+| | G4-U-06 | `mark_read()` sets `read_at`; `mark_all_read()` bulk-sets |
+| | G4-U-07 | LRU eviction: adding record 1001 evicts oldest-read when limit=1000 |
+| | G4-U-08 | `has_recent()` dedup gate: returns `True` if same type + `correlation_id` within interval |
+| `test_notification_events.py` | G4-U-09 | `build_case_parked()` constructs correct `NotificationRecord` from `PipelineState`; no PHI in `message` |
+| | G4-U-10 | All seven `NotificationType` builders produce well-formed records |
+| `test_sla_ticker.py` | G4-U-11 | Ticker emits `sla_reminder` when age ≥ `reminder_hours`; not before |
+| | G4-U-12 | Ticker emits `sla_escalation` when age ≥ `escalation_hours`; `sla_reminder` not re-emitted once escalated |
+| | G4-U-13 | `has_recent()` dedup prevents duplicate SLA events within one poll interval |
+| `test_schema_parity.py` (existing, extended) | G4-U-14 | `UserRole`, `NotificationType` enums exist in both `schemas.py` and `src/types.ts` with identical members |
+
+### 11.2 Integration Tests — `backend/tests/integration/`
+
+| File | Test IDs | What is tested |
+|---|---|---|
+| `test_assignment_api.py` | G4-I-01 | `POST /api/cases/{id}/assign` (self-claim) → `200`; second call same user → `200` idempotent; second call different user → `409` |
+| | G4-I-02 | `DELETE /api/cases/{id}/assign` by assignee → `204`; by non-assignee reviewer → `403`; by supervisor → `204` |
+| | G4-I-03 | `PATCH /api/cases/{id}/assign` by supervisor → `200` new record; by reviewer → `403` |
+| | G4-I-04 | `GET /api/reviews/pending` response includes `assignee_id` and `assigned_at` after claim |
+| | G4-I-05 | `POST /api/appeal/resume` after claim → `AuditRecord.assignment_ref == assignee_id`; claim `released_at` set |
+| | G4-I-06 | `POST /api/appeal/resume` on unclaimed case → `AuditRecord.assignment_ref == null` |
+| `test_notification_api.py` | G4-I-07 | `GET /api/notifications` returns tenant-scoped records; Bearer sees all tenants |
+| | G4-I-08 | `POST /api/notifications/{id}/read` sets `read_at`; subsequent `GET` reflects it |
+| | G4-I-09 | `POST /api/notifications/read-all` marks all unread for the session user |
+| | G4-I-10 | `GET /api/reviews/stream` delivers `notification` event when `NotificationBus.publish()` is called; keepalive `:` comment arrives within 15 s |
+| `test_pipeline.py` (existing, extended) | G4-I-11 | Full exception-tier pipeline run: after `hold` fires, `NotificationStore` contains a `case_parked` record for the run's `correlation_id` |
+
+### 11.3 Contract Tests
+
+| Test | What is tested |
+|---|---|
+| `test_schema_parity.py` extension (G4-U-14) | Enum parity for new types |
+| Wire-types freshness gate (CI) | Regenerated `openapi.json` + `api-types.d.ts` include new routes and new fields |
+
+### 11.4 Frontend Unit Tests (`src/`)
+
+| File | What is tested |
+|---|---|
+| `NotificationBell.test.ts` | Unread count badge renders; SSE `notification` event increments badge; "mark all read" clears badge |
+| `ReviewQueue.test.ts` (extended) | Claim button renders for unassigned rows; assignee badge renders for assigned rows; SLA age indicator shows correct colour class |
+
+### 11.5 Security Test Cases
+
+| Test | Invariant verified |
+|---|---|
+| G4-I-07 (tenant scope) | A session user cannot read another tenant's notifications |
+| G4-I-01 (403 path) | A reviewer cannot assign to another `assignee_id` — role gate enforced |
+| G4-U-09 (PHI check) | `build_case_parked` message field contains no PHI-shaped content (extend existing `test_golden_compliance.py` scan to cover notification messages) |
+| Keepalive stream | `GET /api/reviews/stream` without auth → `401` before stream opens |
+
+---
+
+## 12. Risks
+
+| ID | Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|
+| R-01 | **Single-worker assumption breaks under multi-worker deploy.** In-memory `AssignmentStore` and `NotificationStore` are not shared across uvicorn workers. | Medium (deploy topology unknown) | High — silent duplicate claims possible | Document the single-worker caveat (mirrors ADR-0009/0010/0011). Add an integration test that asserts the claim conflict is enforced within one process. Migrate to PostgreSQL at Phase 3 with the rest of the durable store. |
+| R-02 | **`asyncio.Queue` backpressure drops notifications.** Under burst load (many exception-tier runs parking simultaneously) the bus queue could fill. | Low | Low (best-effort pre-Phase-3) | Set bus queue `maxsize=500`; `put_nowait` silently drops overflow. Log a warning (identifiers only) when drop occurs. Phase 3 migrates to a durable message broker. |
+| R-03 | **SLA ticker accumulates unbounded state.** If the SLA store for "already notified" events grows indefinitely it leaks memory. | Medium (long-running process) | Low | Bound the SLA-notified set to 10,000 entries with TTL-based eviction (24 h). |
+| R-04 | **Role field on session breaks existing demo login.** Adding `role` to `LoginResponse` / `MeResponse` is additive; existing clients that do not read it are unaffected. | Low | Low | Additive JSON fields; TypeScript consumer upgraded in same PR; parity test catches drift. |
+| R-05 | **`hold` node `publish_nowait` after `interrupt()` never executes.** `interrupt()` in LangGraph raises `GraphInterrupt` internally — code after it in the function body does not run. | High if ordered incorrectly | High — no `case_parked` notifications | **Mitigation (required):** call `publish_nowait` **before** `interrupt()`. Confirmed in LangGraph source (ADR-0010 note). Integration test G4-I-11 directly verifies this ordering. |
+| R-06 | **Re-assign race between `PATCH` and `DELETE`.** A supervisor re-assigns while the assignee simultaneously unclaims — one operation wins, the other gets `404`. | Low | Low (last-write-wins is acceptable) | Document the behavior. The assignment event log provides a full audit trail for post-hoc reconciliation. |
+| R-07 | **`GET /api/reviews/stream` held open by many clients degrades server under load.** SSE streams hold a file descriptor open per client. | Low (demo/early-stage scale) | Medium | Default server: single uvicorn worker with async generator — scales to tens of concurrent SSE connections. Rate-limit SSE connections per session at `slowapi` integration (Phase 3 / hosted backend). |
+| R-08 | **Notification messages leak PHI via inadvertent field inclusion.** | Low | High | `build_*` functions are pure and covered by G4-U-09 + PHI scan extension in `test_golden_compliance.py`. No `denial_text`, `patient_ref`, or free-text fields in `NotificationRecord`. |
+
+---
+
+## 13. Deliverables & Acceptance Criteria
+
+### Slice Structure
+
+G4 ships in two sub-slices on the `feature/g4-assignment-notifications` branch,
+merged to `main` via PR:
+
+| Sub-slice | Scope |
+|---|---|
+| **G4 Slice 1** — Assignment core | `AssignmentStore`, `AssignmentRecord`/`AssignmentEvent` models, three assignment routes, `GET /api/reviews/pending` extension, `AuditRecord.assignment_ref`, resume path integration, schema parity, unit + integration tests |
+| **G4 Slice 2** — Notification system + UI | `NotificationStore`, `NotificationBus`, SLA ticker, notification routes, `GET /api/reviews/stream`, `hold` node hook, frontend `NotificationBell`, queue `assignee_id` display, capability manifest entries, UI unit tests |
+
+### Acceptance Criteria
+
+**G4 Slice 1:**
+- [ ] `POST /api/cases/{id}/assign` self-claim returns `200 AssignmentRecord`; duplicate by different user returns `409`.
+- [ ] `DELETE /api/cases/{id}/assign` by non-assignee reviewer returns `403`; by assignee returns `204`.
+- [ ] `PATCH /api/cases/{id}/assign` by reviewer returns `403`; by supervisor returns `200`.
+- [ ] `GET /api/reviews/pending` items include `assignee_id` and `assigned_at`.
+- [ ] Full pipeline run → `POST /api/appeal/resume` (after assign) → `AuditRecord.assignment_ref == assignee_id`.
+- [ ] Full pipeline run → `POST /api/appeal/resume` (no assign) → `AuditRecord.assignment_ref == null`.
+- [ ] All G4-U-01–04 and G4-I-01–06 pass in CI.
+- [ ] `test_schema_parity.py` updated and passes.
+- [ ] Wire-types freshness gate passes (no stale generated types).
+- [ ] `UserRole` enum in `schemas.py` and `src/types.ts` — identical members.
+- [ ] `backend/.env.example` updated with `DEMO_SUPERVISOR_USER` / `DEMO_SUPERVISOR_PASSWORD`.
+
+**G4 Slice 2:**
+- [ ] Full exception-tier pipeline run: `NotificationStore` contains a `case_parked` record after `hold` fires (G4-I-11 passes).
+- [ ] `GET /api/notifications` returns tenant-scoped records; Bearer caller sees all tenants.
+- [ ] `POST /api/notifications/{id}/read` and `POST /api/notifications/read-all` work correctly.
+- [ ] `GET /api/reviews/stream` delivers `notification` SSE event on `NotificationBus.publish()`; keepalive fires within 15 s.
+- [ ] SLA ticker emits `sla_reminder` at 2 h and `sla_escalation` at 4 h; does not re-emit within the same poll interval (G4-U-11–13 pass).
+- [ ] `NotificationBell` component renders unread count badge; badge increments on SSE event; "mark all read" clears badge (frontend unit tests pass).
+- [ ] `ReviewQueue` shows `assignee_id` badge and SLA age indicator in live mode (frontend unit tests pass).
+- [ ] All G4-U-05–14 and G4-I-07–11 pass in CI.
+- [ ] PHI scan extension in `test_golden_compliance.py` covers notification `message` fields.
+- [ ] `src/capabilities.ts` entries O14 and O15 added; `npm run build` passes.
+- [ ] SLA threshold env vars documented in `backend/.env.example` and `06-api-contract.md`.
+- [ ] This PRD document committed to `docs/prd/` in the same PR as G4 Slice 2.
+
+### Documentation Updates Required
+
+| Doc | Change |
+|---|---|
+| `docs/architecture/03-domain-model.md` | New models: `AssignmentRecord`, `AssignmentEvent`, `NotificationRecord`; modified: `AuditRecord`, `MeResponse`, `LoginResponse`, `PendingReview` |
+| `docs/architecture/05-state-lifecycle.md` | Claim lifecycle state machine (§5.2) |
+| `docs/architecture/06-api-contract.md` | New routes §8.1–8.3; new env vars §8.4; `PendingReview` shape update |
+| `docs/architecture/07-security-architecture.md` | G4 rows in threat table: notification PHI side-channel; tenant scope on new endpoints |
+| `docs/architecture/10-roadmap-traceability.md` | G4 row: Assignment & Notifications — mark Live on merge |
+| `docs/architecture/13-capability-manifest.md` | O14 Case Assignment, O15 Notifications entries |
+| `adr/0018-assignment-notification-design.md` | New ADR capturing the claim-layer-over-queue-index decision and the `publish_nowait`-before-`interrupt` ordering |
+
+---
+
+*End of PRD — Slice 2: Assignment & Notifications (G4)*
+*Next: author `adr/0018-assignment-notification-design.md` before G4 Slice 1 opens.*

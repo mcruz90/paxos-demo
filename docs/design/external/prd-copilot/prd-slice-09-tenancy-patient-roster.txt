@@ -1,0 +1,600 @@
+# PRD -- Slice 9: Tenancy & Patient Roster
+
+Sprint: Phase 3 / Workstream Platform
+Status: Proposed (2026-07-19)
+Ticket handle: PAXOS-S9-TENANCY
+Owner: Platform Engineering
+Last updated: 2026-07-19
+
+================================================================================
+1. PROBLEM SUMMARY
+================================================================================
+
+P7a (ADR-0017, live 2026-07-18) established the schema foundation for
+multi-tenancy: tenant_id and patient_ref fields ride every case-bearing object,
+sessions carry a tenant_id claim, and both read endpoints enforce a
+fail-closed TenancyScope at the store query boundary. However, several
+consequential pieces remain deferred to the Phase 3 durable store milestone:
+
+1. No real multi-tenant data isolation. A single seeded tenant (tenant_demo)
+   is in place. Bearer callers are "platform-plane" (see all tenants), but
+   there is only one tenant to see. No API surface exists to create or manage
+   tenants.
+
+2. No patient roster / panel management. patient_ref is a tokenized working
+   identifier (PT-XXXX, ADR-0014) but there is no patient record, no
+   user->patient panel assignment, and no roster API. Coordinators cannot
+   associate a case with a named patient record.
+
+3. No role claim on sessions. The session carries tenant_id but not a role
+   (Operate / Build / Scale / Sponsor). Role-gated UI views are demo-only;
+   the backend does not enforce them.
+
+4. Panel scoping (O9) -- a session sees only its own assigned patient panel --
+   is explicitly deferred (doc 10, P7a section).
+
+5. Break-glass PHI access (gap G5 / unit O13) requires a user identity to
+   attribute; without role + panel, the prerequisite is absent.
+
+This slice completes the multi-tenancy model through the durable store layer,
+introduces the patient roster, wires role onto sessions, and establishes
+panel-scoped read paths -- the minimum viable multi-tenant runtime needed
+before break-glass and real payer connector work can land.
+
+================================================================================
+2. GOALS
+================================================================================
+
+1. Introduce a durable tenant + user store (PostgreSQL) replacing the
+   in-memory session store and the single-seeded-tenant pre-DB placeholders.
+   The AuditRecord list also moves to PostgreSQL in this slice (per ADR-0009
+   note and the Phase 3 milestone in doc 10).
+
+2. Implement a patient roster model: PatientRecord (PT-token, demographics
+   stub, assigned panel), Panel (org-scoped patient list), and the
+   user->panel assignment that makes panel-scoped read paths possible.
+
+3. Add role: UserRole to the session token and enforce it at the route level
+   for role-gated endpoints (Operate / Build / Scale / Sponsor).
+
+4. Implement panel-scoped read paths for /api/audit/records and
+   /api/reviews/pending: an Operate session sees only its own assigned
+   patients' cases; a Build/Scale session sees all tenant cases; Sponsor sees
+   only suppressed aggregates.
+
+5. Add a GET /api/patients endpoint returning the caller's panel
+   (Operate-only; other roles 403).
+
+6. Add POST /api/admin/tenants + GET /api/admin/tenants management surface
+   (platform-plane Bearer only).
+
+7. Migrate the InMemorySaver LangGraph checkpointer to a PostgreSQLSaver
+   (shared asyncpg pool), completing the ADR-0010 Phase 3 note.
+
+8. Ensure the TenancyScope fail-closed invariant (ADR-0017 standing
+   invariant #6) survives the store migration -- acceptance tests written in
+   P7a become the green suite for this slice.
+
+================================================================================
+3. NON-GOALS
+================================================================================
+
+- Break-glass PHI access (O13). This slice creates the prerequisite (user
+  identity with role); the break-glass UI and AuditRecord reason class are the
+  next slice.
+- SAML/OIDC SSO. Sessions remain username/password; SSO is a future
+  connector.
+- Billing / subscription management. Tenant records carry only the identifiers
+  needed for data scoping.
+- EHR patient-sync. PatientRecord is created via API; no live EHR pull in
+  this slice.
+- Langfuse trace emission. Deferred (ADR-0007).
+- Changes to the appeal or initial-PA pipeline topology. Tenancy is a
+  cross-cutting concern; the pipelines themselves are not changed.
+
+================================================================================
+4. REQUIREMENTS
+================================================================================
+
+Functional
+----------
+
+T-1  PostgreSQL replaces the in-memory audit/store.py list. AuditRecord rows
+     are written before the terminal SSE event per ADR-0009 (durability rule
+     now enforced at the DB write, not a list append). Idempotency key
+     uniqueness is a DB unique constraint.
+
+T-2  PostgreSQL replaces security/sessions.py. Sessions are rows with a 30-min
+     TTL enforced at read. A new asyncpg connection pool is the shared
+     primitive; routes are unchanged (same cookie/CSRF contract).
+
+T-3  PostgreSQLSaver (from langgraph-checkpoint-postgres) replaces
+     InMemorySaver for the appeal graph checkpointer. thread_id =
+     correlation_id semantics are unchanged. is_run_parked uses the same
+     public _PIPELINE.get_state(config).next check.
+
+T-4  A tenants table tracks: tenant_id (UUID PK), name, created_at.
+     Platform-plane Bearer callers only can POST /api/admin/tenants (create)
+     and GET /api/admin/tenants (list).
+
+T-5  A users table tracks: user_id, tenant_id (FK), username, role: UserRole,
+     hashed_password, created_at. POST /api/admin/users creates a user within
+     a tenant (platform-plane or tenant-admin role).
+
+T-6  UserRole enum: operate, build, scale, sponsor, tenant_admin,
+     platform_admin. Added to schemas.py with TypeScript parity.
+
+T-7  Session token gains role: UserRole stamped at login from the users table.
+     Auth middleware resolves it onto request.state.role.
+
+T-8  PatientRecord table: patient_ref (PT-XXXX token, PK), tenant_id (FK),
+     panel_id (FK, nullable), demographics_stub (JSONB -- synthetic-only in
+     this slice, drawn from IDENTITY_POOL), created_at.
+
+T-9  Panel table: panel_id (UUID PK), tenant_id (FK), name, user_ids (JSONB
+     array). A user assigned to a panel sees only that panel's patients in
+     Operate-role read paths.
+
+T-10 /api/audit/records and /api/reviews/pending apply panel scoping:
+     - operate role  -> filter by patient_ref IN panel.patient_refs
+     - build/scale   -> all tenant records
+     - sponsor       -> aggregate counts only (n >= 11 suppression)
+     - platform Bearer -> all tenants
+
+T-11 GET /api/patients returns the caller's panel's PatientRecord list
+     (Operate-only; Build/Scale/Sponsor get 403; platform-plane Bearer gets
+     all tenants' patients).
+
+T-12 All DB queries use parameterized statements; no string interpolation of
+     user-supplied values into SQL.
+
+T-13 DB connection pool is initialized at app startup (lifespan handler in
+     main.py); routes get the pool via request.app.state.db_pool. No
+     per-request connection construction.
+
+Non-functional
+--------------
+
+T-14 The TenancyScope fail-closed invariant holds post-migration: all
+     acceptance tests from P7a pass against the new PostgreSQL-backed store.
+
+T-15 AuditRecord write before terminal event: P99 write latency <= 100 ms
+     (local PostgreSQL); circuit breaker wraps the pool to degrade gracefully
+     if the DB is unreachable (error event, not a silent drop).
+
+T-16 Migrations are managed by alembic; alembic upgrade head is idempotent.
+     A clean-state test database is created in CI using a fixture, not the
+     production schema.
+
+T-17 PHI in PatientRecord.demographics_stub is behind the tokenization boundary
+     (ADR-0014): the JSONB stores tokens ({{PATIENT_NAME}}), not direct
+     identifiers. Rehydration happens only at Operate-role egress.
+
+================================================================================
+5. WORKFLOW MODELING
+================================================================================
+
+Session login (updated)
+------------------------
+
+  POST /api/auth/login { username, password }
+          |
+          v
+  users table lookup (constant-time compare, asyncpg)
+  |-- not found / wrong password -> 401
+  +-- found -> { user_id, tenant_id, role }
+          |
+          v
+  sessions table INSERT
+  (session_id, user_id, tenant_id, role, csrf_token, expires_at)
+          |
+          v
+  Set-Cookie: paxos_session=<session_id> (httpOnly/Secure/SameSite=Strict)
+  Response: { user_id, csrf_token, role }
+
+Audit record write (updated, durable)
+--------------------------------------
+
+  AuditBoundary.with_audit(...)
+          |
+          v
+  INSERT INTO audit_records (...)
+  ON CONFLICT (idempotency_key) DO NOTHING
+          | (written BEFORE terminal SSE event)
+          v
+  DoneEvent / ErrorEvent emitted
+
+Panel-scoped read path
+-----------------------
+
+  GET /api/audit/records
+          |
+          v
+  auth_middleware -> request.state.tenancy_scope, request.state.role
+          |
+          v
+  TenancyScope.build_filter(role):
+  |-- platform_admin / Bearer  -> no tenant filter
+  |-- tenant_admin / build / scale -> WHERE tenant_id = $1
+  |-- operate -> WHERE tenant_id = $1
+  |               AND patient_ref = ANY($2::text[])
+  |               ($2 = panel.patient_refs for caller's panel)
+  +-- sponsor -> aggregate only (COUNT per drug/denial_reason, suppress n < 11)
+          |
+          v
+  SELECT * FROM audit_records WHERE <filter>
+          |
+          v
+  AuditRecordsResponse (or AggregateResponse for Sponsor)
+
+================================================================================
+6. DATA MODEL CHANGES
+================================================================================
+
+New database schema (alembic/versions/)
+-----------------------------------------
+
+  -- tenants
+  CREATE TABLE tenants (
+      tenant_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name       TEXT NOT NULL UNIQUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
+  -- users
+  CREATE TABLE users (
+      user_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant_id     UUID NOT NULL REFERENCES tenants(tenant_id),
+      username      TEXT NOT NULL UNIQUE,
+      role          TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
+  -- sessions (replaces in-memory store)
+  CREATE TABLE sessions (
+      session_id TEXT PRIMARY KEY,
+      user_id    UUID NOT NULL REFERENCES users(user_id),
+      tenant_id  UUID NOT NULL,
+      role       TEXT NOT NULL,
+      csrf_token TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL
+  );
+  CREATE INDEX sessions_expires_at ON sessions(expires_at);
+
+  -- audit_records (replaces in-memory list)
+  CREATE TABLE audit_records (
+      id              BIGSERIAL PRIMARY KEY,
+      correlation_id  TEXT NOT NULL,
+      idempotency_key TEXT NOT NULL UNIQUE,
+      tenant_id       TEXT NOT NULL,
+      patient_ref     TEXT,
+      lifecycle       TEXT NOT NULL,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+      -- ... all AuditRecord fields as columns ...
+  );
+  CREATE INDEX audit_tenant_idx  ON audit_records(tenant_id);
+  CREATE INDEX audit_patient_idx ON audit_records(patient_ref);
+
+  -- patients
+  CREATE TABLE patients (
+      patient_ref  TEXT PRIMARY KEY,
+      tenant_id    UUID NOT NULL REFERENCES tenants(tenant_id),
+      panel_id     UUID,
+      demographics JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
+  -- panels
+  CREATE TABLE panels (
+      panel_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant_id UUID NOT NULL REFERENCES tenants(tenant_id),
+      name      TEXT NOT NULL,
+      user_ids  JSONB NOT NULL DEFAULT '[]'::jsonb
+  );
+
+New Python models (backend/models/schemas.py)
+----------------------------------------------
+
+  class UserRole(str, Enum):
+      operate        = "operate"
+      build          = "build"
+      scale          = "scale"
+      sponsor        = "sponsor"
+      tenant_admin   = "tenant_admin"
+      platform_admin = "platform_admin"
+
+  class PatientRecord(BaseModel):
+      patient_ref  : str
+      tenant_id    : str
+      panel_id     : str | None
+      demographics : dict    # tokenized JSONB; rehydrated at egress only
+
+  class Panel(BaseModel):
+      panel_id  : str
+      tenant_id : str
+      name      : str
+      user_ids  : list[str]
+
+  class TenantRecord(BaseModel):
+      tenant_id  : str
+      name       : str
+      created_at : datetime
+
+  class LoginResponse(BaseModel):     # extended (was {user_id, csrf_token})
+      user_id    : str
+      csrf_token : str
+      role       : UserRole
+
+Parity: UserRole mirrors into src/types.ts. LoginResponse.role added.
+wire-types-freshness CI job catches any drift.
+
+================================================================================
+7. API CHANGES
+================================================================================
+
+Modified endpoints
+------------------
+
+POST /api/auth/login    -- response gains role: UserRole.
+
+GET /api/audit/records  -- panel-scoped filtering by role (see workflow above).
+                           sponsor role returns AggregateAuditResponse.
+
+GET /api/reviews/pending -- panel-scoped: operate sees only own panel's parked
+                            runs.
+
+New endpoints
+-------------
+
+POST /api/admin/tenants
+  Auth    : Platform-plane Bearer only (403 for any cookie session).
+  Body    : { name: str }
+  Response: TenantRecord
+
+GET /api/admin/tenants
+  Auth    : Platform-plane Bearer only.
+  Response: { tenants: TenantRecord[] }
+
+POST /api/admin/users
+  Auth    : Platform-plane or tenant_admin role.
+  Body    : { username, password, role, tenant_id }
+  Response: { user_id, tenant_id, role }
+
+GET /api/patients
+  Auth    : operate role only (403 for other roles; platform Bearer returns all
+            tenants).
+  Response: { patients: PatientRecord[] }
+
+POST /api/patients
+  Auth    : tenant_admin or platform-plane.
+  Body    : { patient_ref, panel_id?, demographics? }
+  Response: PatientRecord
+
+Removed / replaced
+------------------
+
+security/sessions.py in-memory store -> PostgreSQL sessions table. No API
+contract change; paxos_session cookie semantics are identical.
+
+================================================================================
+8. LANGGRAPH INTEGRATION
+================================================================================
+
+Checkpointer migration (agents/graph.py)
+-----------------------------------------
+
+  # Before (P7a)
+  from langgraph.checkpoint.memory import InMemorySaver
+  checkpointer = InMemorySaver()
+
+  # After (S9)
+  from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+  checkpointer = AsyncPostgresSaver(conn=app.state.db_pool)
+  _PIPELINE = workflow.compile(checkpointer=checkpointer)
+
+- thread_id = correlation_id semantics are unchanged.
+- is_run_parked(correlation_id) continues to use
+  _PIPELINE.get_state(config).next -- the public API survives the checkpointer
+  swap (this is the explicit design in ADR-0010).
+- langgraph-checkpoint-postgres must pass the ADR-0007 pre-install protocol
+  before landing; it is a first-party LangGraph package, but the protocol
+  applies uniformly.
+
+No pipeline topology change
+----------------------------
+
+The appeal and initial-PA graph structures are unaffected. Tenancy is enforced
+at the API boundary and the store query layer, not inside LangGraph nodes.
+
+================================================================================
+9. NEW MODULES
+================================================================================
+
+  backend/
+  |-- db/
+  |   |-- __init__.py
+  |   |-- pool.py           # asyncpg pool factory (init at lifespan)
+  |   |-- audit_store.py    # PostgreSQL-backed AuditStore
+  |   |-- session_store.py  # PostgreSQL-backed SessionStore
+  |   |-- tenant_store.py   # Tenant + User CRUD
+  |   +-- patient_store.py  # PatientRecord + Panel CRUD
+  +-- alembic/
+      |-- env.py
+      +-- versions/
+          +-- 0001_initial_schema.py
+
+audit/store.py is NOT deleted in this slice -- it is kept as a fallback adapter
+that the AuditStore Protocol wraps, to allow the pre-DB path to be exercised
+in unit tests with MockAuditStore. The live app wires the PostgreSQL-backed
+store at startup.
+
+AuditStore Protocol:
+
+  class AuditStore(Protocol):
+      async def write(self, record: AuditRecord) -> None: ...
+      async def all_records(self, scope: TenancyScope) -> list[AuditRecord]: ...
+      async def pending_reviews(
+          self, scope: TenancyScope, is_parked: Callable
+      ) -> list[PendingReview]: ...
+
+================================================================================
+10. UI SURFACES
+================================================================================
+
+Role-gated view binding
+------------------------
+
+src/capabilities.ts manifest gains a requiredRole field per unit (e.g.,
+{ unit: "O6", requiredRole: "operate" }). The session gate in the single-shell
+migration reads request.state.role (now returned by GET /api/auth/me) and hides
+units whose requiredRole the caller does not hold.
+
+GET /api/auth/me response is extended: { user_id, role } (additive change).
+
+Patient roster view (new, Operate-role)
+----------------------------------------
+
+A new capability unit O9 (patient panel / roster) backed by GET /api/patients
+appears in the capability manifest as live. It renders the panel's
+PatientRecord list with PT-token display and a link to open the case queue
+filtered to that patient.
+
+PHI rehydration: the Operate-role egress replaces {{PATIENT_NAME}} tokens with
+values from the IDENTITY_POOL lookup at render time; the API returns tokens
+only.
+
+================================================================================
+11. TEST CASES
+================================================================================
+
+Unit (backend/tests/unit/)
+---------------------------
+
+Module: test_db_audit_store.py
+  - Write idempotency (same idempotency_key inserts once)
+  - all_records respects TenancyScope
+  - panel filter returns only panel patients
+  - sponsor role returns aggregate counts with n < 11 suppression
+
+Module: test_db_session_store.py
+  - Session created, read, and expired correctly
+  - expired session returns None
+  - CSRF token comparison is constant-time
+
+Module: test_user_role_parity.py
+  - UserRole enum in schemas.py and src/types.ts are identical
+
+Module: test_tenant_store.py
+  - Tenant creation idempotent on name
+  - user created with role
+  - wrong tenant_id rejected by FK
+
+Module: test_patient_store.py
+  - PatientRecord created with PT token
+  - panel assignment updates panel.user_ids
+  - panel-scoped query returns correct subset
+
+Module: test_tenancy_scope.py (extend P7a suite)
+  - All P7a acceptance tests pass against PostgreSQL-backed store
+    (use pytest-asyncio + pytest-postgresql fixture)
+
+Contract
+--------
+
+test_schema_parity.py extended: UserRole in both sides.
+test_schema_parity.py: LoginResponse.role field present in MeResponse.
+
+Integration (backend/tests/integration/)
+-----------------------------------------
+
+Module: test_auth_with_db.py
+  - Login returns role
+  - session persists across requests
+  - expired session 401
+  - logout removes session
+
+Module: test_panel_scoped_reads.py
+  - Operate session sees only own panel's records
+  - Build session sees all tenant records
+  - Sponsor session sees only aggregate
+  - platform Bearer sees all tenants
+
+Module: test_admin_endpoints.py
+  - POST /api/admin/tenants (Bearer only)
+  - cookie session 403
+  - GET /api/patients (operate only)
+  - build role 403
+
+Module: test_audit_durability.py
+  - AuditRecord written before DoneEvent (timing assertion via DB query after
+    SSE stream ends)
+  - idempotent write on duplicate idempotency_key
+
+Module: test_checkpointer_migration.py
+  - Exception-tier run parks at PostgreSQLSaver checkpoint
+  - resume retrieves checkpoint
+  - is_run_parked returns correct boolean
+
+CI environment
+--------------
+
+  - Add services: postgres: image: postgres:16 to backend-unit and
+    backend-integration CI jobs.
+  - Alembic upgrade head runs as a CI setup step before integration tests.
+  - POSTGRES_DSN env var set in CI from the GitHub Actions service container.
+
+================================================================================
+12. RISKS
+================================================================================
+
+Risk: PostgreSQL connection pool exhaustion under concurrent SSE streams
+  Likelihood: Medium | Impact: High
+  Mitigation: Pool size configurable via DB_POOL_MAX_SIZE env var (default 10);
+  circuit breaker wraps pool acquisition.
+
+Risk: langgraph-checkpoint-postgres not yet through ADR-0007 pre-install review
+  Likelihood: Medium | Impact: Medium
+  Mitigation: Ship the InMemorySaver->PostgreSQLSaver swap as a separate
+  sub-slice gated on ADR-0007 clearance; audit store migration can land first.
+
+Risk: Panel-scoped filter returning empty set for Operate user with no panel
+  Likelihood: Low | Impact: Medium
+  Mitigation: Empty list is valid (user has no assigned patients); UI shows
+  "no patients assigned" state.
+
+Risk: Alembic migration failures in production rollback
+  Likelihood: Low | Impact: High
+  Mitigation: All migrations are reversible (downgrade); staging environment
+  runs migration before production.
+
+Risk: demographics_stub JSONB stores direct identifier by mistake
+  Likelihood: Medium | Impact: High
+  Mitigation: CI test_golden_compliance.py scan extended to cover PatientRecord
+  test fixtures; rehydration helper is the only place that resolves tokens.
+
+================================================================================
+13. DELIVERABLES
+================================================================================
+
+#   Artifact                               Path
+--  -------------------------------------  -----------------------------------------------
+1   DB module + pool factory               backend/db/ (pool, audit_store, session_store,
+                                           tenant_store, patient_store)
+2   Alembic migrations                     backend/alembic/versions/0001_initial_schema.py
+3   AuditStore Protocol + PostgreSQL impl  backend/db/audit_store.py
+4   SessionStore Protocol + PostgreSQL     backend/db/session_store.py
+5   UserRole, PatientRecord, Panel,        backend/models/schemas.py
+    TenantRecord models
+6   Session login/me role extension        backend/api/auth.py, backend/main.py
+7   Panel-scoped read paths                backend/db/audit_store.py wiring
+8   Admin + patient endpoints              backend/main.py routes
+9   PostgreSQLSaver checkpointer wiring    backend/agents/graph.py
+10  TypeScript parity mirrors              src/types.ts (UserRole, LoginResponse.role)
+11  Unit + integration test suites         backend/tests/unit/test_db_*.py,
+                                           backend/tests/integration/test_panel_*.py
+12  CI job updates                         .github/workflows/ci.yml
+13  ADR for durable store + panel scoping  docs/adr/0020-durable-store-panel-scoping.md
+14  Updated architecture docs              docs/architecture/03-domain-model.md,
+                                           docs/architecture/06-api-contract.md,
+                                           docs/architecture/07-security-architecture.md

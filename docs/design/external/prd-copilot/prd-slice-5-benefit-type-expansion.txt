@@ -1,0 +1,494 @@
+# PRD — Slice 5: Benefit-Type Expansion (Imaging, Procedures, DME)
+
+**Status:** Proposed  
+**Sprint target:** Sprint 5 (following Slice 4 CRD/DTR close)  
+**Owner:** Platform Engineering  
+**Last updated:** 2026-07-19  
+**Depends on:** Slice 4 CRD/DTR (for shared `etl/crd/` client), S2 Initial-PA lifecycle (live), S3 TierRouter (live), P7a Tenancy (live), Sprint FI live-wiring (live)  
+**Referenced ADRs:** ADR-0001 (LangGraph), ADR-0002 (provider-neutral LLM), ADR-0003 (deterministic gatekeeper), ADR-0004 (golden set), ADR-0007 (deferred deps), ADR-0009 (idempotency/audit), ADR-0017 (tenancy)  
+**Roadmap items:** "Device/procedure PA generalization (`PaTargetType`)" (Proposed 2026-07-17 — frontend type shipped; backend untouched)
+
+---
+
+## 1. Problem Summary
+
+ClearAuth's domain model is **medication-shaped end-to-end**: every request field, retrieval pack, and audit record is oriented around `drug` (name), `ndc`, `dose`, `sig`, and `days_supply`. The roadmap explicitly flags this as a gap: *"Domain model beyond medication-shaped requests (drug/NDC): target-typed PA lifecycles in `models/`, retrieval, rails."*
+
+Three benefit types with high PA volume cannot be modeled today:
+
+1. **Diagnostic imaging** (CT, MRI, PET scans, nuclear medicine) — identified by CPT/HCPCS code, not drug name; PA criteria are code-and-site-of-service specific.
+2. **Outpatient procedures** (surgery, infusion, endoscopy) — identified by CPT code clusters; criteria vary by place of service and provider specialty.
+3. **Durable Medical Equipment (DME)** — identified by HCPCS Level II code and modifier; coverage rules are CMS-driven (LCDs/NCDs) and vary by Medicare/Medicaid/commercial.
+
+The frontend demo already ships a `PaTargetType` discriminator and a CGM device PA history entry, but the backend treats every PA as a drug. This creates two concrete failure modes:
+
+- **Retrieval returns wrong criteria:** the plan-id + drug-alias lookup in `retrieval.py` and the initial-PA registry have no concept of procedure codes; imaging/DME requests fall through to generic boilerplate.
+- **Assembly produces a malformed PaSubmission:** the X12-278 loop structure for professional/facility services differs from the pharmacy loop; sending a drug-shaped X12-278 for an MRI is a rail error.
+
+---
+
+## 2. Goals
+
+| # | Goal |
+|---|------|
+| G1 | Introduce a `PaTargetType` discriminator (`medication` \| `imaging` \| `procedure` \| `dme`) at the domain model layer, making every PA request and case record self-describing |
+| G2 | Extend `InitialPaRequest` and `AppealRequest` with target-typed fields (`ProcedureTarget`, `ImagingTarget`, `DmeTarget`) while keeping `medication` cases unchanged — no breaking change to existing callers |
+| G3 | Extend the retrieval layer to resolve PA criteria by CPT/HCPCS code + place-of-service for imaging/procedure/DME, falling back to the existing drug-alias path for medications |
+| G4 | Add target-aware X12-278 assembly: the PAS rail adapter must produce the correct professional/facility/DME loop structure for each target type |
+| G5 | Extend the LLM appeal synthesis prompt to include procedure/imaging/DME context (`requested_procedure`, `cpt_codes`, `site_of_service`) so generated appeal letters reference the right clinical rationale |
+| G6 | Add three new golden-set anchors (one per new benefit type) and extend `evals/fixtures/scenarios.json` accordingly |
+| G7 | Surface target-type metadata in the queue workspace and audit trail UI so operators can filter/sort by benefit type |
+
+---
+
+## 3. Non-Goals
+
+| # | Non-Goal |
+|---|----------|
+| NG1 | Implementing revenue cycle management (RCM) claim submission — this slice covers PA only, not the downstream claim |
+| NG2 | Parsing real X12-837 or FHIR Claim resources as input (documents remain the intake surface; CPT/HCPCS codes are extracted by the ETL or supplied by the caller) |
+| NG3 | CMS LCD/NCD lookup integration (criteria come from the extended `pa_requirements.json` registry, same as today; a future Qdrant retrieval slice adds real-time LCD lookup) |
+| NG4 | Supporting compound requests (e.g., a drug + procedure in the same PA) — each PA targets exactly one benefit type |
+| NG5 | Changing the appeal pipeline's LangGraph graph definition (only the synthesis prompt and retrieval node are updated) |
+| NG6 | Live Qdrant retrieval — this slice seeds the code-based registry; Qdrant expansion is the Phase 1.2 / S5 milestone |
+
+---
+
+## 4. Requirements
+
+### Functional
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| F1 | `PaTargetType` enum MUST exist in `backend/models/schemas.py` with values `medication`, `imaging`, `procedure`, `dme` | P0 |
+| F2 | `InitialPaRequest` MUST accept a `target_type: PaTargetType` field (default `medication`) and a discriminated `target_detail` union (`MedicationTarget \| ImagingTarget \| ProcedureTarget \| DmeTarget`) | P0 |
+| F3 | `AppealRequest` MUST accept the same `target_type` + `target_detail` fields so appeal letters for imaging/procedure/DME denials carry the right context | P0 |
+| F4 | `retrieval.py` MUST add a CPT/HCPCS code lookup path: `primary_cpt_code + plan_id` → criteria text (new index), fallback to `hcpcs_code + plan_id` for DME, fallback to generic boilerplate; `pa_resolution` gains new values `cpt_code` \| `hcpcs_code` | P0 |
+| F5 | `pa_requirements.json` MUST be extended with at least 3 new entries per new benefit type (9 new registry entries total) covering the three new golden-set anchors | P0 |
+| F6 | `etl/pas_rail/adapter.py` MUST produce the correct X12-278 loop for each target type: Loop 2400 (service line) shape varies between professional (CPT), facility (revenue code), and DMEPOS (HCPCS + modifier) | P0 |
+| F7 | `build_prompt()` in `agents/prompts.py` MUST include `requested_procedure`, `primary_cpt_code`, and `site_of_service` in the synthesis template when `target_type != medication` | P0 |
+| F8 | The `DoneEvent` for an appeal run MUST carry `target_type` so the audit trail records which benefit type produced the letter | P1 |
+| F9 | The denial letter ETL (`etl/denial_letter/pipeline.py`) MUST attempt to extract CPT/HCPCS codes from the document using an extended regex field extractor; extracted codes are stored on `AppealRequest.target_detail` when present | P1 |
+| F10 | Golden set: `evals/fixtures/scenarios.json` MUST include ≥ 1 scenario per new benefit type, each with `ground_truth_status`, `confidence` labels, and a `denial_type` of `clinical_pa` | P1 |
+| F11 | `PaResolution` enum gains `cpt_code` and `hcpcs_code` values; all existing consumers of `PaResolution` must be updated (gatekeeper output, DoneEvent, AuditRecord, frontend types) | P1 |
+| F12 | The `CasePacket.rx` field (currently a `RxDetail`) MUST be generalized to a discriminated `PaTarget` union that can hold medication, imaging, procedure, or DME detail | P2 |
+
+### Non-Functional
+
+| ID | Requirement |
+|----|-------------|
+| NF1 | Existing `medication` request shapes MUST be backward-compatible — no required new fields; all new fields default gracefully |
+| NF2 | The X12-278 adapter's new loops MUST be covered by deterministic unit tests (no external payer calls) |
+| NF3 | Golden-set compliance CI gate MUST pass with the three new anchors |
+| NF4 | PHI extraction from imaging orders (patient name in radiology request header) MUST pass through `redact_phi()` before any log |
+| NF5 | `pa_resolution` new values MUST appear in the OpenAPI schema and the generated `api-types.d.ts`; wire-types freshness CI job MUST pass |
+
+---
+
+## 5. Workflow Modeling
+
+### 5.1 Target-type discriminated intake
+
+```
+Caller submits InitialPaRequest / AppealRequest
+  │
+  ├── target_type = medication (existing path, unchanged)
+  │     target_detail: MedicationTarget { drug, ndc, dose, sig, days_supply }
+  │
+  ├── target_type = imaging
+  │     target_detail: ImagingTarget { modality, body_region, primary_cpt_code,
+  │                                    laterality?, site_of_service }
+  │
+  ├── target_type = procedure
+  │     target_detail: ProcedureTarget { procedure_description, cpt_codes[],
+  │                                      primary_cpt_code, place_of_service,
+  │                                      provider_specialty }
+  │
+  └── target_type = dme
+        target_detail: DmeTarget { equipment_description, hcpcs_code,
+                                    hcpcs_modifier?, quantity, rental_purchase }
+```
+
+### 5.2 Extended retrieval resolution order
+
+```
+For target_type = medication (unchanged):
+  1. plan_id exact match       → pa_resolution = "plan_id"
+  2. drug alias substring      → pa_resolution = "drug_alias"
+  3. generic boilerplate       → pa_resolution = "generic"
+
+For target_type = imaging / procedure:
+  1. primary_cpt_code + plan_id exact   → pa_resolution = "cpt_code"
+  2. primary_cpt_code (any plan)        → pa_resolution = "cpt_code" (plan fallback)
+  3. generic procedure boilerplate      → pa_resolution = "generic"
+
+For target_type = dme:
+  1. hcpcs_code + plan_id exact         → pa_resolution = "hcpcs_code"
+  2. hcpcs_code (any plan)             → pa_resolution = "hcpcs_code" (plan fallback)
+  3. generic DME boilerplate            → pa_resolution = "generic"
+```
+
+### 5.3 X12-278 loop selection
+
+```
+pa_assembly → PaSubmission → rail adapter
+
+target_type = medication → Loop 2400 pharmacy (NDC, days supply, quantity)
+target_type = imaging    → Loop 2400 professional (CPT, units = 1, place of service)
+target_type = procedure  → Loop 2400 professional or facility based on place_of_service
+target_type = dme        → Loop 2400 DMEPOS (HCPCS, modifier, rental/purchase flag)
+```
+
+### 5.4 Appeal synthesis context injection
+
+```
+Existing medication prompt template:
+  <pa_requirements>…criteria…</pa_requirements>
+  <denial_letter>…denial text…</denial_letter>
+  Drug: {drug}, Diagnosis: {diagnosis}, Plan: {plan}
+
+New template additions (target_type != medication):
+  Requested procedure / service: {requested_procedure}
+  Primary code: {primary_cpt_code | hcpcs_code}
+  Site of service: {site_of_service | place_of_service}
+  (Drug field omitted for non-medication targets)
+```
+
+---
+
+## 6. Data Model Changes
+
+### 6.1 New enums and target types (backend/models/schemas.py)
+
+```python
+class PaTargetType(str, Enum):
+    medication = "medication"
+    imaging    = "imaging"
+    procedure  = "procedure"
+    dme        = "dme"
+
+class PaResolution(str, Enum):
+    plan_id    = "plan_id"
+    drug_alias = "drug_alias"
+    cpt_code   = "cpt_code"      # NEW
+    hcpcs_code = "hcpcs_code"    # NEW
+    generic    = "generic"
+
+class RentalPurchase(str, Enum):
+    rental    = "rental"
+    purchase  = "purchase"
+
+class MedicationTarget(BaseModel):
+    drug: str
+    ndc: str | None = None
+    dose: str | None = None
+    sig: str | None = None
+    days_supply: int | None = None
+
+class ImagingTarget(BaseModel):
+    modality: str                   # CT, MRI, PET, nuclear_medicine, ultrasound
+    body_region: str                # e.g. "brain", "lumbar spine"
+    primary_cpt_code: str           # e.g. "70553"
+    laterality: str | None = None   # left, right, bilateral
+    site_of_service: str | None = None  # outpatient, inpatient, ASC
+
+class ProcedureTarget(BaseModel):
+    procedure_description: str
+    cpt_codes: list[str]            # all CPT codes in the request
+    primary_cpt_code: str           # the PA-driving code
+    place_of_service: str           # POS code, e.g. "22" = outpatient hospital
+    provider_specialty: str | None = None
+
+class DmeTarget(BaseModel):
+    equipment_description: str
+    hcpcs_code: str                 # e.g. "E0601" for CPAP
+    hcpcs_modifier: str | None = None  # e.g. "RR" = rental
+    quantity: int = 1
+    rental_purchase: RentalPurchase = RentalPurchase.purchase
+
+# Discriminated union — used as the target_detail field
+PaTargetDetail = Annotated[
+    MedicationTarget | ImagingTarget | ProcedureTarget | DmeTarget,
+    Field(discriminator="__target_type")   # implementation: each subclass carries a Literal
+]
+```
+
+### 6.2 InitialPaRequest changes
+
+```python
+class InitialPaRequest(BaseModel):
+    # --- existing fields unchanged ---
+    scenario_id: str
+    case_ref: str = ""
+    drug: str = ""           # kept for backward compat; empty for non-medication
+    diagnosis: str
+    plan: str
+    plan_id: str
+    requested_therapy: str = ""
+    criteria_results: list[CriterionResult] = []
+    security_hold: bool = False
+    security_reason: str = ""
+    attempt: int = Field(default=1, ge=1)
+    tenant_id: str = ""
+    patient_ref: str | None = None
+    # --- new fields ---
+    target_type: PaTargetType = PaTargetType.medication
+    target_detail: PaTargetDetail | None = None  # None → infer MedicationTarget from drug field
+```
+
+### 6.3 AppealRequest changes
+
+Identical new fields (`target_type`, `target_detail`) appended with the same defaults. The `drug` field remains required (≤ 200 chars) but is empty-string-safe for non-medication appeals (a non-medication appeal still has a denial_text that drives synthesis).
+
+### 6.4 PipelineState changes
+
+```python
+class PipelineState(TypedDict):
+    # existing fields unchanged
+    request: AppealRequest
+    pa_context: str
+    pa_resolution: PaResolution
+    appeal_text: str
+    model_name: str
+    passed_gatekeeper: bool
+    retry_count: int
+    errors: list[str]
+    # new
+    target_type: PaTargetType        # echoed from request for node convenience
+```
+
+### 6.5 DoneEvent changes
+
+```python
+class DoneEvent(BaseModel):
+    # existing fields unchanged
+    event: Literal["done"] = "done"
+    model: str
+    ref: str
+    structural_scores: dict[str, float]
+    pa_resolution: PaResolution
+    retry_count: int
+    correlation_id: str
+    # new
+    target_type: PaTargetType        # informational; allows audit trail filtering
+```
+
+### 6.6 CasePacket generalization (P2)
+
+```python
+class CasePacket(BaseModel):
+    case_id: str
+    hub: HubClient
+    patient: PatientContext
+    coverage: CoverageInfo
+    target_type: PaTargetType
+    # Replaces `rx: RxDetail` with a discriminated field:
+    target: MedicationTarget | ImagingTarget | ProcedureTarget | DmeTarget
+    labs: list[LabResult] = []
+    pa_history: list[TimelineEvent] = []
+```
+
+### 6.7 Golden-set additions
+
+Three new anchors in `backend/golden/` and `evals/fixtures/scenarios.json`:
+
+| Anchor ID | Target type | Drug/Code | Payer |
+|-----------|-------------|-----------|-------|
+| `mri_brain_aetna` | imaging | CPT 70553 (MRI Brain w/ contrast) | Aetna PPO |
+| `laparoscopic_chole_uhc` | procedure | CPT 47562 (laparoscopic cholecystectomy) | UHC PPO |
+| `cpap_cgm_cigna_dme` | dme | HCPCS E0601 (CPAP) + E2103 (CGM) | Cigna |
+
+Each anchor requires provenance-tracked policy documents in `golden/policies/`, registry entries in `pa_requirements.json`, and ≥ 1 `EvalScenario` in `scenarios.json`.
+
+### 6.8 Frontend parity
+
+All new enums (`PaTargetType`, `PaResolution.cpt_code`, `PaResolution.hcpcs_code`, `RentalPurchase`) and the three target detail types MUST be mirrored in `src/types.ts`. `test_schema_parity.py` extended accordingly.
+
+---
+
+## 7. API Changes
+
+### 7.1 Modified: `POST /api/appeal/generate`
+
+- `AppealRequest` gains `target_type` and `target_detail` (both optional with safe defaults)
+- `DoneEvent` gains `target_type`
+- No breaking changes; existing callers omitting the new fields default to `medication`
+
+### 7.2 Modified: `POST /api/pa/submit`
+
+- `InitialPaRequest` gains `target_type` and `target_detail`
+- `InitialPaDoneEvent` gains `target_type`
+- Step events unchanged
+
+### 7.3 Modified: `GET /api/audit/records`
+
+- `AuditRecord` gains `target_type: PaTargetType` (stored at boundary write)
+- Response shape is additive; existing consumers unaffected
+
+### 7.4 Modified: `GET /api/reviews/pending`
+
+- Each review entry gains `target_type` (sourced from its audit record)
+
+### 7.5 Wire types
+
+`openapi.json` regenerated; `api-types.d.ts` regenerated; wire-types freshness CI gate MUST pass.
+
+### 7.6 No new routes in this slice
+
+All changes are to existing request/response shapes. The `POST /api/pa/supply-docs` route from Slice 4 is unchanged.
+
+---
+
+## 8. LangGraph Integration
+
+### 8.1 Appeal pipeline (agents/graph.py) — retrieval node
+
+`retrieval.py` is updated to branch on `target_type` when building lookup keys:
+
+```python
+def run_retrieval(state: PipelineState) -> PipelineState:
+    target_type = state["target_type"]
+    if target_type == PaTargetType.medication:
+        # existing plan_id → drug_alias → generic path (unchanged)
+        ...
+    elif target_type in (PaTargetType.imaging, PaTargetType.procedure):
+        # cpt_code + plan_id → cpt_code (any plan) → generic
+        ...
+    elif target_type == PaTargetType.dme:
+        # hcpcs_code + plan_id → hcpcs_code (any plan) → generic
+        ...
+```
+
+The lookup tables are still built at module import from `pa_requirements.json`; the extended JSON schema adds `target_type`, `cpt_codes`, and `hcpcs_code` as optional keys alongside the existing drug/plan fields.
+
+### 8.2 Appeal pipeline — synthesis node (prompts.py)
+
+`build_prompt()` receives the full `PipelineState` and selects the appropriate template:
+
+```python
+def build_prompt(state: PipelineState) -> str:
+    target_type = state["target_type"]
+    if target_type == PaTargetType.medication:
+        return _MEDICATION_TEMPLATE.format(...)
+    elif target_type == PaTargetType.imaging:
+        return _IMAGING_TEMPLATE.format(...)
+    elif target_type == PaTargetType.procedure:
+        return _PROCEDURE_TEMPLATE.format(...)
+    elif target_type == PaTargetType.dme:
+        return _DME_TEMPLATE.format(...)
+```
+
+Templates live in `agents/prompts.py` (prompt copy in exactly one place — CLAUDE.md invariant). New templates follow the same XML-slot structure: `<pa_requirements>`, `<denial_letter>`, `<case_context>`.
+
+### 8.3 Initial-PA pipeline (initial_pa_graph.py) — no graph structure change
+
+The graph topology (`pa_ingestion → crd_check → dtr_check → pa_assembly → pas_submit → determination → finalize`) is unchanged. `pa_assembly` and `pas_submit` are updated internally:
+
+- `pa_assembly` reads `target_type` from state to populate the correct `PaSubmission` fields
+- `pas_submit` (rail adapter) selects the X12-278 loop based on `target_type`
+
+### 8.4 Gatekeeper — no changes
+
+The gatekeeper's deterministic checks (length ≥ 300, drug/diagnosis present, no refusal phrases) are medication-specific checks that may need relaxation for non-medication letters. **This slice explicitly does not change the gatekeeper** — a follow-on ADR will decide whether `drug_present` becomes `treatment_present` for non-medication targets. For now, the `drug` field on `AppealRequest` is set to the primary procedure description for non-medication appeals, preserving the existing check.
+
+---
+
+## 9. UI Surfaces
+
+### 9.1 Case cards — target type badge
+
+Every case card in the queue workspace gains a target type badge alongside the existing tier badge:
+- 💊 Medication (default, no badge change)
+- 🩻 Imaging
+- 🔪 Procedure
+- 🦽 DME
+
+### 9.2 Filter / sort
+
+The case queue filter panel gains a **Benefit Type** multi-select filter (All / Medication / Imaging / Procedure / DME) that filters `CaseStatus` in the local queue state (no new API call; the filter operates on the locally held audit records).
+
+### 9.3 Scenario fixture additions
+
+`src/data/scenarios.tsx` gains three new scenario entries for the `mri_brain_aetna`, `laparoscopic_chole_uhc`, and `cpap_cgm_cigna_dme` anchors. Each scenario demonstrates the appropriate benefit-type workflow in offline demo mode, including the different PA assembly output shape.
+
+### 9.4 Audit trail view
+
+The audit records panel gains a **Type** column displaying the `target_type` for each record. Existing records (which pre-date this slice) display `medication` as the default.
+
+### 9.5 Capability manifest
+
+A new capability unit `O15` (`"benefit_type_expansion"`) is added to `src/capabilities.ts`:
+- Status: `simulated` at merge (demo shows all three benefit types)
+- Becomes `live` once the extended API is confirmed in the integration environment
+
+---
+
+## 10. Test Cases
+
+### 10.1 Unit tests
+
+| Test module | Cases |
+|-------------|-------|
+| `tests/unit/test_retrieval_node.py` (extended) | CPT code exact match; CPT code plan fallback; HCPCS code match; DME plan fallback; generic boilerplate for unknown code; `pa_resolution` value correct for each path; medication path unchanged |
+| `tests/unit/test_synthesis_node.py` (extended) | Imaging template renders `primary_cpt_code` and `site_of_service`; procedure template renders `cpt_codes` list; DME template renders `hcpcs_code` and `hcpcs_modifier`; medication template unchanged |
+| `tests/unit/test_etl_denial_pipeline.py` (extended) | CPT code extraction from imaging denial letter; HCPCS code extraction from DME denial; no-code document → `target_detail = None`; extracted codes stored on `AppealRequest.target_detail` |
+| `tests/unit/test_pa_assembly.py` (new) | Medication submission → pharmacy loop; imaging submission → professional loop; procedure outpatient → professional loop; procedure inpatient → facility loop; DME rental → DMEPOS loop with rental modifier |
+| `tests/unit/test_pas_rail_adapter.py` (extended) | X12-278 shape for each target type; deterministic `submission_ref`; no two target types produce identical loop structure |
+| `tests/unit/test_schema_parity.py` (extended) | `PaTargetType`, `PaResolution` new values, `MedicationTarget`, `ImagingTarget`, `ProcedureTarget`, `DmeTarget`, `RentalPurchase` all present in Python and TypeScript |
+| `tests/unit/test_golden_compliance.py` (extended) | Three new anchors pass PHI scan; new scenarios have required `confidence` labels; `denial_type` is `clinical_pa` |
+
+### 10.2 Integration tests
+
+| Test | Description |
+|------|-------------|
+| `tests/integration/test_pipeline_imaging.py` | Full appeal pipeline run with `ImagingTarget`; synthesis prompt includes CPT code; `DoneEvent.target_type = "imaging"`; `pa_resolution = "cpt_code"` |
+| `tests/integration/test_pipeline_procedure.py` | Full appeal pipeline run with `ProcedureTarget`; outpatient place of service → professional loop on audit; `pa_resolution = "cpt_code"` |
+| `tests/integration/test_pipeline_dme.py` | Full appeal pipeline run with `DmeTarget`; `pa_resolution = "hcpcs_code"`; DMEPOS loop in submission |
+| `tests/integration/test_pa_pipeline_procedure.py` | Initial-PA submit with procedure target; CRD check + DTR + professional assembly + pas_submit → `InitialPaDoneEvent.target_type = "procedure"` |
+| `tests/integration/test_sse_endpoint.py` (extended) | New `target_type` field present on `DoneEvent` for each benefit type; backward compat: medication callers omitting `target_type` still get `pa_resolution` values |
+
+### 10.3 Eval additions
+
+Three new `EvalScenario` entries in `scenarios.json`, each with:
+- `eval_dimensions`: `coverage`, `structure`, `safety`, `claim_citation`, `over_caution`
+- `expected_outcome`: appealable + `resolution_path` appropriate for the benefit type
+- `criteria`: ≥ 3 criterion results with `ground_truth_status` and `confidence` labels
+- Golden labels reviewed and signed off before merge (per `golden-set-governance.md`)
+
+### 10.4 Contract tests
+
+- Wire-types freshness gate: `openapi.json` and `api-types.d.ts` regenerated and diff-checked in CI
+- `scenarios_parity.test.ts`: new anchor scenarios validated against the fixture schema
+
+---
+
+## 11. Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Gatekeeper `drug_present` check rejects non-medication letters (the `drug` field is set to procedure description as a workaround) | High | Medium | Workaround is explicit and documented; the follow-on ADR for gatekeeper generalization is a P0 dependency for production non-medication appeals |
+| X12-278 loop structure for DME (DMEPOS) differs significantly across payers; the adapter may not cover all required segments | Medium | High | Three known-good payer schemas are used as test fixtures; adapter is marked as "stub-accurate" pending a real payer certification test; rail-accurate disclaimer in the audit record |
+| CPT/HCPCS code extraction from PDF denial letters is noisy (codes appear in multiple contexts) | High | Medium | Extractor applies context heuristics (code appears near "procedure" or "service" keywords); false positives are surfaced as `target_detail` with low confidence; human reviewer sees the extracted code |
+| Three new golden anchors require policy documents that may have licensing constraints | Medium | Low | All policy documents must follow the existing `golden/policies/provenance.json` protocol (SHA256 + source + license); if a document cannot be included, a synthetic paraphrase is used (precedent established) |
+| `CasePacket.rx` → `CasePacket.target` migration (P2) is a breaking change for any consumers of the enriched case record | Low | Medium | P2 is deferred to a separate sub-slice; `rx` and `target` coexist in the schema until migration is complete; consumers guard on `target_type` |
+
+---
+
+## 12. Deliverables
+
+| # | Deliverable | Acceptance Criteria |
+|---|-------------|---------------------|
+| D1 | `PaTargetType`, `MedicationTarget`, `ImagingTarget`, `ProcedureTarget`, `DmeTarget`, `RentalPurchase` in `models/schemas.py` | Schema parity test green; OpenAPI updated |
+| D2 | `PaResolution.cpt_code`, `PaResolution.hcpcs_code` enum values | All existing `pa_resolution` consumers updated; no broken string comparisons |
+| D3 | Extended `retrieval.py` with CPT/HCPCS lookup tables built at import | Unit tests cover all resolution paths; medication path unmodified |
+| D4 | Four prompt templates in `agents/prompts.py` (medication unchanged + 3 new) | Templates follow XML-slot structure; gatekeeper workaround documented |
+| D5 | Extended `pa_assembly.py` and `etl/pas_rail/adapter.py` with target-type loop selection | Deterministic unit tests for all four X12-278 loop shapes |
+| D6 | Extended `etl/denial_letter/pipeline.py` CPT/HCPCS field extractor | Unit tests; PHI redaction confirmed; no regression on existing drug extraction |
+| D7 | Three new golden anchors in `golden/policies/` + `evals/fixtures/scenarios.json` | Provenance JSON present; golden compliance CI gate green; confidence labels present |
+| D8 | Extended `pa_requirements.json` with ≥ 9 new entries (3 per benefit type) | Retrieval integration tests resolve new codes correctly |
+| D9 | `src/types.ts` additions + `src/lib/wire.ts` update | `test_schema_parity.py` green; typed client compiles |
+| D10 | Queue workspace benefit-type badge + filter panel | Renders in offline demo; filter operates on local state |
+| D11 | New scenario fixtures in `src/data/scenarios.tsx` for three new anchors | `scenarios_parity.test.ts` green; offline demo plays all three |
+| D12 | `O15` capability unit in `src/capabilities.ts` | Manifest validates; unit status `simulated` at merge |
+| D13 | Full test suite (unit + integration + eval + contract) | All CI gates green; no regressions on medication path |
+| D14 | Docs updated: `03-domain-model.md`, `04-data-flow.md`, `06-api-contract.md`, `10-roadmap-traceability.md` | All struct-change docs in same PR; roadmap item marked "In progress" → "Live" |

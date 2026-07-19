@@ -1,0 +1,901 @@
+# PRD — Slice 3: Appeals Escalation
+### Internal Levels + Peer-to-Peer (P2P) Prep
+**Document status:** Draft for review  
+**ClearAuth repo path:** `docs/prd/prd-slice-3-appeals-escalation.md`  
+**Branch target:** `sprint-3-appeals-escalation`  
+**Last updated:** 2026-07-19  
+**Author:** ClearAuth Product  
+**Reviewers:** Engineering Lead, Clinical Ops, Compliance
+
+---
+
+## Table of Contents
+
+1. [Problem Summary](#1-problem-summary)  
+2. [Goals](#2-goals)  
+3. [Non-Goals](#3-non-goals)  
+4. [Functional Requirements](#4-functional-requirements)  
+5. [Appeal Level Modeling](#5-appeal-level-modeling)  
+6. [Peer-to-Peer (P2P) Workflow](#6-peer-to-peer-p2p-workflow)  
+7. [Data Model Changes](#7-data-model-changes)  
+8. [API Changes](#8-api-changes)  
+9. [LangGraph Integration](#9-langgraph-integration)  
+10. [UI Surfaces](#10-ui-surfaces)  
+11. [Test Cases](#11-test-cases)  
+12. [Risks & Mitigations](#12-risks--mitigations)  
+13. [Deliverables & Acceptance Criteria](#13-deliverables--acceptance-criteria)
+
+---
+
+## 1. Problem Summary
+
+### 1.1 Context
+
+ClearAuth's appeal pipeline currently produces a single-round, gatekeeper-validated appeal letter for a prior-authorization (PA) denial. The pipeline terminates at `DoneEvent` with a `tier` assignment (`routine` / `complex` / `exception`) — but there is no mechanism to advance a denied appeal through **internal escalation levels** or to coordinate a **peer-to-peer (P2P) call** with the payer's medical director when an internal appeal is exhausted or clinically contested.
+
+In practice, PA denials for specialty medications and high-cost therapies routinely require multi-level escalation:
+
+1. **Level 1 — Internal appeal** (the letter the current pipeline produces)
+2. **Level 2 — Internal reconsideration** (second-level written escalation; required by most commercial payers before P2P)
+3. **Level 3 — P2P review** (prescriber speaks directly to payer medical director; highest clinical impact, time-bounded)
+4. **Level 4 — External IRO/IMR** (independent review organization; regulatory, post-P2P; out of scope for this slice)
+
+Without structured level modeling, clinical-ops reviewers are manually tracking escalation state in spreadsheets, missing payer-imposed deadlines, and failing to prepare prescribers with the right clinical evidence bundle before P2P calls. This creates material risk: lost appeals, delayed therapy, and regulatory non-compliance in states with mandated IRO timelines.
+
+### 1.2 What Is Missing Today
+
+| Gap | Current State | Impact |
+|---|---|---|
+| No escalation level on a case | `CaseStatus` and `CaseTier` carry no level concept | Reviewers cannot tell which round a case is in |
+| No P2P workflow object | P2P prep is entirely manual | Prescribers enter calls unprepared; clinical arguments are inconsistent |
+| No deadline tracking | Turnaround timelines not modeled | Payer deadlines missed; regulatory exposure in IL, MD, CA |
+| No level-specific letter generation | Same pipeline prompt for all rounds | Level 2 and P2P briefs require distinct framing and evidence emphasis |
+| No P2P outcome capture | No structured payer-response field for P2P | Outcomes not auditable; no learning loop |
+
+### 1.3 Regulatory Context
+
+Several states regulate P2P timelines directly:
+
+- **Illinois (20 ILCS 2210/155.04d)** — payer must offer P2P within 5 business days of request; turnaround on expedited appeals ≤ 72 hours.
+- **Maryland HB 1563** — physician-to-physician review required before adverse determination; payer medical director must be board-certified in the same specialty or a related one.
+- **California AB 1183 / Health & Safety Code §1374.72** — independent medical review mandatory post-P2P denial; payer must provide written denial reason before the P2P call.
+
+These statutes inform the deadline fields and the P2P prep bundle requirements defined in §5 and §6 below. **ClearAuth does not provide legal advice; the regulatory summaries above are context for engineering requirements, not legal guidance.**
+
+---
+
+## 2. Goals
+
+| # | Goal | Metric |
+|---|---|---|
+| G1 | Model appeal levels 1–3 as first-class domain objects with payer-imposed deadlines | `AppealLevel` enum live; all existing golden scenarios labeled |
+| G2 | Generate level-appropriate appeal content (distinct prompt templates per level) | Level 2 and P2P letter structural scores ≥ same gatekeeper thresholds as Level 1 |
+| G3 | Surface a P2P prep bundle (clinical argument, evidence refs, prescriber briefing) | `P2pPrepBundle` produced on every Level 3 case; bundle reviewable in queue workspace |
+| G4 | Track P2P scheduling and outcome in the audit trail | `P2pRecord` on `AuditRecord` for every Level 3 case; no P2P run completes without an outcome |
+| G5 | Keep the `DoneEvent` + `error` SSE terminal guarantee and audit idempotency invariants intact across all new paths | No new terminal event types; every Level 2 / Level 3 run writes exactly one `AuditRecord` before its terminal event |
+| G6 | Maintain full frontend parity: every new enum and schema field mirrors `src/types.ts` in the same commit | Parity test passes in CI |
+
+---
+
+## 3. Non-Goals
+
+| # | Non-Goal | Rationale |
+|---|---|---|
+| NG1 | External Independent Review Organization (IRO / IMR) submission | Level 4 is a different rail entirely; scoped to a later sprint |
+| NG2 | Automated scheduling of P2P calls with payer systems | Requires payer calendar integration; not available in any current payer connector stub |
+| NG3 | Real-time payer deadline data | Payer deadlines are sourced from `golden/payer_procedures.json`; live payer API integration is Phase 3 |
+| NG4 | Prescriber identity management or NPI lookup beyond existing `PatientContext.prescriber_npi` | Out of scope; existing field is sufficient for the P2P briefing |
+| NG5 | Automated P2P call transcription or NLP analysis of call outcomes | Future sprint; P2P outcome is a human-entered structured field |
+| NG6 | Multi-tenant P2P routing (different prescribers per tenant) | ADR-0017 tenancy is in place; panel scoping is Phase 3 |
+| NG7 | Modification of the `initial_pa` lifecycle (`POST /api/pa/submit`) | PA submission is a different lifecycle; appeals-only in this slice |
+
+---
+
+## 4. Functional Requirements
+
+### 4.1 Appeal Level Assignment (FR-AL)
+
+| ID | Requirement | Priority |
+|---|---|---|
+| FR-AL-1 | The system SHALL assign an `AppealLevel` (1, 2, or 3) to every appeal pipeline run | P0 |
+| FR-AL-2 | Level assignment SHALL be deterministic and based on `attempt` counter + `escalation_reason` (never LLM-decided) | P0 |
+| FR-AL-3 | Level 1 = first attempt with no prior exhausted internal appeal on the same `case_ref`; Level 2 = explicit escalation request or Level 1 denial confirmed in `payer_response_analysis`; Level 3 = Level 2 exhausted or `p2p_requested=True` on the request | P0 |
+| FR-AL-4 | `AppealLevel` SHALL be carried on `AppealRequest`, `PipelineState`, `DoneEvent`, and `AuditRecord` | P0 |
+| FR-AL-5 | Payer-specific turnaround deadlines for each level SHALL be loaded from `golden/payer_procedures.json` and stamped on the `AuditRecord` as `deadline_iso` | P1 |
+| FR-AL-6 | If no payer-specific deadline is found, the system SHALL fall back to regulatory minimums (IL/MD: 72 h expedited, 30 d standard) and flag `deadline_source="regulatory_fallback"` | P1 |
+
+### 4.2 Level-Specific Letter Generation (FR-LG)
+
+| ID | Requirement | Priority |
+|---|---|---|
+| FR-LG-1 | The synthesis node SHALL select a prompt template keyed on `AppealLevel` | P0 |
+| FR-LG-2 | Level 1 prompt: existing template (no change) | P0 |
+| FR-LG-3 | Level 2 prompt: MUST include explicit reference to Level 1 denial, escalated clinical urgency framing, and a structured "Response to Denial Rationale" section | P0 |
+| FR-LG-4 | Level 3 (P2P) prompt: generates a prescriber **oral argument brief** — concise, citation-heavy, framed for a 10-minute phone call with a medical director; NOT a letter | P0 |
+| FR-LG-5 | All templates SHALL pass the existing deterministic gatekeeper checks (length ≥ 300 chars, drug present, diagnosis present, no refusal phrases) | P0 |
+| FR-LG-6 | `DoneEvent.appeal_level` SHALL reflect the level at which the letter/brief was generated | P0 |
+
+### 4.3 P2P Preparation (FR-P2P)
+
+| ID | Requirement | Priority |
+|---|---|---|
+| FR-P2P-1 | When `appeal_level == 3`, the pipeline SHALL produce a `P2pPrepBundle` as an additional output alongside the oral brief | P0 |
+| FR-P2P-2 | The bundle SHALL include: clinical argument summary (≤ 500 words), ordered list of citation references from `pa_context`, prescriber briefing checklist, expected payer objections with suggested rebuttals | P0 |
+| FR-P2P-3 | The bundle SHALL be deterministically generated from existing PA criteria and `pa_context`; it SHALL NOT invoke an additional LLM call — it is assembled from gatekeeper-passed synthesis output + retrieved criteria | P1 |
+| FR-P2P-4 | `P2pPrepBundle` SHALL be attached to the `AuditRecord` as `p2p_bundle_ref` (SHA-256 hash of bundle JSON) | P1 |
+| FR-P2P-5 | The bundle SHALL be surfaced in the queue workspace UI under a "P2P Prep" panel (see §10) | P0 |
+
+### 4.4 P2P Scheduling & Outcome Capture (FR-PS)
+
+| ID | Requirement | Priority |
+|---|---|---|
+| FR-PS-1 | A reviewer SHALL be able to record a P2P call date/time via the queue workspace | P0 |
+| FR-PS-2 | P2P outcome SHALL be captured as a `P2pOutcome` enum: `approved`, `denied`, `partially_approved`, `escalated_iro`, `no_show` | P0 |
+| FR-PS-3 | Outcome SHALL be written to a `P2pRecord` sub-object on the `AuditRecord`, stamped with `reviewed_by` from the session user | P0 |
+| FR-PS-4 | A `POST /api/appeal/p2p/outcome` endpoint SHALL accept and persist the `P2pRecord` | P0 |
+| FR-PS-5 | `partially_approved` and `denied` outcomes SHALL surface a "Escalate to IRO?" prompt in the UI (action deferred; prompt only in this slice) | P1 |
+
+### 4.5 Audit & Compliance (FR-AC)
+
+| ID | Requirement | Priority |
+|---|---|---|
+| FR-AC-1 | Every Level 2 and Level 3 run SHALL write exactly one `AuditRecord` before its terminal SSE event (same idempotency guarantee as Level 1) | P0 |
+| FR-AC-2 | `AuditRecord.appeal_level` SHALL be set for every appeal lifecycle record | P0 |
+| FR-AC-3 | `AuditRecord.deadline_iso` SHALL be stamped for P1 payer-deadline feature | P1 |
+| FR-AC-4 | `AuditRecord.p2p_record` SHALL be nullable; present only for Level 3 runs with a recorded outcome | P0 |
+| FR-AC-5 | PHI redaction rules (`redact_phi()`) SHALL apply to all new fields before any external sink | P0 |
+
+---
+
+## 5. Appeal Level Modeling
+
+### 5.1 `AppealLevel` Enum
+
+```python
+# backend/models/enums.py  (mirrors src/types.ts AppealLevel)
+class AppealLevel(str, Enum):
+    level_1 = "level_1"   # First internal appeal letter
+    level_2 = "level_2"   # Second-level internal reconsideration
+    level_3 = "level_3"   # Peer-to-peer (prescriber ↔ medical director)
+```
+
+Frontend parity: `src/types.ts` gains `AppealLevel` with identical string values. Parity enforced by `backend/tests/unit/test_schema_parity.py` (existing pattern, extended with the new enum — hard-3 rule).
+
+### 5.2 Level Derivation Rules (Deterministic, Never LLM)
+
+The level derivation lives in a new pure function `derive_appeal_level(request: AppealRequest) -> AppealLevel` in `backend/agents/nodes/appeal_level.py`:
+
+```
+if request.p2p_requested:
+    return AppealLevel.level_3
+
+prior_denial_count = count of prior AuditRecords with:
+    - same case_ref
+    - outcome == "done"
+    - appeal_level in {level_1, level_2}
+    - no subsequent human_edited record marking "approved"
+
+if prior_denial_count == 0:
+    return AppealLevel.level_1
+elif prior_denial_count == 1:
+    return AppealLevel.level_2
+else:
+    return AppealLevel.level_3
+```
+
+The derivation reads the in-memory audit store (same public API as `derive_pending_reviews`). This keeps the rule pure and testable while respecting the existing store abstraction. The PostgreSQL migration (Phase 3) requires no change to the derivation logic.
+
+### 5.3 Deadline Model
+
+Payer turnaround deadlines are sourced from `golden/payer_procedures.json` (existing file, new `appeal_deadlines` sub-key per plan). The deadline lookup lives in `backend/agents/nodes/appeal_level.py` alongside the derivation:
+
+```python
+@dataclass
+class AppealDeadline:
+    level: AppealLevel
+    standard_days: int           # Calendar days
+    expedited_hours: int         # For urgent/expedited cases
+    source: str                  # "payer_procedures" | "regulatory_fallback"
+    regulatory_basis: str | None # e.g. "IL 20 ILCS 2210/155.04d"
+```
+
+The deadline is stamped on `PipelineState.deadline` and forwarded to `DoneEvent.deadline_iso` (ISO 8601 deadline timestamp, computed from `now + standard_days` unless the request carries an `expedited=True` flag, in which case `now + expedited_hours`).
+
+### 5.4 State Machine Extension
+
+The existing `CaseStatus` state machine gains two new edges from the `payer_response` node (no new states — the existing states are sufficient):
+
+```
+payer_response → processing    : Level 1 denied → auto-advance to Level 2 draft
+payer_response → processing    : Level 2 denied + p2p_eligible → advance to Level 3 / P2P
+```
+
+These transitions are captured in `src/components/portfolio/caseQueue.ts` (`statusAfterResolution`) — the queue workspace logic already handles the `payer_response → processing` edge for round-2; this slice parameterizes it with `AppealLevel`.
+
+---
+
+## 6. Peer-to-Peer (P2P) Workflow
+
+### 6.1 Workflow Overview
+
+```
+Level 2 Denied
+      │
+      ▼
+[Reviewer: Request P2P]     ── sets p2p_requested=True on next AppealRequest
+      │
+      ▼
+POST /api/appeal/generate   ── appeal_level derives to level_3
+      │
+      ├── synthesis node  ── uses P2P oral brief template
+      ├── gatekeeper      ── same deterministic checks
+      ├── tier_router     ── always "complex" or "exception" for L3
+      ├── p2p_prep node   ── assembles P2pPrepBundle (no LLM)
+      └── finalize        ── DoneEvent + AuditRecord (with p2p_bundle_ref)
+      │
+      ▼
+[Reviewer: Schedule P2P Call]     ── records scheduled_at in UI
+      │
+      ▼
+[Prescriber + Medical Director: P2P Call]
+      │
+      ▼
+POST /api/appeal/p2p/outcome      ── records P2pRecord (outcome, notes)
+      │
+      ├── approved              ── case → payer_response (approved)
+      ├── partially_approved    ── case → payer_response + IRO prompt
+      ├── denied                ── case → payer_response + IRO prompt
+      ├── escalated_iro         ── case → payer_response (IRO handoff, deferred)
+      └── no_show               ── case stays pending; re-schedule option
+```
+
+### 6.2 `P2pPrepBundle` Structure
+
+The bundle is assembled by the `p2p_prep` node after the gatekeeper passes the oral brief. It is a deterministic, non-LLM aggregation:
+
+```python
+# backend/models/schemas.py
+class P2pCitationRef(BaseModel):
+    label: str          # Criterion label from CriterionResult.rule.label
+    doc_source: str     # CriterionResult.doc_source
+    note: str           # CriterionResult.note (truncated to 200 chars)
+    status: CriterionStatus
+
+class P2pObjectionRebuttal(BaseModel):
+    expected_objection: str   # Drawn from denial_reason + criterion conflicts
+    suggested_rebuttal: str   # Drawn from found criteria + pa_context snippets
+
+class P2pPrepBundle(BaseModel):
+    correlation_id: str
+    case_ref: str
+    drug: str
+    diagnosis: str
+    plan: str
+    prescriber_name: str        # From PatientContext.prescriber_name
+    prescriber_specialty: str   # From PatientContext.prescriber_specialty (new field — see §7)
+    clinical_summary: str       # ≤ 500 words; trimmed synthesis output preamble
+    citation_refs: list[P2pCitationRef]   # From CriterionResult[status=found]
+    objection_rebuttals: list[P2pObjectionRebuttal]
+    briefing_checklist: list[str]  # Fixed + dynamic items (see §6.3)
+    generated_at: datetime
+    bundle_hash: str            # SHA-256 of bundle JSON (bundle_ref on AuditRecord)
+```
+
+### 6.3 Briefing Checklist Generation
+
+The checklist is assembled deterministically from two parts:
+
+**Fixed items (always present):**
+1. Confirm payer medical director specialty (should match prescribing specialty — MD HB 1563)
+2. Request written denial reason before the call if not already received (CA AB 1183)
+3. Have patient chart open for reference during the call
+4. Record call date, time, and payer representative name after the call
+
+**Dynamic items (derived from `CriterionResult` set):**
+- For each `CriterionResult` with `status == needs_review`: "Be prepared to address: `{rule.label}`"
+- For each `CriterionResult` with `status == conflict`: "Resolve conflicting source: `{conflict_sources[0].source_label}` vs `{conflict_sources[1].source_label}`"
+- If `pa_resolution == "generic"`: "Note: PA criteria are from generic fallback — confirm payer-specific criteria before the call"
+
+### 6.4 P2P Outcome Capture
+
+```python
+# backend/models/schemas.py
+class P2pOutcome(str, Enum):
+    approved          = "approved"
+    denied            = "denied"
+    partially_approved = "partially_approved"
+    escalated_iro     = "escalated_iro"
+    no_show           = "no_show"
+
+class P2pRecord(BaseModel):
+    correlation_id: str
+    scheduled_at: datetime | None   # Set by reviewer before the call
+    completed_at: datetime | None   # Set when outcome is recorded
+    outcome: P2pOutcome | None      # None until call is completed
+    outcome_notes: str              # ≤ 1000 chars; free text; PHI-redacted before log
+    reviewed_by: str                # session user_id; "" for Bearer callers
+    payer_rep_name: str             # ≤ 200 chars; who the prescriber spoke with
+    iro_eligible: bool              # Derived: outcome in {denied, partially_approved}
+```
+
+---
+
+## 7. Data Model Changes
+
+### 7.1 `AppealRequest` — New Fields
+
+```python
+# backend/models/schemas.py — AppealRequest additions
+appeal_level: AppealLevel | None = None
+    # Client-supplied hint; derive_appeal_level() overrides if inconsistent.
+    # None = derive from audit history.
+
+p2p_requested: bool = False
+    # Set by the frontend when reviewer explicitly requests P2P escalation.
+    # Forces appeal_level = level_3.
+
+expedited: bool = False
+    # When True, deadline uses expedited_hours rather than standard_days.
+    # Relevant for IL/CA urgent-care timelines.
+
+prior_level_correlation_id: str | None = None
+    # Correlation ID of the immediately preceding level's run.
+    # Allows the Level 2 / Level 3 prompt to reference the prior letter hash.
+    # max 200 chars.
+```
+
+### 7.2 `PipelineState` — New Fields
+
+```python
+# backend/models/schemas.py — PipelineState TypedDict additions
+appeal_level: AppealLevel               # Set by ingestion node after derivation
+deadline: AppealDeadline | None         # Stamped after level derivation
+p2p_bundle: P2pPrepBundle | None        # Set by p2p_prep node (level_3 only)
+prior_letter_hash: str                  # Loaded from prior_level_correlation_id audit record
+```
+
+### 7.3 `DoneEvent` — New Fields
+
+```python
+# Additive — no breaking changes to existing consumers
+appeal_level: AppealLevel
+deadline_iso: str | None     # ISO 8601; null if payer procedures not found and
+                              # regulatory fallback not applicable
+p2p_bundle_ref: str | None   # SHA-256 hash; null unless appeal_level == level_3
+```
+
+### 7.4 `AuditRecord` — New Fields
+
+```python
+appeal_level: AppealLevel | None        # None for initial_pa lifecycle records
+deadline_iso: str | None
+p2p_bundle_ref: str | None
+p2p_record: P2pRecord | None            # Populated by POST /api/appeal/p2p/outcome
+```
+
+### 7.5 `PatientContext` — New Field
+
+```python
+prescriber_specialty: str   # Required for P2P bundle + MD HB 1563 compliance check
+                             # max 200 chars; pulled from scenario fixture or EHR stub
+```
+
+### 7.6 `ScenarioConfig` — New Fields
+
+```python
+appeal_level: AppealLevel | None        # Optional; defaults to level_1 if absent
+p2p_requested: bool = False
+prior_level_correlation_id: str | None
+```
+
+### 7.7 Golden Set Impact
+
+`evals/fixtures/scenarios.json` gains `appeal_level` on every existing scenario (default `level_1`). Two new scenarios are added:
+
+| Scenario ID | Anchor | Level | Purpose |
+|---|---|---|---|
+| `ozempic-cigna-level2` | `ozempic_cigna` | `level_2` | Level 2 letter structural correctness |
+| `livdelzi-cigna-p2p` | `livdelzi_cigna_hepatology` | `level_3` | P2P bundle assembly + oral brief gatekeeper pass |
+
+The `EvalScenario` schema (`evals/fixtures/schema.py`) gains `appeal_level: AppealLevel = AppealLevel.level_1` with a labeled rubric note.
+
+### 7.8 Frontend Parity Contract
+
+All new enums and model fields mirror `src/types.ts` in the same commit per the hard-3 rule. New parity tests:
+
+- `backend/tests/unit/test_schema_parity.py` — extended with `AppealLevel`, `P2pOutcome` enum shapes
+- `src/data/scenarios_parity.test.ts` — extended with `appeal_level` field presence check
+
+---
+
+## 8. API Changes
+
+### 8.1 `POST /api/appeal/generate` — Extended
+
+No breaking changes. Additive fields on `AppealRequest` (all optional with defaults) and additive fields on `DoneEvent`.
+
+**New `AppealRequest` fields accepted:**
+
+| Field | Type | Constraint |
+|---|---|---|
+| `appeal_level` | `AppealLevel \| null` | Optional hint; derived if absent |
+| `p2p_requested` | bool | Default `false` |
+| `expedited` | bool | Default `false` |
+| `prior_level_correlation_id` | `str \| null` | ≤ 200 chars; optional |
+
+**New `DoneEvent` fields emitted:**
+
+| Field | Type | Notes |
+|---|---|---|
+| `appeal_level` | `AppealLevel` | Always present |
+| `deadline_iso` | `str \| null` | ISO 8601 or null |
+| `p2p_bundle_ref` | `str \| null` | SHA-256 hash; null unless `level_3` |
+
+**New `step` event values** (emitted before nodes run):
+
+| Step name | Label | Condition |
+|---|---|---|
+| `level_derivation` | `"Determining appeal level…"` | Always (after ingestion) |
+| `p2p_prep` | `"Assembling P2P preparation bundle…"` | `appeal_level == level_3` only |
+
+### 8.2 `GET /api/reviews/pending` — Extended Response
+
+The existing response shape gains `appeal_level` and `deadline_iso` on each pending review item:
+
+```json
+{
+  "reviews": [
+    {
+      "correlation_id": "livdelzi-cigna:a1",
+      "scenario_id": "livdelzi-cigna",
+      "drug": "Livdelzi (seladelpar)",
+      "plan": "Cigna PPO",
+      "tier": "exception",
+      "appeal_level": "level_3",
+      "deadline_iso": "2026-07-22T09:00:00+00:00",
+      "parked_at": "2026-07-19T09:30:00+00:00"
+    }
+  ]
+}
+```
+
+### 8.3 New Endpoint: `POST /api/appeal/p2p/outcome`
+
+Records the outcome of a completed P2P call against a parked or completed Level 3 run.
+
+**Auth:** Dual scheme — Bearer or `paxos_session` cookie; cookie non-GET requires `X-CSRF-Token`. `reviewed_by` stamped from session `user_id` (Bearer → `""`).
+
+**Tenant-scoped:** Same fail-closed `TenancyScope` as every other write path (ADR-0017).
+
+**Request body:** `RecordP2pOutcomeRequest` — strict-mode Pydantic:
+
+| Field | Type | Constraint |
+|---|---|---|
+| `correlation_id` | str | 1–200 chars; must match an existing Level 3 `AuditRecord` |
+| `outcome` | `P2pOutcome` | Required |
+| `outcome_notes` | str | ≤ 1000 chars; default `""` |
+| `payer_rep_name` | str | ≤ 200 chars; default `""` |
+| `completed_at` | datetime \| null | ISO 8601; defaults to `now()` if null |
+| `scheduled_at` | datetime \| null | Optional retrospective stamp |
+
+**Response:**
+
+- `200` — `P2pOutcomeResponse { correlation_id, outcome, iro_eligible, updated_at }`
+- `404` — No Level 3 `AuditRecord` found for `correlation_id` in the caller's tenant scope
+- `409` — Outcome already recorded for this `correlation_id` (idempotent: same outcome → `200`; different outcome → `409`)
+- `422` — Request body validation failure
+
+**Audit:** The endpoint patches `AuditRecord.p2p_record` in-place on the in-memory store (the `AuditStore` gains a `record_p2p_outcome(correlation_id, p2p_record, tenancy_scope)` method). No new `AuditRecord` is written — the P2P outcome is a mutation of the existing Level 3 record, not a new lifecycle event. This is distinguished from the `resume` path, which creates a separate `human_edited` record because it produces a new artifact; P2P outcome is metadata on the existing artifact.
+
+### 8.4 New Endpoint: `GET /api/appeal/p2p/bundle/{correlation_id}`
+
+Returns the `P2pPrepBundle` for a Level 3 run. **Metadata only per the audit-trail-as-index principle** (ADR-0011): the bundle is reconstructed from the stored `AuditRecord.p2p_bundle_ref` hash — the actual bundle JSON is stored in a new `p2p_bundle_store` (an in-memory dict `{correlation_id: P2pPrepBundle}`, analogous to `audit/store.py`, with the same Phase 3 PostgreSQL migration path).
+
+**Auth:** Dual scheme; tenant-scoped. Returns `404` if `correlation_id` not found or not in caller's tenant scope.
+
+**Response:** `200` `P2pBundleResponse { bundle: P2pPrepBundle }`.
+
+### 8.5 OpenAPI + Wire Types
+
+Both new endpoints are added to `backend/main.py` and `backend/openapi_ext.py` (for SSE-invisible shapes) per ADR-0012. The `npm run api:dump` + `npm run api:types` pipeline regenerates `src/generated/api-types.d.ts`. The `wire-types-freshness` CI job fails if the generated file is stale — no manual mirroring.
+
+---
+
+## 9. LangGraph Integration
+
+### 9.1 Graph Changes (`agents/graph.py`)
+
+The existing `StateGraph(PipelineState)` gains two new nodes and one new conditional edge. All existing nodes are **unchanged** — the graph is extended by composition, not modification.
+
+#### New Nodes
+
+**`level_derivation` node**
+
+```python
+# agents/nodes/appeal_level.py
+async def run_level_derivation(state: PipelineState, *, audit_store, writer) -> PipelineState:
+    """
+    Pure-ish node: reads audit store (read-only side effect; deterministic result).
+    Emits StepEvent("level_derivation").
+    Sets state.appeal_level, state.deadline, state.prior_letter_hash.
+    """
+    ...
+```
+
+Position in graph: `ingestion → level_derivation → retrieval` (inserted after ingestion, before retrieval — retrieval is unchanged and does not need the level).
+
+**`p2p_prep` node**
+
+```python
+# agents/nodes/p2p_prep.py
+def run_p2p_prep(state: PipelineState) -> PipelineState:
+    """
+    Pure function: no I/O.
+    Assembles P2pPrepBundle from state.request, state.pa_context,
+    state.appeal_text (the gatekeeper-passed oral brief), and
+    state.request.criteria_results.
+    Sets state.p2p_bundle.
+    """
+    ...
+```
+
+Position in graph: inserted between `gatekeeper` (pass path) and `tier_router`, but **only when `state.appeal_level == AppealLevel.level_3`**. A conditional edge implements this:
+
+```
+gatekeeper (pass) →
+    if appeal_level == level_3: p2p_prep → tier_router
+    else:                       tier_router
+```
+
+This preserves the existing `gatekeeper → tier_router → finalize` path for Level 1 and Level 2 runs.
+
+#### Updated Conditional Edge
+
+```python
+def _after_gatekeeper(state: PipelineState) -> str:
+    if not state["passed_gatekeeper"]:
+        if state["retry_count"] >= MAX_RETRIES:
+            return "exhausted"
+        return "synthesis"
+    # Passed:
+    if state["appeal_level"] == AppealLevel.level_3:
+        return "p2p_prep"
+    return "tier_router"
+```
+
+#### Updated `finalize` node
+
+`finalize` gains access to `state.appeal_level`, `state.deadline`, and `state.p2p_bundle` to populate the extended `DoneEvent` fields. The node is a thin wrapper; the `_build_done_event` helper in `graph.py` is extended (same pattern as the existing `tier` field addition in S3 Slice 3).
+
+### 9.2 Prompt Templates (`agents/prompts.py`)
+
+Three templates are defined, selected by `appeal_level`:
+
+#### Level 1 Template (unchanged)
+Existing `APPEAL_PROMPT_TEMPLATE` — no modification.
+
+#### Level 2 Template
+```
+APPEAL_L2_PROMPT_TEMPLATE:
+System: You are a clinical appeals specialist writing a second-level
+reconsideration letter for a prior authorization denial.
+
+<prior_denial_context>
+{prior_denial_summary}    ← drawn from prior_letter_hash AuditRecord fields
+</prior_denial_context>
+
+<pa_requirements>
+{pa_context}
+</pa_requirements>
+
+<denial_letter>
+{denial_text}
+</denial_letter>
+
+Write a formal second-level reconsideration letter that:
+1. Opens with explicit reference to the Level 1 appeal denial
+2. Presents escalated clinical urgency with specific patient-impact language
+3. Includes a "Response to Denial Rationale" section addressing each stated reason
+4. Cites the PA criteria by name
+5. Requests a specific determination within {deadline_days} days
+Do not use AI-identity phrases. Drug: {drug}. Diagnosis: {diagnosis}.
+```
+
+#### Level 3 / P2P Oral Brief Template
+```
+APPEAL_P2P_PROMPT_TEMPLATE:
+System: You are preparing a prescribing physician for a peer-to-peer review
+call with a payer medical director. Write a concise oral argument brief.
+
+<pa_requirements>
+{pa_context}
+</pa_requirements>
+
+<denial_letter>
+{denial_text}
+</denial_letter>
+
+Write a 10-minute oral argument brief that:
+1. Opens with patient clinical summary (2–3 sentences)
+2. States the core clinical argument in plain language
+3. Lists 3–5 citation-backed clinical evidence points
+4. Anticipates the payer's denial rationale and pre-empts it
+5. Closes with a clear ask: approve the PA for {drug} for {diagnosis}
+Keep the total length under 600 words. Drug: {drug}. Diagnosis: {diagnosis}.
+```
+
+All untrusted fields (`pa_context`, `denial_text`) are passed inside XML-delimited slots — the existing prompt injection defense from `synthesis.py` is unchanged (trust boundary 4 in `04-data-flow.md`).
+
+### 9.3 `PipelineState` TypedDict Extension
+
+```python
+class PipelineState(TypedDict):
+    # --- existing fields (unchanged) ---
+    request: AppealRequest
+    pa_context: str
+    pa_resolution: PaResolution
+    appeal_text: str
+    model_name: str
+    passed_gatekeeper: bool
+    retry_count: int
+    errors: list[str]
+    tier: CaseTier | None
+    # --- new fields (Slice 3) ---
+    appeal_level: AppealLevel | None
+    deadline: AppealDeadline | None
+    p2p_bundle: P2pPrepBundle | None
+    prior_letter_hash: str
+```
+
+New fields all default to `None` / `""` in the `ingestion` node (same zero-value initialization pattern) — existing node tests require no changes.
+
+### 9.4 Checkpointing
+
+Level 2 runs follow the same checkpoint behavior as Level 1 (`routine` / `complex` → skip `hold`; `exception` → park at `hold`). Level 3 runs **always** route to `exception` tier (a P2P case is by definition clinically complex and requires human-in-the-loop confirmation before the call). They therefore always park at `hold` after `finalize`, and are listed in `GET /api/reviews/pending`.
+
+The `is_run_parked` check in `review_queue.py` requires no change — it keys on the checkpointer's `get_state(...).next`, which works identically for Level 3.
+
+---
+
+## 10. UI Surfaces
+
+### 10.1 Queue Workspace — Appeal Level Badge
+
+**Location:** `src/components/portfolio/` — case list pane (left column)  
+**Change:** Each case card gains an `AppealLevel` badge alongside the existing `CaseTier` badge.
+
+```
+[ Level 2 ]  [ exception ]  [ Livdelzi · Cigna ]  [ ⏰ 2 days ]
+```
+
+- Badge labels: `L1`, `L2`, `P2P` (short form for UI density)
+- Deadline indicator: amber when ≤ 3 business days remain; red when ≤ 1 day; grey otherwise
+- Derived from `DoneEvent.deadline_iso` stored in the scenario fixture / live `AuditRecord`
+
+**Demo implementation:** Scenario fixture field `appeal_level` + `deadline_iso` renders the badge with no backend call.  
+**Live implementation:** `GET /api/reviews/pending` response carries both fields.
+
+### 10.2 Queue Workspace — P2P Prep Panel
+
+**Location:** `src/components/portfolio/` — right-hand detail pane, new "P2P Prep" tab (appears only when `appeal_level == level_3`)
+
+Tab sections:
+
+| Section | Content | Source |
+|---|---|---|
+| Clinical Summary | `P2pPrepBundle.clinical_summary` | Backend bundle |
+| Evidence Citations | Ordered list from `citation_refs` | Backend bundle |
+| Briefing Checklist | Checkboxes from `briefing_checklist` | Backend bundle (interactive — state in component only, not persisted) |
+| Expected Objections | Accordion from `objection_rebuttals` | Backend bundle |
+| Schedule P2P Call | Date/time picker + "Record Outcome" button | Local state → `POST /api/appeal/p2p/outcome` |
+
+**Demo implementation:** `src/data/scenarios.tsx` carries a `p2pBundle` fixture field on Level 3 scenarios; the panel renders from the fixture with no network call.  
+**Live implementation:** `GET /api/appeal/p2p/bundle/{correlation_id}` fetched on tab open; typed via `src/lib/api.ts`.
+
+### 10.3 POC View — Level Indicator
+
+**Location:** `src/components/poc/` — `ReviewPanel`  
+**Change:** Adds a read-only `Appeal Level` label next to the existing tier badge. The `DoneEvent.appeal_level` field is surfaced here when in live mode.
+
+### 10.4 POC View — P2P Oral Brief Display
+
+For Level 3 runs, the `ReviewPanel` replaces the "Appeal Letter" heading with "P2P Oral Brief" and adds a sub-heading: *"This brief is intended for the prescribing physician, not the payer."*  The brief text renders in the same streaming view but with a distinct background color (amber/warm tone) to visually differentiate from a formal letter.
+
+### 10.5 Scenario Fixtures
+
+Two new scenario objects in `src/data/scenarios.tsx` (mirrored from `evals/fixtures/scenarios.json`):
+
+```typescript
+// ozempic-cigna-level2 — Level 2 reconsideration scenario
+// livdelzi-cigna-p2p  — Level 3 / P2P scenario with p2pBundle fixture
+```
+
+Each carries the new `appealLevel`, `deadlineIso`, and `p2pBundle` (for Level 3) fields. The `scenarios_parity.test.ts` guard is extended to verify these fields.
+
+---
+
+## 11. Test Cases
+
+### 11.1 Unit Tests (`backend/tests/unit/`)
+
+| ID | File | What | Assert |
+|---|---|---|---|
+| UT-AL-1 | `test_appeal_level.py` | `derive_appeal_level()` with empty audit store | Returns `level_1` |
+| UT-AL-2 | `test_appeal_level.py` | `derive_appeal_level()` with one prior `done` Level 1 record, no approval | Returns `level_2` |
+| UT-AL-3 | `test_appeal_level.py` | `derive_appeal_level()` with `p2p_requested=True` | Returns `level_3` regardless of history |
+| UT-AL-4 | `test_appeal_level.py` | `derive_appeal_level()` with two prior denied levels | Returns `level_3` |
+| UT-AL-5 | `test_appeal_level.py` | `derive_appeal_level()` with one prior denied + one approved | Returns `level_1` (new case cycle) |
+| UT-DL-1 | `test_appeal_level.py` | `derive_deadline()` — known plan_id in payer_procedures | Returns `AppealDeadline` with `source="payer_procedures"` |
+| UT-DL-2 | `test_appeal_level.py` | `derive_deadline()` — unknown plan_id | Returns `AppealDeadline` with `source="regulatory_fallback"` |
+| UT-DL-3 | `test_appeal_level.py` | `derive_deadline()` — `expedited=True` | `deadline_iso` uses `expedited_hours`, not `standard_days` |
+| UT-P2-1 | `test_p2p_prep.py` | `run_p2p_prep()` — level_3 state with all criteria found | `p2p_bundle` not None; `citation_refs` length == found criterion count |
+| UT-P2-2 | `test_p2p_prep.py` | `run_p2p_prep()` — criteria include `needs_review` | `briefing_checklist` contains the needs-review item |
+| UT-P2-3 | `test_p2p_prep.py` | `run_p2p_prep()` — `pa_resolution == "generic"` | `briefing_checklist` contains the generic-fallback warning item |
+| UT-P2-4 | `test_p2p_prep.py` | `run_p2p_prep()` — level_1 state | `p2p_bundle` is None; node is a no-op for non-L3 states |
+| UT-P2-5 | `test_p2p_prep.py` | `bundle_hash` matches `sha256(json.dumps(bundle.dict()))` | Deterministic hash |
+| UT-GR-1 | `test_graph_routes.py` | `_after_gatekeeper` — pass, level_3 | Returns `"p2p_prep"` |
+| UT-GR-2 | `test_graph_routes.py` | `_after_gatekeeper` — pass, level_1 | Returns `"tier_router"` (unchanged) |
+| UT-GR-3 | `test_graph_routes.py` | `_after_gatekeeper` — fail, retries left | Returns `"synthesis"` (unchanged) |
+| UT-SC-1 | `test_schema_parity.py` | `AppealLevel` enum values match `src/types.ts` | Parity |
+| UT-SC-2 | `test_schema_parity.py` | `P2pOutcome` enum values match `src/types.ts` | Parity |
+| UT-ST-1 | `test_audit_store.py` | `record_p2p_outcome()` — valid correlation_id | Returns updated record; `p2p_record.outcome` set |
+| UT-ST-2 | `test_audit_store.py` | `record_p2p_outcome()` — unknown correlation_id | Raises `LookupError` |
+| UT-ST-3 | `test_audit_store.py` | `record_p2p_outcome()` — same outcome replayed | Idempotent; returns existing record |
+| UT-ST-4 | `test_audit_store.py` | `record_p2p_outcome()` — different outcome replayed | Raises `ConflictError` |
+
+### 11.2 Integration Tests (`backend/tests/integration/`)
+
+| ID | File | What | Assert |
+|---|---|---|---|
+| IT-L1-1 | `test_appeal_pipeline.py` | Full mock pipeline, `appeal_level=level_1` | `DoneEvent.appeal_level == "level_1"` |
+| IT-L2-1 | `test_appeal_pipeline.py` | Full mock pipeline, level_2 (one prior denied L1 in store) | `DoneEvent.appeal_level == "level_2"`; prompt contains `PRIOR_DENIAL` marker |
+| IT-L3-1 | `test_appeal_pipeline.py` | Full mock pipeline, `p2p_requested=True` | `DoneEvent.appeal_level == "level_3"`; `DoneEvent.p2p_bundle_ref` not null |
+| IT-L3-2 | `test_appeal_pipeline.py` | Level 3 run gatekeeper pass | `p2p_bundle_ref` matches `sha256` of stored bundle |
+| IT-L3-3 | `test_appeal_pipeline.py` | Level 3 run tier | Always routes to `exception`; run parks at `hold` |
+| IT-P2-1 | `test_p2p_endpoint.py` | `POST /api/appeal/p2p/outcome` — valid Level 3 correlation_id | `200`; `AuditRecord.p2p_record.outcome` set |
+| IT-P2-2 | `test_p2p_endpoint.py` | `POST /api/appeal/p2p/outcome` — unknown correlation_id | `404` |
+| IT-P2-3 | `test_p2p_endpoint.py` | `POST /api/appeal/p2p/outcome` — Level 1 correlation_id | `404` (Level 1 is not a P2P record) |
+| IT-P2-4 | `test_p2p_endpoint.py` | `POST /api/appeal/p2p/outcome` — replayed same outcome | `200` (idempotent) |
+| IT-P2-5 | `test_p2p_endpoint.py` | `POST /api/appeal/p2p/outcome` — replayed different outcome | `409` |
+| IT-P2-6 | `test_p2p_endpoint.py` | `GET /api/appeal/p2p/bundle/{id}` — valid L3 id | `200`; bundle matches stored hash |
+| IT-P2-7 | `test_p2p_endpoint.py` | `GET /api/appeal/p2p/bundle/{id}` — Level 1 id | `404` |
+| IT-AU-1 | `test_audit_trail.py` | Level 2 run writes exactly one `AuditRecord` | `AuditRecord.appeal_level == "level_2"` |
+| IT-AU-2 | `test_audit_trail.py` | Level 3 run writes `p2p_bundle_ref` | Hash present on record |
+| IT-TS-1 | `test_tenancy.py` | `POST /api/appeal/p2p/outcome` — cross-tenant correlation_id | `404` (tenant-scoped) |
+| IT-TS-2 | `test_tenancy.py` | `GET /api/appeal/p2p/bundle/{id}` — cross-tenant id | `404` |
+
+### 11.3 Eval Fixtures (`backend/evals/fixtures/scenarios.json`)
+
+| Fixture ID | Level | Eval Dimension Focus | Acceptance Threshold |
+|---|---|---|---|
+| `ozempic-cigna-level2` | level_2 | structure (prior denial reference present), coverage, safety | Same gatekeeper pass rate as L1 |
+| `livdelzi-cigna-p2p` | level_3 | structure (word count ≤ 600, citation count ≥ 3), safety (no AI-identity phrase) | Pass on first attempt in ≥ 4/5 runs with mock LLM |
+
+### 11.4 Frontend Tests
+
+| ID | File | What | Assert |
+|---|---|---|---|
+| FT-PR-1 | `scenarios_parity.test.ts` | Level 3 scenario has `appealLevel` field | Field present and equals `"level_3"` |
+| FT-PR-2 | `scenarios_parity.test.ts` | Level 3 scenario has `p2pBundle` field | Bundle has `citationRefs`, `briefingChecklist` |
+| FT-SC-1 | `caseQueue.test.ts` | `statusAfterResolution` — Level 3, `p2p_requested` | Advances level counter in state |
+| FT-UI-1 | Component snapshot | P2P Prep panel renders for Level 3 fixture | Snapshot matches; no render errors |
+| FT-UI-2 | Component snapshot | P2P badge hidden for Level 1 case | No badge rendered |
+
+---
+
+## 12. Risks & Mitigations
+
+| ID | Risk | Severity | Likelihood | Mitigation |
+|---|---|---|---|---|
+| R1 | Audit store read in `level_derivation` creates coupling between the node and a side-effectful dependency | High | Medium | Node receives `audit_store` via `config["configurable"]` (same injection pattern as `llm_backend`); unit tests use a fake store. Store read is read-only — no ACID isolation risk |
+| R2 | P2P prompt generates content > 600 words, failing gatekeeper length check (min 300 OK, but over-length may reduce quality) | Medium | Medium | Add soft length warning to `eval_structural` for L3 runs; gatekeeper unchanged (does not check maximum length); prompt includes word count instruction |
+| R3 | `prior_letter_hash` lookup fails (correlation_id not in store, e.g. first deploy) | Medium | Low | `level_derivation` node sets `prior_letter_hash = ""` when lookup fails and logs a warning; Level 2 template gracefully handles empty prior context with a fallback phrase |
+| R4 | P2P bundle store (in-memory dict) is not shared across workers (same caveat as audit list — ADR-0009) | High | High | Acceptable for single-worker demo; Phase 3 PostgreSQL migration covers the bundle store alongside audit + checkpointer. Document the caveat in the new store module's docstring |
+| R5 | `P2pRecord` outcome notes contain PHI (patient name, DOB in free-text) | High | Medium | `redact_phi()` applied to `outcome_notes` before any log or SSE emission; field is never echoed in `DoneEvent`; stored in audit record (PHI sink) only |
+| R6 | Regulatory deadline values in `payer_procedures.json` become stale | Medium | Medium | `deadline_source` field distinguishes payer-specific from regulatory fallback; UI surfaces the source so reviewers can verify manually; engineering review of the file is a quarterly task (added to CLAUDE.md §Maintenance) |
+| R7 | Level derivation from audit store is wrong if the store is empty after a restart (in-memory) | High | High | Same risk as the existing review queue; documented mitigation is Phase 3 durable store. For this slice: `derive_appeal_level` falls back to `level_1` on empty store; a warning log tells operators to treat post-restart level assignments as level_1 |
+| R8 | `_after_gatekeeper` conditional edge grows complexity as levels multiply | Low | Low | Edge is unit-tested exhaustively (UT-GR-1 through UT-GR-3); adding Level 4 would add one branch. Complexity budget is low — document the branch limit in `graph.py` |
+| R9 | Frontend P2P Prep panel reveals PHI via `PatientContext.prescriber_name` in demo mode | Medium | Low | Fixture uses synthetic identities from `IDENTITY_POOL`; live mode routes through `redact_phi()` at the boundary; P2P panel carries a `[DEMO DATA]` banner in demo mode |
+
+---
+
+## 13. Deliverables & Acceptance Criteria
+
+### 13.1 Slice 3A — Appeal Level Derivation (foundation)
+
+**Target branch:** `sprint-3-appeal-level`
+
+| Deliverable | File(s) | Acceptance Criteria |
+|---|---|---|
+| `AppealLevel` enum | `backend/models/enums.py`, `src/types.ts` | Parity test passes in CI |
+| `derive_appeal_level()` + `derive_deadline()` | `backend/agents/nodes/appeal_level.py` | UT-AL-1 through UT-AL-5, UT-DL-1 through UT-DL-3 all green |
+| `level_derivation` graph node + edge | `backend/agents/graph.py` | Existing 425-test suite passes unmodified; IT-L1-1 green |
+| Extended `AppealRequest` + `PipelineState` | `backend/models/schemas.py` | No breaking change on existing API call; parity test updated and green |
+| Extended `DoneEvent` | `backend/models/schemas.py` | `appeal_level` present on all `done` events in integration tests |
+| Two new payer_procedures.json deadline entries | `golden/payer_procedures.json` | UT-DL-1 green for `CIGNA-CNF360-2024` |
+| Level badge in queue workspace (demo) | `src/components/portfolio/` | FT-UI-2 snapshot passes; Level 1 badge shows `L1` |
+
+### 13.2 Slice 3B — Level-Specific Letter Generation
+
+**Target branch:** `sprint-3-level-prompts`
+
+| Deliverable | File(s) | Acceptance Criteria |
+|---|---|---|
+| Level 2 prompt template | `backend/agents/prompts.py` | IT-L2-1: prompt contains prior-denial marker; gatekeeper passes on first attempt with mock LLM |
+| Level 3 / P2P oral brief template | `backend/agents/prompts.py` | Gatekeeper passes; `DoneEvent.appeal_level == "level_3"` |
+| Synthesis node level branching | `backend/agents/nodes/synthesis.py` | Template selected by `state.appeal_level`; Level 1 unchanged |
+| New golden scenarios | `evals/fixtures/scenarios.json` | `ozempic-cigna-level2`, `livdelzi-cigna-p2p` added with correct schema |
+| Frontend: POC oral brief display | `src/components/poc/` | Level 3 run renders amber brief panel; heading reads "P2P Oral Brief" |
+
+### 13.3 Slice 3C — P2P Bundle + Endpoint
+
+**Target branch:** `sprint-3-p2p-bundle`
+
+| Deliverable | File(s) | Acceptance Criteria |
+|---|---|---|
+| `P2pPrepBundle`, `P2pOutcome`, `P2pRecord` models | `backend/models/schemas.py`, `src/types.ts` | Parity test green |
+| `p2p_prep` node | `backend/agents/nodes/p2p_prep.py` | UT-P2-1 through UT-P2-5 green |
+| `p2p_prep` wired into graph (conditional edge) | `backend/agents/graph.py` | UT-GR-1 green; IT-L3-1 through IT-L3-3 green |
+| `p2p_bundle_store` in-memory store | `backend/audit/p2p_bundle_store.py` | Matches `audit/store.py` pattern; tenant-scoped reads |
+| `POST /api/appeal/p2p/outcome` endpoint | `backend/main.py` | IT-P2-1 through IT-P2-5 green |
+| `GET /api/appeal/p2p/bundle/{id}` endpoint | `backend/main.py` | IT-P2-6, IT-P2-7 green |
+| `AuditRecord` extended with P2P fields | `backend/models/schemas.py` | IT-AU-1, IT-AU-2 green |
+| Tenancy enforcement on both new endpoints | `backend/main.py` | IT-TS-1, IT-TS-2 green |
+| OpenAPI dump regenerated + freshness gate | `openapi.json`, CI | `wire-types-freshness` job passes |
+
+### 13.4 Slice 3D — UI Surfaces
+
+**Target branch:** `sprint-3-p2p-ui`
+
+| Deliverable | File(s) | Acceptance Criteria |
+|---|---|---|
+| P2P Prep panel in queue workspace (demo) | `src/components/portfolio/` | FT-PR-1, FT-PR-2, FT-UI-1 green |
+| P2P Prep panel live API wiring | `src/lib/api.ts`, `src/components/portfolio/` | Panel fetches bundle from `GET /api/appeal/p2p/bundle/{id}` in live mode |
+| "Record P2P Outcome" flow | `src/components/portfolio/` | Calls `POST /api/appeal/p2p/outcome`; UI shows outcome badge |
+| Level badge + deadline indicator | `src/components/portfolio/` | FT-UI-2 green; amber/red deadline coloring verified in snapshot |
+| New fixture scenarios in `scenarios.tsx` | `src/data/scenarios.tsx` | FT-PR-1, FT-PR-2 green |
+| `scenarios_parity.test.ts` extended | `src/data/scenarios_parity.test.ts` | All anchor-join + field checks pass |
+
+### 13.5 CI Gate Summary
+
+All four slices must individually satisfy:
+
+1. `pytest backend/tests/ -x` passes (≥ 425 existing + new tests)
+2. `npm run test` passes (Vitest suite including new snapshot and parity tests)
+3. `wire-types-freshness` job passes (OpenAPI dump is current)
+4. `test_schema_parity.py` passes (all new enums mirrored)
+5. `test_golden_compliance.py` passes (new scenarios conform to `EvalScenario` schema)
+6. No new `mypy` errors on `backend/` (strict mode)
+
+---
+
+## Appendix A — ADR Cross-References
+
+| ADR | Relevance to This Slice |
+|---|---|
+| [ADR-0001](adr/0001-langgraph-target-orchestrator.md) | New nodes follow the same wrapper pattern; conditional edge extension |
+| [ADR-0002](adr/0002-provider-neutral-llm-backend.md) | `p2p_prep` node is LLM-free; Level 2 / Level 3 synthesis uses the existing `LLMBackend` Protocol |
+| [ADR-0003](adr/0003-deterministic-gatekeeper.md) | Gatekeeper is unchanged; P2P oral brief must pass the same deterministic checks |
+| [ADR-0004](adr/0004-golden-set-canonical-dataset.md) | Two new golden scenarios follow the provenance + labeling rules |
+| [ADR-0005](adr/0005-dual-branch-strategy.md) | Demo scenarios added to `scenarios.tsx`; live mode wired via `VITE_API_BASE_URL` |
+| [ADR-0006](adr/0006-sse-streaming-transport.md) | `done`/`error` terminal guarantee preserved; no new terminal type |
+| [ADR-0009](adr/0009-idempotency-key-and-audit-writes.md) | Level 2 / Level 3 runs each write exactly one `AuditRecord`; P2P outcome is a mutation, not a new record |
+| [ADR-0010](adr/0010-in-memory-checkpointer-exception-interrupt.md) | Level 3 always routes to `exception` tier and parks at `hold` |
+| [ADR-0011](adr/0011-audit-trail-as-review-queue-index.md) | `GET /api/reviews/pending` extended with new fields; no new queue structure |
+| [ADR-0012](adr/0012-generated-wire-types-from-openapi.md) | New endpoints added to `openapi_ext.py`; dump + types regenerated |
+| [ADR-0013](adr/0013-fastapi-bff-session-cookie-auth.md) | New endpoints follow dual-scheme auth; `reviewed_by` stamped from session |
+| [ADR-0017](adr/0017-tenancy-patient-assignment.md) | All new read/write endpoints are tenant-scoped via `TenancyScope` |
+
+## Appendix B — Glossary of New Terms
+
+| Term | Meaning |
+|---|---|
+| **Appeal Level** | The ordinal round of an appeal: Level 1 = initial internal, Level 2 = second-level reconsideration, Level 3 = peer-to-peer |
+| **P2P** | Peer-to-peer review — a direct call between the prescribing physician and the payer's medical director to contest a denial |
+| **Oral Brief** | The Level 3 artifact: a concise (≤ 600 word) spoken-language argument prepared for the prescriber before a P2P call; not a formal letter |
+| **P2P Prep Bundle** | The structured package accompanying an oral brief: clinical summary, citation refs, prescriber checklist, expected objections + rebuttals |
+| **IRO / IMR** | Independent Review Organization / Independent Medical Review — the external review process following an exhausted internal + P2P appeal (Level 4; out of scope this slice) |
+| **Deadline** | The payer- or regulation-imposed calendar deadline by which the payer must respond to an appeal at a given level |
+| **Expedited** | A request flag indicating urgent medical need; triggers shorter regulatory deadlines (e.g. IL 72-hour, vs. 30-day standard) |
+| **`prior_level_correlation_id`** | The `correlation_id` of the immediately prior appeal run; used to fetch the prior letter hash for Level 2 prompt context |
+| **`p2p_bundle_store`** | The in-memory dict storing `P2pPrepBundle` objects keyed by `correlation_id`; mirrors `audit/store.py` structure and shares the same Phase 3 PostgreSQL migration path |

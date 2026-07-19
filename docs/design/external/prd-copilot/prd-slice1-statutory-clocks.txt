@@ -1,0 +1,1033 @@
+# PRD — Slice 1: Statutory Decision Clocks & Coordinator Workflow Coverage
+
+**Status:** Ready for implementation
+**Branch target:** `feature/slice1-statutory-clocks`
+**Base:** `main` (post `sprint-3-hitl-tiering`, post `project-review-hardening`, post P7a tenancy)
+**Author:** ClearAuth platform team
+**Date:** 2026-07-19
+**Intended reader:** Claude Code (implementation agent) — hand this file directly; all referenced paths are relative to the repo root.
+
+---
+
+## Table of Contents
+
+1. [Problem Summary](#1-problem-summary)
+2. [Goals](#2-goals)
+3. [Non-Goals](#3-non-goals)
+4. [Requirements](#4-requirements)
+5. [Data Model Changes](#5-data-model-changes)
+6. [API Changes](#6-api-changes)
+7. [LangGraph Integration](#7-langgraph-integration)
+8. [Test Cases](#8-test-cases)
+9. [Risks & Mitigations](#9-risks--mitigations)
+10. [Deliverables & Definition of Done](#10-deliverables--definition-of-done)
+
+---
+
+## 1. Problem Summary
+
+### 1.1 Regulatory context
+
+Federal and state regulations impose hard turnaround deadlines on prior-authorization
+decisions. Under the CMS 2024 Interoperability & Prior Authorization Final Rule
+(CMS-0057-F), Medicare Advantage payers must respond:
+
+- **72 hours** for urgent/expedited PA requests
+- **7 calendar days** for standard PA requests
+- **Within 24 hours** for appeal determinations on urgent cases (many state laws are
+  stricter still)
+
+State statutes add further constraints: Illinois SB 966, Maryland HB 1563, and similar
+laws require faster decision windows for partially-automated and fully-automated PA
+decisions, and mandate overturn-rate disclosure. These are the "statutory decision
+clocks."
+
+### 1.2 Current gaps
+
+**Gap A — No clock tracking.**
+The system captures submission timestamps (`AuditRecord.timestamp`) but does not model
+the regulatory deadline window for each case. Coordinators cannot see how much time
+remains on an open PA or appeal before a statutory violation occurs. The frontend
+`Urgency` enum (`today / soon / later`) is assigned manually on demo fixtures; it is not
+derived from any computed deadline.
+
+**Gap B — Coordinator workflow is demo-only.**
+`WorkflowPlan` (action, recipient, channel, turnaround) exists on `CriterionResult`
+and is displayed in the queue workspace, but there is no backend endpoint to record
+that a coordinator dispatched a workflow step, and no state transition is triggered by
+that dispatch. The `awaiting_documentation` `CaseStatus` is unreachable from the live
+backend — it exists in the enum and the frontend state machine but is never written by
+any live API call.
+
+**Gap C — Exception resolution has no backend write path.**
+When a coordinator resolves an exception-tier case (overrides a `CriterionResult`
+finding, dispatches a workflow), the only live path today is `POST /api/appeal/resume`
+which re-enters the LangGraph graph at `hold`. That path requires `edited_text` — it
+cannot record the coordinator's per-criterion decisions or trigger the
+`awaiting_documentation` status branch. The two operations are orthogonal and must be
+decoupled.
+
+**Gap D — No compliance audit surface.**
+Nothing today records whether a case was resolved before or after its statutory
+deadline. `AuditRecord` has no deadline field; there is no API endpoint a compliance
+dashboard can query to assess payer turnaround performance.
+
+### 1.3 Why Slice 1, not later
+
+The `TierRouter` (S3 Slice 2–3) already routes exception-tier cases to a human hold
+queue. The HITL interrupt/resume backbone (S3 Slice 4a–4b) is live. The tenancy
+scoping (P7a) is live. The coordinator workflow surface (queue workspace) is the next
+live surface a real user will encounter. Statutory clocks must be computable before the
+first real PA submission goes out; retrofitting them post-launch is a compliance risk,
+not merely an engineering preference.
+
+---
+
+## 2. Goals
+
+| ID | Goal | Success measure |
+|----|------|-----------------|
+| G1 | Compute and persist a statutory deadline for every PA and appeal case at submission time | `AuditRecord` carries `deadline_at` (ISO-8601 UTC) and `urgency_level` on every new write; existing records unaffected (additive schema) |
+| G2 | Expose deadline data via a read-only, tenant-scoped API endpoint | `GET /api/cases/deadlines` returns `DeadlineRecord[]` filtered by tenant; p99 latency ≤ 100 ms on the in-memory store |
+| G3 | Record coordinator workflow dispatch actions via the API | `POST /api/coordinator/dispatch` writes a `WorkflowDispatchRecord` and transitions the case to `awaiting_documentation` |
+| G4 | Close the `awaiting_documentation` status gap — live backend writes this status | `CaseStatus.awaiting_documentation` is reachable from a live API call, not only from fixture data |
+| G5 | Add a coordinator override path for exception-tier criterion resolution | `POST /api/coordinator/resolve` records per-criterion overrides and, if no open dispatch exists, advances the case to `ready_for_review` |
+| G6 | All new fields parity-tested across `backend/models/schemas.py` ↔ `src/types.ts` | `test_schema_parity.py` + updated parity tests pass in CI with zero drift |
+| G7 | Zero PHI in new log lines or API responses | New endpoints and audit records obey identifiers-only logging and the tokenized-patient-ref rule (ADR-0017) |
+
+---
+
+## 3. Non-Goals
+
+| What | Why excluded |
+|------|-------------|
+| Automatic payer-facing clock notifications or escalations | Requires payer rail integration (Phase 2+); out of scope for Slice 1 |
+| Clock computation for appeal round-2 or multi-round cases | Round-2 statutory windows differ by state and payer; deferred to a dedicated round-2 slice |
+| Real CRD endpoint integration for urgency classification | CRD stub remains; urgency is derived from `InitialPaRequest.urgency_level` (caller-supplied with validation) |
+| Frontend UI changes to the queue workspace visual | Slice 1 delivers backend + API only; the frontend coordinator UX is Slice 2 |
+| PostgreSQL persistence | Durable audit store is a Phase 3 milestone; Slice 1 uses the existing in-memory store extended with new fields |
+| Rate limiting or internet-facing deploy | Deferred per `08-deployment-ci.md` |
+| Langfuse observability | Deferred per ADR-0007 |
+
+---
+
+## 4. Requirements
+
+### 4.1 Functional requirements
+
+#### FR-1  Deadline computation (server-side, deterministic)
+
+The system MUST compute a `deadline_at` UTC timestamp for every case at the point the
+first `AuditRecord` is written:
+
+```
+deadline_at = submission_timestamp + clock_window(lifecycle, urgency_level, jurisdiction)
+```
+
+Default clock windows (configurable via `backend/data/statutory_clocks.json` — see §5):
+
+| Lifecycle    | Urgency    | Default window      |
+|--------------|------------|---------------------|
+| `initial_pa` | `urgent`   | 72 hours            |
+| `initial_pa` | `standard` | 168 hours (7 days)  |
+| `appeal`     | `urgent`   | 24 hours            |
+| `appeal`     | `standard` | 720 hours (30 days) |
+
+`jurisdiction` defaults to `federal` (CMS-0057-F). State-specific overrides are loaded
+from `statutory_clocks.json` and applied when `plan_id` prefix matches a state-coded
+payer (e.g., `IL-*` → Illinois, `MD-*` → Maryland). Missing prefix → `federal` fallback.
+
+The computation MUST live in a new pure module `backend/utils/deadline.py`. It is not
+a node, not a route handler, and contains no I/O after import. It is independently
+unit-testable.
+
+#### FR-2  Urgency level on requests
+
+`InitialPaRequest` and `AppealRequest` gain an `urgency_level: UrgencyLevel` field
+(new enum — see §5). The field is caller-supplied and validated; it drives FR-1.
+Default `standard` when absent. Urgency is never inferred from clinical content (that
+would require an LLM in a deterministic flow).
+
+#### FR-3  Deadline written to AuditRecord
+
+`AuditRecord` gains `deadline_at: datetime | None` and `urgency_level: UrgencyLevel |
+None`. The `boundary.with_audit` wrapper MUST populate these from the computed value
+before the terminal SSE event is emitted. Neither field is PII/PHI; they are metadata.
+
+#### FR-4  GET /api/cases/deadlines
+
+A new read-only, tenant-scoped, authenticated endpoint listing open cases with their
+deadline status. Response includes `clock_status: ClockStatus` enum
+(`running | expired | paused`) derived at read time — computed from `deadline_at` vs
+`now`, never stored. See §6 for the full contract.
+
+#### FR-5  POST /api/coordinator/dispatch
+
+An authenticated, CSRF-protected endpoint that:
+
+1. Accepts a `WorkflowDispatchRequest` identifying a `correlation_id` + a list of
+   `WorkflowDispatchItem` (one per `CriterionResult` that carries a `WorkflowPlan`).
+2. Writes a `WorkflowDispatchRecord` to the coordinator-plane audit store.
+3. Transitions the case `CaseStatus` to `awaiting_documentation`.
+4. Returns `204`.
+
+This gives the existing demo-only `WorkflowPlan` UI its live write path.
+
+#### FR-6  POST /api/coordinator/resolve
+
+An authenticated endpoint that:
+
+1. Accepts a `CoordinatorResolveRequest` identifying a `correlation_id` + a list of
+   `CriterionOverride` (each with `rule_label`, `override_status: CriterionStatus`,
+   `rationale: str`).
+2. Validates that the `correlation_id` corresponds to a parked exception-tier run.
+3. Checks whether any `WorkflowDispatchRecord` exists for the `correlation_id`:
+   - If yes → `resulting_status = CaseStatus.awaiting_documentation`,
+     `pending_workflows = True`
+   - If no → `resulting_status = CaseStatus.ready_for_review`,
+     `pending_workflows = False`
+4. Writes a `CoordinatorResolveRecord`.
+5. Returns `200 CoordinatorResolveResponse`.
+
+**Does NOT resume the LangGraph graph.** The graph stays parked.
+`POST /api/appeal/resume` remains the path that re-enters the graph with `edited_text`.
+These are orthogonal operations.
+
+#### FR-7  Security and tenancy invariants
+
+All new endpoints MUST:
+
+- Be gated by the dual-auth middleware (Bearer or `paxos_session` cookie) before body
+  parse — a bad token gets `401`, never `422`.
+- Cookie-authenticated writes carry `X-CSRF-Token` (double-submit CSRF defense); missing
+  or invalid token → `403`.
+- Read paths apply the fail-closed `TenancyScope` at the store query boundary
+  (ADR-0017).
+- Write paths stamp `tenant_id` from `request.state.tenancy_scope` onto new records.
+- Log identifiers only (`correlation_id`, `tenant_id`, `scenario_id`) — never
+  request/letter text, never the `patient_ref` value.
+
+#### FR-8  Statutory clock config file
+
+`backend/data/statutory_clocks.json` — new versioned file (not from
+`pa_requirements.json`):
+
+```json
+{
+  "version": "1.0",
+  "source_note": "Engineering approximation of CMS-0057-F, IL SB 966, MD HB 1563. Consult legal before relying on for compliance.",
+  "federal": {
+    "initial_pa": { "urgent": 72,  "standard": 168 },
+    "appeal":     { "urgent": 24,  "standard": 720 }
+  },
+  "state_overrides": {
+    "IL": { "initial_pa": { "urgent": 24, "standard": 72 } },
+    "MD": { "initial_pa": { "urgent": 24, "standard": 72 } }
+  },
+  "plan_id_state_prefix_map": {
+    "IL-":      "IL",
+    "MD-":      "MD",
+    "CIGNA-IL": "IL"
+  }
+}
+```
+
+All values are **hours** (integers). Loaded once at module import in
+`backend/utils/deadline.py`, validated with Pydantic at load time, raises `ETLParseError`
+on malformed config (consistent with `retrieval.py`'s handling of `pa_requirements.json`).
+The file is NOT generated — it is authored and version-controlled.
+
+### 4.2 Non-functional requirements
+
+| ID    | Requirement |
+|-------|-------------|
+| NFR-1 | New modules follow CLAUDE.md File Organization: no business logic in route handlers; nodes stay `(state) → state` pure; no new inline type definitions |
+| NFR-2 | `deadline.py` has 100% branch coverage in unit tests (small, pure module — tractable) |
+| NFR-3 | All new Pydantic models use `ConfigDict(strict=True)` consistent with the existing models |
+| NFR-4 | `statutory_clocks.json` changes are additive — no removal of existing keys without a migration note in the PR |
+| NFR-5 | New enum values added to both `backend/models/schemas.py` and `src/types.ts` in the same commit; `test_schema_parity.py` updated in the same commit |
+| NFR-6 | `wire-types-freshness` CI job continues to pass — `openapi.json` and `src/generated/api-types.d.ts` regenerated and committed |
+| NFR-7 | No new dependency without the CLAUDE.md pre-install protocol; `statutory_clocks.json` parsing uses stdlib `json` + Pydantic — no new package needed |
+
+---
+
+## 5. Data Model Changes
+
+### 5.1 New enums — `backend/models/schemas.py` (+ `src/types.ts` mirror)
+
+```python
+class UrgencyLevel(str, Enum):
+    """Caller-supplied urgency classification driving the statutory clock window."""
+    urgent   = "urgent"
+    standard = "standard"
+
+class ClockStatus(str, Enum):
+    """Derived at read time from deadline_at vs now. Never persisted."""
+    running = "running"   # deadline_at is in the future
+    expired = "expired"   # deadline_at is in the past, case not resolved
+    paused  = "paused"    # case status is awaiting_documentation (clock paused per CMS rule)
+```
+
+`CaseStatus` already contains `awaiting_documentation` — no change needed.
+
+**`src/types.ts` mirror:**
+
+```typescript
+export type UrgencyLevel = "urgent" | "standard";
+export type ClockStatus  = "running" | "expired" | "paused";
+```
+
+### 5.2 Modified models — `backend/models/schemas.py`
+
+#### `AppealRequest` — additive fields
+
+```python
+class AppealRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+    # ... all existing fields unchanged ...
+    urgency_level: UrgencyLevel = UrgencyLevel.standard
+```
+
+#### `InitialPaRequest` — additive fields
+
+```python
+class InitialPaRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+    # ... all existing fields unchanged ...
+    urgency_level: UrgencyLevel = UrgencyLevel.standard
+```
+
+Both default to `standard` — existing callers that omit the field are unaffected
+(backward-compatible additive change).
+
+#### `AuditRecord` — additive fields
+
+```python
+class AuditRecord(BaseModel):
+    # ... all existing fields unchanged ...
+    deadline_at:   datetime | None = None       # UTC; None for pre-Slice-1 records
+    urgency_level: UrgencyLevel | None = None   # None for pre-Slice-1 records
+```
+
+`None`-defaulted: existing in-memory records remain valid; no migration needed pre-DB.
+
+### 5.3 New models — `backend/models/schemas.py`
+
+#### `DeadlineRecord` (read model, never persisted)
+
+```python
+class DeadlineRecord(BaseModel):
+    correlation_id: str
+    scenario_id:    str
+    drug:           str
+    plan:           str
+    lifecycle:      CaseLifecycle
+    urgency_level:  UrgencyLevel
+    deadline_at:    datetime          # UTC ISO-8601
+    clock_status:   ClockStatus       # computed at read time, never stored
+    submitted_at:   datetime          # AuditRecord.timestamp
+    tenant_id:      str
+    patient_ref:    str | None = None # tokenized PT-XXXX if present
+```
+
+#### `DeadlineRecordsResponse`
+
+```python
+class DeadlineRecordsResponse(BaseModel):
+    records: list[DeadlineRecord]
+```
+
+#### `WorkflowDispatchItem`
+
+```python
+class WorkflowDispatchItem(BaseModel):
+    model_config = ConfigDict(strict=True)
+    rule_label:  str  # matches CriterionResult.rule.label
+    action:      str  # from WorkflowPlan.action
+    recipient:   str  # from WorkflowPlan.recipient
+    channel:     str  # from WorkflowPlan.channel
+    turnaround:  str  # from WorkflowPlan.turnaround
+```
+
+#### `WorkflowDispatchRequest`
+
+```python
+class WorkflowDispatchRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+    correlation_id: str                          # 1–200 chars
+    dispatches:     list[WorkflowDispatchItem]   # non-empty
+```
+
+#### `WorkflowDispatchRecord` (coordinator-plane audit record)
+
+```python
+class WorkflowDispatchRecord(BaseModel):
+    correlation_id:  str
+    tenant_id:       str
+    dispatched_by:   str       # session user_id, or "" for Bearer
+    dispatched_at:   datetime  # UTC
+    dispatches:      list[WorkflowDispatchItem]
+    idempotency_key: str       # f"{correlation_id}:dispatch"
+```
+
+#### `CriterionOverride`
+
+```python
+class CriterionOverride(BaseModel):
+    model_config = ConfigDict(strict=True)
+    rule_label:      str              # matches CriterionResult.rule.label
+    override_status: CriterionStatus  # found | needs_review | conflict
+    rationale:       str              # min_length=1, max_length=500; required
+```
+
+#### `CoordinatorResolveRequest`
+
+```python
+class CoordinatorResolveRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+    correlation_id: str                        # 1–200 chars
+    overrides:      list[CriterionOverride]    # non-empty
+```
+
+#### `CoordinatorResolveRecord` (coordinator-plane audit record)
+
+```python
+class CoordinatorResolveRecord(BaseModel):
+    correlation_id:    str
+    tenant_id:         str
+    resolved_by:       str        # session user_id, or ""
+    resolved_at:       datetime   # UTC
+    overrides:         list[CriterionOverride]
+    pending_workflows: bool       # True if open WorkflowDispatchRecord exists
+    resulting_status:  CaseStatus # awaiting_documentation | ready_for_review
+    idempotency_key:   str        # f"{correlation_id}:resolve"
+```
+
+#### `CoordinatorResolveResponse`
+
+```python
+class CoordinatorResolveResponse(BaseModel):
+    correlation_id:    str
+    case_status:       CaseStatus
+    pending_workflows: bool
+```
+
+### 5.4 New utility module — `backend/utils/deadline.py`
+
+Pure module (no I/O after import). All functions synchronous, no side effects.
+
+```python
+# Public API
+def load_clock_config() -> ClockConfig
+    # Called once at module import.
+    # Raises ETLParseError on malformed JSON.
+
+def compute_deadline(
+    submission_at: datetime,
+    lifecycle: CaseLifecycle,
+    urgency: UrgencyLevel,
+    plan_id: str,
+) -> datetime
+    # Returns a timezone-aware UTC datetime.
+    # All deadline_at values are UTC-aware — tzinfo is never None.
+
+def compute_clock_status(
+    deadline_at: datetime,
+    case_status: CaseStatus,
+    now: datetime,
+) -> ClockStatus
+    # Derived at read time, never stored.
+    # awaiting_documentation → paused regardless of deadline_at.
+    # past deadline + not paused → expired.
+    # future deadline + not paused → running.
+
+def resolve_jurisdiction(plan_id: str) -> str
+    # Returns "federal" or a state code ("IL", "MD", …).
+    # Pure — reads only the loaded config.
+```
+
+`ClockConfig` is a private Pydantic model used only inside `deadline.py` to validate
+the JSON at load time. It is **not** exported from `models/schemas.py`.
+
+**Pausing semantics:** `CaseStatus.awaiting_documentation` pauses the clock per
+CMS-0057-F §84.1(b) — a case waiting on provider-submitted documentation is not
+chargeable against the payer's turnaround window. `compute_clock_status` returns
+`ClockStatus.paused` whenever `case_status == awaiting_documentation`, regardless of
+whether `deadline_at` is in the past.
+
+### 5.5 New audit store extension — `backend/audit/store.py`
+
+The existing `AuditStore` manages `list[AuditRecord]`. It gains two new private lists
+and the following methods:
+
+```python
+def record_workflow_dispatch(record: WorkflowDispatchRecord) -> None
+    # Idempotent on idempotency_key.
+    # Duplicate key → no-op + WARNING log (identifiers only).
+
+def record_coordinator_resolve(record: CoordinatorResolveRecord) -> None
+    # Idempotent on idempotency_key.
+
+def pending_dispatches_for(
+    correlation_id: str, scope: TenancyScope
+) -> list[WorkflowDispatchRecord]
+
+def resolve_records_for(
+    correlation_id: str, scope: TenancyScope
+) -> list[CoordinatorResolveRecord]
+
+def deadline_records(scope: TenancyScope) -> list[AuditRecord]
+    # Returns only AuditRecords where deadline_at is not None.
+    # Pre-Slice-1 records (deadline_at is None) are silently excluded.
+```
+
+All query methods require a `TenancyScope` argument (fail-closed, ADR-0017).
+
+**Important:** `WorkflowDispatchRecord` and `CoordinatorResolveRecord` are stored in
+separate lists, not mixed into `list[AuditRecord]`. They are coordinator-plane records,
+not pipeline boundary records. The existing `all_records()` method and its callers are
+unaffected.
+
+### 5.6 New coordinator logic module — `backend/agents/coordinator.py`
+
+Business logic for the two new write operations. Route handlers in `main.py` are
+logic-free; they delegate here (CLAUDE.md File Organization).
+
+```python
+def build_dispatch_record(
+    request: WorkflowDispatchRequest,
+    scope: TenancyScope,
+    session_user_id: str,
+) -> WorkflowDispatchRecord
+
+def build_resolve_record(
+    request: CoordinatorResolveRequest,
+    scope: TenancyScope,
+    session_user_id: str,
+    store: AuditStore,
+) -> CoordinatorResolveRecord
+    # Calls store.pending_dispatches_for to determine pending_workflows.
+    # Calls is_run_parked(request.correlation_id) to confirm parked state.
+    # Raises LookupError (→ 404) if no exception-tier done record found.
+```
+
+No I/O inside functions except store reads (which use the injected `AuditStore`).
+
+### 5.7 Frontend parity contract — `src/types.ts`
+
+Add in the same commit as `backend/models/schemas.py` changes:
+
+```typescript
+export type UrgencyLevel = "urgent" | "standard";
+export type ClockStatus  = "running" | "expired" | "paused";
+
+export interface DeadlineRecord {
+  correlationId:  string;
+  scenarioId:     string;
+  drug:           string;
+  plan:           string;
+  lifecycle:      CaseLifecycle;
+  urgencyLevel:   UrgencyLevel;
+  deadlineAt:     string;       // ISO-8601 UTC
+  clockStatus:    ClockStatus;
+  submittedAt:    string;
+  tenantId:       string;
+  patientRef?:    string;
+}
+
+export interface WorkflowDispatchItem {
+  ruleLabel:   string;
+  action:      string;
+  recipient:   string;
+  channel:     string;
+  turnaround:  string;
+}
+
+export interface CoordinatorResolveResponse {
+  correlationId:    string;
+  caseStatus:       CaseStatus;
+  pendingWorkflows: boolean;
+}
+```
+
+The existing `WorkflowPlan` interface is unchanged — `WorkflowDispatchItem` is its
+API wire form.
+
+`test_schema_parity.py` must be updated to cover `UrgencyLevel` and `ClockStatus`.
+
+---
+
+## 6. API Changes
+
+### 6.1 Route summary
+
+| Method | Path | Auth | Body | Response | Status |
+|--------|------|------|------|----------|--------|
+| `GET`  | `/api/cases/deadlines`        | Bearer or cookie           | —                           | `DeadlineRecordsResponse`    | ✅ New |
+| `POST` | `/api/coordinator/dispatch`   | Bearer or cookie + CSRF    | `WorkflowDispatchRequest`   | `204`                        | ✅ New |
+| `POST` | `/api/coordinator/resolve`    | Bearer or cookie + CSRF    | `CoordinatorResolveRequest` | `CoordinatorResolveResponse` | ✅ New |
+| `POST` | `/api/appeal/generate`        | existing                   | `AppealRequest`             | existing                     | ⚠️ `urgency_level` added |
+| `POST` | `/api/pa/submit`              | existing                   | `InitialPaRequest`          | existing                     | ⚠️ `urgency_level` added |
+
+### 6.2 GET /api/cases/deadlines
+
+**Auth:** dual scheme. Cookie session sees only its tenant's records (fail-closed
+`TenancyScope`). Bearer/platform sees all.
+
+**Query params:** none in Slice 1 (pagination deferred to Phase 3 alongside PostgreSQL).
+
+**Response:** `200 application/json`
+
+```json
+{
+  "records": [
+    {
+      "correlation_id": "ozempic-cigna-clinical-pa:a1",
+      "scenario_id": "ozempic-cigna-clinical-pa",
+      "drug": "Ozempic (semaglutide)",
+      "plan": "Cigna Connect 360",
+      "lifecycle": "initial_pa",
+      "urgency_level": "standard",
+      "deadline_at": "2026-07-26T13:50:00+00:00",
+      "clock_status": "running",
+      "submitted_at": "2026-07-19T13:50:00+00:00",
+      "tenant_id": "tenant_demo",
+      "patient_ref": "PT-0042"
+    }
+  ]
+}
+```
+
+**Clock status derivation** is performed in the route handler for each record:
+
+1. Look up the `CoordinatorResolveRecord` for the `correlation_id` (if any).
+2. If `resulting_status == ready_for_review` → omit the record entirely (case resolved).
+3. If `resulting_status == awaiting_documentation` → pass `awaiting_documentation` as
+   `case_status` to `compute_clock_status`.
+4. Otherwise → pass `processing` as `case_status`.
+
+**Filtering:** only `AuditRecord`s where `deadline_at is not None` are included.
+Pre-Slice-1 records are excluded silently.
+
+**Error responses:** `401` missing credential; `403` N/A (GET).
+
+### 6.3 POST /api/coordinator/dispatch
+
+**Auth:** dual scheme. Cookie write requires `X-CSRF-Token`. Bearer: `dispatched_by = ""`.
+
+**Request body:** `WorkflowDispatchRequest`
+
+**Validation:**
+- `correlation_id` 1–200 chars (Pydantic `min_length=1, max_length=200`).
+- `dispatches` non-empty (`min_length=1`).
+- Each `WorkflowDispatchItem` field non-empty.
+
+**Processing** (delegated to `backend/agents/coordinator.py`, not `main.py`):
+
+1. Call `build_dispatch_record(request, scope, session_user_id)`.
+2. Call `store.record_workflow_dispatch(record)` — idempotent.
+3. Return `204`.
+
+**No LangGraph interaction.** Graph stays parked; `hold` node untouched.
+
+**Error responses:**
+
+| Code | Cause |
+|------|-------|
+| `400` | `dispatches` is empty or `correlation_id` is blank |
+| `401` | No valid credential |
+| `403` | Missing or invalid CSRF token on cookie-auth request |
+| `422` | Body validation failure (Pydantic) |
+
+### 6.4 POST /api/coordinator/resolve
+
+**Auth:** dual scheme. Cookie write requires `X-CSRF-Token`.
+
+**Request body:** `CoordinatorResolveRequest`
+
+**Validation:**
+- `correlation_id` 1–200 chars.
+- `overrides` non-empty.
+- Each `CriterionOverride.rationale` non-empty (`min_length=1`), ≤ 500 chars.
+
+**Processing** (delegated to `backend/agents/coordinator.py`):
+
+1. Confirm `correlation_id` has an exception-tier `done` `AuditRecord` in this
+   tenant's scope. If not found → `404`.
+2. Check `is_run_parked(correlation_id)` (`agents/review_queue.py`). If not parked →
+   `404`.
+3. Check `store.pending_dispatches_for(correlation_id, scope)`:
+   - Any exist → `pending_workflows = True`,
+     `resulting_status = CaseStatus.awaiting_documentation`.
+   - None → `pending_workflows = False`,
+     `resulting_status = CaseStatus.ready_for_review`.
+4. Check idempotency: if `CoordinatorResolveRecord` already exists for
+   `idempotency_key = f"{correlation_id}:resolve"` → return `200` from the existing
+   record without writing a second.
+5. Call `store.record_coordinator_resolve(record)`.
+6. Return `200 CoordinatorResolveResponse`.
+
+**Error responses:**
+
+| Code | Cause |
+|------|-------|
+| `400` | `overrides` empty or any `rationale` blank |
+| `401` | No valid credential |
+| `403` | Missing or invalid CSRF token |
+| `404` | `correlation_id` has no exception-tier done record in this tenant's scope, or run is not parked |
+| `422` | Body validation failure |
+
+### 6.5 Modified: POST /api/appeal/generate and POST /api/pa/submit
+
+`urgency_level: UrgencyLevel = UrgencyLevel.standard` added to `AppealRequest` and
+`InitialPaRequest`. Default of `standard` makes this backward-compatible — existing
+callers that omit the field work unchanged.
+
+The `AuditRecord` written at the pipeline boundary (`backend/audit/boundary.py`) MUST
+call `compute_deadline` and set `record.deadline_at` and `record.urgency_level` before
+the write. Integration point detail is in §7.5.
+
+The SSE event shapes (`DoneEvent`, `InitialPaDoneEvent`) are **not changed** — deadline
+data is an audit-plane concern, queryable via `GET /api/cases/deadlines`, not streamed.
+
+### 6.6 OpenAPI registration
+
+New endpoints and new model shapes must be registered in `backend/openapi_ext.py`
+following the existing pattern (same as existing SSE event shapes). After
+implementation:
+
+```bash
+npm run api:dump && npm run api:types
+```
+
+Commit the updated `openapi.json` and `src/generated/api-types.d.ts`. The
+`wire-types-freshness` CI job must pass.
+
+---
+
+## 7. LangGraph Integration
+
+### 7.1 No new graph nodes in Slice 1
+
+Slice 1 does not add, remove, or reorder any node in `agents/graph.py` or
+`agents/initial_pa_graph.py`. Coordinator resolution and dispatch are coordinator-plane
+operations — they interact with the audit store and coordinator records, not the
+LangGraph state machine.
+
+### 7.2 Interaction with the existing hold node
+
+The existing `hold` node calls `interrupt()` after `finalize` emits the `DoneEvent` for
+exception-tier runs. This behavior is **unchanged**.
+
+`POST /api/coordinator/resolve` calls `is_run_parked(correlation_id)` (from
+`agents/review_queue.py`) to confirm the run is still parked before writing any record.
+This is the same public API that `run_resume` uses — it survives the Phase 3 PostgreSQL
+checkpointer swap (ADR-0010 note).
+
+Resulting status by case:
+
+| Parked? | Open dispatch? | `resulting_status` |
+|---------|---------------|-------------------|
+| Yes     | No            | `ready_for_review` |
+| Yes     | Yes           | `awaiting_documentation` |
+| No      | —             | `404` |
+
+### 7.3 The LangGraph checkpoint is not touched by resolve
+
+The resolve endpoint records the coordinator's per-criterion decisions. Resuming the
+graph remains a separate, explicit `POST /api/appeal/resume` call. This separation means:
+
+1. A coordinator can record criterion overrides before a reviewer supplies `edited_text`.
+2. The `human_edited` `AuditRecord` written by `run_resume` correctly reflects letter
+   sign-off, independently of the coordinator's criterion decisions.
+3. `GET /api/reviews/pending` continues to show the run as pending until
+   `POST /api/appeal/resume` is called — correct: a run is not review-cleared until the
+   letter is signed off.
+
+### 7.4 PipelineState and InitialPaState: no changes
+
+Neither TypedDict is modified. Urgency and deadline are audit-plane data, not
+pipeline-state data. The pipeline computes letters; the audit boundary records outcomes.
+These are separate planes.
+
+### 7.5 Audit boundary integration point — `backend/audit/boundary.py`
+
+This is the only place `compute_deadline` is called — never in a node, never in a
+route handler.
+
+```python
+# Inside the boundary write logic, after the terminal event is determined,
+# before store.write(record):
+
+from backend.utils.deadline import compute_deadline
+
+deadline_at = compute_deadline(
+    submission_at=record.timestamp,
+    lifecycle=record.lifecycle,
+    urgency=request.urgency_level,    # UrgencyLevel from the originating request
+    plan_id=request.plan_id,
+)
+record = record.model_copy(update={
+    "deadline_at":   deadline_at,
+    "urgency_level": request.urgency_level,
+})
+store.write(record)
+# then emit terminal SSE event
+```
+
+**Implementation note (Risk R1):** `boundary.py` currently receives only `AuditRecord`,
+not the originating request. Preferred approach: pass `urgency_level` and `plan_id` as
+explicit parameters to the boundary write call. Alternative: derive from fields already
+on `AuditRecord` (but `urgency_level` is not yet there, so this is circular). Choose at
+implementation time and note the decision in a PR comment.
+
+---
+
+## 8. Test Cases
+
+All tests follow CLAUDE.md TDD discipline: RED (failing test) committed before GREEN
+(implementation). Spec-first sequence: schema changes → failing tests → implementation.
+
+### 8.1 Unit tests — `backend/tests/unit/`
+
+#### `test_deadline_utils.py` (new file)
+
+| Test ID | Scenario | Expected |
+|---------|----------|----------|
+| `test_compute_deadline_federal_standard` | `lifecycle=initial_pa, urgency=standard, plan_id="CIGNA-CNF360-2024"` | `deadline_at = submission_at + 168h` |
+| `test_compute_deadline_federal_urgent` | `lifecycle=initial_pa, urgency=urgent, plan_id="CIGNA-CNF360-2024"` | `deadline_at = submission_at + 72h` |
+| `test_compute_deadline_appeal_standard` | `lifecycle=appeal, urgency=standard, plan_id="CIGNA-CNF360-2024"` | `deadline_at = submission_at + 720h` |
+| `test_compute_deadline_appeal_urgent` | `lifecycle=appeal, urgency=urgent, plan_id="CIGNA-CNF360-2024"` | `deadline_at = submission_at + 24h` |
+| `test_compute_deadline_il_override` | `lifecycle=initial_pa, urgency=standard, plan_id="IL-BCBS-PPO-2024"` | `deadline_at = submission_at + 72h` (IL state override) |
+| `test_compute_deadline_md_override_urgent` | `lifecycle=initial_pa, urgency=urgent, plan_id="MD-AETNA-2025"` | `deadline_at = submission_at + 24h` (MD state override) |
+| `test_compute_deadline_unknown_prefix` | `plan_id="XY-UNKNOWN-2025"` | Falls back to `federal`; no exception raised |
+| `test_compute_deadline_timezone_aware` | Any call | `deadline_at.tzinfo is not None` (UTC-aware, never naive) |
+| `test_compute_clock_status_running` | `deadline_at = now + 48h, case_status = processing` | `ClockStatus.running` |
+| `test_compute_clock_status_expired` | `deadline_at = now - 1h, case_status = processing` | `ClockStatus.expired` |
+| `test_compute_clock_status_paused_past` | `deadline_at = now - 1h, case_status = awaiting_documentation` | `ClockStatus.paused` (paused even though past deadline) |
+| `test_compute_clock_status_paused_future` | `deadline_at = now + 48h, case_status = awaiting_documentation` | `ClockStatus.paused` (awaiting_documentation always pauses) |
+| `test_load_clock_config_valid` | Load fixture `statutory_clocks.json` | No exception; `federal.initial_pa.urgent == 72` |
+| `test_load_clock_config_malformed` | Pass malformed JSON | Raises `ETLParseError` |
+| `test_resolve_jurisdiction_il_prefix` | `plan_id = "IL-BCBS-PPO"` | Returns `"IL"` |
+| `test_resolve_jurisdiction_federal_fallback` | `plan_id = "CIGNA-CNF360"` | Returns `"federal"` |
+
+#### `test_coordinator.py` (new file)
+
+| Test ID | Scenario | Expected |
+|---------|----------|----------|
+| `test_build_dispatch_record_stamps_tenant` | Build `WorkflowDispatchRecord` with known scope | `record.tenant_id` matches scope; `idempotency_key = f"{correlation_id}:dispatch"` |
+| `test_build_resolve_record_no_pending` | No dispatch record in store for `correlation_id` | `pending_workflows = False`, `resulting_status = ready_for_review` |
+| `test_build_resolve_record_with_pending` | One dispatch record present in store | `pending_workflows = True`, `resulting_status = awaiting_documentation` |
+| `test_resolve_idempotent` | Call resolve logic twice, same `idempotency_key` | Second call is no-op; store has exactly one record |
+| `test_dispatch_idempotent` | Call dispatch logic twice, same `idempotency_key` | Store has exactly one record; WARNING logged |
+
+#### `test_schema_parity.py` (update existing)
+
+Add assertions:
+- `UrgencyLevel` values `{"urgent", "standard"}` match `src/types.ts`.
+- `ClockStatus` values `{"running", "expired", "paused"}` match `src/types.ts`.
+
+#### `test_input_validation.py` (update existing)
+
+| Test ID | Input | Expected |
+|---------|-------|----------|
+| `test_appeal_urgency_urgent_valid` | `AppealRequest` with `urgency_level="urgent"` | Validates successfully |
+| `test_appeal_urgency_invalid` | `AppealRequest` with `urgency_level="critical"` | Raises `ValidationError` |
+| `test_appeal_urgency_default` | `AppealRequest` without `urgency_level` | `urgency_level == "standard"` |
+| `test_resolve_empty_rationale` | `CriterionOverride` with `rationale=""` | Raises `ValidationError` |
+| `test_dispatch_empty_dispatches` | `WorkflowDispatchRequest` with `dispatches=[]` | Raises `ValidationError` |
+
+#### `test_audit_store.py` (new or update existing)
+
+| Test ID | Scenario | Expected |
+|---------|----------|----------|
+| `test_record_workflow_dispatch_stored` | Write one `WorkflowDispatchRecord` | `pending_dispatches_for(id, scope)` returns it |
+| `test_dispatch_tenant_scoped` | Write records for two tenants | Each tenant sees only its own dispatch records |
+| `test_deadline_records_filters_none` | Mix pre-Slice-1 (no `deadline_at`) and Slice-1 records | `deadline_records(scope)` returns only records with `deadline_at` set |
+| `test_dispatch_idempotency` | Write same `WorkflowDispatchRecord` twice | Store has one record; WARNING emitted |
+
+### 8.2 Integration tests — `backend/tests/integration/`
+
+#### `test_coordinator_endpoints.py` (new file)
+
+All tests use `MockLLMBackend` — no network calls, no API keys.
+
+| Test ID | Scenario | Expected |
+|---------|----------|----------|
+| `test_dispatch_bearer_auth` | `POST /api/coordinator/dispatch` with valid Bearer + valid body | `204` |
+| `test_dispatch_missing_csrf` | `POST /api/coordinator/dispatch` with cookie auth, no `X-CSRF-Token` | `403` |
+| `test_dispatch_empty_dispatches` | `dispatches: []` | `400` or `422` |
+| `test_resolve_unknown_correlation_id` | `POST /api/coordinator/resolve` with unknown `correlation_id` | `404` |
+| `test_resolve_success_no_dispatch` | Pipeline → exception tier → `POST /api/coordinator/resolve` (no prior dispatch) | `200`, `case_status = ready_for_review` |
+| `test_resolve_success_with_dispatch` | Pipeline → exception tier → dispatch → resolve | `200`, `case_status = awaiting_documentation` |
+| `test_resolve_idempotent_200` | Call `POST /api/coordinator/resolve` twice on same `correlation_id` | Both return `200`; store has one record |
+| `test_deadlines_bearer` | `GET /api/cases/deadlines` after one pipeline run with `urgency_level="urgent"` | `200`, one record with `clock_status = running`, `urgency_level = "urgent"` |
+| `test_deadlines_empty` | `GET /api/cases/deadlines` before any runs | `200`, `records = []` |
+| `test_deadlines_tenant_scoped` | Two tenants' runs; cookie scoped to tenant A | Cookie response contains only tenant A's records |
+| `test_deadlines_resolved_omitted` | Run resolved to `ready_for_review` | Record absent from `GET /api/cases/deadlines` response |
+
+#### `test_sse_endpoint.py` (update existing)
+
+Add:
+
+- `test_appeal_generate_urgent_sets_deadline`: `POST /api/appeal/generate` with
+  `urgency_level: "urgent"` succeeds; resulting `AuditRecord` has `urgency_level =
+  "urgent"` and `deadline_at` is not None and is UTC-aware.
+- `test_pa_submit_standard_sets_deadline`: `POST /api/pa/submit` with
+  `urgency_level: "standard"` succeeds; `AuditRecord.deadline_at` is set and equals
+  `submission_at + 168h` (within 1 second tolerance).
+
+### 8.3 Wire types freshness
+
+After implementation: `npm run api:dump && npm run api:types`. The
+`wire-types-freshness` CI job MUST pass. Commit updated files in the PR.
+
+### 8.4 Golden compliance
+
+No changes needed. `urgency_level` and `deadline_at` are not PHI and do not affect the
+golden-set PHI scan (`test_golden_compliance.py`).
+
+### 8.5 Test data / fixtures
+
+Update `backend/tests/conftest.py`:
+- `base_appeal_request` fixture: add `urgency_level=UrgencyLevel.standard` (explicit).
+- `exception_scenario` fixture: same.
+- Add `base_initial_pa_request` fixture with `urgency_level=UrgencyLevel.standard` if
+  not already present.
+
+Add `backend/tests/fixtures/statutory_clocks_fixture.json`: mirrors
+`backend/data/statutory_clocks.json` but with small hour values (e.g., `1` instead of
+`72`) so that deadline expiry can be tested without time mocking.
+
+---
+
+## 9. Risks & Mitigations
+
+| ID | Risk | Likelihood | Impact | Mitigation |
+|----|------|-----------|--------|------------|
+| R1 | **Audit boundary signature change.** Adding `request.urgency_level` to the boundary write requires the originating request inside `boundary.py`, which today receives only `AuditRecord`. | Medium | Medium | Preferred: pass `urgency_level` and `plan_id` as explicit parameters to the boundary write call. Alternative: thread them through `AuditRecord` fields populated earlier in the call stack. Choose at implementation time; document decision in PR. |
+| R2 | **`is_run_parked` imported by `coordinator.py`.** `agents/review_queue.py` is currently consumed only by `main.py`. A cross-module import is a minor coupling risk. | Low | Low | Consistent with the existing pattern (split for testability; `review_queue.py` is already the public API for parked-run checks). Document the import. |
+| R3 | **Clock windows are a policy interpretation, not law text.** Specific hour values may not reflect the current statute (statutes change). | Medium | High | `statutory_clocks.json` is a versioned, human-readable file with a `source_note` field and a file-header comment: "Engineering approximation — consult legal before relying on for compliance." All updates go through a PR with a legal-review note. |
+| R4 | **Store thread-safety (pre-DB).** New store lists carry the same single-worker caveat as the existing `AuditRecord` list (no lock today, ADR-0009). | Low | Low | Do not introduce a new locking mechanism — that is architectural scope creep. Single-worker caveat stands per ADR-0009. |
+| R5 | **Coordinator dispatch vs `GET /api/reviews/pending` UX confusion.** After dispatch, the case has `awaiting_documentation` in the resolve record, but `GET /api/reviews/pending` still shows it as pending (graph is still parked). | Medium | Medium | By design (§7.3): a pending review means "awaiting `POST /api/appeal/resume`", not "awaiting coordinator resolution". Document this distinction in the route description; the Slice 2 frontend UX will differentiate the two states visually. |
+| R6 | **`deadline_at` timezone bugs.** Naive datetime arithmetic silently produces wrong deadlines. | Medium | High | `compute_deadline` uses `datetime.timezone.utc` throughout. All `deadline_at` values stored and returned as UTC ISO-8601 with explicit `tzinfo`. Tests assert `deadline.tzinfo is not None`. |
+
+---
+
+## 10. Deliverables & Definition of Done
+
+### 10.1 Files to create
+
+| File | Purpose |
+|------|---------|
+| `backend/utils/__init__.py` | Package init (only if `utils/` does not already exist) |
+| `backend/utils/deadline.py` | Pure deadline computation module (FR-1, FR-8) |
+| `backend/data/statutory_clocks.json` | Statutory clock window config (FR-8) |
+| `backend/agents/coordinator.py` | Coordinator workflow logic: `build_dispatch_record`, `build_resolve_record` |
+| `backend/tests/unit/test_deadline_utils.py` | Unit tests for `deadline.py` |
+| `backend/tests/unit/test_coordinator.py` | Unit tests for `coordinator.py` |
+| `backend/tests/integration/test_coordinator_endpoints.py` | Integration tests for three new/modified endpoints |
+| `backend/tests/fixtures/statutory_clocks_fixture.json` | Small-window test fixture |
+| `backend/docs/adr/0018-statutory-decision-clocks.md` | ADR covering design decisions (see §10.3) |
+
+### 10.2 Files to modify
+
+| File | Change |
+|------|--------|
+| `backend/models/schemas.py` | Add `UrgencyLevel`, `ClockStatus`; add fields to `AppealRequest`, `InitialPaRequest`, `AuditRecord`; add 7 new models |
+| `backend/audit/store.py` | Add two coordinator-plane lists + 5 new methods |
+| `backend/audit/boundary.py` | Populate `deadline_at` + `urgency_level` on `AuditRecord` before write |
+| `backend/agents/coordinator.py` | New file (see above) |
+| `backend/main.py` | Register 3 new routes; handlers are logic-free (delegate to `coordinator.py`) |
+| `backend/openapi_ext.py` | Register new endpoint + response shapes |
+| `backend/tests/conftest.py` | Update `base_appeal_request`, `exception_scenario`; add `base_initial_pa_request` |
+| `backend/tests/unit/test_schema_parity.py` | Add `UrgencyLevel` + `ClockStatus` parity assertions |
+| `backend/tests/unit/test_input_validation.py` | Add `urgency_level` + coordinator request validation tests |
+| `backend/tests/integration/test_sse_endpoint.py` | Add urgency-level round-trip tests |
+| `src/types.ts` | Add `UrgencyLevel`, `ClockStatus`, `DeadlineRecord`, `WorkflowDispatchItem`, `CoordinatorResolveResponse` |
+| `openapi.json` | Regenerated and committed |
+| `src/generated/api-types.d.ts` | Regenerated and committed |
+
+### 10.3 ADR-0018 — `backend/docs/adr/0018-statutory-decision-clocks.md`
+
+Must cover:
+
+- Decision to compute deadline at the audit boundary (not in a pipeline node) and why.
+- Decision to store clock config in a versioned JSON file (not DB or env vars) and why.
+- Decision to pause the clock on `awaiting_documentation` only, not all hold states.
+- Decision to keep `WorkflowDispatchRecord` and `CoordinatorResolveRecord` in separate
+  store lists from `AuditRecord` (coordinator-plane vs pipeline-plane records).
+- Decision to keep `POST /api/coordinator/resolve` and `POST /api/appeal/resume`
+  orthogonal (why resolve does not resume the graph).
+
+### 10.4 CI gates — all must be green on the feature branch
+
+| Gate | What it checks |
+|------|----------------|
+| `backend-unit` | All existing + 2 new unit test modules pass |
+| `backend-integration` | All existing + 1 new integration test module pass |
+| `frontend-check` | `npm test` passes (`src/types.ts` updated in same commit) |
+| `wire-types-freshness` | `openapi.json` + `src/generated/api-types.d.ts` are fresh |
+| `lint` | `ruff check .` + `mypy . --ignore-missing-imports` pass |
+| `pip-audit` | No new CVEs introduced |
+
+### 10.5 TDD commit sequence
+
+```
+1. schema(slice1):  add UrgencyLevel, ClockStatus enums; add fields to
+                    AppealRequest, InitialPaRequest, AuditRecord; add 7 new
+                    models; update src/types.ts + test_schema_parity.py
+                    → CI: RED on new parity assertions (expected)
+
+2. test(slice1):    RED — backend/tests/unit/test_deadline_utils.py
+
+3. feat(slice1):    GREEN — backend/utils/deadline.py +
+                    backend/data/statutory_clocks.json
+
+4. test(slice1):    RED — backend/tests/unit/test_coordinator.py
+
+5. feat(slice1):    GREEN — backend/agents/coordinator.py
+
+6. feat(slice1):    wire audit boundary: compute_deadline called in
+                    backend/audit/boundary.py
+
+7. test(slice1):    RED — backend/tests/integration/test_coordinator_endpoints.py
+                    (includes test_sse_endpoint.py additions)
+
+8. feat(slice1):    GREEN — 3 new routes in main.py + openapi_ext.py +
+                    backend/audit/store.py extensions
+
+9. chore(slice1):   npm run api:dump && npm run api:types → commit
+                    openapi.json + src/generated/api-types.d.ts
+
+10. docs(slice1):   backend/docs/adr/0018-statutory-decision-clocks.md
+```
+
+### 10.6 Acceptance criteria (human reviewer checklist)
+
+- [ ] `GET /api/cases/deadlines` returns records with correct `deadline_at` computed
+      from `urgency_level` and `plan_id` prefix matching.
+- [ ] `clock_status = paused` returned when a `CoordinatorResolveRecord` exists with
+      `resulting_status = awaiting_documentation`.
+- [ ] Resolved-to-`ready_for_review` cases are absent from
+      `GET /api/cases/deadlines`.
+- [ ] `POST /api/coordinator/dispatch` returns `204`; dispatch is retrievable under
+      the correct tenant scope only.
+- [ ] `POST /api/coordinator/resolve` with an open dispatch → `200`,
+      `case_status = awaiting_documentation`.
+- [ ] `POST /api/coordinator/resolve` with no open dispatch → `200`,
+      `case_status = ready_for_review`.
+- [ ] `POST /api/coordinator/resolve` with unknown `correlation_id` → `404`.
+- [ ] `POST /api/appeal/generate` with `urgency_level: "urgent"` produces an
+      `AuditRecord` with `deadline_at = submission_time + 24h` (±1 s tolerance).
+- [ ] Cookie-authenticated POST to any new endpoint without `X-CSRF-Token` → `403`.
+- [ ] Cookie session scoped to `tenant_demo` cannot see another tenant's records from
+      `GET /api/cases/deadlines`.
+- [ ] All CI gates are green on the feature branch.
+- [ ] No PHI in any new log line (manual spot-check of INFO-level logs during
+      integration test run).
+- [ ] ADR-0018 written and committed.
+
+---
+
+*End of PRD — Slice 1: Statutory Decision Clocks & Coordinator Workflow Coverage*

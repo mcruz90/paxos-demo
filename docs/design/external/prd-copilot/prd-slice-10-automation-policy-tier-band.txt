@@ -1,0 +1,688 @@
+# PRD -- Slice 10: Automation-Policy / Tier-Band Configuration
+
+Sprint: Phase 3 / Workstream Platform
+Status: Proposed (2026-07-19)
+Ticket handle: PAXOS-S10-TIERPOLICY
+Owner: Platform Engineering
+Last updated: 2026-07-19
+
+================================================================================
+1. PROBLEM SUMMARY
+================================================================================
+
+The tier router (agents/nodes/tier_router.py) is today a fully hard-coded
+deterministic function: confidence bands (>=0.95 -> routine, 0.70-0.94 ->
+complex, <0.70 -> exception) and the exception-escalation signals (generic
+resolution, drug-alias, counter-offer, novel denial reason) are compile-time
+constants. This was the right choice to satisfy Illinois and Maryland HB 1563
+("never an LLM deciding tier") and to ship fast, but it creates a growing
+operational problem:
+
+1. Different clients operate under different regulatory regimes. A payer in
+   California has different HITL thresholds than one in Illinois. The Illinois
+   0.95 floor is a statutory floor, not a universal one. There is no per-tenant
+   or per-drug-class configuration.
+
+2. The hard-coded constants are not observable. There is no API to inspect what
+   tier bands are active for a given tenant or to see the history of tier
+   changes.
+
+3. Compliance teams cannot tune bands without a code deploy. A client needing
+   a stricter routine threshold (e.g., >=0.98) has no recourse.
+
+4. Promotions from exception to complex tier after human validation are not
+   tracked. Once a drug/plan pair has been successfully processed as exception
+   N times and always approved, the platform cannot surface that signal to help
+   an admin propose a band adjustment.
+
+5. The TierBand concept in doc 10 ("Automation-Policy / Tier-Band
+   Configuration") is a named roadmap item with no implementation and no data
+   model.
+
+================================================================================
+2. GOALS
+================================================================================
+
+1. Introduce a TierPolicy domain object that encodes the confidence bands,
+   escalation signals, and optional per-tenant/per-drug-class overrides,
+   persisted in PostgreSQL.
+
+2. Expose a GET /api/admin/tier-policy and PATCH /api/admin/tier-policy
+   management surface (platform-admin or tenant-admin role only).
+
+3. Refactor tier_router.py to load the active TierPolicy at request time (from
+   a cached policy store) rather than compile-time constants, while keeping the
+   function deterministic and LLM-free (the statutory requirement is
+   unchanged).
+
+4. Emit a tier_policy_snapshot field on AuditRecord recording which policy
+   version governed each routing decision -- a regulatory compliance artifact.
+
+5. Add a TierBandHistory table tracking every policy change (who, when, old
+   value, new value) for audit trail completeness.
+
+6. Implement a band-promotion signal aggregator: a background read-only query
+   over audit_records that surfaces drug/plan pairs where exception-tier runs
+   consistently resulted in human approval, for an admin to use as evidence
+   when proposing a band adjustment.
+
+7. Add a GET /api/admin/tier-policy/promotion-signals endpoint returning these
+   signals (read-only; no automatic band changes -- the human remains in the
+   loop per the statutory requirement).
+
+8. Produce complete test coverage: unit tests for policy loading and routing
+   under overrides; integration tests for the management endpoints; contract
+   tests for parity between the new policy models and src/types.ts.
+
+================================================================================
+3. NON-GOALS
+================================================================================
+
+- Automatic tier-band adjustment without human approval. The promotion-signal
+  aggregator is a read-only advisory surface; it never modifies the active
+  policy autonomously. Any band change requires an explicit PATCH call by an
+  authorized user.
+
+- LLM-based tier decisions. The statutory requirement (Illinois, MD HB 1563)
+  is unchanged: tier routing is deterministic, never LLM-decided. This slice
+  makes the constants configurable, not the routing logic.
+
+- Per-case tier override by a reviewer. An individual reviewer cannot override
+  a tier decision post-hoc through this slice. That is a separate
+  exception-resolution surface (related to break-glass / O13).
+
+- Real-time policy push. Policy changes take effect on the next request; there
+  is no live-push or mid-stream policy change.
+
+- UI policy editor. The Build-view policy editor in the demo is fixture-driven.
+  Wiring it to the live endpoints is a Workstream SU task (capability manifest
+  unit B8).
+
+================================================================================
+4. REQUIREMENTS
+================================================================================
+
+Functional
+----------
+
+P-1  TierPolicy model: policy_id (UUID), tenant_id (FK, nullable -- null =
+     platform default), version (int, monotonic), routine_floor (float, 0-1,
+     default 0.95), complex_floor (float, 0-1, default 0.70),
+     exception_signals (list of ExceptionSignal enum values),
+     drug_class_overrides (list of DrugClassBand), effective_from (datetime),
+     created_by (user_id), is_active (bool).
+
+P-2  DrugClassBand model: drug_class (str), routine_floor (float),
+     complex_floor (float). Per-drug-class overrides take precedence over the
+     tenant-level policy; the most specific match wins.
+
+P-3  ExceptionSignal enum: generic_resolution, drug_alias_first_pairing,
+     counter_offer, novel_denial_reason, gatekeeper_exhausted. Mirrors the
+     existing hard-coded escalation logic; the policy controls which signals
+     are active.
+
+P-4  tier_router.py loads the active TierPolicy for the current tenant_id at
+     request time via PolicyStore.get_active(tenant_id) -> TierPolicy. Policy
+     is cached (TTL 60 s) to avoid a DB round-trip per request; a stale cache
+     is safe (a policy change takes effect within the TTL window).
+
+P-5  decide_tier(signals: TierSignals, policy: TierPolicy) -> CaseTier
+     replaces the current decide_tier(signals: TierSignals) -> CaseTier
+     signature. The existing band logic is identical but parameterized over
+     policy.routine_floor, policy.complex_floor, and
+     policy.exception_signals.
+
+P-6  AuditRecord gains tier_policy_id: str and tier_policy_version: int,
+     written at the same boundary as the rest of the record (before the
+     terminal SSE event).
+
+P-7  GET /api/admin/tier-policy returns the active policy for the caller's
+     tenant (or the platform default for platform-admin/Bearer).
+
+P-8  PATCH /api/admin/tier-policy accepts a TierPolicyUpdate body and creates
+     a new policy version (immutable history; the old version is deactivated,
+     not mutated). Only tenant_admin or platform_admin role may call this
+     endpoint.
+
+P-9  Every PATCH writes a TierBandHistory row: history_id, tenant_id,
+     changed_by (user_id), changed_at, old_policy_id, new_policy_id,
+     diff_summary (JSONB of changed fields).
+
+P-10 GET /api/admin/tier-policy/history returns TierBandHistory rows for the
+     caller's tenant, newest first (platform-admin/Bearer sees all tenants).
+
+P-11 GET /api/admin/tier-policy/promotion-signals queries audit_records for
+     drug/plan pairs where:
+       (a) tier was exception
+       (b) provenance became human_edited (approved by a reviewer)
+       (c) this has happened >= N times (configurable threshold, default 5)
+     Returns a PromotionSignal list: drug, plan_id, exception_count,
+     human_approved_count, suggested_complex_floor (a conservative estimate,
+     never applied automatically).
+
+P-12 The platform default TierPolicy is seeded at Alembic migration time with
+     the Illinois statutory values (routine_floor=0.95, complex_floor=0.70,
+     all exception signals active). It can only be changed by a platform_admin
+     caller.
+
+Non-functional
+--------------
+
+P-13 Policy cache is per-worker; a cache miss results in at most one DB read
+     per TTL window per tenant per worker.
+
+P-14 decide_tier remains a pure function (no I/O); policy is loaded by the
+     node wrapper, not inside the pure function.
+
+P-15 tier_policy_id + tier_policy_version in AuditRecord must be present for
+     every post-S10 run; pre-S10 records have nullable fields (additive
+     column, existing rows unaffected).
+
+P-16 All PATCH /api/admin/tier-policy calls are logged as AuditRecord rows
+     with lifecycle=policy_change, so the audit trail captures both case
+     events and configuration changes in one table.
+
+P-17 routine_floor must be >= complex_floor + 0.01; the API returns 422 if
+     violated.
+
+P-18 promotion-signals query is read-only and bounded: the aggregation runs
+     over at most the last 90 days of records (configurable via
+     PROMOTION_LOOKBACK_DAYS env var).
+
+================================================================================
+5. WORKFLOW MODELING
+================================================================================
+
+Policy resolution at routing time
+-----------------------------------
+
+  run_tier_router(state: PipelineState) -> PipelineState
+          |
+          v
+  policy = PolicyStore.get_active(state.request.tenant_id)
+          |  (cache hit: no DB;
+          |   cache miss: SELECT FROM tier_policies
+          |               WHERE tenant_id = $1 AND is_active = true;
+          |               fallback to platform default if none found)
+          |
+          v
+  tier_signals = TierSignals.from_state(state)
+          |
+          v
+  tier = decide_tier(tier_signals, policy)    <- pure, parameterized
+          |
+          v
+  state["tier"]                = tier
+  state["tier_policy_id"]      = policy.policy_id
+  state["tier_policy_version"] = policy.version
+          |
+          v
+  return state
+
+Policy update flow
+-------------------
+
+  PATCH /api/admin/tier-policy
+          |
+          v
+  auth_middleware -> role must be tenant_admin or platform_admin (403 otherwise)
+          |
+          v
+  validate TierPolicyUpdate
+  (routine_floor >= complex_floor + 0.01 -- 422 if not)
+          |
+          v
+  BEGIN TRANSACTION
+    INSERT INTO tier_policies (..., version = old_version + 1, is_active = true)
+    UPDATE tier_policies SET is_active = false
+      WHERE tenant_id = $1 AND policy_id != new_id
+    INSERT INTO tier_band_history
+      (old_policy_id, new_policy_id, diff_summary, ...)
+  COMMIT
+          |
+          v
+  PolicyStore.invalidate_cache(tenant_id)
+          |
+          v
+  AuditRecord(lifecycle=policy_change, correlation_id=new_policy_id, ...)
+          |
+          v
+  200 { active_policy: TierPolicy }
+
+Promotion-signal aggregation (read-only)
+-----------------------------------------
+
+  GET /api/admin/tier-policy/promotion-signals
+          |
+          v
+  auth_middleware -> tenant_admin or platform_admin (403 otherwise)
+          |
+          v
+  SELECT drug, plan_id,
+         COUNT(*) FILTER (WHERE tier = 'exception') AS exception_count,
+         COUNT(*) FILTER (WHERE tier = 'exception'
+                          AND provenance = 'human_edited') AS approved_count
+  FROM audit_records
+  WHERE tenant_id = $1
+    AND created_at >= now() - INTERVAL '$PROMOTION_LOOKBACK_DAYS days'
+  GROUP BY drug, plan_id
+  HAVING approved_count >= $PROMOTION_THRESHOLD
+          |
+          v
+  suggested_complex_floor =
+    approved_count / exception_count * active_policy.complex_floor
+    (conservative -- never exceeds active_policy.routine_floor - 0.01)
+          |
+          v
+  PromotionSignalsResponse { signals, generated_at, policy_id, lookback_days }
+
+================================================================================
+6. DATA MODEL CHANGES
+================================================================================
+
+New database tables (alembic/versions/0002_tier_policy.py)
+-----------------------------------------------------------
+
+  CREATE TABLE tier_policies (
+      policy_id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant_id            UUID REFERENCES tenants(tenant_id),  -- NULL = platform default
+      version              INT NOT NULL DEFAULT 1,
+      routine_floor        FLOAT NOT NULL DEFAULT 0.95,
+      complex_floor        FLOAT NOT NULL DEFAULT 0.70,
+      exception_signals    JSONB NOT NULL DEFAULT
+                             '["generic_resolution","drug_alias_first_pairing",
+                               "counter_offer","novel_denial_reason",
+                               "gatekeeper_exhausted"]'::jsonb,
+      drug_class_overrides JSONB NOT NULL DEFAULT '[]'::jsonb,
+      effective_from       TIMESTAMPTZ NOT NULL DEFAULT now(),
+      created_by           UUID REFERENCES users(user_id),
+      is_active            BOOL NOT NULL DEFAULT true,
+      UNIQUE (tenant_id, version)
+  );
+  CREATE INDEX tier_policy_active_idx ON tier_policies(tenant_id, is_active);
+
+  CREATE TABLE tier_band_history (
+      history_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant_id     UUID,
+      changed_by    UUID REFERENCES users(user_id),
+      changed_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      old_policy_id UUID REFERENCES tier_policies(policy_id),
+      new_policy_id UUID NOT NULL REFERENCES tier_policies(policy_id),
+      diff_summary  JSONB NOT NULL
+  );
+
+audit_records additions (additive, nullable for pre-S10 rows):
+
+  ALTER TABLE audit_records ADD COLUMN tier_policy_id      UUID;
+  ALTER TABLE audit_records ADD COLUMN tier_policy_version INT;
+
+New Python models (backend/models/schemas.py)
+----------------------------------------------
+
+  class ExceptionSignal(str, Enum):
+      generic_resolution       = "generic_resolution"
+      drug_alias_first_pairing = "drug_alias_first_pairing"
+      counter_offer            = "counter_offer"
+      novel_denial_reason      = "novel_denial_reason"
+      gatekeeper_exhausted     = "gatekeeper_exhausted"
+
+  class DrugClassBand(BaseModel):
+      drug_class    : str    # e.g., "GLP-1", "immunosuppressant"
+      routine_floor : float  # 0.0-1.0
+      complex_floor : float  # 0.0-1.0; must be < routine_floor - 0.01
+
+  class TierPolicy(BaseModel):
+      policy_id            : str
+      tenant_id            : str | None   # None = platform default
+      version              : int
+      routine_floor        : float = 0.95
+      complex_floor        : float = 0.70
+      exception_signals    : list[ExceptionSignal]
+      drug_class_overrides : list[DrugClassBand] = []
+      effective_from       : datetime
+      created_by           : str | None
+      is_active            : bool
+
+  class TierPolicyUpdate(BaseModel):
+      model_config = ConfigDict(strict=True)
+      routine_floor        : float | None = None
+      complex_floor        : float | None = None
+      exception_signals    : list[ExceptionSignal] | None = None
+      drug_class_overrides : list[DrugClassBand] | None = None
+      rationale            : str    # <= 1000 chars -- required for audit trail
+
+  class TierBandHistoryEntry(BaseModel):
+      history_id    : str
+      tenant_id     : str | None
+      changed_by    : str | None
+      changed_at    : datetime
+      old_policy_id : str | None
+      new_policy_id : str
+      diff_summary  : dict
+
+  class PromotionSignal(BaseModel):
+      drug                  : str
+      plan_id               : str
+      exception_count       : int
+      human_approved_count  : int
+      suggested_complex_floor : float   # advisory only; never applied automatically
+
+  class PromotionSignalsResponse(BaseModel):
+      signals      : list[PromotionSignal]
+      generated_at : datetime
+      policy_id    : str
+      lookback_days : int
+
+PipelineState additions:
+
+  tier_policy_id      : str | None = None
+  tier_policy_version : int | None = None
+
+AuditRecord additions:
+
+  tier_policy_id      : str | None = None
+  tier_policy_version : int | None = None
+
+Parity: ExceptionSignal, TierPolicy, TierPolicyUpdate, DrugClassBand,
+PromotionSignal mirror into src/types.ts. wire-types-freshness CI job gates
+on no drift.
+
+================================================================================
+7. API CHANGES
+================================================================================
+
+New endpoints
+-------------
+
+GET /api/admin/tier-policy
+  Auth    : Any authenticated session or Bearer.
+  Response: { policy: TierPolicy }
+
+PATCH /api/admin/tier-policy
+  Auth    : tenant_admin or platform_admin role only (403 otherwise).
+  Body    : TierPolicyUpdate
+  Response: { active_policy: TierPolicy, history_entry: TierBandHistoryEntry }
+  422     : routine_floor < complex_floor + 0.01
+
+GET /api/admin/tier-policy/history
+  Auth    : tenant_admin or platform_admin role.
+  Response: { history: TierBandHistoryEntry[] } (newest first)
+
+GET /api/admin/tier-policy/promotion-signals
+  Auth    : tenant_admin or platform_admin role.
+  Response: PromotionSignalsResponse
+  Params  : lookback_days (int, 1-365, default from PROMOTION_LOOKBACK_DAYS)
+
+Modified: tier_router.py signature
+------------------------------------
+
+  decide_tier(signals: TierSignals, policy: TierPolicy) -> CaseTier
+
+The TierSignals type is unchanged (existing callers pass signals exactly as
+before). The second policy argument is new -- the node wrapper loads the policy
+and passes it in; the pure function signature change is propagated through all
+existing call sites (2: the node wrapper, the unit tests).
+
+AuditRecord shape change
+-------------------------
+
+tier_policy_id and tier_policy_version added as nullable fields in
+GET /api/audit/records response. Additive change; existing consumers ignore
+new fields.
+
+================================================================================
+8. LANGGRAPH INTEGRATION
+================================================================================
+
+tier_router node wrapper update (agents/nodes/tier_router.py)
+--------------------------------------------------------------
+
+  async def run_tier_router(
+      state: PipelineState, config: RunnableConfig
+  ) -> PipelineState:
+      """Wrapper node -- loads policy, delegates to pure decide_tier."""
+      tenant_id = state["request"].tenant_id
+      policy    = await PolicyStore.get_active(tenant_id)   # cached, async
+      signals   = TierSignals.from_state(state)
+      tier      = decide_tier(signals, policy)              # pure -- no I/O
+      return {
+          **state,
+          "tier"               : tier,
+          "workflow_plan"      : _extract_workflow_plan(state, tier),
+          "tier_policy_id"     : policy.policy_id,
+          "tier_policy_version": policy.version,
+      }
+
+Key invariants preserved:
+  - decide_tier remains a pure function (no I/O, no DB call, no LLM call).
+  - The node wrapper is the only I/O boundary.
+  - The LangGraph wrapper pattern (thin async wrapper -> pure delegate) is
+    unchanged.
+  - No new conditional edges; no graph topology change.
+
+Graph (agents/graph.py)
+------------------------
+
+_PIPELINE is unchanged in topology. run_tier_router now requires async (it was
+already async due to LangGraph node semantics). The PolicyStore singleton is
+initialized in the lifespan handler alongside the DB pool.
+
+================================================================================
+9. NEW MODULE: backend/db/policy_store.py
+================================================================================
+
+  backend/db/
+  +-- policy_store.py   # PolicyStore: get_active, update, invalidate_cache,
+                        #              history, promotion_signals
+
+PolicyStore interface:
+
+  class PolicyStore:
+      _cache : dict[str | None, tuple[TierPolicy, datetime]]
+      _ttl   : int = 60   # seconds
+
+      async def get_active(
+          self, tenant_id: str | None
+      ) -> TierPolicy:
+          """Cache-first; falls back to platform default on miss."""
+
+      async def update(
+          self, tenant_id: str | None,
+          update: TierPolicyUpdate, changed_by: str
+      ) -> tuple[TierPolicy, TierBandHistoryEntry]:
+          """Atomic: deactivate old, insert new, write history row."""
+
+      def invalidate_cache(self, tenant_id: str | None) -> None:
+          """Called immediately after update() to force fresh load."""
+
+      async def history(
+          self, tenant_id: str | None
+      ) -> list[TierBandHistoryEntry]: ...
+
+      async def promotion_signals(
+          self, tenant_id: str | None,
+          lookback_days: int, threshold: int
+      ) -> PromotionSignalsResponse: ...
+
+Platform-default seeding (Alembic 0002_tier_policy.py upgrade function):
+
+  op.execute("""
+      INSERT INTO tier_policies (
+          tenant_id, version, routine_floor, complex_floor,
+          exception_signals, is_active, effective_from
+      )
+      VALUES (
+          NULL, 1, 0.95, 0.70,
+          '["generic_resolution","drug_alias_first_pairing","counter_offer",
+            "novel_denial_reason","gatekeeper_exhausted"]',
+          true, now()
+      )
+      ON CONFLICT DO NOTHING;
+  """)
+
+================================================================================
+10. UI SURFACES
+================================================================================
+
+Backend slice only. The Build-view policy editor in the demo
+(src/components/portfolio/BuildView.tsx) currently runs on fixture data. When
+the live endpoints exist, the capability manifest (src/capabilities.ts, unit
+B8) transitions it from simulated -> live. The live Build view calls:
+
+  GET  /api/admin/tier-policy                   -- display active bands
+  PATCH /api/admin/tier-policy                  -- submit a band update
+  GET  /api/admin/tier-policy/history           -- show configuration changelog
+  GET  /api/admin/tier-policy/promotion-signals -- show advisory signal table
+
+The Sponsor view aggregation surface becomes the Scale view's tier performance
+panel (capability unit S12, separate Workstream SU task).
+
+No fixture-path changes are required for simulated mode -- the manifest seam
+preserves the offline demo behavior.
+
+================================================================================
+11. TEST CASES
+================================================================================
+
+Unit (backend/tests/unit/)
+---------------------------
+
+Module: test_tier_router_node.py (extend)
+  - decide_tier with custom routine_floor=0.98 routes a 0.96-confidence case
+    to complex not routine
+  - DrugClassBand override takes precedence over tenant-level floor
+  - disabled ExceptionSignal does not escalate to exception
+  - gatekeeper_exhausted always escalates regardless of bands
+
+Module: test_policy_store.py
+  - get_active returns platform default when no tenant override exists
+  - cache hit does not issue a DB call
+  - invalidate_cache forces fresh load on next call
+  - update writes history row and deactivates old policy
+
+Module: test_policy_validation.py
+  - routine_floor < complex_floor + 0.01 raises ValidationError
+  - drug_class override floor > parent tenant floor raises ValidationError
+  - rationale required on update
+
+Module: test_promotion_signal_aggregator.py
+  - Drug/plan pairs below threshold excluded
+  - suggested_complex_floor never exceeds routine_floor - 0.01
+  - lookback window filter applied
+  - empty audit store returns empty signals list
+
+Module: test_tier_policy_audit_record.py
+  - AuditRecord written post-S10 carries non-null tier_policy_id and
+    tier_policy_version
+  - pre-S10 records (nullable fields) do not break deserialization
+
+Module: test_exception_signal_parity.py
+  - ExceptionSignal enum in schemas.py and src/types.ts are identical
+
+Contract
+--------
+
+test_schema_parity.py extended: ExceptionSignal, TierPolicy present in both
+sides.
+wire-types-freshness CI job: TierPolicyUpdate, PromotionSignal,
+TierBandHistoryEntry in generated types.
+
+Integration (backend/tests/integration/)
+-----------------------------------------
+
+Module: test_tier_policy_endpoints.py
+  - GET returns platform default for Bearer
+  - PATCH with tenant_admin role creates new version
+  - PATCH with operate role returns 403
+  - invalid floors return 422
+  - history endpoint returns newest-first
+  - promotion-signals endpoint returns correct counts
+  - promotion-signals threshold filter works
+
+Module: test_tier_router_with_policy.py
+  - Full pipeline run writes tier_policy_id on AuditRecord
+  - PATCH to new floor + next pipeline run uses new floor
+  - cache invalidation tested via TTL mock
+
+Module: test_policy_change_audit.py
+  - PATCH creates an AuditRecord with lifecycle=policy_change
+  - policy-change record visible in GET /api/audit/records for platform-admin
+  - tenant-scoped session sees only own policy changes
+
+Regulatory compliance test
+---------------------------
+
+test_statutory_floor.py (tagged: regulatory)
+  - Platform-default policy has routine_floor=0.95 (Illinois HB statutory
+    floor).
+  - No PATCH to the platform-default policy (tenant_id=NULL) can set
+    routine_floor < 0.95 (enforced by a platform_admin-only validation layer
+    distinct from the general floor validation).
+
+================================================================================
+12. RISKS
+================================================================================
+
+Risk: Policy cache stale window allows routing under a revoked policy
+  Likelihood: Low | Impact: Medium
+  Mitigation: TTL is 60 s (configurable); invalidate_cache() is called
+  synchronously at update time on the same worker; multi-worker setups need a
+  shared cache (Redis) -- deferred note in ADR.
+
+Risk: decide_tier signature change breaks existing unit tests
+  Likelihood: Medium | Impact: Low
+  Mitigation: All 2 call sites updated in the same PR; TDD RED test written
+  first; no other importer.
+
+Risk: Drug-class matching ambiguity (one drug in two classes)
+  Likelihood: Low | Impact: Medium
+  Mitigation: DrugClassBand uses exact string match on drug_class; first-match
+  wins; admin documentation required.
+
+Risk: Promotion-signal aggregation query too slow on large audit_records table
+  Likelihood: Low | Impact: High
+  Mitigation: Query bounded by lookback_days (default 90) and filtered by
+  tenant_id; index on (tenant_id, created_at, tier, provenance) added in
+  migration.
+
+Risk: platform_admin bypasses routine_floor >= 0.95 statutory guard
+  Likelihood: Low | Impact: Critical
+  Mitigation: Statutory floor validation is a separate hard-coded check (not
+  policy-configurable); tested in test_statutory_floor.py (regulatory tag).
+
+Risk: TierBandHistory diff_summary leaks PHI via field values
+  Likelihood: Low | Impact: High
+  Mitigation: diff_summary records only numeric floor values and signal names
+  -- no drug/patient text; validated by PHI scan in test_golden_compliance.py.
+
+================================================================================
+13. DELIVERABLES
+================================================================================
+
+#   Artifact                                Path
+--  --------------------------------------  -----------------------------------------------
+1   TierPolicy and related domain models    backend/models/schemas.py
+2   Alembic migration                       backend/alembic/versions/0002_tier_policy.py
+3   PolicyStore module                      backend/db/policy_store.py
+4   tier_router.py refactor                 backend/agents/nodes/tier_router.py
+5   Tier policy admin endpoints             backend/main.py routes (GET/PATCH tier-policy,
+                                            history, promotion-signals)
+6   PipelineState + AuditRecord additions   backend/models/schemas.py
+7   TypeScript parity mirrors               src/types.ts (ExceptionSignal, TierPolicy,
+                                            TierPolicyUpdate, DrugClassBand, PromotionSignal)
+8   Unit test suite                         backend/tests/unit/test_tier_router_node.py
+                                            (extended), test_policy_store.py,
+                                            test_policy_validation.py,
+                                            test_promotion_signal_aggregator.py,
+                                            test_tier_policy_audit_record.py,
+                                            test_exception_signal_parity.py
+9   Integration test suite                  backend/tests/integration/
+                                            test_tier_policy_endpoints.py,
+                                            test_tier_router_with_policy.py,
+                                            test_policy_change_audit.py
+10  Regulatory compliance test              backend/tests/regulatory/test_statutory_floor.py
+11  ADR for configurable tier policy        docs/adr/0021-configurable-tier-band-policy.md
+12  Updated architecture docs               docs/architecture/02-backend-architecture.md,
+                                            docs/architecture/03-domain-model.md,
+                                            docs/architecture/05-state-lifecycle.md,
+                                            docs/architecture/06-api-contract.md

@@ -1,0 +1,399 @@
+# PRD — Slice 4: Intake & Eligibility CRD/DTR
+
+**Status:** Proposed  
+**Sprint target:** Sprint 4 (following Sprint FI live-integration close)  
+**Owner:** Platform Engineering  
+**Last updated:** 2026-07-19  
+**Depends on:** S2 Initial-PA lifecycle (live), S3 TierRouter (live), S3 Slice 4b resume endpoint (live), P7a Tenancy (live), Sprint FI live-wiring (in progress)  
+**Referenced ADRs:** ADR-0001 (LangGraph orchestrator), ADR-0002 (provider-neutral LLM), ADR-0003 (deterministic gatekeeper), ADR-0009 (idempotency/audit), ADR-0010 (in-memory checkpointer), ADR-0013 (BFF session auth), ADR-0017 (tenancy)
+
+---
+
+## 1. Problem Summary
+
+The current initial-PA pipeline implements a **stub CRD** (Coverage Requirements Discovery): it resolves PA requirements by looking up an internal `pa_requirements.json` registry and treats a registry miss as "no PA required." This is explicitly flagged in `02-backend-architecture.md` and `05-state-lifecycle.md` as acceptable only while the registry is the authoritative source.
+
+Two related gaps exist:
+
+1. **CRD stub leaks false negatives.** A registry miss reads as "not required," when the real answer from the payer CRD endpoint may be "required with specific questionnaire." This silently skips PA for drugs/plans not yet in the local registry.
+2. **DTR (Documentation Templates and Rules) is completely absent.** After a payer CRD endpoint confirms PA is required, it returns a FHIR Questionnaire (the DTR IG) that the provider must complete before the PA can be assembled. Today the system assembles the PA from the request's `criteria_results` without validating that the payer's mandatory documentation template has been answered.
+
+Together these gaps mean the system cannot faithfully implement the Da Vinci CRD → DTR → PAS chain required for compliant payer integration. The stub is acceptable for a demo but blocks any real payer onboarding.
+
+---
+
+## 2. Goals
+
+| # | Goal |
+|---|------|
+| G1 | Replace the stub `crd_check` node with a **real CRD client** that queries the payer's FHIR CRD endpoint (Da Vinci IG) and falls back gracefully to the existing registry on network/config failures |
+| G2 | Add a **DTR node** that retrieves the payer-returned FHIR Questionnaire, maps it onto the case's `CriterionResult` evidence, and identifies unfilled mandatory items as documentation gaps |
+| G3 | Surface documentation gaps as an `awaiting_documentation` lifecycle state with a structured gap list, allowing an operator to supply missing evidence without restarting the case |
+| G4 | Preserve all existing guarantees: security-hold gate, terminal-event contract (`done`\|`error`), idempotent audit writes, TierRouter tiering, in-memory checkpointer compatibility |
+| G5 | Remain adapter-accurate: the CRD client is an ETL adapter (`etl/crd/`); engine nodes never branch on payer identity |
+| G6 | Provide a test seam that runs the full CRD→DTR→PAS chain in CI without any network calls (mock CRD server + mock DTR questionnaire fixture) |
+
+---
+
+## 3. Non-Goals
+
+| # | Non-Goal |
+|---|----------|
+| NG1 | Implementing a full SMART on FHIR / OAuth2 payer auth handshake (a new ADR governs payer credential management; this slice wires a pre-provisioned token) |
+| NG2 | Parsing every possible FHIR Questionnaire item type — only `boolean`, `choice`, and `text` items are in scope for MVP |
+| NG3 | Building a UI questionnaire-filling form (the DTR gap list surfaces in the existing queue workspace exception panel; a dedicated questionnaire UI is a follow-on slice) |
+| NG4 | Replacing the PAS rail or changing the X12-278 adapter shape |
+| NG5 | Multi-payer CRD routing table (one payer CRD endpoint per tenant, resolved from tenant config; multi-payer expansion is a future platform capability) |
+| NG6 | Durable PostgreSQL storage (still the Phase 3 milestone; this slice inherits the in-memory store) |
+
+---
+
+## 4. Requirements
+
+### Functional
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| F1 | `crd_check` node MUST query the configured payer CRD FHIR endpoint (`POST /cds-hooks/order-sign`) when `PAYER_CRD_BASE_URL` is set for the case's tenant | P0 |
+| F2 | When the CRD endpoint is unavailable or the tenant has no configured endpoint, `crd_check` MUST fall back to the existing registry lookup and set `crd_resolution = "registry_fallback"` on the state | P0 |
+| F3 | The CRD response MUST be parsed into `PaRequired` + optional `FhirQuestionnaire` reference; the questionnaire reference MUST be stored on `InitialPaState.dtr_questionnaire_ref` | P0 |
+| F4 | When the CRD response includes a `dtr_questionnaire_ref`, the new `dtr_check` node MUST fetch the FHIR Questionnaire and evaluate it against `criteria_results` | P0 |
+| F5 | Unfilled mandatory Questionnaire items MUST be emitted as `DocumentationGap` objects on `InitialPaState.documentation_gaps` | P0 |
+| F6 | When `documentation_gaps` is non-empty, the pipeline MUST emit a `documentation_gap` step event and transition to the `awaiting_documentation` terminal (a new `InitialPaDoneEvent` variant field — not a new event type) | P0 |
+| F7 | The `awaiting_documentation` path MUST write an `AuditRecord` with a new `outcome = "awaiting_documentation"` value before emitting the terminal event | P0 |
+| F8 | A new `POST /api/pa/supply-docs` endpoint MUST accept a `SupplyDocsRequest` (correlation_id + list of `CriterionResult` additions), merge the new evidence, re-evaluate the DTR questionnaire, and re-enter the pipeline at `dtr_check` | P0 |
+| F9 | Re-entry via `supply-docs` MUST produce its own `AuditRecord` with `provenance = "documentation_supplied"` and an incremented attempt counter | P1 |
+| F10 | The `crd_check` node MUST emit a `crd_resolution` field on the terminal event: `"payer_crd"` \| `"registry_fallback"` \| `"not_required"` | P1 |
+| F11 | All CRD/DTR network calls MUST go through the `CircuitBreaker` primitive already present in `ml/llm_backend.py` (extracted to a shared `utils/circuit_breaker.py` to avoid import coupling) | P1 |
+| F12 | `crd_check` MUST enforce a 10-second timeout on the CRD endpoint; a timeout is treated identically to a network error (fallback to registry) | P1 |
+
+### Non-Functional
+
+| ID | Requirement |
+|----|-------------|
+| NF1 | The CRD client (`etl/crd/client.py`) MUST be injectable as a dependency so unit tests can supply a `MockCrdClient` without patching `httpx` globally |
+| NF2 | The FHIR Questionnaire parser MUST have 100% branch coverage in unit tests — it is safety-critical (a missed mandatory item = a false clear) |
+| NF3 | The CI smoke tour MUST cover the `awaiting_documentation` path end-to-end using mock fixtures |
+| NF4 | PHI from CRD responses (patient identifiers in the CDS hook context) MUST pass through `redact_phi()` before any log write |
+| NF5 | Adding `PAYER_CRD_BASE_URL` to `.env.example` with a documented format is required before merge |
+
+---
+
+## 5. Workflow Modeling
+
+### 5.1 CRD/DTR-extended Initial-PA pipeline
+
+```
+POST /api/pa/submit
+  │
+  ▼
+security_gate ──(hold)──→ error_event
+  │
+  ▼
+pa_ingestion → InitialPaState
+  │
+  ▼
+crd_check  ──────────────────────────────────────────────────────────────────┐
+  │ pa_required=false (CRD or registry)                                      │
+  ▼                                                                          │
+done_event (early exit, no submission)                                       │
+                                                                             │ pa_required=true
+                                                                             ▼
+                                                                        dtr_check
+                                                                             │
+                                                     ┌───────────────────────┤
+                                                     │ gaps non-empty        │ gaps empty
+                                                     ▼                       ▼
+                                            documentation_gap           pa_assembly
+                                            step event                       │
+                                                     │                       ▼
+                                                     ▼                  pas_submit
+                                            done_event                       │
+                                        (awaiting_documentation)             ▼
+                                                     │              determination ⟲
+                                                     │                       │
+                                                     │                       ▼
+                                        POST /api/pa/supply-docs      done_event
+                                                     │
+                                                     ▼
+                                           merge evidence → dtr_check (re-entry)
+```
+
+### 5.2 Re-supply flow
+
+```
+Operator sees "awaiting_documentation" in queue workspace
+  │
+  ├── Attaches chart note / lab result CriterionResult additions
+  │
+  └── POST /api/pa/supply-docs {correlation_id, additional_criteria}
+        │
+        ▼
+      resume checkpoint at dtr_check
+        │
+        ├── gaps still non-empty → another awaiting_documentation done
+        └── gaps resolved → pa_assembly → pas_submit → determination → done
+```
+
+### 5.3 CRD resolution precedence
+
+```
+1. PAYER_CRD_BASE_URL configured for tenant?
+   └── Yes → POST /cds-hooks/order-sign (10s timeout, circuit breaker)
+             └── Success → crd_resolution = "payer_crd"
+             └── Failure/Timeout → fall through to (2)
+   └── No → fall through to (2)
+
+2. plan_id in local registry?
+   └── Yes → crd_resolution = "registry_fallback", pa_required = true
+   └── No  → crd_resolution = "registry_fallback", pa_required = false
+                (fail-open; flag in audit for manual review)
+```
+
+---
+
+## 6. Data Model Changes
+
+### 6.1 New types (backend/models/schemas.py)
+
+```python
+class CrdResolution(str, Enum):
+    payer_crd       = "payer_crd"
+    registry_fallback = "registry_fallback"
+    not_required    = "not_required"
+
+class DocumentationGap(BaseModel):
+    item_link_id: str          # FHIR Questionnaire item linkId
+    item_text: str             # Human-readable question text
+    item_type: Literal["boolean", "choice", "text"]
+    required: bool = True
+    existing_answer: str | None = None  # None = not answered
+
+class FhirQuestionnaireRef(BaseModel):
+    questionnaire_url: str     # Canonical FHIR URL
+    version: str | None = None
+
+class SupplyDocsRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+    correlation_id: str        # The parked awaiting_documentation run's handle
+    additional_criteria: list[CriterionResult]
+    attempt: int = Field(default=1, ge=1)
+```
+
+### 6.2 InitialPaState additions
+
+```python
+class InitialPaState(TypedDict):
+    # --- existing fields ---
+    request: InitialPaRequest
+    pa_required: PaRequired | None
+    pa_context: str
+    pa_resolution: PaResolution
+    submission: PaSubmission | None
+    submission_ref: str
+    outcome: PaOutcome | None
+    appeal_handoff: AppealHandoff | None
+    # --- new fields ---
+    crd_resolution: CrdResolution | None       # which CRD path fired
+    dtr_questionnaire_ref: FhirQuestionnaireRef | None
+    documentation_gaps: list[DocumentationGap]  # empty = no gaps
+    supply_attempt: int                         # increments on each supply-docs re-entry
+```
+
+### 6.3 InitialPaDoneEvent additions
+
+```python
+class InitialPaDoneEvent(BaseModel):
+    # --- existing ---
+    event: Literal["done"] = "done"
+    pa_required: PaRequired
+    outcome: PaOutcome | None
+    appeal_handoff: AppealHandoff | None
+    submission_ref: str
+    pa_resolution: PaResolution
+    correlation_id: str
+    # --- new ---
+    crd_resolution: CrdResolution          # always present
+    documentation_gaps: list[DocumentationGap]  # empty list when clear
+    awaiting_documentation: bool           # True iff gaps non-empty at terminal
+```
+
+### 6.4 AuditRecord additions
+
+```python
+class AuditOutcome(str, Enum):
+    done                   = "done"
+    error                  = "error"
+    awaiting_documentation = "awaiting_documentation"   # NEW
+
+class AuditProvenance(str, Enum):
+    as_is                  = "as_is"
+    gatekeeper_corrected   = "gatekeeper_corrected"
+    human_edited           = "human_edited"
+    documentation_supplied = "documentation_supplied"   # NEW
+```
+
+### 6.5 Frontend parity
+
+All new enums (`CrdResolution`, `AuditOutcome.awaiting_documentation`, `AuditProvenance.documentation_supplied`) MUST be mirrored in `src/types.ts` in the same commit. Parity enforced by `test_schema_parity.py`.
+
+---
+
+## 7. API Changes
+
+### 7.1 Modified: `POST /api/pa/submit`
+
+The terminal `done` event now carries `crd_resolution`, `documentation_gaps`, and `awaiting_documentation`. Clients that ignore unknown fields are unaffected; the typed client MUST update `src/lib/wire.ts` to surface the new fields.
+
+Step events gain a new value: `"dtr_check"` (emitted after `"crd_check"` when a questionnaire is being evaluated).
+
+### 7.2 New: `POST /api/pa/supply-docs`
+
+**Auth:** dual scheme (Bearer or session cookie + CSRF).  
+**No LLM** — this path re-enters the PA pipeline at `dtr_check`; no synthesis is invoked.
+
+**Request body:**
+
+| Field | Type | Constraint |
+|-------|------|------------|
+| `correlation_id` | str | 1–200 chars; the `awaiting_documentation` run's handle |
+| `additional_criteria` | `CriterionResult[]` | ≥ 1 item |
+| `attempt` | int ≥ 1 | default 1; increments with each re-supply |
+
+**Events:** same step sequence as `POST /api/pa/submit` from `dtr_check` onward, then exactly one terminal `done` (cleared or still awaiting) or `error` (unknown/already-resolved correlation_id).
+
+**Audit:** writes an `AuditRecord` with `provenance = "documentation_supplied"`, `idempotency_key = <correlation_id>:supply:<attempt>`.
+
+**HTTP status codes:** identical to existing PA submit route (200 = stream started; 401/403/422 same semantics).
+
+### 7.3 New environment variables
+
+| Var | Required | Meaning |
+|-----|----------|---------|
+| `PAYER_CRD_BASE_URL` | no | Base URL for the payer CRD CDS Hooks endpoint. Unset = registry-fallback only |
+| `PAYER_CRD_TOKEN` | when CRD configured | Bearer token for payer CRD auth. Stored in env; never logged |
+| `CRD_TIMEOUT_SECONDS` | no | CRD request timeout; default 10 |
+
+---
+
+## 8. LangGraph Integration
+
+### 8.1 Graph changes (backend/agents/initial_pa_graph.py)
+
+The existing `StateGraph(InitialPaState)` gains two new nodes and one new conditional edge:
+
+```
+Existing:  pa_ingestion → crd_check → [pa_required?] → pa_assembly → pas_submit → determination ⟲ → finalize
+New:       pa_ingestion → crd_check → [pa_required?] → dtr_check → [gaps?] → (pa_assembly | awaiting_doc_finalize)
+```
+
+**New nodes:**
+
+| Node | File | Contract |
+|------|------|----------|
+| `dtr_check` | `agents/nodes/dtr_check.py` | `(InitialPaState) → InitialPaState`; fetches questionnaire (if `dtr_questionnaire_ref` set), maps `criteria_results` onto items, populates `documentation_gaps`; pure — HTTP call is injected via configurable |
+| `awaiting_doc_finalize` | `agents/nodes/awaiting_doc_finalize.py` | `(InitialPaState) → InitialPaState`; emits `documentation_gap` step event, sets terminal fields; parks at `interrupt()` keyed by `thread_id` so `supply-docs` can re-enter |
+
+**New conditional edge after `dtr_check`:**
+```python
+def _after_dtr_check(state: InitialPaState) -> str:
+    return "awaiting_doc_finalize" if state["documentation_gaps"] else "pa_assembly"
+```
+
+**Re-entry via `supply-docs`:** `run_supply_docs(request, config)` in a new `agents/supply_docs.py` (parallel to `agents/resume.py`) merges `additional_criteria` into state via `Command(resume={"additional_criteria": …})` and re-enters at `dtr_check`. The compiled graph singleton (`_PA_PIPELINE`) is shared — no second compilation.
+
+### 8.2 Checkpointer
+
+`awaiting_doc_finalize` parks via `interrupt()` using the same `InMemorySaver` already present on the appeal graph. The PA graph MUST also compile with an `InMemorySaver` (currently it does not checkpoint — this is the slice that adds it).
+
+`thread_id = correlation_id` for the PA graph, matching the appeal graph convention.
+
+### 8.3 Purity invariant
+
+`dtr_check` receives the CRD client as a `configurable` key, exactly as `llm_backend` is injected into the appeal graph. The node function signature stays `(state: InitialPaState) → InitialPaState`; the configurable is resolved inside the wrapper node, not the pure function.
+
+---
+
+## 9. UI Surfaces
+
+### 9.1 Queue workspace — exception panel extension
+
+The existing exception panel (Operate view) gains a **Documentation Gaps** section when `awaiting_documentation = true`:
+
+- Lists each `DocumentationGap` with `item_text` and a badge indicating item type
+- Each gap shows `existing_answer` if partially filled, or an "⚠ Unanswered" label
+- A **Supply Documents** CTA opens a modal where the operator attaches evidence (`CriterionResult` additions)
+- On submission, the modal calls `POST /api/pa/supply-docs` via the typed client and streams the re-entry events
+- A `crd_resolution` badge is shown on every initial-PA case card: "Payer CRD" (green), "Registry Fallback" (amber), "Not Required" (grey)
+
+### 9.2 Scenario fixture updates
+
+`src/data/scenarios.tsx` gains one new initial-PA scenario where the CRD fires DTR and the first pass enters `awaiting_documentation`. The scenario fixture demonstrates the supply-docs re-entry path in the offline demo (simulated, no backend).
+
+### 9.3 Single-shell capability manifest
+
+The `supply-docs` endpoint and the DTR gap view are added to `src/capabilities.ts` as a new unit `O14` (`"dtr_gap_resolution"`), initially `simulated`. It becomes `live` once the supply-docs endpoint is confirmed working in the integration environment.
+
+---
+
+## 10. Test Cases
+
+### 10.1 Unit tests
+
+| Test module | Cases |
+|-------------|-------|
+| `tests/unit/test_crd_client.py` | Mock CRD endpoint returns PA required + questionnaire ref; mock returns not-required; network timeout → fallback; circuit breaker trips on 3 consecutive failures; PHI in CDS context → redacted before log |
+| `tests/unit/test_dtr_check_node.py` | All criteria answered → gaps empty; one mandatory boolean item unanswered → gap emitted; optional item unanswered → not a gap; questionnaire ref absent → pass-through; CRD resolution field correctly propagated |
+| `tests/unit/test_awaiting_doc_finalize.py` | Terminal event shape; `awaiting_documentation = true`; `AuditRecord.outcome = "awaiting_documentation"` |
+| `tests/unit/test_supply_docs.py` | Merge additional_criteria; gaps resolved after supply → pa_assembly proceeds; gaps persist after supply → new awaiting_documentation terminal; unknown correlation_id → error; already-resolved → error (idempotent) |
+| `tests/unit/test_schema_parity.py` | NEW assertions for `CrdResolution`, `AuditOutcome.awaiting_documentation`, `AuditProvenance.documentation_supplied` TS mirror |
+
+### 10.2 Integration tests
+
+| Test | Description |
+|------|-------------|
+| `tests/integration/test_pa_pipeline_crd.py` | Full CRD→DTR→PAS run with mock CRD server; all step events in order; terminal carries `crd_resolution = "payer_crd"` |
+| `tests/integration/test_pa_pipeline_dtr_gap.py` | DTR returns gaps; terminal `awaiting_documentation = true`; `POST supply-docs` merges evidence; re-entry clears gaps; final terminal `awaiting_documentation = false`, `outcome` set |
+| `tests/integration/test_pa_pipeline_fallback.py` | CRD unavailable; pipeline falls back to registry; `crd_resolution = "registry_fallback"`; rest of flow unchanged |
+
+### 10.3 Contract tests
+
+- `test_schema_parity.py` extended: `CrdResolution`, `DocumentationGap`, `FhirQuestionnaireRef`, `SupplyDocsRequest` all present in both Python and TypeScript
+- `test_fhi_compat.py` unchanged (CRD client is a new adapter, not touching the fhi fork)
+- Wire-types freshness CI job: `openapi.json` regenerated after new route and new models
+
+### 10.4 Security tests
+
+- `test_prompt_injection.py` extended: PHI in CRD hook context → `redact_phi()` called before any log; adversarial questionnaire item text (injection phrases) → sanitized before storage
+- `test_auth_middleware.py`: `POST /api/pa/supply-docs` requires auth; cookie write requires CSRF; Bearer does not
+
+---
+
+## 11. Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Payer CRD endpoints return non-standard FHIR Questionnaire item types beyond the three in scope | Medium | Medium | Unrecognized item types are logged as warnings and treated as optional (fail-open); a future slice extends the parser |
+| Registry-fallback false negatives in production persist after CRD is configured (misconfigured `PAYER_CRD_BASE_URL`) | Medium | High | Circuit breaker opens on repeated failure; `crd_resolution = "registry_fallback"` is recorded in `AuditRecord` and surfaced in the audit trail UI, making misconfiguration visible |
+| `InMemorySaver` on the PA graph shards under multi-worker deploy (same as the appeal graph today) | High (pre-Phase 3) | High | Documented in ADR-0010; mitigated by single-worker constraint until Phase 3 PostgreSQL checkpointer lands. Supply-docs re-entry must reach the same worker — a sticky session or Phase 3 is required before multi-worker |
+| FHIR token management for payer CRD auth grows into a full SMART-on-FHIR implementation | Low | High | NG1 explicitly defers this; the pre-provisioned static token is the only auth method in scope; a new ADR gates any SMART flow |
+| DTR questionnaire evaluation logic is complex enough to hide false-clears | Medium | High | 100% branch coverage requirement (NF2); golden-set questionnaire fixture with planted mandatory gap; independent review pass before merge |
+
+---
+
+## 12. Deliverables
+
+| # | Deliverable | Acceptance Criteria |
+|---|-------------|---------------------|
+| D1 | `etl/crd/client.py` — injectable CRD HTTP client with circuit breaker and 10s timeout | Unit tests pass; mock client works in integration; PHI redacted before logs |
+| D2 | `etl/crd/questionnaire_parser.py` — FHIR Questionnaire → `DocumentationGap[]` mapper | 100% branch coverage; handles boolean/choice/text; ignores unknown types with warning |
+| D3 | `agents/nodes/dtr_check.py` — pure DTR evaluation node | Node contract `(InitialPaState) → InitialPaState`; no I/O inside pure function |
+| D4 | `agents/nodes/awaiting_doc_finalize.py` — terminal node for gap path; parks via `interrupt()` | AuditRecord written before terminal event; `awaiting_documentation = true` on DoneEvent |
+| D5 | `agents/supply_docs.py` — `run_supply_docs()` re-entry function | Merges evidence; re-enters graph at `dtr_check`; writes `documentation_supplied` AuditRecord |
+| D6 | `POST /api/pa/supply-docs` route in `main.py` | Auth enforced; 200 = stream started; error on unknown/resolved correlation_id |
+| D7 | Updated `InitialPaState`, `InitialPaDoneEvent`, `AuditRecord` schemas | Parity test passes; wire types freshness gate passes |
+| D8 | `src/types.ts` parity additions + `src/lib/wire.ts` update | `test_schema_parity.py` green; typed client compiles |
+| D9 | Queue workspace DTR gap panel + supply-docs modal | Renders in offline demo; calls live endpoint in live mode; `O14` capability unit in manifest |
+| D10 | Full test suite (unit + integration + contract + security) | All CI gates green; 100% branch coverage on questionnaire parser; no regressions |
+| D11 | `.env.example` updated; ADR written for CRD client design | ADR merged before feature branch opens |
+| D12 | Docs updated: `02-backend-architecture.md`, `03-domain-model.md`, `05-state-lifecycle.md`, `06-api-contract.md` | All five struct-change docs in same PR |

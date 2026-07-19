@@ -1,0 +1,478 @@
+# PRD -- Slice 8: Evidence Discovery Rail
+
+Sprint: Phase 2 / Workstream Backend
+Status: Proposed (2026-07-19)
+Ticket handle: PAXOS-S8-DISCOVERY
+Owner: Platform Engineering
+Last updated: 2026-07-19
+
+================================================================================
+1. PROBLEM SUMMARY
+================================================================================
+
+ClearAuth generates appeal letters grounded in PA criteria retrieved from
+`data/pa_requirements.json`, but it has no mechanism for retrieving external
+clinical evidence -- published guidelines, PubMed literature, or payer LCD/NCD
+policies -- that would substantiate the appeal beyond the internal criteria
+pack. Reviewers currently source this evidence manually, outside the platform.
+
+The roadmap (doc 10, unit O6) lists the Evidence Discovery Rail as "proposed
+2026-07-17 -- demo rail shipped (EvidenceDiscoveryConsole); no backend." The
+Qdrant vector store targeted by Sprint 5 (policy_ingest) is the natural peer
+of this feature, and the dependency is shared: both require qdrant-client +
+sentence-transformers (pre-install protocol gate, ADR-0007).
+
+Concretely missing:
+
+- No /api/discovery/* endpoint family exists.
+- The retrieval node has no vector-search path; it resolves only against
+  pa_requirements.json.
+- There is no EvidenceQuery or EvidenceResult domain model.
+- The EvidenceDiscoveryConsole in the demo is entirely fixture-driven with no
+  backend.
+- Claim-to-citation faithfulness scoring (eval_dimensions.claim_citation) is
+  un-wired against retrieved evidence spans.
+
+================================================================================
+2. GOALS
+================================================================================
+
+1. Introduce an Evidence Discovery Rail consisting of a new
+   /api/discovery/search endpoint and a DiscoveryEngine backed initially by a
+   keyword/BM25 path over the existing data/pa_requirements.json corpus (zero
+   new deps), with a Qdrant vector path as a drop-in extension guarded by
+   ADR-0007 pre-install review.
+
+2. Define canonical EvidenceQuery / EvidenceResult / DiscoveryResponse models
+   in backend/models/schemas.py with TypeScript parity.
+
+3. Add a retrieval node extension (run_discovery_retrieval) that populates
+   PipelineState.evidence_refs -- a list of grounded evidence spans the
+   synthesis node can cite.
+
+4. Expose a document Q&A sub-route (POST /api/discovery/ask) that answers a
+   natural-language question against a retrieved evidence set, driven by the
+   LLM backend (streaming SSE, same pattern as the appeal route).
+
+5. Wire the claim_citation eval dimension to check generated letter claims
+   against evidence_refs rather than the fixed criteria pack alone.
+
+6. Ensure the demo EvidenceDiscoveryConsole can be backed by the live endpoint
+   via the capability manifest (src/capabilities.ts) without any fixture-path
+   changes to simulated mode.
+
+================================================================================
+3. NON-GOALS
+================================================================================
+
+- Qdrant production deployment. The vector path is behind the ADR-0007
+  pre-install gate; this slice ships the keyword path only, with the Qdrant
+  path stubbed as a pluggable strategy.
+- PubMed / external API integration. External literature retrieval is a future
+  connector; this slice works only against the internal corpus.
+- Full-text PDF ingestion. Policy PDFs under backend/golden/policies/ are
+  already extracted to .md; this slice indexes the markdown, not raw PDFs.
+- Changes to the core appeal generation pipeline topology. The discovery rail
+  is a parallel call, not a replacement for the existing retrieval node.
+- Langfuse trace emission for discovery. Observability is deferred (ADR-0007).
+
+================================================================================
+4. REQUIREMENTS
+================================================================================
+
+Functional
+----------
+
+E-1  POST /api/discovery/search accepts an EvidenceQuery (drug, diagnosis,
+     plan_id, query_text, max_results) and returns a DiscoveryResponse
+     (results list, resolution_path).
+
+E-2  POST /api/discovery/ask accepts EvidenceAskRequest (query_text,
+     evidence_ids) and streams an SSE response: step, chunk (answer tokens),
+     done (with grounding refs), or error. No chunk events if
+     LLM_BACKEND=mock.
+
+E-3  The DiscoveryEngine is a Protocol with two implementations:
+     KeywordDiscoveryEngine (BM25 over loaded corpus, no new deps) and
+     VectorDiscoveryEngine (Qdrant -- guarded by ADR-0007 pre-install). The
+     active engine is selected by an EVIDENCE_ENGINE env var; default is
+     "keyword".
+
+E-4  EvidenceResult carries: evidence_id (deterministic sha256[:12] of source
+     + span), source (policy file path), span (verbatim text <= 500 chars),
+     score (float 0-1), claim_type (guideline | policy | clinical |
+     regulatory).
+
+E-5  run_discovery_retrieval(state) -> PipelineState populates
+     state.evidence_refs: list[EvidenceResult]; called by the graph after the
+     existing retrieval node; always succeeds (empty list on corpus miss --
+     never raises).
+
+E-6  The synthesis prompt template (agents/prompts.py) is extended with an
+     <evidence_refs> XML slot populated from state.evidence_refs; untrusted
+     text isolation rule applies (XML-delimited, hard-4).
+
+E-7  The claim_citation eval scorer (evals/appeal_evals.py) is updated to
+     check letter claims against evidence_refs spans when present, falling back
+     to the criteria pack when empty.
+
+E-8  Both discovery routes are dual-auth (Bearer or cookie + CSRF) and
+     tenant-scoped per ADR-0017.
+
+E-9  EvidenceQuery.query_text is sanitized by the same sanitize_extracted_text()
+     pipeline as denial-letter input before it reaches the engine or the LLM.
+
+Non-functional
+--------------
+
+E-10 Keyword engine latency <= 200 ms at P95 for the full pa_requirements.json
+     corpus.
+
+E-11 evidence_id is deterministic: the same source + span always produces the
+     same id; a retry never mints a new citation identity.
+
+E-12 evidence_refs are metadata (hashes + spans) in the AuditRecord; full
+     verbatim spans are not persisted in the audit trail.
+
+E-13 POST /api/discovery/ask carries the same security-hold gate semantics: a
+     request flagged at input sanitization never reaches the LLM.
+
+================================================================================
+5. WORKFLOW MODELING
+================================================================================
+
+Search flow
+-----------
+
+  POST /api/discovery/search
+          |
+          v
+  auth_middleware -> TenancyScope
+          |
+          v
+  sanitize_extracted_text(query_text)  <- injection check, same as ETL
+          |
+          v
+  DiscoveryEngine.search(EvidenceQuery)
+  |-- KeywordDiscoveryEngine (BM25 over corpus loaded at import)
+  +-- VectorDiscoveryEngine  (Qdrant -- guarded by ADR-0007)
+          |
+          v
+  DiscoveryResponse { results: EvidenceResult[], resolution_path: str }
+
+Ask (Q&A) flow
+--------------
+
+  POST /api/discovery/ask  (SSE)
+          |
+          v
+  auth_middleware -> TenancyScope
+          |
+          v
+  sanitize_extracted_text(query_text)
+  |-- security_hold? -> ErrorEvent (LLM never invoked)
+  +-- pass
+          |
+          v
+  resolve evidence_ids -> EvidenceResult[]
+          |
+          v
+  build_ask_prompt(query_text, evidence_results)  <- XML-delimited slots
+          |
+          v
+  LLMBackend.generate_stream(prompt)
+          |
+          v
+  stream ChunkEvents -> collect -> DoneEvent { answer_ref, grounding_refs }
+
+Pipeline integration
+---------------------
+
+  ingestion -> retrieval (pa_requirements.json) -> run_discovery_retrieval
+                                                          |
+                               PipelineState.evidence_refs populated
+                                                          |
+                                                   synthesis
+                                    (prompt gains <evidence_refs> slot)
+
+================================================================================
+6. DATA MODEL CHANGES
+================================================================================
+
+New models (backend/models/schemas.py)
+--------------------------------------
+
+  class ClaimType(str, Enum):
+      guideline  = "guideline"
+      policy     = "policy"
+      clinical   = "clinical"
+      regulatory = "regulatory"
+
+  class EvidenceResult(BaseModel):
+      evidence_id : str        # sha256[:12] of f"{source}:{span}"
+      source      : str        # policy file path / corpus key (<= 200 chars)
+      span        : str        # verbatim excerpt <= 500 chars
+      score       : float      # 0.0-1.0
+      claim_type  : ClaimType
+
+  class EvidenceQuery(BaseModel):
+      model_config = ConfigDict(strict=True)
+      drug        : str        # <= 200 chars
+      diagnosis   : str        # <= 200 chars
+      plan_id     : str        # <= 100 chars
+      query_text  : str        # <= 1000 chars (sanitized at boundary)
+      max_results : int = 5    # 1-20
+
+  class DiscoveryResponse(BaseModel):
+      results         : list[EvidenceResult]
+      resolution_path : str    # "keyword" | "vector" | "empty"
+
+  class EvidenceAskRequest(BaseModel):
+      model_config = ConfigDict(strict=True)
+      query_text   : str       # <= 1000 chars
+      evidence_ids : list[str] # <= 20 ids from a prior search result
+
+  class EvidenceAskDoneEvent(BaseModel):
+      event          : Literal["done"] = "done"
+      answer_ref     : str             # sha256[:12] of answer text
+      grounding_refs : list[str]       # evidence_ids cited in the answer
+
+PipelineState addition
+-----------------------
+
+  evidence_refs : list[EvidenceResult] = field(default_factory=list)
+
+AuditRecord addition
+---------------------
+
+  evidence_ref_ids : list[str] = field(default_factory=list)
+  # evidence_ids only, no full spans
+
+Parity: ClaimType, EvidenceResult, EvidenceQuery, DiscoveryResponse,
+EvidenceAskRequest mirror into src/types.ts. wire-types-freshness CI job
+gates on no drift.
+
+================================================================================
+7. API CHANGES
+================================================================================
+
+New endpoints
+-------------
+
+POST /api/discovery/search
+  Auth    : Dual scheme (Bearer or cookie + CSRF). Tenant-scoped.
+  Body    : EvidenceQuery
+  200     : DiscoveryResponse
+  422     : Pydantic validation failure
+
+POST /api/discovery/ask
+  Auth    : Dual scheme. Tenant-scoped.
+  Body    : EvidenceAskRequest
+  200     : text/event-stream (step / chunk / done / error, same framing as
+            appeal route)
+  Note    : Requires LLM_BACKEND to be set; returns ErrorEvent if not (same
+            pattern as /api/appeal/generate).
+
+OpenAPI registration
+---------------------
+
+EvidenceAskDoneEvent registered via backend/openapi_ext.py (same pattern as
+InitialPaDoneEvent) so the SSE event union is typed in the generated
+api-types.d.ts.
+
+================================================================================
+8. LANGGRAPH INTEGRATION
+================================================================================
+
+New node: run_discovery_retrieval
+Location: backend/agents/nodes/discovery_retrieval.py
+----------------------------------
+
+  run_discovery_retrieval(state: PipelineState) -> PipelineState
+    engine = _get_engine()      # module-level singleton, loaded at import
+    query = EvidenceQuery(
+        drug       = state.request.drug,
+        diagnosis  = state.request.diagnosis,
+        plan_id    = state.request.plan_id,
+        query_text = state.request.denial_text[:500],
+        max_results = 5
+    )
+    results = engine.search(query)   # always succeeds -- empty list on miss
+    state["evidence_refs"] = results.results
+    return state
+
+Graph topology change (agents/graph.py):
+
+  retrieval -> discovery_retrieval -> synthesis
+
+A StepEvent("discovery_retrieval") is emitted by the wrapper node before
+delegation to the pure function. The node is inserted between retrieval and
+synthesis; no conditional edges added; it always runs and always succeeds.
+
+Prompt extension (agents/prompts.py)
+--------------------------------------
+
+The synthesis template gains an <evidence_refs> XML block:
+
+  <evidence_refs>
+  {evidence_refs_block}
+  </evidence_refs>
+
+evidence_refs_block is:
+  "\n".join(f"[{r.evidence_id}] ({r.claim_type}): {r.span}" for r in evidence_refs)
+  or "(no external evidence retrieved)" when the list is empty.
+
+Untrusted text isolation rule (hard-4) applies: slot is XML-delimited, never
+raw-interpolated.
+
+================================================================================
+9. NEW MODULE: backend/agents/engines/
+================================================================================
+
+  backend/agents/engines/
+  |-- __init__.py
+  |-- base.py           # DiscoveryEngine Protocol
+  |-- keyword_engine.py # KeywordDiscoveryEngine (BM25, no new deps)
+  +-- vector_engine.py  # VectorDiscoveryEngine (Qdrant stub -- raises
+                        # NotImplementedError until ADR-0007 clearance)
+
+DiscoveryEngine Protocol:
+
+  class DiscoveryEngine(Protocol):
+      def search(self, query: EvidenceQuery) -> DiscoveryResponse: ...
+
+KeywordDiscoveryEngine: loads pa_requirements.json corpus + policy markdown
+files at module import (same pattern as retrieval.py). BM25 scoring uses
+collections.Counter token frequency -- zero new dependencies.
+
+Env var:
+  EVIDENCE_ENGINE=keyword   # default
+  EVIDENCE_ENGINE=vector    # requires Qdrant + ADR-0007 sign-off
+
+================================================================================
+10. UI SURFACES
+================================================================================
+
+Backend slice only. The demo EvidenceDiscoveryConsole at
+src/components/portfolio/EvidenceDiscoveryConsole.tsx currently runs on fixture
+data. When the live endpoint exists, the capability manifest
+(src/capabilities.ts, unit O6) transitions it from simulated -> live. The SPA
+calls POST /api/discovery/search via src/lib/api.ts with streamDiscoveryAsk
+added alongside the existing typed wrappers.
+
+No fixture-path changes are required for simulated mode -- the manifest seam
+preserves the offline demo behavior.
+
+================================================================================
+11. TEST CASES
+================================================================================
+
+Unit (backend/tests/unit/)
+---------------------------
+
+Module: test_keyword_engine.py
+  - BM25 search returns ranked results
+  - empty corpus returns empty list
+  - max_results honored
+  - query_text sanitization called before search
+  - deterministic evidence_id for same source+span
+
+Module: test_discovery_retrieval_node.py
+  - Node populates evidence_refs
+  - corpus miss returns empty list without raising
+  - node is pure (no I/O inside the function after module load)
+
+Module: test_evidence_models.py
+  - EvidenceQuery strict-mode rejects coercion
+  - evidence_id determinism
+  - ClaimType enum parity
+
+Module: test_ask_prompt.py
+  - evidence_refs slot populated correctly
+  - empty list produces placeholder text
+  - XML slot is isolated (no raw interpolation)
+
+Module: test_claim_citation_scorer.py
+  - scorer finds citation when span appears in letter text
+  - scorer returns 0.0 when no evidence_refs and no criteria match
+  - fallback to criteria pack when evidence_refs empty
+
+Contract
+--------
+
+test_schema_parity.py extended: ClaimType present in both schemas.py and
+src/types.ts.
+wire-types-freshness CI job: EvidenceQuery, DiscoveryResponse,
+EvidenceAskRequest in generated types.
+
+Integration (backend/tests/integration/)
+-----------------------------------------
+
+Module: test_discovery_endpoint.py
+  - Bearer auth search returns 200 with results
+  - cookie auth search works
+  - query_text injection phrase triggers 200 with security_hold in response
+    (no LLM reached)
+  - max_results honored
+  - empty corpus returns empty results gracefully
+
+Module: test_discovery_ask_endpoint.py
+  - ask SSE stream produces step/chunk/done sequence
+  - security-hold input returns error event
+  - no chunk events in mock mode returns done directly
+  - unknown evidence_ids returns graceful empty grounding_refs
+
+Module: test_pipeline_with_discovery.py
+  - Full pipeline run includes discovery_retrieval step event
+  - DoneEvent audit record contains evidence_ref_ids
+  - evidence_refs slot appears in synthesis prompt
+
+================================================================================
+12. RISKS
+================================================================================
+
+Risk: BM25 quality insufficient for real evidence retrieval
+  Likelihood: High | Impact: Medium
+  Mitigation: Acceptable for this slice (keyword path is a scaffold); Qdrant
+  vector path is the production target -- gated on ADR-0007.
+
+Risk: evidence_refs slot inflates prompt token count past context window
+  Likelihood: Medium | Impact: Medium
+  Mitigation: max_results=5 default; ContextWindowError already handled by
+  errors.py; span truncated at 500 chars.
+
+Risk: Injection via query_text to the ask LLM
+  Likelihood: Medium | Impact: High
+  Mitigation: Same sanitize_extracted_text() + security-hold gate as
+  denial-letter ETL; XML-delimited slot in prompt.
+
+Risk: evidence_id collision for distinct spans
+  Likelihood: Very Low | Impact: Low
+  Mitigation: sha256[:12] over full "{source}:{span}" string; collision
+  probability negligible at corpus scale.
+
+Risk: ADR-0007 delay blocks Qdrant path
+  Likelihood: Medium | Impact: Low
+  Mitigation: Keyword engine is a complete fallback; Qdrant path ships only
+  after clearance.
+
+================================================================================
+13. DELIVERABLES
+================================================================================
+
+#   Artifact                              Path
+--  ------------------------------------  -----------------------------------------------
+1   Discovery engine module               backend/agents/engines/ (Protocol + keyword + vector stub)
+2   Discovery retrieval node              backend/agents/nodes/discovery_retrieval.py
+3   Evidence domain models                backend/models/schemas.py
+4   Discovery endpoints                   backend/main.py routes + handlers
+5   OpenAPI extension                     backend/openapi_ext.py (EvidenceAskDoneEvent)
+6   Prompt extension                      backend/agents/prompts.py (<evidence_refs> slot)
+7   Graph topology update                 backend/agents/graph.py
+8   Claim-citation scorer update          backend/evals/appeal_evals.py
+9   TypeScript parity mirrors             src/types.ts
+10  Unit test suite                       backend/tests/unit/test_discovery_*.py, test_keyword_engine.py
+11  Integration test suite                backend/tests/integration/test_discovery_*.py
+12  ADR for evidence discovery rail       docs/adr/0019-evidence-discovery-rail.md
+13  Updated architecture docs             docs/architecture/02-backend-architecture.md,
+                                          docs/architecture/06-api-contract.md
