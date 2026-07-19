@@ -119,6 +119,7 @@ claim→citation enforcement is golden-set `claim_citation` scorer work.
 | API | Auth bypass | Dual scheme on all `/api/*` (Bearer key OR httpOnly session cookie), middleware before body parse, `hmac.compare_digest` for both ([ADR-0013](adr/0013-fastapi-bff-session-cookie-auth.md)) | Rate limiting (`slowapi`) deferred until internet-facing; sessions single-worker pre-DB |
 | API (browser) | Session-token theft via XSS | Session id is httpOnly + Secure + SameSite=Strict — unreachable from JS; the browser never holds the service Bearer key | Pre-DB in-memory session store shards across workers (Phase 3 shared store) |
 | API (browser) | Cross-site request forgery | SameSite=Strict cookie + double-submit `X-CSRF-Token` on cookie-authenticated writes; CORS narrowed to a `CORS_ORIGINS` allowlist with `allow_credentials` (no `*`) | Bearer path is CSRF-exempt by design (no ambient cookie) |
+| API (read paths) | Cross-tenant data access (one tenant reads another's audit/queue rows) | Fail-closed `TenancyScope` at the store query boundary: `all_records` requires a scope (no scope, no rows); a cookie session is scoped to its `tenant_id` claim, a Bearer/service caller is platform-plane ([ADR-0017](adr/0017-tenancy-patient-assignment.md)) | Single seeded tenant pre-DB; real multi-tenant isolation + panel scoping (O9) land with the Phase 3 durable store |
 | LLM output | Uncited/hallucinated claims reaching a payer | Gatekeeper floor + structural scores + human review before submit | Claim→span faithfulness scorer (golden-set `claim_citation`) |
 | LLM output | Refusal/identity leakage into a formal letter | `_REFUSAL_PATTERNS` gate + retry | Pattern list maintenance |
 | Side channels | PHI in logs/traces/errors | Identifiers-only logging, `redact_phi`, generic client errors, golden-set CI scan | Langfuse re-vetting required before tracing lands ([ADR-0007](adr/0007-deferred-dependencies.md)) |
@@ -134,5 +135,8 @@ claim→citation enforcement is golden-set `claim_citation` scorer work.
 4. Every stream terminates with a typed event — failures are visible, never
    swallowed.
 5. No package enters the tree without the pre-install protocol.
+6. A tenant-scoped read never returns another tenant's rows — scoping is a
+   required argument at the store query boundary, never an optional handler
+   step (fail-closed, ADR-0017).
 
 Any change that weakens one of these needs an ADR, not just a PR.

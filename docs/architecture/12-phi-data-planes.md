@@ -56,7 +56,7 @@ those two edges, the system's working object is the tokenized case.
 | Side-channel redaction | Unchanged | ✅ `redact_phi()` before logs; audit = ids + hashes; SSE errors generic |
 | Control-plane object model | PHI-free by construction | ✅ Build/Scale views are fixture/config-derived |
 | Break-glass | Named user + justification + time-box + audit record | Does not exist — roadmap |
-| Tenancy (user→patient) | Prerequisite for data plane | Does not exist — roadmap |
+| Tenancy (user→patient) | Prerequisite for data plane | 🟡 Seam LIVE (P7a, ADR-0017): `tenant_id`/`patient_ref` on case-bearing objects, session `tenant_id` claim, fail-closed `TenancyScope` scoping `/api/audit/records` + `/api/reviews/pending` at the store boundary; single seeded tenant pre-DB (Bearer = platform-plane). Panel (user→patient) scoping + real multi-tenant data are the Phase 3 durable store |
 | Small-cell suppression | Sponsor query layer | Demo fixtures only (no live sponsor data) |
 
 ## What this doc is for

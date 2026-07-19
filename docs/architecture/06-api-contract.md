@@ -89,7 +89,12 @@ by the auth middleware **before body parsing** (a bad token gets `401`, never
 
 The middleware resolves the caller's identity onto `request.state.session_user_id`
 (the cookie's `user_id`, or `""` for a Bearer/service caller) so a route can
-attribute an action without re-parsing auth (see `reviewed_by`, below).
+attribute an action without re-parsing auth (see `reviewed_by`, below). It also
+resolves the caller's **`TenancyScope`** onto `request.state.tenancy_scope`
+([ADR-0017](adr/0017-tenancy-patient-assignment.md)): a Bearer/service caller is
+**platform-plane** (sees every tenant); a cookie session is scoped to its
+`tenant_id` claim; the pre-auth default is **fail-closed** (no tenant, no rows).
+The tenant-scoped read paths read this value — see the two introspection GETs.
 
 `POST /api/auth/login` is the **one unauthenticated `/api/*` route** — it issues
 the credential, so it cannot require it (justified per CLAUDE.md §Security
@@ -193,8 +198,13 @@ false accountability record).
 
 Read-only introspection over the in-memory audit store. **Auth:** dual scheme —
 Bearer key or `paxos_session` cookie (ADR-0013), same as every other `/api/*`
-route. Returns every `AuditRecord` as-is — **identifiers and hashes only, never
-letter/request text** (the records are metadata by construction, ADR-0009).
+route. **Tenant-scoped** (ADR-0017): a cookie session sees only its own tenant's
+records; a Bearer/platform caller sees every tenant. Scoping is enforced at the
+store's query boundary (`all_records` takes a required `TenancyScope` — no scope,
+no rows), not in the handler. Returns matching `AuditRecord`s as-is —
+**identifiers and hashes only, never letter/request text** (the records are
+metadata by construction, ADR-0009); each carries `tenant_id` + optional
+`patient_ref` (ADR-0017).
 
 **Response:** `200` `application/json`, `AuditRecordsResponse`:
 
@@ -209,8 +219,10 @@ before any run. Not paginated pre-DB (in-process list; ADR-0009 note).
 
 Read-only. Lists the exception-tier runs parked at the `hold` checkpoint and
 not yet cleared by a resume. **Auth:** dual scheme — Bearer key or `paxos_session`
-cookie (ADR-0013). **Metadata only** — never the draft body (a
-reviewer-reads-the-draft surface is a deferred Slice 4c decision).
+cookie (ADR-0013). **Tenant-scoped** (ADR-0017): the queue reads through the same
+fail-closed store boundary as the audit listing, so a session sees only its
+tenant's parked runs, a platform caller all. **Metadata only** — never the draft
+body (a reviewer-reads-the-draft surface is a deferred Slice 4c decision).
 
 The queue is **derived from the audit trail**, not a separate structure: a
 `correlation_id` is pending iff it has an exception-tier `done` audit record,

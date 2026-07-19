@@ -61,6 +61,8 @@ classDiagram
     class AuditRecord {
         correlation_id: str
         idempotency_key: str  case_id:aN — ADR-0009
+        tenant_id: str  scoping column — ADR-0017
+        patient_ref: str?  tokenized PT-XXXX — ADR-0017
         lifecycle: CaseLifecycle
         case_ref: str
         scenario_id: str
@@ -154,6 +156,16 @@ Notes:
   (gatekeeper-corrected / human-edited paths arrive in S3/S4). Durable
   persistence remains the PostgreSQL milestone
   ([10-roadmap-traceability.md](10-roadmap-traceability.md)).
+- **Tenancy fields** (`tenant_id`, optional `patient_ref`) ride every
+  case-bearing object — the `AppealRequest` / `InitialPaRequest` request
+  models and `AuditRecord` — since P7a
+  ([ADR-0017](adr/0017-tenancy-patient-assignment.md)). `tenant_id` is a
+  **scoping column, deliberately not part of `correlation_id` / `idempotency_key`**
+  (ADR-0017 Q2); the audit boundary stamps it from the originating request.
+  `patient_ref` is the tokenized working identifier (`PT-XXXX`, ADR-0014).
+  Pre-DB a single seeded tenant (`tenant_demo`) means demo/live behavior is
+  unchanged; the read paths (`/api/audit/records`, `/api/reviews/pending`) are
+  tenant-scoped via a fail-closed `TenancyScope` at the store boundary.
 
 ## SSE events (discriminated union `AppealEvent`)
 
