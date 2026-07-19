@@ -68,6 +68,7 @@ from models.requests import (
     PaSubmission,
     ResumeAppealRequest,
 )
+from models.tenancy import SEEDED_TENANT_ID
 
 __all__ = [
     # enums
@@ -121,4 +122,6 @@ __all__ = [
     "PendingReviewItem",
     "PendingReviewsResponse",
     "AuditRecordsResponse",
+    # tenancy
+    "SEEDED_TENANT_ID",
 ]

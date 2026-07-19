@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from models.enums import AuditProvenance, CaseLifecycle, CaseTier
 from models.events import PaResolution
+from models.tenancy import SEEDED_TENANT_ID
 
 
 class AuditRecord(BaseModel):
@@ -30,6 +31,14 @@ class AuditRecord(BaseModel):
 
     correlation_id: str
     idempotency_key: str
+    # Tenancy seam (ADR-0017): the owning customer org — a scoping column,
+    # deliberately NOT part of correlation_id / idempotency_key (Q2). Stamped
+    # from the originating request; defaults to the seeded tenant so a
+    # directly-constructed record (pre-DB paths, tests) is tenant_demo.
+    # patient_ref is the tokenized working identifier (PT-XXXX), absent on
+    # flows that predate it.
+    tenant_id: str = SEEDED_TENANT_ID
+    patient_ref: str | None = None
     lifecycle: CaseLifecycle
     case_ref: str = ""
     scenario_id: str

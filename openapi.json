@@ -63,6 +63,19 @@
             "title": "Drug",
             "type": "string"
           },
+          "patient_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9\\-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Ref"
+          },
           "plan": {
             "maxLength": 200,
             "title": "Plan",
@@ -87,6 +100,13 @@
           "security_reason": {
             "default": "",
             "title": "Security Reason",
+            "type": "string"
+          },
+          "tenant_id": {
+            "default": "tenant_demo",
+            "maxLength": 64,
+            "pattern": "^[a-z0-9_\\-]+$",
+            "title": "Tenant Id",
             "type": "string"
           }
         },
@@ -185,6 +205,17 @@
             "title": "Pa Resolution",
             "type": "string"
           },
+          "patient_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Ref"
+          },
           "plan": {
             "title": "Plan",
             "type": "string"
@@ -217,6 +248,11 @@
             },
             "title": "Structural Eval Scores",
             "type": "object"
+          },
+          "tenant_id": {
+            "default": "tenant_demo",
+            "title": "Tenant Id",
+            "type": "string"
           },
           "tier": {
             "anyOf": [
@@ -604,6 +640,19 @@
             "title": "Drug",
             "type": "string"
           },
+          "patient_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9\\-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Ref"
+          },
           "plan": {
             "maxLength": 200,
             "title": "Plan",
@@ -633,6 +682,13 @@
           "security_reason": {
             "default": "",
             "title": "Security Reason",
+            "type": "string"
+          },
+          "tenant_id": {
+            "default": "tenant_demo",
+            "maxLength": 64,
+            "pattern": "^[a-z0-9_\\-]+$",
+            "title": "Tenant Id",
             "type": "string"
           }
         },

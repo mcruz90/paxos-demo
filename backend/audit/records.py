@@ -60,6 +60,11 @@ def build_audit_record(
     return AuditRecord(
         correlation_id=correlation_id,
         idempotency_key=idempotency_key,
+        # Tenancy seam (ADR-0017): stamp the owning tenant + patient token from
+        # the originating request (seeded default pre-DB) — a scoping column,
+        # not part of the correlation/idempotency identity.
+        tenant_id=request.tenant_id,
+        patient_ref=request.patient_ref,
         lifecycle=CaseLifecycle.appeal,
         scenario_id=request.scenario_id,
         drug=request.drug,

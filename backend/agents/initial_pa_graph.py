@@ -177,6 +177,10 @@ async def run_initial_pa_pipeline(
         return AuditRecord(
             correlation_id=correlation_id,
             idempotency_key=idempotency_key,
+            # Tenancy seam (ADR-0017): owning tenant + patient token from the
+            # request (seeded default pre-DB); a scoping column, not identity.
+            tenant_id=request.tenant_id,
+            patient_ref=request.patient_ref,
             lifecycle=CaseLifecycle.initial_pa,
             case_ref=request.case_ref,
             scenario_id=request.scenario_id,

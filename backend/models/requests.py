@@ -11,6 +11,16 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field
 
 from models.domain import CriterionResult
+from models.tenancy import SEEDED_TENANT_ID
+
+# Tenancy seam field shapes (ADR-0017), shared by the case-bearing request
+# models (DRY — defined once, second occurrence rule). ``tenant_id`` is the
+# owning customer org (a column, never part of the correlation ID / idempotency
+# key — ADR-0017 Q2); pre-DB it defaults to the seeded tenant. ``patient_ref``
+# is the tokenized working identifier (``PT-XXXX``, ADR-0014), absent on flows
+# that predate it.
+TenantId = Annotated[str, Field(max_length=64, pattern=r"^[a-z0-9_\-]+$")]
+PatientRef = Annotated[str, Field(max_length=64, pattern=r"^[A-Za-z0-9\-]+$")]
 
 
 class AppealRequest(BaseModel):
@@ -27,6 +37,9 @@ class AppealRequest(BaseModel):
     plan_id: Annotated[str, Field(max_length=100)]
     criteria_results: list[CriterionResult]
     company_names: list[str] = Field(default_factory=list)
+    # Tenancy seam (ADR-0017) — see TenantId / PatientRef above.
+    tenant_id: TenantId = SEEDED_TENANT_ID
+    patient_ref: PatientRef | None = None
     # Deliberate resubmission counter — part of the audit idempotency key
     # (case_id + attempt, ADR-0009). A transport retry reuses the same attempt;
     # a client bumps it to file the same case again on purpose.
@@ -80,6 +93,9 @@ class InitialPaRequest(BaseModel):
     # The therapy the structured PA request asks the payer to authorize.
     requested_therapy: Annotated[str, Field(max_length=200)]
     criteria_results: list[CriterionResult]
+    # Tenancy seam (ADR-0017) — see TenantId / PatientRef above.
+    tenant_id: TenantId = SEEDED_TENANT_ID
+    patient_ref: PatientRef | None = None
     # Deliberate resubmission counter — part of the audit idempotency key
     # (case_id + attempt, ADR-0009).
     attempt: Annotated[int, Field(ge=1)] = 1

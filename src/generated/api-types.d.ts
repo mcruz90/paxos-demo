@@ -251,6 +251,8 @@ export interface components {
             diagnosis: string;
             /** Drug */
             drug: string;
+            /** Patient Ref */
+            patient_ref?: string | null;
             /** Plan */
             plan: string;
             /** Plan Id */
@@ -267,6 +269,11 @@ export interface components {
              * @default
              */
             security_reason: string;
+            /**
+             * Tenant Id
+             * @default tenant_demo
+             */
+            tenant_id: string;
         };
         /**
          * AuditProvenance
@@ -343,6 +350,8 @@ export interface components {
              * @enum {string}
              */
             pa_resolution: "plan_id" | "drug_alias" | "generic" | "";
+            /** Patient Ref */
+            patient_ref?: string | null;
             /** Plan */
             plan: string;
             /**
@@ -367,6 +376,11 @@ export interface components {
             structural_eval_scores?: {
                 [key: string]: number;
             };
+            /**
+             * Tenant Id
+             * @default tenant_demo
+             */
+            tenant_id: string;
             tier?: components["schemas"]["CaseTier"] | null;
             /** Timestamp */
             timestamp: string;
@@ -571,6 +585,8 @@ export interface components {
             diagnosis: string;
             /** Drug */
             drug: string;
+            /** Patient Ref */
+            patient_ref?: string | null;
             /** Plan */
             plan: string;
             /** Plan Id */
@@ -589,6 +605,11 @@ export interface components {
              * @default
              */
             security_reason: string;
+            /**
+             * Tenant Id
+             * @default tenant_demo
+             */
+            tenant_id: string;
         };
         /**
          * LoginRequest
