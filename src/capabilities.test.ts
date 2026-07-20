@@ -22,6 +22,10 @@ describe('buildManifest — demo (simulated) mode', () => {
     expect(manifest.O7_pending_queue).toBe('hidden')
     expect(manifest.B8_audit_trail).toBe('hidden')
   })
+
+  it('marks O2_generate simulated — the generate pipeline is live, but demo has no backend', () => {
+    expect(manifest.O2_generate).toBe('simulated')
+  })
 })
 
 describe('buildManifest — live mode', () => {
@@ -35,6 +39,10 @@ describe('buildManifest — live mode', () => {
 
   it('keeps the fixture queue simulated — fixture data never impersonates live', () => {
     expect(manifest.O7_portfolio_queue_sim).toBe('simulated')
+  })
+
+  it('marks O2_generate live — SU slice 2 wires the real generate SSE stream', () => {
+    expect(manifest.O2_generate).toBe('live')
   })
 })
 
