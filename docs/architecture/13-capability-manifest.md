@@ -75,6 +75,15 @@ Rules, in enforcement order:
 
 - Slice 1 (2026-07-17): `O5_resume`, `O7_pending_queue`, `B8_audit_trail`
   are `live` in live mode, rendered inside the portfolio shell.
+- Slice 2 (2026-07-20): `O2_generate` (streaming appeal-letter generation) is
+  `live` in live mode / `simulated` in demo mode. In live mode the portfolio
+  case workspace drives the real `POST /api/appeal/generate` SSE stream
+  (`LiveLetterGeneration` → `useLiveAppeal.run`), replacing the
+  `LetterGeneration` re-simulation; demo mode still renders that simulation
+  unchanged. Because the case queue feeding it stays a simulated fixture
+  (`O7_portfolio_queue_sim`), the unit wears a **compound chip** —
+  "LIVE generation · demo case data" (May's decision 2026-07-20) — rather than
+  a plain `LIVE` chip that would imply the case data is live too.
 - `LiveApp` is a developer console (`?console=dev`, live mode only), not a
   product surface. It empties as units migrate; no new units land there or
   in any demo-only parallel surface (CLAUDE.md rule).
