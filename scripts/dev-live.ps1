@@ -2,7 +2,7 @@
 <#
 Launches the live ClearAuth stack for local exploration:
 
-  UI       http://localhost:5174   (Vite dev server, live mode)
+  UI       http://localhost:5175   (Vite dev server, live mode)
   Backend  http://127.0.0.1:8000   (FastAPI, mock LLM backend - no network/API keys needed)
 
 Run from anywhere:  .\scripts\dev-live.ps1
@@ -15,12 +15,12 @@ below. Values already set in your shell win over these defaults, so e.g.
 overrides the password. These are local-dev placeholders, not secrets.
 
 Port notes: 5173 is left alone (often occupied by a personal dev server);
-this script pins the live UI to 5174 and points backend CORS at it.
+this script pins the live UI to 5175 and points backend CORS at it.
 #>
 
 $repo = Split-Path $PSScriptRoot -Parent
 $apiPort = 8000
-$uiPort = 5174
+$uiPort = 5175
 
 $demoUser = $env:DEMO_USER ?? 'reviewer'
 $demoPass = $env:DEMO_PASSWORD ?? 'clearauth-demo'
