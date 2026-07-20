@@ -13,7 +13,10 @@ import { PayerCounterOfferBanner } from './PayerCounterOfferBanner'
 import { type CriterionActions, CriterionRow } from './CriterionRow'
 import { DocumentsVault } from './DocumentsVault'
 import { LetterGeneration } from './LetterGeneration'
+import { LiveLetterGeneration } from './LiveLetterGeneration'
 import { LetterPreview } from './LetterPreview'
+import { type UnitCapability } from '../../capabilities'
+import { type LiveShellSession } from '../live/SessionGate'
 
 export type PreviewTab = 'letter' | 'checklist' | 'documents'
 
@@ -35,6 +38,8 @@ export function PreviewPane({
   activeDocId,
   onViewDoc,
   onOpenDisputeResolver,
+  generateCap,
+  live,
 }: {
   client: Client | null
   scenario: ScenarioConfig | null
@@ -53,6 +58,11 @@ export function PreviewPane({
   // Opens the Exception Resolver in dispute mode (evidence packet for the
   // round-2 letter). Absent ⇒ the Dispute button applies the decision directly.
   onOpenDisputeResolver?: () => void
+  // Manifest capability for O2_generate — the shell (not this unit) decides
+  // live vs. simulated letter generation from it. `live` is the backend session
+  // threaded from AppShell; undefined in demo mode (so live gen never mounts).
+  generateCap: UnitCapability
+  live?: LiveShellSession
 }) {
   // HITL gate: the letter must be generated (streamed) and reviewed before it
   // can be filed — 'idle' until generation hands off to 'review'. Resets per case.
@@ -201,7 +211,20 @@ export function PreviewPane({
           // incl. drop/error states), then hand off to human review. Other
           // statuses (e.g. payer-response round 2) keep the direct preview.
           client.status === 'ready_for_review' && letterGen !== 'review' ? (
-            <LetterGeneration key={`${client.id}-gen`} onComplete={() => setLetterGen('review')} />
+            // Shell dispatch (ADR-0016): the manifest — not the unit — chooses
+            // the real SSE stream (live) or the re-simulation (demo). `live` is
+            // present only in live mode, so demo mode is byte-identical.
+            generateCap === 'live' && live ? (
+              <LiveLetterGeneration
+                key={`${client.id}-live-gen`}
+                scenario={scenario}
+                csrfToken={live.csrfToken}
+                onExpire={live.onExpire}
+                onComplete={() => setLetterGen('review')}
+              />
+            ) : (
+              <LetterGeneration key={`${client.id}-gen`} onComplete={() => setLetterGen('review')} />
+            )
           ) : (
           <LetterPreview
             scenario={scenarioWithContext}

@@ -24,6 +24,8 @@ import { PatientProfile } from './PatientProfile'
 import { PreviewPane, type PreviewTab } from './PreviewPane'
 import { phiFromContext } from './redaction'
 import { resolvePatientContext } from '../../data/patientContext'
+import { type UnitCapability } from '../../capabilities'
+import { type LiveShellSession } from '../live/SessionGate'
 
 // Three-column case queue: case list · selected-case workspace · citation
 // ground truth. Owns per-case local coordinator state (dispatches/overrides);
@@ -34,12 +36,19 @@ export function SplitPortfolioView({
   onQuickApprove,
   onPayerDecision,
   onUpdateClientStatus,
+  generateCap,
+  live,
 }: {
   clients: Client[]
   onOpenCase: (scenarioId: string, status: CaseStatus) => void
   onQuickApprove: (scenarioId: string) => void
   onPayerDecision: (scenarioId: string, decision: 'accepted' | 'disputed') => void
   onUpdateClientStatus: (scenarioId: string, status: CaseStatus) => void
+  // Manifest capability + backend session for O2_generate, threaded to
+  // PreviewPane (ADR-0016 — only the shell reads the manifest). Both are
+  // shell-supplied; `live` is undefined in demo mode.
+  generateCap: UnitCapability
+  live?: LiveShellSession
 }) {
   const [search,        setSearch]        = useState('')
   const [filterStage,   setFilterStage]   = useState<StageFilter>('all')
@@ -220,6 +229,8 @@ export function SplitPortfolioView({
       onOpenDisputeResolver={
         selectedScenario?.round2Appeal ? () => setResolver({ mode: 'dispute' }) : undefined
       }
+      generateCap={generateCap}
+      live={live}
     />
   )
 
