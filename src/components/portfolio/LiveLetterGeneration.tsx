@@ -5,10 +5,10 @@ import { useLiveAppeal } from '../poc/live/useLiveAppeal'
 import { GenerateView } from '../poc/live/GenerateView'
 
 /**
- * O2_generate LIVE unit (ADR-0016, Workstream SU slice 2): streams a real
+ * O4_generate LIVE unit (ADR-0016, Workstream SU slice 2): streams a real
  * appeal from the backend into the portfolio case workspace, replacing the
  * simulated `LetterGeneration` re-simulation whenever the manifest marks
- * `O2_generate` live.
+ * `O4_generate` live.
  *
  * Thin by contract — it drives the already-tested `useLiveAppeal` hook and
  * renders the existing live presentational units through `GenerateView`

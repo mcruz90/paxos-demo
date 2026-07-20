@@ -44,7 +44,7 @@ export function SplitPortfolioView({
   onQuickApprove: (scenarioId: string) => void
   onPayerDecision: (scenarioId: string, decision: 'accepted' | 'disputed') => void
   onUpdateClientStatus: (scenarioId: string, status: CaseStatus) => void
-  // Manifest capability + backend session for O2_generate, threaded to
+  // Manifest capability + backend session for O4_generate, threaded to
   // PreviewPane (ADR-0016 — only the shell reads the manifest). Both are
   // shell-supplied; `live` is undefined in demo mode.
   generateCap: UnitCapability

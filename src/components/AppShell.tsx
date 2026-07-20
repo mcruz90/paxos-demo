@@ -191,7 +191,7 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
       onQuickApprove={handleQuickApprove}
       onPayerDecision={handlePayerDecision}
       onUpdateClientStatus={handleUpdateClientStatus}
-      generateCap={manifest.O2_generate}
+      generateCap={manifest.O4_generate}
       live={live}
     />
   )

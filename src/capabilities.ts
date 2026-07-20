@@ -18,10 +18,12 @@ export type UnitCapability = 'live' | 'simulated' | 'hidden'
 /** Unit IDs follow docs/design/ui-unit-exploration.md so the manifest, the
  * exploration map, and the sprint plan share one vocabulary. */
 export const UNIT_IDS = [
-  /** O2 — streaming appeal-letter generation (SSE POST /api/appeal/generate);
-   * the real stream replaces the portfolio LetterGeneration re-simulation
-   * (Workstream SU slice 2). See docs/design/ui-unit-exploration.md. */
-  'O2_generate',
+  /** O4 — streaming appeal-letter generation (SSE POST /api/appeal/generate),
+   * the stream that feeds O4's Full Review tier; the real stream replaces the
+   * portfolio LetterGeneration re-simulation (Workstream SU slice 2). Named to
+   * match the sprint plan's "O4/streaming generate"; see 11-sprint-plan.md and
+   * docs/design/ui-unit-exploration.md. */
+  'O4_generate',
   /** O5 — exception resolver resume (POST /api/appeal/resume). */
   'O5_resume',
   /** O7 — pending-review queue over GET /api/reviews/pending (ADR-0011). */
@@ -46,7 +48,7 @@ export function buildManifest(liveMode: boolean): CapabilityManifest {
   return {
     // Live generate stream in live mode; the fixture-driven re-simulation
     // (LetterGeneration) in demo mode — the static deploy has no backend.
-    O2_generate: liveMode ? 'live' : 'simulated',
+    O4_generate: liveMode ? 'live' : 'simulated',
     O5_resume: liveMode ? 'live' : 'hidden',
     O7_pending_queue: liveMode ? 'live' : 'hidden',
     O7_portfolio_queue_sim: 'simulated',

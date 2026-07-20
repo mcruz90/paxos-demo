@@ -23,8 +23,8 @@ describe('buildManifest — demo (simulated) mode', () => {
     expect(manifest.B8_audit_trail).toBe('hidden')
   })
 
-  it('marks O2_generate simulated — the generate pipeline is live, but demo has no backend', () => {
-    expect(manifest.O2_generate).toBe('simulated')
+  it('marks O4_generate simulated — the generate pipeline is live, but demo has no backend', () => {
+    expect(manifest.O4_generate).toBe('simulated')
   })
 })
 
@@ -41,8 +41,8 @@ describe('buildManifest — live mode', () => {
     expect(manifest.O7_portfolio_queue_sim).toBe('simulated')
   })
 
-  it('marks O2_generate live — SU slice 2 wires the real generate SSE stream', () => {
-    expect(manifest.O2_generate).toBe('live')
+  it('marks O4_generate live — SU slice 2 wires the real generate SSE stream', () => {
+    expect(manifest.O4_generate).toBe('live')
   })
 })
 

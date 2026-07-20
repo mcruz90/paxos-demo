@@ -58,7 +58,7 @@ export function PreviewPane({
   // Opens the Exception Resolver in dispute mode (evidence packet for the
   // round-2 letter). Absent ⇒ the Dispute button applies the decision directly.
   onOpenDisputeResolver?: () => void
-  // Manifest capability for O2_generate — the shell (not this unit) decides
+  // Manifest capability for O4_generate — the shell (not this unit) decides
   // live vs. simulated letter generation from it. `live` is the backend session
   // threaded from AppShell; undefined in demo mode (so live gen never mounts).
   generateCap: UnitCapability
