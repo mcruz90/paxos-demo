@@ -116,10 +116,10 @@ flowchart TB
 
 [retrieval.py](../../backend/agents/nodes/retrieval.py) loads
 `data/pa_requirements.json` **once at module import** (validated pack-by-pack;
-malformed packs raise `ETLParseError`), building two lookup tables:
+malformed packs raise `ETLParseError`), building a plan_id table and an alias set:
 
 1. `plan_id` → criteria_text — exact match, most specific (`pa_resolution="plan_id"`)
-2. drug alias (lowercased) → criteria_text — substring match on the request's drug (`pa_resolution="drug_alias"`)
+2. drug alias (lowercased) — substring match on the request's drug (`pa_resolution="drug_alias"`); supplies **no** criteria, only the generic text — another plan's pack says nothing about this plan, so a person decides (ADR-0019)
 3. neither → generic boilerplate (`pa_resolution="generic"`) — never raises
 
 The fired path travels through `PipelineState.pa_resolution` to

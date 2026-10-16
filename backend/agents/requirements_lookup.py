@@ -6,9 +6,12 @@ occurrence). Pure lookup: no DB calls, no LLM calls; file I/O happens once at
 module load (fail-fast at boot is intentional — see
 docs/project-review-hardening.md deferred items).
 
-Resolution order (Sprint 1):
+Resolution order:
   1. Exact plan_id match (most specific — identifies the payer policy).
-  2. Drug alias substring match on the drug name (fallback when plan_id unknown).
+  2. Drug alias substring match on the drug name, when plan_id is unknown.
+     It is recorded ("drug_alias") but lends NO criteria: another plan's pack
+     says nothing about this plan, so the context is the generic text and the
+     case goes to a person (ADR-0019).
   3. Generic fallback — never raises.
 
 Sprint 5 hook: extend to (BIN/PCN/Group + market + tier) via golden/coverage_pool.json.
@@ -51,11 +54,13 @@ GENERIC_CONTEXT = (
 )
 
 
-def _load_requirements() -> tuple[dict[str, str], dict[str, str]]:
-    """Load pa_requirements.json and build plan_id and drug-alias lookup dicts.
+def _load_requirements() -> tuple[dict[str, str], frozenset[str]]:
+    """Load pa_requirements.json and build the plan_id lookup and alias set.
 
     Returns:
-        (by_plan_id, by_drug_alias) — both map a key to a criteria_text string.
+        (by_plan_id, drug_aliases) — plan_id → criteria_text, and every pack's
+        lower-cased drug aliases. Aliases map to no criteria on purpose
+        (ADR-0019): they only say "this drug has a pack under some plan".
 
     Raises:
         ETLParseError: If the JSON file is malformed or a pack is missing a
@@ -70,27 +75,25 @@ def _load_requirements() -> tuple[dict[str, str], dict[str, str]]:
     except (KeyError, ValidationError) as exc:
         raise ETLParseError(f"pa_requirements.json has an invalid pack: {exc}") from exc
 
-    by_plan_id: dict[str, str] = {}
-    by_drug_alias: dict[str, str] = {}
-
-    for pack in packs.values():
-        by_plan_id[pack.plan_id] = pack.criteria_text
-        for alias in pack.drug_aliases:
-            by_drug_alias.setdefault(alias.lower(), pack.criteria_text)
-
-    return by_plan_id, by_drug_alias
+    by_plan_id = {pack.plan_id: pack.criteria_text for pack in packs.values()}
+    drug_aliases = frozenset(
+        alias.lower() for pack in packs.values() for alias in pack.drug_aliases
+    )
+    return by_plan_id, drug_aliases
 
 
-_BY_PLAN_ID, _BY_DRUG_ALIAS = _load_requirements()
+_BY_PLAN_ID, _DRUG_ALIASES = _load_requirements()
 
 
 def resolve_requirements(plan_id: str, drug: str) -> tuple[str, PaResolution]:
     """Resolve PA criteria text for a drug × plan.
 
     Resolution order: exact plan_id → drug alias substring → generic fallback.
-    Never raises; always returns a non-empty criteria string plus which path
-    fired (audit-relevant — a generic-fallback artifact is materially
-    different from a payer-specific one, hard-5).
+    Only a plan_id hit supplies payer criteria. A drug-alias hit returns the
+    generic text with resolution "drug_alias" (never another plan's criteria,
+    ADR-0019). Never raises; always returns a non-empty criteria string plus
+    which path fired (audit-relevant — a generic-fallback artifact is
+    materially different from a payer-specific one, hard-5).
 
     Args:
         plan_id: Payer plan identifier (e.g. "CIGNA-CNF360-2024").
@@ -100,20 +103,10 @@ def resolve_requirements(plan_id: str, drug: str) -> tuple[str, PaResolution]:
         (criteria_text, resolution) — resolution ∈ {"plan_id", "drug_alias",
         "generic"}.
     """
-    drug_lower = drug.lower()
-
     criteria = _BY_PLAN_ID.get(plan_id)
-    resolution: PaResolution = "plan_id"
-
-    if criteria is None:
-        resolution = "drug_alias"
-        for alias, text in _BY_DRUG_ALIAS.items():
-            if alias in drug_lower:
-                criteria = text
-                break
-
-    if criteria is None:
-        criteria = GENERIC_CONTEXT
-        resolution = "generic"
-
-    return criteria, resolution
+    if criteria is not None:
+        return criteria, "plan_id"
+    drug_lower = drug.lower()
+    if any(alias in drug_lower for alias in _DRUG_ALIASES):
+        return GENERIC_CONTEXT, "drug_alias"
+    return GENERIC_CONTEXT, "generic"

@@ -5,11 +5,12 @@ Pure function — the registry lookup's file I/O happens once at module load
 (agents/requirements_lookup.py).
 
 Stub semantics: the pa_requirements registry stands in for the payer's CRD
-endpoint (Da Vinci CRD in production). A plan_id or drug-alias hit means a PA
-requirement is on file. A registry miss is not evidence that no PA is
-needed, so the verdict is unknown (``required=None``): the pipeline exits
-before assembly, submits nothing, and the case goes to a person (ADR-0018;
-PRD slice 4 §5.3 as amended). The registry never says "PA not required" —
+endpoint (Da Vinci CRD in production). A plan_id hit means a PA requirement
+is on file for this plan. Anything else is unknown (``required=None``): a
+registry miss is not evidence that no PA is needed (ADR-0018), and a
+drug-alias hit (the drug has a pack under another plan) says nothing about
+this plan (ADR-0019). On unknown the pipeline exits before assembly, submits
+nothing, and the case goes to a person (PRD slice 4 §5.3 as amended). The registry never says "PA not required" —
 only a real payer CRD answer can; a payer CRD query replaces this lookup.
 """
 
@@ -39,10 +40,11 @@ def derive_pa_required(resolution: PaResolution, drug: str, plan_id: str) -> PaR
         )
     if resolution == "drug_alias":
         return PaRequired(
-            required=True,
+            required=None,
             basis=(
-                f"PA requirement on file for {drug} (resolved by drug alias; "
-                f"plan {plan_id} not in registry)."
+                f"Unknown — needs review by a person: plan {plan_id} is not in the "
+                f"registry. {drug} has a policy on file for another plan only, and "
+                "another plan's requirement is not used."
             ),
         )
     return PaRequired(

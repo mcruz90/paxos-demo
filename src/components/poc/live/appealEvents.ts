@@ -64,3 +64,17 @@ export function reduceAppealEvent(state: LiveGenState, event: AppealEvent): Live
 export function isParked(state: LiveGenState): boolean {
   return state.status === 'done' && state.tier === 'exception'
 }
+
+/**
+ * The done panel's note on which policy produced the letter. Only a plan_id
+ * hit is a policy match: "drug_alias" means the drug has a pack under another
+ * plan, whose criteria are not used, so a person decides (ADR-0019).
+ */
+export function resolutionNote(resolution: DoneEvent['pa_resolution']): { warn: boolean; text: string } | null {
+  if (!resolution) return null
+  if (resolution === 'generic') return { warn: true, text: 'Generic-fallback letter (no plan-specific policy matched)' }
+  if (resolution === 'drug_alias') {
+    return { warn: true, text: "No policy on file for this plan — another plan's criteria not used; needs a person" }
+  }
+  return { warn: false, text: `Policy match ${resolution}` }
+}
