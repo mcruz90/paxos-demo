@@ -2,8 +2,9 @@
 
 Runs the initial-PA flow per docs/architecture/05-state-lifecycle.md:
     pa_ingestion → crd_check → [PA required?] → pa_assembly → pas_submit
-                        └─ no ──→ finalize      → determination ⟲ (pended,
-                                  (early exit)     bounded) → finalize
+                        └─ no / unknown ──→ finalize  → determination ⟲ (pended,
+                                  (early exit;       bounded) → finalize
+                                   unknown = a person decides)
 
 Denied determinations carry an AppealHandoff pointer on the done event; the
 appeal is never auto-launched (human-gated). No LLM runs in this path.
@@ -100,7 +101,9 @@ async def _finalize_node(state: InitialPaState) -> InitialPaState:
 
 
 def _after_crd_check(state: InitialPaState) -> str:
-    """Conditional edge: PA required → assemble; not required → early exit."""
+    """Conditional edge: PA required → assemble; not required or unknown →
+    early exit. Unknown (``required is None``) never submits: the done event
+    carries the unknown verdict to a person (ADR-0018)."""
     pa_required = state["pa_required"]
     if pa_required is not None and pa_required.required:
         return "assemble"

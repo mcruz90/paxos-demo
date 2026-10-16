@@ -1,12 +1,13 @@
 /**
  * Live initial-PA result panel — lifecycle-pure (renders `LivePaState` only).
  *
- * The CRD verdict (PA required / not required — early exit), the payer
+ * The CRD verdict (PA required / not required — early exit / unknown — needs a
+ * person), the payer
  * determination when present, the PAS submission ref, and — when denied — the
  * appeal handoff note. Decision → chip style is a lookup map (no if/else chain).
  * Launching the appeal stays a separate, human-gated action (the appeal case).
  */
-import type { LivePaState } from './paEvents'
+import { crdVerdictLabel, type LivePaState } from './paEvents'
 import type { PaDecision } from '../../../types'
 import { StepList } from './StepList'
 
@@ -28,7 +29,7 @@ export function PaResultView({ state }: { state: LivePaState }) {
         <div className="bg-slate-900/60 border border-slate-700/60 rounded-xl p-4 space-y-3">
           <div>
             <p className="text-sm font-medium text-slate-200">
-              {paRequired.required ? 'PA required' : 'PA not required — CRD early exit'}
+              {crdVerdictLabel(paRequired.required)}
             </p>
             <p className="text-xs text-slate-400 mt-0.5">{paRequired.basis}</p>
           </div>
