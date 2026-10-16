@@ -1,6 +1,6 @@
 """Integration tests — initial-PA LangGraph pipeline (S2 Slices 2–3).
 
-Verifies the CRD → assemble flow, the "PA not required" early-exit
+Verifies the CRD → assemble flow, the "unknown — needs review" early-exit
 conditional edge, and the boundary guarantees (security-hold gate, terminal
 done|error) carried over from the appeal pipeline. No LLM in this path —
 run_initial_pa_pipeline takes no backend.
@@ -76,10 +76,11 @@ async def test_pa_required_path_terminates_with_done() -> None:
 
 
 @pytest.mark.asyncio
-async def test_pa_not_required_early_exit_skips_assemble() -> None:
-    """Registry miss → CRD reports no requirement on file → the conditional
-    edge exits before assembly (the 'PA not required' path in
-    05-state-lifecycle.md)."""
+async def test_registry_miss_exits_unknown_for_review_skips_assemble() -> None:
+    """Registry miss → CRD verdict unknown (required=None) → the conditional
+    edge exits before assembly, nothing is submitted, and the done event
+    carries the unknown verdict for a person — never "PA not required"
+    (05-state-lifecycle.md)."""
     events = await _collect(_no_pa_request())
     step_names = [e.step for e in events if isinstance(e, StepEvent)]
     assert "crd_check" in step_names
@@ -87,8 +88,10 @@ async def test_pa_not_required_early_exit_skips_assemble() -> None:
 
     done = [e for e in events if isinstance(e, InitialPaDoneEvent)]
     assert len(done) == 1
-    assert done[0].pa_required.required is False
+    assert done[0].pa_required.required is None
+    assert "needs review by a person" in done[0].pa_required.basis.lower()
     assert done[0].outcome is None
+    assert done[0].submission_ref == ""
 
 
 @pytest.mark.asyncio
