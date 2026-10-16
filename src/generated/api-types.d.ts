@@ -679,12 +679,16 @@ export interface components {
         /**
          * PaRequired
          * @description CRD pre-check result: is a PA required for this drug × plan, and why.
+         *
+         *     ``required`` is ``None`` when the answer is unknown (no requirement on
+         *     file for this drug × plan): the case goes to a person, never to "PA not
+         *     required". ``False`` means a source actually said no PA is needed.
          */
         PaRequired: {
             /** Basis */
             basis: string;
             /** Required */
-            required: boolean;
+            required: boolean | null;
         };
         /**
          * PendingReviewItem

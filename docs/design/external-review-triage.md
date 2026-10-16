@@ -179,6 +179,13 @@ row (appeals-escalation domain).
 - Adding a **checkpointer to the PA graph is a real design change needing an
   ADR** when scheduled.
 - See also the `documentation_supplied` provenance criticism in slice7 below.
+- **AMENDMENT (2026-10-16, ADR-0018) to §5.3 CRD resolution precedence:** a
+  registry miss (no pack matches the plan_id or a drug alias) no longer gives
+  `pa_required = false` ("fail-open; flag in audit for manual review"). It
+  gives **unknown** (`pa_required.required = null`): nothing is submitted and
+  a person decides. Step 2's "No" branch now reads `pa_required = null`
+  (unknown — needs review by a person, never "not required"). Only a payer
+  CRD answer (step 1) may say "not required".
 
 ### slice5 — benefit-type expansion — RECORD
 
