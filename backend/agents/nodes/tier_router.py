@@ -48,12 +48,12 @@ def decide_tier(signals: TierSignals) -> CaseTier:
 
     - exception: any finding unassessed or below the complex band, nothing
       assessed at all (no routine-by-vacuous-truth), gatekeeper exhausted,
-      novel denial reason, or a generic-fallback pack (``pa_resolution ==
-      "generic"`` — a generic letter is never auto-routed past a human).
-    - complex: any finding mid-band, a payer counter-offer, a first drug/plan
-      pairing (``pa_resolution == "drug_alias"``: the drug is known but this
-      exact plan pack is not), or a gatekeeper pass that needed retries
-      (routine requires a first-pass gatekeeper).
+      novel denial reason, or no policy on file for this plan
+      (``pa_resolution`` "generic", or "drug_alias": the drug matched another
+      plan's pack, whose criteria are not used — ADR-0019). A letter without
+      this plan's policy is never auto-routed past a human.
+    - complex: any finding mid-band, a payer counter-offer, or a gatekeeper
+      pass that needed retries (routine requires a first-pass gatekeeper).
     - routine: everything else — all findings >= 0.95, first-pass, no flags.
 
     Exception takes precedence over complex.
@@ -63,13 +63,12 @@ def decide_tier(signals: TierSignals) -> CaseTier:
         or any(c is None or c < COMPLEX_MIN_CONFIDENCE for c in signals.confidences)
         or signals.gatekeeper_retries >= MAX_RETRIES
         or signals.novel_denial_reason
-        or signals.pa_resolution == "generic"
+        or signals.pa_resolution in ("generic", "drug_alias")
     ):
         return CaseTier.exception
     if (
         any(c < ROUTINE_MIN_CONFIDENCE for c in signals.confidences)  # type: ignore[operator]
         or signals.counter_offer
-        or signals.pa_resolution == "drug_alias"
         or signals.gatekeeper_retries > 0
     ):
         return CaseTier.complex

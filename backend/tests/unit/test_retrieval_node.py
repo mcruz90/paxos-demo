@@ -148,22 +148,25 @@ def test_retrieval_resolves_by_plan_id_cigna_livdelzi() -> None:
     assert "livdelzi" in ctx or "seladelpar" in ctx or "pbc" in ctx
 
 
-def test_retrieval_falls_back_to_drug_alias_when_plan_unknown() -> None:
-    """When plan_id is unknown, retrieval falls back to drug substring match."""
+def test_retrieval_drug_alias_never_lends_another_plans_criteria() -> None:
+    """When plan_id is unknown, a drug-name match must not supply another
+    plan's criteria (a UHC Ozempic request must not get Cigna's pack). The
+    context is the generic text; the case goes to a person (ADR-0019)."""
     req = AppealRequest(
         scenario_id="ozempic-unknown-plan",
         drug="Ozempic (semaglutide)",
         diagnosis="Type 2 Diabetes Mellitus",
         denial_text="Authorization denied.",
         denial_reason="step therapy",
-        plan="SomePPO",
-        plan_id="UNKNOWN-PLAN-2099",
+        plan="UnitedHealthcare Choice Plus",
+        plan_id="UHC-UNKNOWN-2026",
         criteria_results=[],
     )
     updated = run_retrieval(_state(req))
+    assert updated["pa_context"] == requirements_lookup.GENERIC_CONTEXT
     ctx = updated["pa_context"].lower()
-    # Should find the ozempic pack via drug alias fallback
-    assert "ozempic" in ctx or "semaglutide" in ctx
+    assert "cigna" not in ctx
+    assert "semaglutide" not in ctx
 
 
 # ---------------------------------------------------------------------------
