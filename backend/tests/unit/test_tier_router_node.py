@@ -7,11 +7,12 @@ over `PipelineState`.
 
 Band spec (11-sprint-plan.md, S3 Slice 2):
 - routine:   all confidences >= 0.95 AND first-pass gatekeeper
-- complex:   any confidence in [0.70, 0.95), counter-offer, first drug/plan
-             pairing (pa_resolution == "drug_alias"), or passed-after-retries
+- complex:   any confidence in [0.70, 0.95), counter-offer, or
+             passed-after-retries
 - exception: any confidence < 0.70 or missing, nothing assessed, gatekeeper
-             exhausted (>= MAX_RETRIES), novel denial reason, or
-             pa_resolution == "generic"
+             exhausted (>= MAX_RETRIES), novel denial reason, or no policy
+             for this plan (pa_resolution == "generic" or "drug_alias" —
+             a drug-name match lends no criteria, ADR-0019)
 
 Run from backend/:
     uv run pytest tests/unit/test_tier_router_node.py -v
@@ -110,10 +111,11 @@ def test_counter_offer_is_complex() -> None:
     assert decide_tier(_signals(counter_offer=True)) == CaseTier.complex
 
 
-def test_drug_alias_resolution_is_complex() -> None:
-    """pa_resolution == 'drug_alias' means the drug is known but this exact
-    plan pack is not — the deterministic form of 'first drug/plan pairing'."""
-    assert decide_tier(_signals(pa_resolution="drug_alias")) == CaseTier.complex
+def test_drug_alias_resolution_is_exception() -> None:
+    """pa_resolution == 'drug_alias' means this plan's policy is unknown (the
+    drug matched another plan's pack, whose criteria are not used). Like
+    'generic', a person decides — even with all-high confidences."""
+    assert decide_tier(_signals(pa_resolution="drug_alias")) == CaseTier.exception
 
 
 def test_passed_after_retries_is_not_routine() -> None:
