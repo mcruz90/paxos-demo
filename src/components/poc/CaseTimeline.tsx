@@ -2,7 +2,30 @@ import { Fragment } from 'react'
 import { Clock, CheckCircle, AlertTriangle } from 'lucide-react'
 import type { TimelineEvent } from '../../types'
 
-export function CaseTimeline({ events }: { events: TimelineEvent[] }) {
+export function CaseTimeline({ events, compact = false }: { events: TimelineEvent[]; compact?: boolean }) {
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2 overflow-x-auto text-xs py-0.5">
+        {events.map((ev, i) => (
+          <Fragment key={i}>
+            {i > 0 && <span className="text-slate-600 shrink-0">→</span>}
+            <div className="inline-flex items-center gap-1.5 shrink-0">
+              {ev.status === 'done'    ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> :
+               ev.status === 'flagged' ? <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" /> :
+                                         <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />}
+              <span className={`font-medium ${
+                ev.status === 'done'    ? 'text-slate-300' :
+                ev.status === 'flagged' ? 'text-amber-300 font-semibold' :
+                                          'text-slate-500'
+              }`}>{ev.label}</span>
+              <span className="text-[11px] text-slate-500">({ev.date})</span>
+            </div>
+          </Fragment>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-start">
       {events.map((ev, i) => (

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { scenarios } from '../../data/scenarios'
 import type { SourceDocument } from '../../types'
-import { defaultDocId, findCitedBlock } from './sourceDocuments'
+import { defaultDocId, ensureSourceDocuments, findCitedBlock } from './sourceDocuments'
 
 const DOCS: SourceDocument[] = [
   {
@@ -84,6 +84,25 @@ describe('sourceDocuments parity with criteria/citations', () => {
         const hit = findCitedBlock(docs, cr.rule.label)!
         const block = docs.find(d => d.id === hit.docId)!.blocks[hit.blockIndex]
         expect(block.text).toBe(cite.text)
+      }
+    })
+  }
+})
+
+describe('ensureSourceDocuments', () => {
+  it('returns authored sourceDocuments verbatim when present', () => {
+    const ozempic = scenarios['novo-ozempic']
+    expect(ensureSourceDocuments(ozempic)).toBe(ozempic.sourceDocuments)
+  })
+
+  for (const [id, scenario] of Object.entries(scenarios)) {
+    it(`${id}: produces at least one document and grounds every cited criterion`, () => {
+      const docs = ensureSourceDocuments(scenario)
+      expect(docs.length).toBeGreaterThan(0)
+      for (const cr of scenario.criteriaResults) {
+        if (scenario.citations[cr.rule.label]) {
+          expect(findCitedBlock(docs, cr.rule.label)).not.toBeNull()
+        }
       }
     })
   }

@@ -87,8 +87,14 @@ export const DRUG_PERF: { drug: string; indication: string; category: string; ca
 ]
 
 
-export function EvalDashboard() {
-  const [evalView, setEvalView] = useState<'coordinator' | 'platform'>('coordinator')
+export function EvalDashboard({ mode = 'coordinator_only' }: { mode?: 'coordinator_only' | 'platform_only' | 'both' }) {
+  const [selectedView, setSelectedView] = useState<'coordinator' | 'platform'>(
+    mode === 'platform_only' ? 'platform' : 'coordinator',
+  )
+  const evalView =
+    mode === 'coordinator_only' ? 'coordinator'
+    : mode === 'platform_only' ? 'platform'
+    : selectedView
 
   return (
     <div className="flex-1 overflow-auto">
@@ -103,22 +109,24 @@ export function EvalDashboard() {
               : 'Internal quality metrics · Demo benchmark · representative subset'}
           </p>
         </div>
-        <div className="flex items-center gap-1 bg-slate-800/80 border border-slate-700/60 rounded-lg p-1">
-          <button
-            onClick={() => setEvalView('coordinator')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${evalView === 'coordinator' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-300'}`}
-          >
-            <User className="w-3.5 h-3.5" />
-            PA Coordinator
-          </button>
-          <button
-            onClick={() => setEvalView('platform')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${evalView === 'platform' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-300'}`}
-          >
-            <Building2 className="w-3.5 h-3.5" />
-            ClearAuth Platform
-          </button>
-        </div>
+        {mode === 'both' && (
+          <div className="flex items-center gap-1 bg-slate-800/80 border border-slate-700/60 rounded-lg p-1">
+            <button
+              onClick={() => setSelectedView('coordinator')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${evalView === 'coordinator' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-300'}`}
+            >
+              <User className="w-3.5 h-3.5" />
+              PA Coordinator
+            </button>
+            <button
+              onClick={() => setSelectedView('platform')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${evalView === 'platform' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-300'}`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              ClearAuth Platform
+            </button>
+          </div>
+        )}
       </div>
 
       {evalView === 'coordinator' ? (

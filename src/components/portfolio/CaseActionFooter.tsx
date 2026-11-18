@@ -26,13 +26,11 @@ export function CaseActionFooter({
   onOpenCase: () => void
 }) {
   return (
-    <div className="px-8 py-4 border-t border-slate-800 bg-slate-900/50 shrink-0 select-none">
+    <div className="px-6 py-3 border-t border-slate-800 bg-slate-900/50 shrink-0 select-none">
       {hasUnresolvedRemaining ? (
-        <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-center">
-          <p className="text-xs text-amber-300 leading-normal">
-            ⚠️ <strong>Exceptions blocking prior auth.</strong> Use the Criteria Checklist tab above to resolve exceptions.
-          </p>
-        </div>
+        <p className="text-xs text-slate-400 text-center">
+          Resolve open clinical exceptions above before generating the submission packet.
+        </p>
       ) : client.status === 'ready_for_review' ? (
         letterOnScreen && letterReviewed ? (
           // The letter has been generated AND is on screen — only now can it

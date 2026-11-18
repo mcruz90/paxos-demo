@@ -30,6 +30,7 @@ export interface LocalCaseState {
   pendingOverride: string | null
   overrideInput: string
   activity: ActivityEntry[]
+  editedNarrative?: string
 }
 
 export const EMPTY_LOCAL_CASE_STATE: LocalCaseState = {
@@ -39,6 +40,7 @@ export const EMPTY_LOCAL_CASE_STATE: LocalCaseState = {
   pendingOverride: null,
   overrideInput: '',
   activity: [],
+  editedNarrative: undefined,
 }
 
 export function logActivity(local: LocalCaseState, entry: ActivityEntry): LocalCaseState {

@@ -52,10 +52,12 @@ export function CitationPane({
   scenario,
   highlightedIndex,
   onSelectIndex,
+  compactHeader = false,
 }: {
   scenario: ScenarioConfig
   highlightedIndex: number | null
   onSelectIndex: (idx: number | null) => void
+  compactHeader?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -70,13 +72,15 @@ export function CitationPane({
 
   return (
     <div className="w-full h-full bg-slate-900/20 flex flex-col overflow-hidden">
-      <div className="px-4 py-3.5 border-b border-slate-800 bg-slate-800/40 shrink-0">
-        <div className="flex items-center gap-2">
-          <BookmarkPlus className="w-4 h-4 text-emerald-400 shrink-0" />
-          <h3 className="text-sm font-semibold text-slate-200">Citation Ground Truth</h3>
+      {!compactHeader && (
+        <div className="px-4 py-3.5 border-b border-slate-800 bg-slate-800/40 shrink-0">
+          <div className="flex items-center gap-2">
+            <BookmarkPlus className="w-4 h-4 text-emerald-400 shrink-0" />
+            <h3 className="text-sm font-semibold text-slate-200">Citation Ground Truth</h3>
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5">Quoted evidence directly from the EHR record</p>
         </div>
-        <p className="text-xs text-slate-500 mt-0.5">Quoted evidence directly from the EHR record</p>
-      </div>
+      )}
 
       <div ref={containerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {scenario.criteriaResults.map((cr, idx) => {

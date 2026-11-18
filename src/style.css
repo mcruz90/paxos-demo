@@ -61,19 +61,21 @@ html.light {
   --color-slate-50:  #020617;
 
   /* Tinted dark section backgrounds → become their light equivalents */
-  --color-emerald-950: #f5f3ff;  /* plum tint, not green */
+  --color-emerald-950: #ecfdf5;
   --color-violet-950:  #f5f3ff;
   --color-amber-950:   #fffbeb;
   --color-blue-950:    #eff6ff;
   --color-red-950:     #fff1f2;
   --color-sky-950:     #f0f9ff;
 
-  /* Accent: remap emerald → ClearAuth plum so every emerald class becomes on-brand */
-  --color-emerald-600: #3b0764;  /* darkest — button base */
-  --color-emerald-500: #4c1d95;  /* primary — logo bg, active state, CTA */
-  --color-emerald-400: #6d28d9;  /* badge text, icon fill */
-  --color-emerald-300: #5b21b6;  /* metric numbers */
-  --color-emerald-200: #4c1d95;  /* highlighted citation quote text (CitationPane) */
+  /* Accent: keep true clinical emerald greens in light mode (Epic Hyperspace clinical palette) */
+  --color-emerald-600: #059669;
+  --color-emerald-500: #10b981;
+  --color-emerald-400: #059669;
+  --color-emerald-300: #047857;
+  --color-emerald-200: #065f46;
+  --color-emerald-100: #d1fae5;
+  --color-emerald-50:  #ecfdf5;
   --color-violet-400:  #7c3aed;
   --color-violet-300:  #6d28d9;
   --color-amber-400:   #d97706;
@@ -83,6 +85,22 @@ html.light {
   --color-red-400:     #dc2626;
   --color-red-300:     #b91c1c;
   --color-sky-300:     #0284c7;
+}
+
+/* Epic Hyperspace clinical light-mode surface accents */
+html.light .epic-storyboard {
+  background-color: #e9eff6;
+}
+html.light .epic-card {
+  background-color: #ffffff;
+}
+html.light .epic-card-amber {
+  background-color: #fffbeb;
+  border-color: #f59e0b;
+}
+html.light .epic-card-rose {
+  background-color: #fff1f2;
+  border-color: #f43f5e;
 }
 
 /* text-white can't be remapped via --color-white without breaking bg-white */

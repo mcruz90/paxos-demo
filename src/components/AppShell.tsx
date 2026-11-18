@@ -12,6 +12,7 @@ import { PlatformView } from './PlatformView'
 import { EvalRubricView } from './EvalRubricView'
 import { WorkflowSpecView } from './WorkflowSpecView'
 import { FailureReviewView } from './FailureReviewView'
+import { ConceptBInspectorView } from './ConceptBInspectorView'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { SponsorView } from './SponsorView'
@@ -22,15 +23,14 @@ import { POCView } from './poc/POCView'
 import { BuildOverview } from './BuildOverview'
 import { LibraryView } from './LibraryView'
 import { VIEW_ROLE, ROLE_DEFAULT_VIEW } from './navConfig'
-import { CapabilityChip } from './live/CapabilityChip'
-import { LiveOpsRail } from './live/LiveOpsRail'
 import { type LiveShellSession } from './live/SessionGate'
 
-// The single product shell (ADR-0016). In demo mode (`live` absent — every
-// static deploy) this is exactly the pre-ADR-0016 tree. In live mode the
-// SessionGate mounts it with a session, and the capability manifest decides
-// which live units compose in — the shell is the only layer that branches on
-// the manifest; units never branch on mode themselves.
+// Single product shell (ADR-0016):
+// - Operate uses the Epic Hyperspace clinical light/slate default, auto-collapses
+//   the outer nav into a slim icon rail when a patient chart opens, and stays
+//   100% free of engineering/evals chrome.
+// - Build houses Concept B (Live Trace & Evals Inspector + PII-Redacted Tokenizer)
+//   in a dark-slate engineering theme.
 export function AppShell({ live }: { live?: LiveShellSession }) {
   const manifest = buildManifest(!!live)
   const modeBadge = shellModeBadge(!!live)
@@ -40,26 +40,39 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
     document.documentElement.classList.toggle('light', theme === 'light')
   }, [theme])
 
-  const [view, setView] = useState<View>('landing')
+  const [view, setView] = useState<View>('portfolio')
   const [activeRole, setActiveRole] = useState<Role>('Operate')
   const [clients, setClients] = useState<Client[]>(initialClients)
   const [activeScenario, setActiveScenario] = useState<ScenarioConfig | null>(null)
   const [reviewMode, setReviewMode] = useState(false)
   const [openedCaseStatus, setOpenedCaseStatus] = useState<CaseStatus | null>(null)
+  const [inspectScenarioId, setInspectScenarioId] = useState<string>('gilead-livdelzi')
   const [activeTour, setActiveTour] = useState<TourId | null>(null)
   const [tourRunning, setTourRunning] = useState(false)
   const [tourStepIndex, setTourStepIndex] = useState(0)
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true)
   const instrStore = useInstructionStore()
 
-  // Switching roles navigates to that role's default first view
+  // Switching roles navigates to that role's default view and applies the
+  // persona-matched theme default (Light/Slate Epic for Operate, Dark-Slate for Build).
   const handleRoleChange = (role: Role) => {
     setActiveRole(role)
     setView(ROLE_DEFAULT_VIEW[role])
     setActiveScenario(null)
     setReviewMode(false)
     setOpenedCaseStatus(null)
+    setIsSidebarCollapsed(false)
+    if (role === 'Operate') setTheme('light')
+    else if (role === 'Build') setTheme('dark')
   }
+
+  const handleSetView = (nextView: View) => {
+    setView(nextView)
+    if (nextView !== 'portfolio') {
+      setIsSidebarCollapsed(false)
+    }
+  }
+
   const addToPortfolio = (scenario: ScenarioConfig) => {
     const now = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     const name = scenario.clientType === 'patient'
@@ -82,8 +95,6 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
     setView('portfolio')
   }
 
-  // Portfolio click → open the case in POC review mode (coordinator reviews the AI's
-  // completed work). Cases import automatically; there is no manual-intake path.
   const openCase = (scenarioId: string, status: CaseStatus) => {
     const scenario = scenarios[scenarioId]
     if (!scenario) return
@@ -99,19 +110,27 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
     setOpenedCaseStatus(null)
     setView('portfolio')
     setActiveRole('Operate')
+    setTheme('light')
+    setIsSidebarCollapsed(false)
   }
 
-  // Case-status transitions from the queue's preview pane — the guarded state
-  // machine lives in portfolio/caseQueue.ts, unit-tested there.
   const handleQuickApprove = (scenarioId: string) =>
     setClients(prev => quickApproveClient(prev, scenarioId))
+  const handleBatchApproveReady = () =>
+    setClients(prev => prev.map(c => c.status === 'ready_for_review' ? { ...c, status: 'submitted' as CaseStatus } : c))
   const handlePayerDecision = (scenarioId: string, decision: 'accepted' | 'disputed') =>
     setClients(prev => applyPayerDecision(prev, scenarioId, decision))
   const handleUpdateClientStatus = (scenarioId: string, status: CaseStatus) =>
     setClients(prev => setClientStatus(prev, scenarioId, status))
 
-  // Apply a step's nav: make the right view (and case) active before the step shows.
-  // Also syncs activeRole so the sidebar reflects the correct role during tours.
+  const handleInspectInBuild = (scenarioId: string) => {
+    setInspectScenarioId(scenarioId)
+    setActiveRole('Build')
+    setTheme('dark')
+    setIsSidebarCollapsed(false)
+    setView('inspector')
+  }
+
   const applyTourNav = (nav?: TourStep['nav']) => {
     if (!nav) return
     if (nav.scenarioId) {
@@ -128,11 +147,17 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
       setReviewMode(false)
       setOpenedCaseStatus(null)
     }
+    const nextRole = VIEW_ROLE[nav.view]
     setView(nav.view)
-    setActiveRole(VIEW_ROLE[nav.view])
+    setActiveRole(nextRole)
+    if (nextRole === 'Operate') setTheme('light')
+    else if (nextRole === 'Build') setTheme('dark')
   }
 
-  const openTourHub = () => setView('landing')
+  const openTourHub = () => {
+    setIsSidebarCollapsed(false)
+    setView('landing')
+  }
 
   const endTour = () => {
     setTourRunning(false)
@@ -143,14 +168,15 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
   const startTour = (id: TourId) => {
     setIsSidebarCollapsed(false)
     setActiveTour(id)
-    setActiveRole(TOUR_ROLE[id] ?? 'Operate')
+    const role = TOUR_ROLE[id] ?? 'Operate'
+    setActiveRole(role)
+    if (role === 'Operate') setTheme('light')
+    else if (role === 'Build') setTheme('dark')
     applyTourNav(TOURS[id].steps[0]?.nav)
     setTourStepIndex(0)
     setTourRunning(true)
   }
 
-  // Generic driver: on advance, apply the next step's nav, then move the index
-  // (delayed only when the view/case actually changes so the target can mount).
   const handleJoyrideCallback = (data: { action: string; index: number; status: string; type: string }) => {
     const { action, index, status, type } = data
 
@@ -160,7 +186,6 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
     }
 
     if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
-      // Close (X) button — end the tour and clear the overlay.
       if (action === ACTIONS.CLOSE) { endTour(); return }
 
       const isNext = action === ACTIONS.NEXT
@@ -170,7 +195,6 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
       const steps = activeTour ? TOURS[activeTour].steps : []
       const next = index + (isNext ? 1 : -1)
       const nextStep = steps[next]
-      // Past the last step (or before the first) — finish so the overlay clears.
       if (!nextStep) { if (isNext) endTour(); return }
 
       const nav = nextStep.nav
@@ -189,10 +213,13 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
       clients={clients}
       onOpenCase={openCase}
       onQuickApprove={handleQuickApprove}
+      onBatchApproveReady={handleBatchApproveReady}
       onPayerDecision={handlePayerDecision}
       onUpdateClientStatus={handleUpdateClientStatus}
       generateCap={manifest.O4_generate}
       live={live}
+      onCaseOpenChange={setIsSidebarCollapsed}
+      onInspectInBuild={handleInspectInBuild}
     />
   )
 
@@ -215,11 +242,12 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
         onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
         onStartTour={openTourHub}
         modeBadge={modeBadge}
+        liveSession={live ? { userId: live.userId, onLogout: live.onLogout } : undefined}
       />
       <div className="flex flex-1 overflow-hidden">
       <Sidebar
         view={view}
-        setView={setView}
+        setView={handleSetView}
         activeRole={activeRole}
         onStartTour={openTourHub}
         isCollapsed={isSidebarCollapsed}
@@ -229,21 +257,7 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
       {view === 'landing' && (
         <LandingHub onStartTour={startTour} onRoleChange={handleRoleChange} />
       )}
-      {/* Live mode: the fixture queue wears its SIMULATED label and the
-          slice-1 live units (O7 queue, O5 resume, B8 audit) rail alongside.
-          Demo mode renders the identical pre-ADR-0016 tree. */}
-      {view === 'portfolio' && (live ? (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-4 py-1.5 border-b border-slate-800 flex items-center gap-2 text-xs text-slate-400">
-            <CapabilityChip cap={manifest.O7_portfolio_queue_sim} />
-            Fixture-driven case queue — not live backend data
-          </div>
-          <div className="flex-1 flex overflow-hidden min-h-0">
-            {portfolioEl}
-            <LiveOpsRail manifest={manifest} live={live} />
-          </div>
-        </div>
-      ) : portfolioEl)}
+      {view === 'portfolio' && portfolioEl}
       {view === 'poc' && activeScenario && (
         <POCView
           key={activeScenario.id}
@@ -267,28 +281,28 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
         />
       )}
       {view === 'build_home' && (
-        <BuildOverview setView={setView} />
+        <BuildOverview setView={handleSetView} />
       )}
       {view === 'library' && (
-        <LibraryView setView={setView} />
+        <LibraryView setView={handleSetView} />
       )}
       {view === 'evals' && (
-        <EvalDashboard />
+        <EvalDashboard mode="coordinator_only" />
       )}
       {view === 'automation' && (
         <AutomationPolicyView />
       )}
       {view === 'onboarding' && (
-        <OnboardingView setView={setView} />
+        <OnboardingView setView={handleSetView} />
       )}
       {view === 'platform' && (
-        <PlatformView setView={setView} />
+        <PlatformView setView={handleSetView} />
       )}
       {view === 'sponsor' && (
         <SponsorView />
       )}
       {view === 'failures' && (
-        <FailureReviewView setView={setView} store={instrStore} />
+        <FailureReviewView setView={handleSetView} store={instrStore} />
       )}
       {view === 'specs' && (
         <WorkflowSpecView />
@@ -297,7 +311,15 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
         <AgentInstructionsView store={instrStore} />
       )}
       {view === 'rubric' && (
-        <EvalRubricView setView={setView} onOpenCase={openCase} />
+        <EvalRubricView setView={handleSetView} onOpenCase={openCase} />
+      )}
+      {view === 'inspector' && (
+        <ConceptBInspectorView
+          selectedScenarioId={inspectScenarioId}
+          onSelectScenarioId={setInspectScenarioId}
+          live={live}
+          manifest={manifest}
+        />
       )}
       </div>
     </div>

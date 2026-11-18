@@ -1,4 +1,4 @@
-import { Library, FileText, Pencil, Workflow, AlertTriangle, ArrowRight, Gauge } from 'lucide-react'
+import { Library, FileText, Pencil, Workflow, AlertTriangle, ArrowRight, Gauge, Terminal } from 'lucide-react'
 import { type IconType, type View } from '../types'
 import { universalPrimitives } from '../data/scenarios'
 import { RUBRIC_DIMENSIONS } from '../data/evalRubric'
@@ -33,15 +33,16 @@ const NODES: Record<string, Node> = {
   instructions: { view: 'instructions', Icon: Pencil,        title: 'Agent Instructions', role: 'Behavior — the prompt authored per pipeline node',      stat: `${Object.keys(INITIAL_HISTORY).length} node instructions`,       health: 'ok' },
   rubric:       { view: 'rubric',       Icon: Workflow,      title: 'Eval Rubric',        role: 'The quality gate every change must clear',              stat: `${RUBRIC_DIMENSIONS.length} scoring dimensions`,                  health: 'ok' },
   failures:     { view: 'failures',     Icon: AlertTriangle, title: 'Failure Review',     role: 'Prod monitoring — clusters, root cause, remediation',   stat: `${FAILURE_CLUSTERS.length} clusters · ${criticalOpen} critical`,  health: criticalOpen > 0 ? 'critical' : 'ok' },
+  inspector:    { view: 'inspector',    Icon: Terminal,      title: 'Live Trace & Evals', role: 'PHI-redacted tokenizer, gatekeeper assertions & SSE audit', stat: 'Concept B · 3-pane inspector',                                   health: 'ok' },
 }
 
 // Left → right: the foundation, the agent built on it, the governance loop
 // wrapping it. `edge` is the relation to the tier on its right.
 interface Tier { key: string; label: string; caption: string; views: string[]; edge?: string }
 const TIERS: Tier[] = [
-  { key: 'foundation', label: 'Foundation',      caption: 'The shared schema every case is built on',            views: ['library'],               edge: 'runs on the schema' },
-  { key: 'agent',      label: 'The agent',       caption: 'Pipeline structure + the behavior authored per node', views: ['specs', 'instructions'], edge: 'gates the agent' },
-  { key: 'governance', label: 'Governance loop', caption: 'Gates every change and watches it in production',      views: ['rubric', 'failures'] },
+  { key: 'foundation', label: 'Foundation',      caption: 'The shared schema every case is built on',            views: ['library'],                        edge: 'runs on the schema' },
+  { key: 'agent',      label: 'The agent',       caption: 'Pipeline structure + the behavior authored per node', views: ['specs', 'instructions'],          edge: 'gates the agent' },
+  { key: 'governance', label: 'Governance loop', caption: 'Gates every change and watches it in production',      views: ['rubric', 'failures', 'inspector'] },
 ]
 
 const HEALTH_META: Record<Health, { dot: string; text: string; label: string }> = {
