@@ -8,9 +8,9 @@ dependencies = [
   "fastapi>=0.115",
   "uvicorn[standard]>=0.32",
   "httpx>=0.27",
-  # Pin urllib3 explicitly: >=2.7.0 fixes CVE-2026-44431 (cross-origin header leak, CVSS 7.5).
-  # Without this pin, a transitive resolver choice may land on an older version.
-  "urllib3>=2.7.0",
+  # Baseline 2.7.0 was flagged by GHSA-8988-9cw3-xx77,
+  # GHSA-gh4c-6fx4-qh6g and GHSA-vxq7-64xx-v4gw; audit reports 2.8.0 fixed.
+  "urllib3==2.8.0",
   "pydantic>=2.9",
   "python-dotenv>=1.0",
   # Required by third_party/fhi/generate_appeal.py (forked upstream code);
@@ -23,17 +23,20 @@ dependencies = [
   # Requires system package: tesseract-ocr (see CI and Dockerfile).
   # Replaces easyocr (last major update 2021; large PyTorch dep chain).
   "pytesseract>=0.3.13",
+  "pillow==13.0.0",  # first-party image ingestion imports PIL directly
   "pymupdf>=1.24",
   "python-dateutil>=2.9",
   # Orchestrator (ADR-0001, re-added Sprint 2 Slice 0 via the pre-install check).
-  # langchain-core >=1.3.3 fixes CVE-2026-44843 (CVSS 8.2); langgraph-checkpoint
-  # >=3.0 is an explicit transitive floor for CVE-2025-67644 (SQL injection in
+  # Historical security floors: langchain-core >=1.3.3 fixes CVE-2026-44843;
+  # langgraph-checkpoint >=3.0 fixes CVE-2025-67644 (SQL injection in
   # the sqlite checkpointer — not installed, floor pinned per CLAUDE.md anyway).
   # NOTE: langchain-core hard-requires langsmith (LangChain's SaaS tracing SDK);
   # it is inert without env opt-in, and main.py force-disables it (PHI rule).
-  "langgraph>=1.2.7,<2.0",
-  "langchain-core>=1.3.3,<2.0.0",
-  "langgraph-checkpoint>=3.0",
+  # LangGraph 1.2.14 imposes stricter core>=1.4.7 and checkpoint>=4.1 floors;
+  # the exact resolved versions remain governed by uv.lock.
+  "langgraph==1.2.14",
+  "langchain-core>=1.4.7,<2.0.0",
+  "langgraph-checkpoint>=4.1.0,<5.0.0",
 ]
 
 [dependency-groups]
@@ -79,3 +82,15 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["third_party.*"]
 ignore_errors = true
+
+# Security constraints govern existing transitive dependencies without making
+# unused packages direct runtime dependencies. Reviewed 2026-11-18.
+[tool.uv]
+constraint-dependencies = [
+  "anyio==4.14.2",
+  "certifi==2026.10.23",
+  "filelock==4.2.1",
+  "langgraph-sdk==0.4.6",
+  "msgpack==1.2.3",
+  "pip==26.2",
+]
