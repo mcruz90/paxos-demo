@@ -99,3 +99,60 @@ export function phiFromContext(ctx: PatientContext): PhiDictionary {
     memberId: ctx.memberId && ctx.memberId !== '—' ? ctx.memberId : undefined,
   }
 }
+
+export function deriveSpecialtyToken(specialty?: string): string {
+  const s = (specialty ?? '').toLowerCase()
+  if (s.includes('hepatolog')) return '{{HEPATOLOGIST_NAME_1}}'
+  if (s.includes('rheumatolog')) return '{{RHEUMATOLOGIST_NAME_1}}'
+  if (s.includes('endocrinolog')) return '{{ENDOCRINOLOGIST_NAME_1}}'
+  if (s.includes('pediatric') || s.includes('gastro')) return '{{PEDIATRIC_GI_NAME_1}}'
+  return '{{PRESCRIBER_NAME_1}}'
+}
+
+export function shiftClinicalDates(
+  text: string,
+  offsetDays = -42,
+): { text: string; count: number } {
+  let count = 0
+  const out = text.replace(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, (_m, mm, dd, yyyy) => {
+    const dt = new Date(Date.UTC(Number(yyyy), Number(mm) - 1, Number(dd) + offsetDays))
+    const mStr = String(dt.getUTCMonth() + 1).padStart(2, '0')
+    const dStr = String(dt.getUTCDate()).padStart(2, '0')
+    const sign = offsetDays >= 0 ? `+${offsetDays}` : String(offsetDays)
+    count += 1
+    return `${mStr}/${dStr}/${dt.getUTCFullYear()} [shifted ${sign}d]`
+  })
+  return { text: out, count }
+}
+
+export interface EvalPlaneTokenizationMeta {
+  specialtyToken: string
+  dateOffsetDays: number
+  residualHeld: boolean
+  shiftedSampleCount: number
+}
+
+export function buildEvalPlaneTokenization(
+  blocks: SourceDocBlock[],
+  ctx: PatientContext,
+  offsetDays = -42,
+): EvalPlaneTokenizationMeta {
+  const phi = phiFromContext(ctx)
+  const { blocks: tokenized } = redactBlocks(blocks, phi)
+  const joined = tokenized.map(b => b.text).join(' ')
+  const leakFound =
+    phi.names.some(n => n.length > 1 && joined.includes(n)) ||
+    (!!phi.memberId && joined.includes(phi.memberId))
+
+  const shiftedSampleCount = blocks.reduce(
+    (sum, b) => sum + shiftClinicalDates(b.text, offsetDays).count,
+    0,
+  )
+
+  return {
+    specialtyToken: deriveSpecialtyToken(ctx.prescriberSpecialty),
+    dateOffsetDays: offsetDays,
+    residualHeld: leakFound,
+    shiftedSampleCount,
+  }
+}

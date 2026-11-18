@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { initialClients, scenarios } from '../../data/scenarios'
 import { resolvePatientContext } from '../../data/patientContext'
-import { phiFromContext, redactBlocks, redactText } from './redaction'
+import {
+  buildEvalPlaneTokenization,
+  deriveSpecialtyToken,
+  phiFromContext,
+  redactBlocks,
+  redactText,
+  shiftClinicalDates,
+} from './redaction'
 
 describe('redactText', () => {
   const phi = { names: ['Margaret Vance', 'Vance'], memberId: 'CGN-88231-07' }
@@ -91,5 +98,36 @@ describe('the Build plane leaves no patient identifiers in a rendered golden doc
     const joined = blocks.map(b => b.text).join(' ')
     expect(joined).not.toMatch(/\d{1,2}\/\d{1,2}\/\d{4}/) // no unmasked dates
     expect(joined).not.toContain('Vance')                 // no surname leaks
+  })
+})
+
+describe('clearauth-eval tokenization upgrades (specialty token, date shift, residual tripwire)', () => {
+  it('maps prescriber specialties to NPI taxonomy role tokens', () => {
+    expect(deriveSpecialtyToken('Hepatology')).toBe('{{HEPATOLOGIST_NAME_1}}')
+    expect(deriveSpecialtyToken('Rheumatology')).toBe('{{RHEUMATOLOGIST_NAME_1}}')
+    expect(deriveSpecialtyToken('Endocrinology')).toBe('{{ENDOCRINOLOGIST_NAME_1}}')
+    expect(deriveSpecialtyToken('Pediatric Gastroenterology')).toBe('{{PEDIATRIC_GI_NAME_1}}')
+    expect(deriveSpecialtyToken(undefined)).toBe('{{PRESCRIBER_NAME_1}}')
+  })
+
+  it('shifts clinical dates by a constant offset preserving exact intervals', () => {
+    const out = shiftClinicalDates('Consult 05/28/2026 and follow-up 06/02/2026.', -42)
+    expect(out.count).toBe(2)
+    expect(out.text).toBe('04/16/2026 [shifted -42d] and follow-up 04/21/2026 [shifted -42d].'.replace(/^/, 'Consult '))
+  })
+
+  it('computes specialty token, shifted date count, and actual residual leak check', () => {
+    const client = initialClients.find(c => c.scenarioId === 'gilead-livdelzi')!
+    const sc = scenarios['gilead-livdelzi']
+    const ctx = resolvePatientContext(sc, client)
+    const meta = buildEvalPlaneTokenization(
+      [{ text: `Consult 05/28/2026 for ${ctx.patientName}.` }],
+      ctx,
+      -42,
+    )
+    expect(meta.specialtyToken).toBe('{{HEPATOLOGIST_NAME_1}}')
+    expect(meta.dateOffsetDays).toBe(-42)
+    expect(meta.shiftedSampleCount).toBe(1)
+    expect(meta.residualHeld).toBe(false)
   })
 })

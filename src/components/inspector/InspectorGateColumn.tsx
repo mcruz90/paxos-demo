@@ -6,7 +6,7 @@ import { CapabilityChip } from '../live/CapabilityChip'
 import type { LiveStep } from '../poc/live/appealEvents'
 import { StepList } from '../poc/live/StepList'
 import { TierBadge } from '../ui'
-import { type GateAssertion, buildGateAssertions, buildRunMetadata } from './inspectorModel'
+import { type GateAssertion, CLEARAUTH_EVAL_STAGES, DUAL_REVIEWER_KAPPA, buildGateAssertions, buildRunMetadata } from './inspectorModel'
 
 function GateRow({
   gate,
@@ -89,6 +89,20 @@ function BenchmarkPreviewCard({ drugKey }: { drugKey: string }) {
             </div>
           </div>
         ))}
+      </div>
+      <div className="pt-2.5 border-t border-slate-800/80 space-y-1.5">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="font-semibold text-slate-300">6-Stage Pipeline Harness</span>
+          <span className="font-mono text-emerald-300">Dual-Reviewer κ = {DUAL_REVIEWER_KAPPA.kappa}</span>
+        </div>
+        <div className="space-y-1 font-mono text-[10px]">
+          {CLEARAUTH_EVAL_STAGES.map(s => (
+            <div key={s.module} className="flex items-center justify-between gap-2 text-slate-400">
+              <span className="truncate">{s.module} (n={s.n})</span>
+              <span className="shrink-0 text-slate-300">{s.scorePct}% <span className="text-slate-500">[{s.ci95}]</span></span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
