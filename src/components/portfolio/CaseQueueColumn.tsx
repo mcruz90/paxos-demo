@@ -4,6 +4,7 @@ import { type Client } from '../../types'
 import { DueBadge, InfoHint, StageBadge, StatusBadge, TargetBadge } from '../ui'
 import { type ActionGroup, type StageFilter, type UrgencyFilter, countActionable, tourIdFor } from './caseQueue'
 import { QueueFilterBar } from './QueueFilterBar'
+import { resolveRegulatoryClock } from './regulatoryClocks'
 
 function ctaForStatus(status: Client['status']): { label: string; cls: string } {
   if (status === 'exception') return { label: 'Resolve Exception', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/35 group-hover:bg-amber-500/25' }
@@ -19,7 +20,7 @@ function KpiStrip({ clients }: { clients: Client[] }) {
   const cards = [
     { label: 'Total Roster', value: clients.length, sub: 'Fixture queue synced', tone: 'text-slate-100' },
     { label: 'Needs Action', value: actionableCount, sub: 'Awaiting coordinator review', tone: actionableCount > 0 ? 'text-amber-300' : 'text-slate-100' },
-    { label: 'Due Today · Statutory SLA', value: dueTodayCount, sub: 'CMS-0057-F 72h expedited', tone: dueTodayCount > 0 ? 'text-red-300' : 'text-slate-100' },
+    { label: 'Due Today · Statutory SLA', value: dueTodayCount, sub: 'Part D / Commercial Rx & Medical clocks', tone: dueTodayCount > 0 ? 'text-red-300' : 'text-slate-100' },
     { label: 'Ready for Sign-Off', value: readyCount, sub: 'Checklist addressed', tone: readyCount > 0 ? 'text-emerald-300' : 'text-slate-100' },
   ]
   return (
@@ -53,6 +54,7 @@ function QueueRow({
   const metCrit = scenario?.criteriaResults.filter(r => r.status === 'found').length ?? 0
   const pct = totalCrit > 0 ? Math.round((metCrit / totalCrit) * 100) : 0
   const cta = ctaForStatus(client.status)
+  const clock = resolveRegulatoryClock(client, scenario)
   const borderAccent = client.urgency === 'today' ? 'border-l-4 border-l-red-500' : client.urgency === 'soon' ? 'border-l-4 border-l-amber-500' : 'border-l-4 border-l-slate-700'
 
   return (
@@ -97,9 +99,9 @@ function QueueRow({
       </div>
       <div className="lg:col-span-2 min-w-0 space-y-1">
         <DueBadge deadline={client.deadline} urgency={client.urgency} />
-        <p className="text-[10px] text-slate-500 flex items-center gap-1 leading-tight">
-          <Clock className="w-3 h-3 shrink-0" />
-          <span className="truncate">{client.urgency === 'today' ? 'CMS-0057-F 72h Expedited' : 'Standard 7d Window'}</span>
+        <p className="text-[10px] text-slate-500 flex items-start gap-1 leading-tight">
+          <Clock className="w-3 h-3 shrink-0 mt-0.5" />
+          <span className="leading-tight" title={clock.authority}>{clock.authority} · {clock.windowLabel}</span>
         </p>
       </div>
       <div className="lg:col-span-2 flex lg:justify-end">
