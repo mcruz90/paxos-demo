@@ -1,0 +1,61 @@
+import { describe, expect, it } from 'vitest'
+import { scenarios } from '../../data/scenarios'
+import { buildVerificationStates, resolveLetterNarrative } from './letterNarrative'
+
+describe('resolveLetterNarrative', () => {
+  const appeal = scenarios['novo-ozempic']
+  const initial = scenarios['novo-ozempic-initial']
+
+  it('prefers editedNarrative as unsaved_local_edit over generatedLetter and template', () => {
+    const res = resolveLetterNarrative({
+      scenario: appeal,
+      generatedLetter: 'Generated server letter',
+      editedNarrative: 'Clinician edited draft text',
+    })
+    expect(res).toEqual({ text: 'Clinician edited draft text', source: 'unsaved_local_edit' })
+  })
+
+  it('prefers generatedLetter as generated_artifact when no local edit exists', () => {
+    const res = resolveLetterNarrative({
+      scenario: appeal,
+      generatedLetter: 'Real streamed server artifact',
+    })
+    expect(res).toEqual({ text: 'Real streamed server artifact', source: 'generated_artifact' })
+  })
+
+  it('falls back to fixture_template for initial PA and appeal scenarios', () => {
+    const appealRes = resolveLetterNarrative({ scenario: appeal })
+    expect(appealRes.source).toBe('fixture_template')
+    expect(appealRes.text).toContain(appeal.denialReason)
+
+    const initRes = resolveLetterNarrative({ scenario: initial })
+    expect(initRes.source).toBe('fixture_template')
+    expect(initRes.text.length).toBeGreaterThan(20)
+  })
+})
+
+describe('buildVerificationStates', () => {
+  const livdelzi = scenarios['gilead-livdelzi']
+  const ozempic = scenarios['novo-ozempic']
+
+  it('separates citation, source, contradiction, gate, and approval states without universal safety claims', () => {
+    const st = buildVerificationStates({ scenario: livdelzi })
+    expect(st.citationStatus).toMatch(/^\d+\/\d+ cited$/)
+    expect(st.sourceStatus).toBe('Citation excerpt only')
+    expect(st.contradictionStatus).toBe('1 open contradiction(s)')
+    expect(st.gateStatus).toBe('Not evaluated')
+    expect(st.approvalStatus).toBe('Unsigned draft — pending human approval')
+  })
+
+  it('marks edited drafts as unsaved local draft and surfaces explicit gate resolution when evaluated', () => {
+    const st = buildVerificationStates({
+      scenario: ozempic,
+      editedNarrative: 'edited paragraph',
+      gateResolution: 'plan_id',
+    })
+    expect(st.sourceStatus).toBe('Full documents indexed')
+    expect(st.contradictionStatus).toBe('0 open in checklist')
+    expect(st.gateStatus).toBe('plan_id')
+    expect(st.approvalStatus).toBe('Unsaved local draft — not validated')
+  })
+})
