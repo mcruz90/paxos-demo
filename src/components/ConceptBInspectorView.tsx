@@ -72,14 +72,14 @@ function InspectorHeader({
           <button
             type="button"
             onClick={() => onSetSubTab('trace')}
-            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${subTab === 'trace' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${subTab === 'trace' ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
           >
             3-Column Case Trace
           </button>
           <button
             type="button"
             onClick={() => onSetSubTab('quality')}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${subTab === 'quality' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${subTab === 'quality' ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
           >
             <BarChart2 className="w-3.5 h-3.5" />
             Pipeline Quality Report

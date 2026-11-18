@@ -28,7 +28,7 @@ import { WorkflowSpecView } from './WorkflowSpecView'
 
 function ShellViewRouter({
   view, portfolioEl, handleSetView, openCase, instrStore, startTour, handleRoleChange,
-  inspectScenarioId, setInspectScenarioId, live, manifest,
+  inspectScenarioId, setInspectScenarioId, handleInspectInBuild, live, manifest,
 }: {
   view: View
   portfolioEl: React.ReactNode
@@ -39,6 +39,7 @@ function ShellViewRouter({
   handleRoleChange: (r: Role) => void
   inspectScenarioId: string
   setInspectScenarioId: (sid: string) => void
+  handleInspectInBuild: (sid: string) => void
   live?: LiveShellSession
   manifest: ReturnType<typeof buildManifest>
 }) {
@@ -48,15 +49,15 @@ function ShellViewRouter({
     case 'poc':          return <>{portfolioEl}</>
     case 'build_home':   return <BuildOverview setView={handleSetView} />
     case 'library':      return <LibraryView setView={handleSetView} />
-    case 'evals':        return <EvalDashboard mode="coordinator_only" />
-    case 'automation':   return <AutomationPolicyView />
+    case 'evals':        return <EvalDashboard mode="coordinator_only" onOpenCase={openCase} />
+    case 'automation':   return <AutomationPolicyView onOpenCase={openCase} />
     case 'onboarding':   return <OnboardingView setView={handleSetView} />
     case 'platform':     return <PlatformView setView={handleSetView} />
     case 'sponsor':      return <SponsorView />
-    case 'failures':     return <FailureReviewView setView={handleSetView} store={instrStore} />
-    case 'specs':        return <WorkflowSpecView />
+    case 'failures':     return <FailureReviewView setView={handleSetView} store={instrStore} onInspectScenario={handleInspectInBuild} />
+    case 'specs':        return <WorkflowSpecView onInspectScenario={handleInspectInBuild} />
     case 'instructions': return <AgentInstructionsView store={instrStore} />
-    case 'rubric':       return <EvalRubricView setView={handleSetView} onOpenCase={openCase} />
+    case 'rubric':       return <EvalRubricView setView={handleSetView} onOpenCase={openCase} onInspectScenario={handleInspectInBuild} />
     case 'inspector':
       return <ConceptBInspectorView selectedScenarioId={inspectScenarioId} onSelectScenarioId={setInspectScenarioId} live={live} manifest={manifest} />
   }
@@ -180,7 +181,7 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
           isCollapsed={isSidebarCollapsed} onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)} modeBadge={modeBadge} />
         <ShellViewRouter view={view} portfolioEl={portfolioEl} handleSetView={handleSetView} openCase={openCase}
           instrStore={instrStore} startTour={startTour} handleRoleChange={handleRoleChange} inspectScenarioId={inspectScenarioId}
-          setInspectScenarioId={setInspectScenarioId} live={live} manifest={manifest} />
+          setInspectScenarioId={setInspectScenarioId} handleInspectInBuild={handleInspectInBuild} live={live} manifest={manifest} />
       </div>
     </div>
   )
