@@ -21,13 +21,27 @@ describe('buildDisputeResolverContext', () => {
     expect(ctx.options.some(o => o.detail.includes('20mg'))).toBe(true)
   })
 
+  it('does not preselect any option in dispute or criterion mode', () => {
+    const disputeCtx = buildDisputeResolverContext(esomeprazole)!
+    expect(disputeCtx.options.every(o => o.preselected === false)).toBe(true)
+
+    const crit = humira.criteriaResults.find(c => c.status === 'needs_review')!
+    const critCtx = buildCriterionResolverContext(humira, crit)
+    expect(critCtx.options.every(o => o.preselected === false)).toBe(true)
+  })
+
   it('surfaces the real guideline citation as a discoverable hit (PMID from fixture)', () => {
     const ctx = buildDisputeResolverContext(esomeprazole)!
     expect(ctx.guidelineHits).toHaveLength(1)
+    expect(ctx.guidelineHits[0].id).toBe('guideline:29470322')
+    expect(ctx.guidelineHits[0].category).toBe('Clinical Guideline')
+    expect(ctx.guidelineHits[0].effectiveDate).toBe('2018')
+    expect(ctx.guidelineHits[0].accessLevel).toBe('Local golden-set corpus')
     expect(ctx.guidelineHits[0].pmid).toBe('29470322')
     expect(ctx.guidelineHits[0].ref).toContain('NASPGHAN')
     // Real PMID ⇒ real, clickable PubMed URL for the clinician to read in full
     expect(ctx.guidelineHits[0].url).toBe('https://pubmed.ncbi.nlm.nih.gov/29470322/')
+    expect(ctx.options.some(o => o.id === 'guideline:29470322')).toBe(true)
   })
 
   it('builds doc-chat suggestions from the researched fixture, never invention', () => {
