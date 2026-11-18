@@ -20,9 +20,9 @@ export function defaultDocId(docs: SourceDocument[]): string | null {
   return docs[0]?.id ?? null
 }
 
-// Returns authored sourceDocuments when present, or synthesizes structured
-// chart documents directly from the scenario's verified citations and conflict
-// excerpts so every patient case renders full source records in the right pane.
+// Returns authored sourceDocuments when present, or builds citation-excerpt
+// views from scenario citations so cases without full source records are
+// labeled honestly as excerpts with no full document on file.
 export function ensureSourceDocuments(scenario: ScenarioConfig): SourceDocument[] {
   if (scenario.sourceDocuments && scenario.sourceDocuments.length > 0) {
     return scenario.sourceDocuments
@@ -39,7 +39,7 @@ export function ensureSourceDocuments(scenario: ScenarioConfig): SourceDocument[
         page: cite.page,
         blocks: [
           {
-            text: `Clinical Record — ${cite.source} · Diagnosis: ${scenario.diagnosis} · Requested Therapy: ${scenario.requestedTherapy ?? scenario.drug}`,
+            text: `Citation Excerpt (${cite.source}) — no full source document on file · Diagnosis: ${scenario.diagnosis} · Requested Therapy: ${scenario.requestedTherapy ?? scenario.drug}`,
           },
         ],
       }
@@ -65,7 +65,7 @@ export function ensureSourceDocuments(scenario: ScenarioConfig): SourceDocument[
       id: `doc-${slug || idx}`,
       title: source,
       source,
-      meta: `${data.page} · EHR record · ${scenario.plan}`,
+      meta: `${data.page} · Citation excerpt (no full document) · ${scenario.plan}`,
       blocks: data.blocks,
     })
     idx += 1

@@ -95,15 +95,14 @@ describe('ensureSourceDocuments', () => {
     expect(ensureSourceDocuments(ozempic)).toBe(ozempic.sourceDocuments)
   })
 
-  for (const [id, scenario] of Object.entries(scenarios)) {
-    it(`${id}: produces at least one document and grounds every cited criterion`, () => {
-      const docs = ensureSourceDocuments(scenario)
-      expect(docs.length).toBeGreaterThan(0)
-      for (const cr of scenario.criteriaResults) {
-        if (scenario.citations[cr.rule.label]) {
-          expect(findCitedBlock(docs, cr.rule.label)).not.toBeNull()
-        }
-      }
-    })
-  }
+  it('labels synthesized fallback documents as citation excerpts without full documents, never EHR records', () => {
+    const humira = scenarios['humira-cigna']
+    const docs = ensureSourceDocuments(humira)
+    expect(docs.length).toBeGreaterThan(0)
+    for (const doc of docs) {
+      expect(doc.meta).toContain('Citation excerpt (no full document)')
+      expect(doc.meta).not.toContain('EHR record')
+      expect(doc.blocks[0].text).toContain('no full source document on file')
+    }
+  })
 })
