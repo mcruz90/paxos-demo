@@ -108,11 +108,14 @@ html.light .text-white {
   color: #0f172a;
 }
 
-/* Preserve white text on/inside plum-colored surfaces (buttons, logo) */
+/* Preserve white text on solid primary/action buttons and badges */
 html.light .bg-emerald-500 .text-white,
 html.light .bg-emerald-600 .text-white,
 html.light .bg-emerald-500.text-white,
-html.light .bg-emerald-600.text-white {
+html.light .bg-emerald-600.text-white,
+html.light .bg-amber-600.text-white,
+html.light .bg-violet-600.text-white,
+html.light .bg-blue-600.text-white {
   color: #ffffff;
 }
 
