@@ -23,10 +23,27 @@ export interface ActivityEntry {
 // queue view: workflows dispatched, findings overridden with a rationale, the
 // in-progress dispatch/override UI state, and the per-case activity log.
 // Local to the session (demo).
+export interface AttachedExcerpt {
+  id: string
+  title: string
+  detail: string
+}
+
+export interface FindingsDelta {
+  priorStatus: string
+  priorNote: string
+  reassessedStatus: string
+  attachedCount: number
+  rationale: string
+  at: string
+}
+
 export interface LocalCaseState {
   dispatched: string[]
   pendingDispatch: string[]
   overrides: Record<string, string>
+  attachedExcerpts?: Record<string, AttachedExcerpt[]>
+  findingsDeltas?: Record<string, FindingsDelta>
   pendingOverride: string | null
   overrideInput: string
   activity: ActivityEntry[]
@@ -37,6 +54,8 @@ export const EMPTY_LOCAL_CASE_STATE: LocalCaseState = {
   dispatched: [],
   pendingDispatch: [],
   overrides: {},
+  attachedExcerpts: {},
+  findingsDeltas: {},
   pendingOverride: null,
   overrideInput: '',
   activity: [],

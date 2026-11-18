@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react'
 import { type PatientContext, type ScenarioConfig } from '../../types'
-import { buildVerificationStates, resolveLetterNarrative } from './letterNarrative'
-import { BlockedDraftBanner, CitationPill, CitedCriterionRow, LetterVerificationBar } from './LetterPreviewParts'
+import {
+  buildRevisionInfo,
+  buildVerificationStates,
+  computeNarrativeDiff,
+  resolveLetterNarrative,
+  runLocalRevisionCheck,
+} from './letterNarrative'
+import {
+  BlockedDraftBanner,
+  CitationPill,
+  CitedCriterionRow,
+  LetterVerificationBar,
+  RevisionDiffCard,
+} from './LetterPreviewParts'
 
 function LetterHeaderBlock({ scenario, patientContext, dateStr, isInitial }: {
   scenario: ScenarioConfig; patientContext: PatientContext; dateStr: string; isInitial: boolean
@@ -23,15 +35,9 @@ function LetterHeaderBlock({ scenario, patientContext, dateStr, isInitial }: {
 }
 
 function NarrativeSection({ mode, scenario, resolved, draftText, setDraftText, selectedCiteIndex, onSelectCiteIndex, onSave, onCancel }: {
-  mode: 'verify' | 'edit'
-  scenario: ScenarioConfig
-  resolved: ReturnType<typeof resolveLetterNarrative>
-  draftText: string
-  setDraftText: (v: string) => void
-  selectedCiteIndex: number | null
-  onSelectCiteIndex: (idx: number | null) => void
-  onSave: () => void
-  onCancel: () => void
+  mode: 'verify' | 'edit'; scenario: ScenarioConfig; resolved: ReturnType<typeof resolveLetterNarrative>
+  draftText: string; setDraftText: (v: string) => void; selectedCiteIndex: number | null
+  onSelectCiteIndex: (idx: number | null) => void; onSave: () => void; onCancel: () => void
 }) {
   if (mode === 'edit') {
     return (
@@ -40,7 +46,7 @@ function NarrativeSection({ mode, scenario, resolved, draftText, setDraftText, s
         <textarea value={draftText} onChange={e => setDraftText(e.target.value)} rows={5} className="w-full rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm text-slate-900 focus:outline-none focus:border-emerald-600 leading-relaxed" />
         <div className="flex items-center justify-end gap-2">
           <button type="button" onClick={onCancel} className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
-          <button type="button" onClick={onSave} className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold">Save Local Draft</button>
+          <button type="button" onClick={onSave} className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold">Save Local Draft (Rev 2)</button>
         </div>
       </div>
     )
@@ -49,7 +55,7 @@ function NarrativeSection({ mode, scenario, resolved, draftText, setDraftText, s
     <div className="space-y-1.5">
       {resolved.source === 'unsaved_local_edit' && (
         <p className="font-sans text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1 inline-block">
-          Unsaved local draft — not validated against source citations
+          Unsaved local draft (Rev 2) — not validated against source citations
         </p>
       )}
       <p className="text-slate-700 leading-relaxed text-sm">
@@ -71,20 +77,41 @@ export function LetterPreview({
   generatedLetter?: string; gateResolution?: string | null; editedNarrative?: string; onSaveNarrative?: (text: string) => void
 }) {
   const [mode, setMode] = useState<'verify' | 'edit'>('verify')
+  const [showDiff, setShowDiff] = useState(false)
+  const [locallyCheckedRev2, setLocallyCheckedRev2] = useState(false)
+  const [checkSummary, setCheckSummary] = useState<{ passed: boolean; detail: string } | null>(null)
+
   const isInitial = scenario.lifecycle === 'initial_pa'
+  const baseline = resolveLetterNarrative({ scenario, generatedLetter })
   const resolved = resolveLetterNarrative({ scenario, generatedLetter, editedNarrative })
   const [draftText, setDraftText] = useState(resolved.text)
 
-  useEffect(() => { setDraftText(resolved.text); setMode('verify') }, [scenario.id, resolved.text])
+  useEffect(() => {
+    setDraftText(resolved.text); setMode('verify'); setShowDiff(false); setLocallyCheckedRev2(false); setCheckSummary(null)
+  }, [scenario.id, resolved.text])
 
   const states = buildVerificationStates({ scenario, editedNarrative, gateResolution })
+  const revisionInfo = buildRevisionInfo({ baselineText: baseline.text, editedNarrative, locallyCheckedRev2 })
+  const diff = computeNarrativeDiff(baseline.text, resolved.text)
   const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-  const handleSaveEdits = () => { if (draftText.trim()) { onSaveNarrative?.(draftText.trim()); setMode('verify') } }
+
+  const handleSaveEdits = () => { if (draftText.trim()) { onSaveNarrative?.(draftText.trim()); setMode('verify'); setLocallyCheckedRev2(false); setCheckSummary(null) } }
+  const handleRunLocalCheck = () => {
+    const res = runLocalRevisionCheck({ text: resolved.text, scenario })
+    setLocallyCheckedRev2(res.passed); setShowDiff(true)
+    setCheckSummary({
+      passed: res.passed,
+      detail: res.passed
+        ? 'Local structure check passed: drug and diagnosis remain present in Rev 2 (server validation still required before filing).'
+        : 'Local structure check flagged missing drug or diagnosis token in Rev 2 edit.',
+    })
+  }
 
   return (
     <div className="space-y-3">
       {blocked && <BlockedDraftBanner onGoToChecklist={onGoToChecklist} />}
-      <LetterVerificationBar states={states} isEdited={resolved.source === 'unsaved_local_edit'} mode={mode} onSetMode={m => { if (m === 'edit') setDraftText(resolved.text); setMode(m) }} />
+      <LetterVerificationBar states={states} revisionInfo={revisionInfo} showDiff={showDiff} onToggleDiff={() => setShowDiff(v => !v)} onRunLocalCheck={handleRunLocalCheck} mode={mode} onSetMode={m => { if (m === 'edit') setDraftText(resolved.text); setMode(m) }} />
+      {revisionInfo.isEdited && (showDiff || checkSummary) && <RevisionDiffCard baseline={diff.baseline} edited={diff.edited} checkSummary={checkSummary} />}
       <div className="paper bg-white rounded-xl p-7 shadow-inner text-slate-800 font-serif text-sm leading-relaxed border border-slate-200">
         <div className="space-y-4 text-left select-text">
           <h1 className="text-lg font-bold font-sans text-slate-900">{isInitial ? 'Prior Authorization Request' : 'Prior Authorization Appeal Letter'}</h1>
@@ -100,9 +127,7 @@ export function LetterPreview({
             ))}
           </div>
           {!isInitial && (
-            <p>
-              Based on the documented clinical evidence, we respectfully request that the prior authorization for <strong>{scenario.drug}</strong> be approved as medically necessary for <strong>{scenario.diagnosis}</strong>.
-            </p>
+            <p>Based on the documented clinical evidence, we respectfully request that the prior authorization for <strong>{scenario.drug}</strong> be approved as medically necessary for <strong>{scenario.diagnosis}</strong>.</p>
           )}
           <div className="pt-2">
             <p>Sincerely,</p>

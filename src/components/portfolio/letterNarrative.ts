@@ -16,6 +16,12 @@ export interface VerificationStates {
   approvalStatus: string
 }
 
+export interface RevisionInfo {
+  revisionLabel: string
+  isEdited: boolean
+  localCheckLabel: string
+}
+
 export function resolveLetterNarrative({
   scenario,
   generatedLetter,
@@ -59,4 +65,41 @@ export function buildVerificationStates({
     gateStatus: gateResolution && gateResolution.trim().length > 0 ? gateResolution : 'Not evaluated',
     approvalStatus: editedNarrative ? 'Unsaved local draft — not validated' : 'Unsigned draft — pending human approval',
   }
+}
+
+export function buildRevisionInfo({
+  baselineText,
+  editedNarrative,
+  locallyCheckedRev2,
+}: {
+  baselineText: string
+  editedNarrative?: string
+  locallyCheckedRev2: boolean
+}): RevisionInfo {
+  if (!editedNarrative || editedNarrative.trim() === baselineText.trim()) {
+    return { revisionLabel: 'Rev 1 · AI Draft', isEdited: false, localCheckLabel: 'Baseline template' }
+  }
+  return {
+    revisionLabel: 'Rev 2 · Clinician Edit',
+    isEdited: true,
+    localCheckLabel: locallyCheckedRev2 ? 'Local structure checked (not backend gate)' : 'Validation Required',
+  }
+}
+
+export function computeNarrativeDiff(baselineText: string, editedText: string) {
+  return {
+    baseline: baselineText.trim(),
+    edited: editedText.trim(),
+    changed: baselineText.trim() !== editedText.trim(),
+  }
+}
+
+export function runLocalRevisionCheck({ text, scenario }: { text: string; scenario: ScenarioConfig }) {
+  const lower = text.toLowerCase()
+  const drugToken = scenario.drug.split(' ')[0].toLowerCase()
+  const dxCode = scenario.diagnosis.match(/[A-Z]\d{2}(?:\.\d+)?/i)?.[0]?.toLowerCase()
+  const dxPrefix = scenario.diagnosis.split(' ')[0].toLowerCase()
+  const hasDrug = lower.includes(drugToken)
+  const hasDiagnosis = (dxCode ? lower.includes(dxCode) : false) || lower.includes(dxPrefix)
+  return { hasDrug, hasDiagnosis, passed: hasDrug && hasDiagnosis }
 }

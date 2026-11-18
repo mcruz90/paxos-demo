@@ -152,6 +152,7 @@ export interface SourceDocument {
   source: string    // classified by documentKind() for the letterhead/icon
   meta: string      // provenance line: 'encounter 02/08/2024 · p.1 · Epic'
   blocks: SourceDocBlock[]
+  patientMismatchHold?: { detectedName: string; expectedName: string; reason: string }
 }
 
 // How close a case is to its regulatory turnaround deadline — drives queue

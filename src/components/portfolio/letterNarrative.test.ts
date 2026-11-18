@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { scenarios } from '../../data/scenarios'
-import { buildVerificationStates, resolveLetterNarrative } from './letterNarrative'
+import {
+  buildRevisionInfo,
+  buildVerificationStates,
+  computeNarrativeDiff,
+  resolveLetterNarrative,
+  runLocalRevisionCheck,
+} from './letterNarrative'
 
 describe('resolveLetterNarrative', () => {
   const appeal = scenarios['novo-ozempic']
@@ -57,5 +63,35 @@ describe('buildVerificationStates', () => {
     expect(st.contradictionStatus).toBe('0 open in checklist')
     expect(st.gateStatus).toBe('plan_id')
     expect(st.approvalStatus).toBe('Unsaved local draft — not validated')
+  })
+})
+
+describe('revision tracking, narrative diff & local structure check', () => {
+  const ozempic = scenarios['novo-ozempic']
+
+  it('tracks Rev 1 AI Draft vs Rev 2 Clinician Edit and local validation state', () => {
+    expect(buildRevisionInfo({ baselineText: 'orig', editedNarrative: undefined, locallyCheckedRev2: false })).toEqual({
+      revisionLabel: 'Rev 1 · AI Draft',
+      isEdited: false,
+      localCheckLabel: 'Baseline template',
+    })
+    expect(buildRevisionInfo({ baselineText: 'orig', editedNarrative: 'edited', locallyCheckedRev2: false })).toEqual({
+      revisionLabel: 'Rev 2 · Clinician Edit',
+      isEdited: true,
+      localCheckLabel: 'Validation Required',
+    })
+    expect(buildRevisionInfo({ baselineText: 'orig', editedNarrative: 'edited', locallyCheckedRev2: true }).localCheckLabel).toBe(
+      'Local structure checked (not backend gate)',
+    )
+  })
+
+  it('computes changed lines/words summary between Rev 1 and Rev 2 and verifies drug/diagnosis retention', () => {
+    const diff = computeNarrativeDiff('Request for Ozempic in T2DM.', 'Request for Ozempic 0.5mg in E11.9 T2DM.')
+    expect(diff.baseline).toBe('Request for Ozempic in T2DM.')
+    expect(diff.edited).toBe('Request for Ozempic 0.5mg in E11.9 T2DM.')
+    expect(diff.changed).toBe(true)
+
+    expect(runLocalRevisionCheck({ text: `Appeal for ${ozempic.drug} treating ${ozempic.diagnosis}`, scenario: ozempic }).passed).toBe(true)
+    expect(runLocalRevisionCheck({ text: 'Unrelated generic note', scenario: ozempic }).passed).toBe(false)
   })
 })

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AlertTriangle, Mail, X } from 'lucide-react'
+import { type AttachedExcerpt } from './caseQueue'
 import { type ResolverContext, assembleJustification } from './exceptionResolver'
 import { EvidenceDiscoveryConsole } from './EvidenceDiscoveryConsole'
 import { ConflictComparisonCard, JustificationOptions, JustifyPathToggle, SelectedEvidenceStrip, WorkflowQueryCard } from './ResolverPanes'
@@ -17,9 +18,7 @@ function ResolverHeader({ ctx, onClose }: { ctx: ResolverContext; onClose: () =>
           {ctx.conflictSources?.length ? <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" /> : <Mail className="w-4 h-4 text-amber-400 shrink-0" />}
           <h2 className="text-base font-bold text-white truncate">{ctx.title}</h2>
         </div>
-        <p className={`text-xs text-slate-400 mt-1 leading-relaxed max-w-3xl ${isLong && !showPolicy ? 'line-clamp-2' : ''}`}>
-          {ctx.policyNote}
-        </p>
+        <p className={`text-xs text-slate-400 mt-1 leading-relaxed max-w-3xl ${isLong && !showPolicy ? 'line-clamp-2' : ''}`}>{ctx.policyNote}</p>
         {isLong && (
           <button type="button" onClick={() => setShowPolicy(v => !v)} className="text-[11px] text-blue-400 hover:underline mt-0.5">
             {showPolicy ? 'Hide policy detail' : 'Expand policy detail'}
@@ -34,48 +33,40 @@ function ResolverHeader({ ctx, onClose }: { ctx: ResolverContext; onClose: () =>
 }
 
 function ResolverFooter({
-  ctx,
-  path,
-  selectedCount,
-  canApply,
-  applyLabel,
-  onApply,
-  onClose,
+  ctx, path, selectedCount, canApply, applyLabel, canAttachOnly, onAttachOnly, onApply, onClose,
 }: {
-  ctx: ResolverContext
-  path: ResolutionPath | null
-  selectedCount: number
-  canApply: boolean
-  applyLabel: string
-  onApply: () => void
-  onClose: () => void
+  ctx: ResolverContext; path: ResolutionPath | null; selectedCount: number; canApply: boolean
+  applyLabel: string; canAttachOnly: boolean; onAttachOnly: () => void; onApply: () => void; onClose: () => void
 }) {
   const statusText = path === null
     ? 'Select a resolution action on the right to continue'
     : path === 'workflow'
       ? 'Query will be logged in Activity Log and case moves to Awaiting Documentation'
-      : `${selectedCount} local evidence item${selectedCount !== 1 ? 's' : ''} selected for clinician override rationale`
+      : `${selectedCount} local excerpt(s) staged — attach provisionally or reassess criterion`
 
   const buttonText = path === null
     ? 'Select an action above'
     : path === 'workflow' && ctx.workflow
       ? `Send Query to ${ctx.workflow.recipient}`
-      : applyLabel
+      : ctx.workflow ? 'Attach & Reassess Criterion' : applyLabel
 
   return (
-    <div className="flex items-center justify-between gap-3 px-6 py-3.5 border-t border-slate-800 bg-slate-950/60 shrink-0">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3.5 border-t border-slate-800 bg-slate-950/60 shrink-0">
       <p className="text-xs text-slate-400">{statusText}</p>
-      <div className="flex gap-2.5">
+      <div className="flex flex-wrap gap-2">
         <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-xs font-semibold border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors">
           Cancel
         </button>
+        {canAttachOnly && (
+          <button type="button" onClick={onAttachOnly} className="px-3.5 py-2 rounded-lg text-xs font-semibold border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 transition-colors">
+            Attach Excerpt Only (Keep Open)
+          </button>
+        )}
         <button
           type="button"
           onClick={onApply}
           disabled={!canApply}
-          className={`px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-40 text-white transition-colors ${
-            path === 'workflow' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-emerald-600 hover:bg-emerald-500'
-          }`}
+          className={`px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-40 text-white transition-colors ${path === 'workflow' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-emerald-600 hover:bg-emerald-500'}`}
         >
           {buttonText}
         </button>
@@ -85,25 +76,24 @@ function ResolverFooter({
 }
 
 export function ExceptionResolverModal({
-  ctx,
-  applyLabel,
-  onApply,
-  onClose,
+  ctx, applyLabel, initialAttached = [], initialPath, onAttachOnly, onApply, onClose,
 }: {
-  ctx: ResolverContext
-  applyLabel: string
-  onApply: (justification: string, path: ResolutionPath) => void
+  ctx: ResolverContext; applyLabel: string; initialAttached?: AttachedExcerpt[]; initialPath?: ResolutionPath
+  onAttachOnly?: (excerpts: AttachedExcerpt[]) => void
+  onApply: (justification: string, path: ResolutionPath, excerpts: AttachedExcerpt[]) => void
   onClose: () => void
 }) {
-  const [selected, setSelected] = useState<string[]>(ctx.options.filter(o => o.preselected).map(o => o.id))
+  const preIds = Array.from(new Set([...ctx.options.filter(o => o.preselected).map(o => o.id), ...initialAttached.map(e => e.id)]))
+  const [selected, setSelected] = useState<string[]>(preIds)
   const [custom, setCustom] = useState('')
-  const [path, setPath] = useState<ResolutionPath | null>(ctx.workflow ? null : 'justify')
+  const [path, setPath] = useState<ResolutionPath | null>(initialPath ?? (ctx.workflow ? null : 'justify'))
 
   const toggle = (id: string) => setSelected(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
-  const attach = (id: string) => {
-    if (!selected.includes(id)) setSelected(prev => [...prev, id])
-    setPath('justify')
-  }
+  const attach = (id: string) => { if (!selected.includes(id)) setSelected(prev => [...prev, id]); setPath('justify') }
+  const attachedExcerpts: AttachedExcerpt[] = selected.map(id => {
+    const opt = ctx.options.find(o => o.id === id)
+    return { id, title: opt?.title ?? id, detail: opt?.detail ?? id }
+  })
 
   const justification = assembleJustification(ctx, selected, custom)
   const canApply = path === 'workflow' ? true : path === 'justify' && justification.length > 0
@@ -122,23 +112,16 @@ export function ExceptionResolverModal({
             {ctx.workflow && <WorkflowQueryCard workflow={ctx.workflow} active={path === 'workflow'} onSelect={() => setPath('workflow')} />}
             {ctx.workflow && <JustifyPathToggle active={path === 'justify'} onSelect={() => setPath('justify')} />}
             <JustificationOptions
-              options={ctx.options}
-              selected={selected}
-              onToggle={toggle}
-              custom={custom}
-              onCustomChange={setCustom}
-              dimmed={!!ctx.workflow && path !== 'justify'}
-              onActivateJustify={() => setPath('justify')}
+              options={ctx.options} selected={selected} onToggle={toggle} custom={custom} onCustomChange={setCustom}
+              dimmed={!!ctx.workflow && path !== 'justify'} onActivateJustify={() => setPath('justify')}
             />
           </div>
         </div>
         <ResolverFooter
-          ctx={ctx}
-          path={path}
-          selectedCount={selected.length}
-          canApply={canApply}
-          applyLabel={applyLabel}
-          onApply={() => { if (path) onApply(justification, path) }}
+          ctx={ctx} path={path} selectedCount={selected.length} canApply={canApply} applyLabel={applyLabel}
+          canAttachOnly={!!onAttachOnly && path === 'justify' && selected.length > 0}
+          onAttachOnly={() => onAttachOnly?.(attachedExcerpts)}
+          onApply={() => { if (path) onApply(justification, path, attachedExcerpts) }}
           onClose={onClose}
         />
       </div>

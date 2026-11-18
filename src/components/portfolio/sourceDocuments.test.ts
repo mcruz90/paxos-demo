@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { scenarios } from '../../data/scenarios'
 import type { SourceDocument } from '../../types'
-import { defaultDocId, ensureSourceDocuments, findCitedBlock } from './sourceDocuments'
+import { defaultDocId, ensureSourceDocuments, findCitedBlock, flagMisfiledPages } from './sourceDocuments'
 
 const DOCS: SourceDocument[] = [
   {
@@ -104,5 +104,32 @@ describe('ensureSourceDocuments', () => {
       expect(doc.meta).not.toContain('EHR record')
       expect(doc.blocks[0].text).toContain('no full source document on file')
     }
+    const heldDoc = docs.find(d => d.patientMismatchHold)
+    expect(heldDoc?.id).toBe('doc-misfiled-hold')
+  })
+})
+
+describe('flagMisfiledPages & findCitedBlock safety guard', () => {
+  it('excludes wrong-patient held documents from citation lookups and flags mismatching names', () => {
+    const heldDocs: SourceDocument[] = flagMisfiledPages(
+      [
+        {
+          id: 'doc-wrong',
+          title: 'Misfiled Lab',
+          source: 'Quest Labs',
+          meta: 'p.1',
+          blocks: [{ text: 'Wrong patient text', criterionLabel: 'Diagnosis' }],
+          patientMismatchHold: {
+            detectedName: 'Arthur Pendelton',
+            expectedName: 'Diane Okafor',
+            reason: 'Header mismatch',
+          },
+        },
+        DOCS[0],
+      ],
+      'Diane Okafor',
+    )
+    expect(heldDocs[0].patientMismatchHold?.detectedName).toBe('Arthur Pendelton')
+    expect(findCitedBlock(heldDocs, 'Diagnosis')?.docId).toBe('doc-a')
   })
 })
