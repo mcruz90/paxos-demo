@@ -31,7 +31,7 @@ function ReadyForReviewFooter({
   // All criteria addressed → next step is generating the letter for human review.
   return (
     <div className="flex items-center gap-3 p-2.5 bg-emerald-500/10 border border-emerald-500/25 rounded-xl">
-      <p className="flex-1 text-xs text-emerald-200 leading-normal">
+      <p className="flex-1 text-xs text-emerald-300 leading-normal">
         ✓ <strong>Criteria checklist complete.</strong> Assemble and review the packet before filing.
       </p>
       <button type="button" onClick={onGoToLetter} className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
@@ -56,14 +56,14 @@ function StatusReceiptBar({
   if (client.status === 'submitted') {
     return (
       <div className="flex items-center justify-between gap-3 p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
-        <div className="flex items-center gap-2 text-xs text-emerald-200 min-w-0">
+        <div className="flex items-center gap-2 text-xs text-emerald-300 min-w-0">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span className="truncate">
             <strong>Prior Auth Submitted via Da Vinci PAS (X12 278)</strong>
             {scenario?.paOutcome ? ` · Determination ${scenario.paOutcome.determinationId} (${scenario.paOutcome.timeToTherapy})` : ''}
           </span>
         </div>
-        <button type="button" onClick={onPrint} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/15 transition-colors">
+        <button type="button" onClick={onPrint} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/15 transition-colors">
           <Printer className="w-3.5 h-3.5" /> Print Receipt
         </button>
       </div>
@@ -72,11 +72,11 @@ function StatusReceiptBar({
   if (client.status === 'awaiting_documentation') {
     return (
       <div className="flex items-center justify-between gap-3 p-2.5 bg-sky-500/10 border border-sky-500/25 rounded-xl">
-        <div className="flex items-center gap-2 text-xs text-sky-200 min-w-0">
+        <div className="flex items-center gap-2 text-xs text-sky-300 min-w-0">
           <Clock className="w-4 h-4 text-sky-400 shrink-0" />
           <span className="truncate"><strong>Outbound Provider Query Dispatched</strong> — parked awaiting documentation response.</span>
         </div>
-        <button type="button" onClick={onViewActivity} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-500/30 text-xs font-semibold text-sky-200 hover:bg-sky-500/15 transition-colors">
+        <button type="button" onClick={onViewActivity} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-500/30 text-xs font-semibold text-sky-300 hover:bg-sky-500/15 transition-colors">
           <ScrollText className="w-3.5 h-3.5" /> Activity Log
         </button>
       </div>
@@ -85,7 +85,7 @@ function StatusReceiptBar({
   if (client.status === 'payer_response') {
     return (
       <div className="flex items-center justify-between gap-3 p-2.5 bg-violet-500/10 border border-violet-500/25 rounded-xl">
-        <div className="flex items-center gap-2 text-xs text-violet-200 min-w-0">
+        <div className="flex items-center gap-2 text-xs text-violet-300 min-w-0">
           <AlertTriangle className="w-4 h-4 text-violet-400 shrink-0" />
           <span className="truncate"><strong>Payer Counter-Offer Received</strong> — dispute dosing or accept partial approval above.</span>
         </div>

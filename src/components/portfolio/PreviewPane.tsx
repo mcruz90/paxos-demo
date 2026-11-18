@@ -111,6 +111,7 @@ export function PreviewPane({
       {client.status === 'payer_response' && scenario.payerCounterOffer && (
         <PayerCounterOfferBanner
           offer={scenario.payerCounterOffer}
+          scenario={scenario}
           onDispute={() => { if (onOpenDisputeResolver) onOpenDisputeResolver(); else { onPayerDecision(client.scenarioId, 'disputed'); setActiveTab('letter') } }}
           onAccept={() => onPayerDecision(client.scenarioId, 'accepted')}
         />
@@ -132,7 +133,7 @@ export function PreviewPane({
             />
           )
         ) : activeTab === 'documents' ? (
-          <ChartQaTab client={client} scenario={scenario} docs={docs} qaSuggestions={qaSuggestions} activeDocId={activeDocId} onViewDoc={onViewDoc} activity={localState.activity} />
+          <ChartQaTab client={client} scenario={scenario} docs={docs} qaSuggestions={qaSuggestions} activeDocId={activeDocId} onViewDoc={onViewDoc} activity={localState.activity} localState={localState} />
         ) : (
           <PreviewChecklistTab timeline={scenario.timeline} activity={localState.activity} sortedCriteria={sortedCriteria} progress={progress} localState={localState} actions={actions} selectedCiteIndex={selectedCiteIndex} onSelectCiteIndex={onSelectCiteIndex} />
         )}
