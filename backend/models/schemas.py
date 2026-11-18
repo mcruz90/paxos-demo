@@ -24,6 +24,12 @@ from models.auth import (
     LoginResponse,
     MeResponse,
 )
+from models.case_evidence import (
+    CaseRecord,
+    EvidenceAttachment,
+    EvidenceAttachRequest,
+    SourceVersion,
+)
 from models.domain import (
     AppealHandoff,
     Citation,
@@ -71,6 +77,10 @@ from models.requests import (
 from models.tenancy import SEEDED_TENANT_ID
 
 __all__ = [
+    "CaseRecord",
+    "SourceVersion",
+    "EvidenceAttachRequest",
+    "EvidenceAttachment",
     # enums
     "RuleType",
     "CriterionStatus",
