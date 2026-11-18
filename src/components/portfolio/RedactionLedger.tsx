@@ -3,8 +3,9 @@ import { type RedactionEntry } from './redaction'
 
 // Slide-over that accounts for the PHI stripped before this document reached
 // the control plane: what category, how many, the token that replaced it, and
-// the Safe-Harbor basis — never the identifier itself. Auditable de-id without
-// re-exposing PHI. Renders over the document (parent must be `relative`).
+// the tokenization rule basis — never the identifier itself. Auditable
+// de-identification preview without re-exposing PHI. Renders over the document
+// (parent must be `relative`).
 export function RedactionLedger({
   entries,
   open,
