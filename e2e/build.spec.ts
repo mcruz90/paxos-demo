@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test'
 
 test('Ontology Library: lifecycle skeleton flowchart + primitives (dose units) + edit→sandbox', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Ontology Library' }).click()
+  await page.getByRole('banner').getByRole('button', { name: 'Build' }).click()
+  await page.getByRole('button', { name: 'Ontology Library', exact: true }).click()
 
   // Full PA lifecycle skeleton (not appeals-only) — scope to the skeleton so we
   // don't collide with the same words in the orientation copy / node badges.
@@ -20,7 +21,7 @@ test('Ontology Library: lifecycle skeleton flowchart + primitives (dose units) +
   await page.screenshot({ path: 'e2e/__screens__/skeleton-light.png', fullPage: true })
 
   // Universal Rule Primitives include the added dose units
-  await expect(page.getByText('Universal Rule Primitives')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Universal Rule Primitives' })).toBeVisible()
   await expect(page.getByText(/"mcg"/).first()).toBeVisible()
   await expect(page.getByText(/"mL"/).first()).toBeVisible()
 
@@ -32,7 +33,8 @@ test('Ontology Library: lifecycle skeleton flowchart + primitives (dose units) +
 
 test('Workflow Spec: escalation + human-review sections both present', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Workflow Spec' }).click()
+  await page.getByRole('banner').getByRole('button', { name: 'Build' }).click()
+  await page.getByRole('button', { name: 'Workflow Spec', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Escalation Paths' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Human-Review Steps' })).toBeVisible()
 })
