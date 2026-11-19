@@ -95,7 +95,7 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
     const nav = resolveSidebarNav(nextView, portfolioScenarioOverride, queueResetNonce)
     setPortfolioScenarioOverride(nav.override)
     setQueueResetNonce(nav.resetNonce)
-    if (!nav.collapseSidebar) setIsSidebarCollapsed(false)
+    if (nav.expandSidebar) setIsSidebarCollapsed(false)
     setView(nextView)
   }
 
