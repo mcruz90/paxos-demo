@@ -1,7 +1,9 @@
 # Case and evidence runtime contracts — infrastructure increment
 
-Status: contracts and pure attachment preparation only. No new live API, database,
-criteria reassessment or frontend capability is claimed by this increment.
+Status: contracts/pure attachment preparation are recorded locally. A separate
+case repository increment has real-database and full regression validation;
+Claude re-review remains a separate gate. No new live API, reassessment or
+frontend capability is claimed.
 PostgreSQL in a dedicated Docker service/volume is the agreed storage direction.
 
 The server's authenticated tenant and persistent patient/case identity scope every
@@ -43,3 +45,42 @@ are not authentication or a substitute for transactional integrity.
 Gemini owns UI implementation. Pydantic models are re-exported via models.schemas;
 once routes are added, OpenAPI-generated wire types remain the frontend contract
 (ADR-0012). Existing demo types and fixtures are not promoted to live by this change.
+
+## Case persistence boundary (separate increment)
+
+CaseAccess is a trusted server-resolved grant for one tenant/patient/actor. It is
+required at every repository read/write; there is no platform wildcard or default
+scope. It is not an HTTP model or an authorization factory. Future routes must
+derive it from authenticated tenant and panel authorization; constructing a model
+does not prove those grants. CaseCreateRequest accepts only idempotency_key;
+client-supplied case_id is forbidden. No new route is exposed by this increment.
+
+CaseRepository stages a case and a metadata-only case_created event in one
+transaction. Request identity is tenant + actor + operation + idempotency key.
+Identical retries replay the original creation revision even if the current case
+later changes. Key reuse for another patient conflicts. After the advisory lock
+and replay check, new requests receive a random UUIDv4; distinct keys create
+distinct cases. PostgreSQL case_id columns are uuid, with tenant_id + case_id
+primary/foreign keys. UUIDv7 and caller-chosen case ids are not used. Read ids
+are validated as bounded canonical UUIDv4 strings before SQL. Unique/FK
+constraints protect case/event identity.
+
+Creation requires TransactionStatus.INTRANS before any SQL/savepoint. IDLE,
+INERROR, ACTIVE and UNKNOWN are rejected as outer_transaction_required. The
+caller owns the outer transaction and must commit before reporting success.
+A repository return is not a durability acknowledgement: connection context exit
+can still fail. Audit-write failure rolls back case creation. Read and event
+queries both filter tenant AND patient AND case. Rehydration uses model_validate;
+invalid rows and driver failures produce metadata-only typed errors. Event rows
+are append-only through this repository; this is not a database-admin tamper-proof
+log. Existing pipeline audit/review stores remain unchanged and in memory.
+Invalid boundary input uses case_input_invalid, separately from driver failures
+and invalid stored records. There is only one creation event per case today;
+before adding revision-2 event types, add a database sequence and order by it
+instead of transaction-time plus random UUID. No total-order guarantee is claimed.
+
+Migration 0002 adds only case-creation events. Evidence/source repositories,
+optimistic evidence updates, findings, artifacts, approval/export and persistent
+pipeline audit remain future increments. No clinical facts or gold labels enter
+these infrastructure tests. Backend-canonical pediatric esomeprazole was selected
+by May on November 18 for subsequent clinical fixture work.
