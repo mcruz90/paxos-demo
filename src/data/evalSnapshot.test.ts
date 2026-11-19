@@ -5,6 +5,7 @@ import rawExampleSnapshot from './eval_snapshot.example.json'
 import evalSnapshotSchema from './eval_snapshot.schema.json'
 import {
   EVAL_SNAPSHOT_SOURCE_NOTE,
+  formatClearauthDecisionLabel,
   formatExactPValue,
   formatShortCommit,
   formatStageCount,
@@ -67,7 +68,7 @@ describe('eval_snapshot schema contract & generated TS types', () => {
   })
 })
 
-describe('real eval_snapshot.example.json invariants (ADR 0049)', () => {
+describe('real eval_snapshot.example.json invariants (clearauth-eval decision 0049)', () => {
   it('captures readiness, e2e, appeal_rubric, paired_prompts, and clocks accurately', () => {
     const parsed = parseEvalSnapshot(rawExampleSnapshot)
     expect(parsed.ok).toBe(true)
@@ -154,6 +155,15 @@ describe('snapshot formatting helpers', () => {
     expect(formatExactPValue(0.0000123)).toBe('1.2300e-5')
     expect(formatExactPValue(0.03125)).toBe('0.03125')
     expect(formatExactPValue(1)).toBe('1')
+  })
+
+  it('formats clearauth-eval decisions explicitly without colliding ADR prefix', () => {
+    const acceptedLabel = formatClearauthDecisionLabel({ number: '0014', status: 'Accepted' })
+    const proposedLabel = formatClearauthDecisionLabel({ number: '0047', status: "Proposed (needs May's review)" })
+    expect(acceptedLabel).toBe('clearauth-eval decision 0014 · Accepted')
+    expect(proposedLabel).toBe('clearauth-eval decision 0047 · Proposed')
+    expect(acceptedLabel).not.toContain('ADR')
+    expect(proposedLabel).not.toContain('ADR')
   })
 
   it('formats Wilson ranges and missing counts without substituting 0', () => {

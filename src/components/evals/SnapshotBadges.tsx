@@ -1,5 +1,5 @@
 import { CheckCircle2, Clock, GitCommit, Hammer, Layers } from 'lucide-react'
-import { EVAL_SNAPSHOT_SOURCE_NOTE, formatShortCommit, isDecisionAccepted } from '../../data/evalSnapshot'
+import { EVAL_SNAPSHOT_SOURCE_NOTE, formatClearauthDecisionLabel, formatShortCommit, isDecisionAccepted } from '../../data/evalSnapshot'
 import type { Decision, EvalSnapshot, SectionState, Stage } from '../../generated/evalSnapshotTypes'
 
 const SECTION_STATE_STYLE: Record<SectionState, { label: string; cls: string }> = {
@@ -45,7 +45,7 @@ export function DecisionStatusBadge({ decision }: { decision: Decision }) {
       title={decision.status}
       className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-mono border whitespace-nowrap ${cls}`}
     >
-      ADR {decision.number} · {accepted ? 'Accepted' : 'Proposed'}
+      {formatClearauthDecisionLabel(decision)}
     </span>
   )
 }

@@ -1,5 +1,5 @@
 import { CheckCircle2, Clock, Cpu, GitCommit, Link2, ShieldCheck, XCircle } from 'lucide-react'
-import { DEFAULT_EVAL_SNAPSHOT, EVAL_SNAPSHOT_SOURCE_NOTE, formatShortCommit, isDecisionAccepted, summarizeReadiness } from '../../data/evalSnapshot'
+import { DEFAULT_EVAL_SNAPSHOT, EVAL_SNAPSHOT_SOURCE_NOTE, formatClearauthDecisionLabel, formatShortCommit, summarizeReadiness } from '../../data/evalSnapshot'
 import type { DoneEvent } from '../../lib/wire'
 import type { ScenarioConfig } from '../../types'
 import type { LiveStep } from '../poc/live/appealEvents'
@@ -60,7 +60,6 @@ function SnapshotReadinessCompactCard() {
   const readyIds = snap.readiness.stages.filter(s => s.state === 'ready').map(s => s.id).join(', ')
   const appealRun = snap.e2e.runs.find(run => run.flow === 'appeal') ?? snap.e2e.runs[0]
   const judgeN = snap.appeal_rubric.dimensions.filter(d => d.kind === 'judge').reduce((m, d) => Math.max(m, d.calibration?.n ?? 0), 0)
-  const e2eStatus = isDecisionAccepted(snap.e2e.decision) ? 'Accepted' : 'Proposed'
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 space-y-2 text-[11px]">
@@ -78,7 +77,7 @@ function SnapshotReadinessCompactCard() {
       </p>
       {appealRun && (
         <p className="font-mono text-slate-400">
-          E2E ({appealRun.flow}): {appealRun.outcomes.pass}/{appealRun.cases} pass · {appealRun.outcomes.held} held · {appealRun.outcomes.silent} silent (ADR {snap.e2e.decision.number} {e2eStatus})
+          E2E ({appealRun.flow}): {appealRun.outcomes.pass}/{appealRun.cases} pass · {appealRun.outcomes.held} held · {appealRun.outcomes.silent} silent ({formatClearauthDecisionLabel(snap.e2e.decision)})
         </p>
       )}
       <p className="font-mono text-slate-400">

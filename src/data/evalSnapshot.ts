@@ -49,6 +49,10 @@ export function isDecisionAccepted(decision: Pick<Decision, 'status'>): boolean 
   return decision.status.trim().toLowerCase().startsWith('accepted')
 }
 
+export function formatClearauthDecisionLabel(decision: Pick<Decision, 'number' | 'status'>): string {
+  return `clearauth-eval decision ${decision.number} · ${isDecisionAccepted(decision) ? 'Accepted' : 'Proposed'}`
+}
+
 export function formatShortCommit(commit: string): string {
   const clean = commit.trim()
   if (!clean || clean === 'unknown') return 'unknown'

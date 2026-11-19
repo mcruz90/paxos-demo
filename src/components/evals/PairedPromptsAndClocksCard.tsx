@@ -101,7 +101,7 @@ function ClocksRegistryCard({ clocks }: { clocks: EvalSnapshot['clocks'] }) {
       </div>
 
       <p className="text-xs text-slate-400 leading-relaxed">
-        Source-verified rules from <span className="font-mono text-slate-300">clock_registry.json</span>. Operate workflow clocks remain unchanged until ADR {clocks.decision.number} is accepted.
+        Source-verified rules from <span className="font-mono text-slate-300">clock_registry.json</span>. Operate workflow clocks remain unchanged until clearauth-eval decision {clocks.decision.number} is accepted.
       </p>
 
       <div className="space-y-2">

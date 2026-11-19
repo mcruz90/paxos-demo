@@ -2,7 +2,7 @@ import { type EvalMethodology } from '../types'
 
 // ---------------------------------------------------------------------------
 // APPEAL-LETTER EVAL RUBRIC — aligned to clearauth-eval's data/appeal_rubric.json
-// and ADR 0011:
+// and clearauth-eval decision 0011:
 //   Deterministic   — D1–D7 rule-based assertions (no model)
 //   Entailment      — E1–E2 deterministic claim->citation gate & context precision
 //   Advisory Judge  — J1–J4 defined anchored 1–4 rubrics; no judge runs yet

@@ -54,7 +54,7 @@ function SnapshotReadinessNotice() {
           </span>
         ))}
       </div>
-      <p className="text-[11px] text-slate-400">Held-out wording sets are one-shot with rotation (ADR 0004).</p>
+      <p className="text-[11px] text-slate-400">Held-out wording sets are one-shot with rotation (clearauth-eval decision 0004).</p>
     </div>
   )
 }

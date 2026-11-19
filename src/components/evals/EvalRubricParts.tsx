@@ -49,7 +49,7 @@ export function JudgeCalibrationSection({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { 
     { label: 'Judge Runner', value: snapshot ? `${snapshot.appeal_rubric.state} only` : 'Not run', sub: 'no model judge runs yet' },
     { label: 'Clinician Ratings', value: snapshot ? `${maxN} / ${minLetters}` : 'not_run', sub: 'labeled de-identified letters' },
     { label: `Bar (${barStatus})`, value: `κ_w ≥ ${minKappa.toFixed(2)}`, sub: firstKappa !== null ? `measured κ_w = ${firstKappa.toFixed(2)}` : 'unmeasured (κ = —)' },
-    { label: 'Held-Out Protocol', value: 'One-shot', sub: 'rotate set after tuning (ADR 0004)' },
+    { label: 'Held-Out Protocol', value: 'One-shot', sub: 'rotate set after tuning (clearauth-eval decision 0004)' },
   ]
   return (
     <div>
