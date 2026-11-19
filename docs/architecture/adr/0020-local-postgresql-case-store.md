@@ -1,4 +1,9 @@
-# PostgreSQL foundation draft — PR B, not part of contract increment
+# ADR-0020: Dedicated local PostgreSQL and explicit SQL migrations
+
+- **Status:** Accepted for isolated synthetic local development
+- **Date:** 2026-11-18
+- **Decided by:** May (PostgreSQL, dedicated Docker volume, Psycopg and SQL migrations)
+- **Number:** 0020, assigned by coordinating Claude on November18
 
 Before persistence code: construct/reconstruct validated records with model_validate
 and revalidate changes with model_validate(record.model_dump() | changes). Do not
@@ -38,7 +43,7 @@ isolated synthetic database on November 18. This does not waive package checks o
 the cooldown for other images. Compose and the startup helper pin this digest.
 Sources: [Docker Hub metadata](https://hub.docker.com/v2/repositories/library/postgres/tags/18.7-bookworm)
 and [official repo-info](https://raw.githubusercontent.com/docker-library/repo-info/master/repos/postgres/remote/18.7-bookworm.md).
-Copy this provenance and exception into the ADR after Claude allocates its number. The
+The
 backend and migration startup require DATABASE_URL, then verify database name
 clearauth_integration and server major 18. Database tests require a separate explicit
 TEST_DATABASE_URL naming a different database; they must never fall back to the
@@ -94,6 +99,10 @@ a container recreation/restart test. Docker pipe access prevents that test here.
 The initialization user is administrative; least-privilege production roles and
 a containerized backend are out of scope.
 
-This remains an unnumbered PR B decision draft until coordinating Claude assigns
-the free ADR number and integrates it into the architecture index.
+May additionally required server-generated UUIDv4 case ids on November18.
+The unpopulated 0001/0002 schema definitions use PostgreSQL uuid for case_id;
+the primary and foreign keys remain tenant_id + case_id. Callers submit only
+an idempotency key. The case repository requires an already-active outer
+transaction; it never starts and commits a standalone write transaction.
+No application migration is implied by accepting this local decision.
 

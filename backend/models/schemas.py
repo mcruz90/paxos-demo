@@ -30,6 +30,7 @@ from models.case_evidence import (
     EvidenceAttachRequest,
     SourceVersion,
 )
+from models.case_store import CaseAccess, CaseCreateRequest, CaseEventRecord, PersistentCaseId
 from models.domain import (
     AppealHandoff,
     Citation,
@@ -77,6 +78,10 @@ from models.requests import (
 from models.tenancy import SEEDED_TENANT_ID
 
 __all__ = [
+    "CaseAccess",
+    "CaseCreateRequest",
+    "CaseEventRecord",
+    "PersistentCaseId",
     "CaseRecord",
     "SourceVersion",
     "EvidenceAttachRequest",
