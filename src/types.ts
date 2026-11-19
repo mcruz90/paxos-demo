@@ -95,6 +95,7 @@ export interface ScenarioConfig {
   // ── Initial-PA lifecycle (lifecycle === 'initial_pa') ─────────────────────
   // Absent ⇒ this is an appeal scenario and the fields below do not apply.
   lifecycle?: CaseLifecycle
+  requestType?: 'exception' | 'coverage_determination'
   // CRD pre-check: is a PA required for this drug × plan, and on what basis?
   paRequired?: { required: boolean; basis: string }
   // The therapy the structured PA request asks the payer to authorize.
@@ -174,6 +175,7 @@ export interface Client {
   patientRef?: string
   // Absent ⇒ 'medication' (the current default across all cases).
   paTargetType?: PaTargetType
+  requestType?: 'exception' | 'coverage_determination'
   name: string                  // Case reference, e.g. 'Case #PH-3101'
   patientDisplayName?: string   // Human-readable patient name, e.g. 'Margaret Vance'
   patientDob?: string           // Date of birth label, e.g. '03/14/1972'
