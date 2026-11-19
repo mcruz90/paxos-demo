@@ -1,7 +1,7 @@
 import { Library, FileText, Pencil, Workflow, AlertTriangle, ArrowRight, Gauge, Terminal, GitCommit } from 'lucide-react'
 import { type IconType, type View } from '../types'
 import { universalPrimitives } from '../data/scenarios'
-import { DEFAULT_EVAL_SNAPSHOT, EVAL_SNAPSHOT_SOURCE_NOTE, formatShortCommit, summarizeReadiness, totalE2eSilentErrors } from '../data/evalSnapshot'
+import { DEFAULT_EVAL_SNAPSHOT, NOT_IN_SNAPSHOT, formatShortCommit, formatSnapshotSourceNote, summarizeReadiness, totalE2eSilentErrors } from '../data/evalSnapshot'
 import type { EvalSnapshot } from '../generated/evalSnapshotTypes'
 import { NODE_META, INITIAL_HISTORY } from './instructions'
 import { WORKFLOW_PACKS } from './WorkflowSpecView'
@@ -29,12 +29,12 @@ interface Node {
 const criticalOpen = FAILURE_CLUSTERS.filter(c => c.severity === 'critical').length
 
 function buildNodes(snapshot: EvalSnapshot | null): Record<string, Node> {
-  const readiness = snapshot ? summarizeReadiness(snapshot.readiness.stages) : null
+  const readiness = snapshot?.readiness?.stages ? summarizeReadiness(snapshot.readiness.stages) : null
   const targeted = readiness ? readiness.total - readiness.notBuilt : 0
-  const rubricDims = snapshot ? snapshot.appeal_rubric.dimensions.length : 0
-  const appealCases = snapshot?.e2e.runs.find(r => r.flow === 'appeal')?.cases
-  const initialCases = snapshot?.e2e.runs.find(r => r.flow === 'initial')?.cases
-  const totalSilent = snapshot ? totalE2eSilentErrors(snapshot.e2e.runs) : null
+  const rubricDims = snapshot?.appeal_rubric?.dimensions ? snapshot.appeal_rubric.dimensions.length : null
+  const appealCases = snapshot?.e2e?.runs?.find(r => r.flow === 'appeal')?.cases
+  const initialCases = snapshot?.e2e?.runs?.find(r => r.flow === 'initial')?.cases
+  const totalSilent = snapshot?.e2e?.runs ? totalE2eSilentErrors(snapshot.e2e.runs) : null
 
   return {
     library: { view: 'library', Icon: Library, title: 'Ontology Library', role: 'The case skeleton + rule primitives every case shares', stat: `${universalPrimitives.length} rule primitives`, health: 'ok' },
@@ -45,7 +45,7 @@ function buildNodes(snapshot: EvalSnapshot | null): Record<string, Node> {
       Icon: Workflow,
       title: 'Eval Rubric',
       role: 'Stage readiness targets + appeal rubric dimensions',
-      stat: readiness ? `${readiness.ready}/${targeted} stages ready · ${rubricDims} rubric dims` : 'not_run · awaiting eval_snapshot.json',
+      stat: readiness ? `${readiness.ready}/${targeted} stages ready · ${rubricDims !== null ? `${rubricDims} rubric dims` : NOT_IN_SNAPSHOT}` : NOT_IN_SNAPSHOT,
       health: readiness && readiness.ready === targeted ? 'ok' : 'attention',
     },
     failures: { view: 'failures', Icon: AlertTriangle, title: 'Failure Review', role: 'Prod monitoring — clusters, root cause, remediation', stat: `${FAILURE_CLUSTERS.length} clusters · ${criticalOpen} critical`, health: criticalOpen > 0 ? 'critical' : 'ok' },
@@ -54,13 +54,11 @@ function buildNodes(snapshot: EvalSnapshot | null): Record<string, Node> {
       Icon: Terminal,
       title: 'Live Trace & Evals',
       role: 'PHI-redacted tokenizer, gatekeeper assertions & E2E chain blame',
-      stat: snapshot && totalSilent !== null ? `E2E: ${totalSilent} silent · ${appealCases ?? '—'} appeal / ${initialCases ?? '—'} initial` : 'not_run · awaiting snapshot',
+      stat: snapshot && totalSilent !== null ? `E2E: ${totalSilent} silent · ${appealCases ?? '—'} appeal / ${initialCases ?? '—'} initial` : NOT_IN_SNAPSHOT,
       health: snapshot ? (totalSilent === 0 ? 'ok' : 'attention') : 'attention',
     },
   }
 }
-
-const NODES: Record<string, Node> = buildNodes(DEFAULT_EVAL_SNAPSHOT)
 
 // Left → right: the foundation, the agent built on it, the governance loop
 // wrapping it. `edge` is the relation to the tier on its right.
@@ -115,7 +113,9 @@ function Edge({ label }: { label: string }) {
   )
 }
 
-export function BuildOverview({ setView }: { setView: (v: View) => void }) {
+export function BuildOverview({ setView, snapshot = DEFAULT_EVAL_SNAPSHOT }: { setView: (v: View) => void; snapshot?: EvalSnapshot | null }) {
+  const nodes = buildNodes(snapshot)
+  const sourceNote = formatSnapshotSourceNote(snapshot)
   return (
     <div className="flex-1 overflow-auto">
       <div className="px-8 py-6 border-b border-slate-800">
@@ -125,20 +125,20 @@ export function BuildOverview({ setView }: { setView: (v: View) => void }) {
             <h1 className="text-xl font-bold font-display text-white">Control Plane</h1>
           </div>
           <span
-            title={EVAL_SNAPSHOT_SOURCE_NOTE}
+            title={sourceNote}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border border-slate-700 bg-slate-900/60 text-slate-300"
           >
             <GitCommit className="w-3.5 h-3.5 text-emerald-400" />
-            {DEFAULT_EVAL_SNAPSHOT
-              ? `Example snapshot v${DEFAULT_EVAL_SNAPSHOT.schema_version} · ${formatShortCommit(DEFAULT_EVAL_SNAPSHOT.as_of_commit)}`
-              : 'not_run · awaiting snapshot'}
+            {snapshot
+              ? `Example snapshot v${snapshot.schema_version} · ${formatShortCommit(snapshot.as_of_commit)}`
+              : NOT_IN_SNAPSHOT}
           </span>
         </div>
         <p className="text-sm text-slate-400 mt-0.5">
           The whole system the AI Lead governs, as a layered model — the foundation, the agent built on it, and the governance loop around it. Open any surface to drill in.
         </p>
-        {DEFAULT_EVAL_SNAPSHOT && (
-          <p className="text-xs font-medium text-amber-300 mt-1.5">{EVAL_SNAPSHOT_SOURCE_NOTE}</p>
+        {snapshot && (
+          <p className="text-xs font-medium text-amber-300 mt-1.5">{sourceNote}</p>
         )}
       </div>
 
@@ -165,7 +165,7 @@ export function BuildOverview({ setView }: { setView: (v: View) => void }) {
                 </div>
                 <div className="flex flex-col sm:flex-row lg:flex-col gap-3 flex-1">
                   {tier.views.map(v => (
-                    <NodeCard key={v} node={NODES[v]} onOpen={() => setView(NODES[v].view)} />
+                    <NodeCard key={v} node={nodes[v]} onOpen={() => setView(nodes[v].view)} />
                   ))}
                 </div>
               </div>

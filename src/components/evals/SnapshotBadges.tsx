@@ -1,5 +1,11 @@
 import { CheckCircle2, Clock, GitCommit, Hammer, Layers } from 'lucide-react'
-import { EVAL_SNAPSHOT_SOURCE_NOTE, formatClearauthDecisionLabel, formatShortCommit, isDecisionAccepted } from '../../data/evalSnapshot'
+import {
+  NOT_IN_SNAPSHOT,
+  formatClearauthDecisionLabel,
+  formatShortCommit,
+  formatSnapshotSourceNote,
+  isDecisionAccepted,
+} from '../../data/evalSnapshot'
 import type { Decision, EvalSnapshot, SectionState, Stage } from '../../generated/evalSnapshotTypes'
 
 const SECTION_STATE_STYLE: Record<SectionState, { label: string; cls: string }> = {
@@ -35,7 +41,14 @@ export function StageStateBadge({ state }: { state: Stage['state'] }) {
   )
 }
 
-export function DecisionStatusBadge({ decision }: { decision: Decision }) {
+export function DecisionStatusBadge({ decision }: { decision?: Decision | null }) {
+  if (!decision) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-mono border border-slate-700 bg-slate-900/60 text-slate-400 whitespace-nowrap">
+        {NOT_IN_SNAPSHOT}
+      </span>
+    )
+  }
   const accepted = isDecisionAccepted(decision)
   const cls = accepted
     ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
@@ -67,7 +80,7 @@ export function SnapshotProvenanceBar({ snapshot }: { snapshot: EvalSnapshot }) 
           generated {snapshot.generated_at}
         </span>
       </div>
-      <p className="text-[11px] font-medium text-amber-300 leading-snug">{EVAL_SNAPSHOT_SOURCE_NOTE}</p>
+      <p className="text-[11px] font-medium text-amber-300 leading-snug">{formatSnapshotSourceNote(snapshot)}</p>
       <p className="text-[11px] text-slate-400 leading-relaxed">{snapshot.basis}</p>
     </div>
   )

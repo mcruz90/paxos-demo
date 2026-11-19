@@ -1,7 +1,7 @@
 {
- "schema_version": "1",
- "as_of_commit": "8b18c4478f6976389f6dc7fea7335545a9e7d74d",
- "generated_at": "2026-11-19T02:07:13+00:00",
+ "schema_version": "2",
+ "as_of_commit": "c20453049fb43082f04ea960103d2a0fc4f246ad",
+ "generated_at": "2026-11-19T18:53:02+00:00",
  "basis": "Synthetic letters, charts and cases written by one author, scored by this repository. The numbers show where each stage stands against its target, not how well it reads real documents.",
  "readiness": {
   "state": "measured",
@@ -671,6 +671,143 @@
     "rule": "CMS-0057-F",
     "subject": "drugs",
     "citation": "CMS FAQ, Improving Prior Authorization Processes (CMS-0057-F)"
+   }
+  ]
+ },
+ "redteam": {
+  "state": "measured",
+  "decision": {
+   "number": "0004",
+   "status": "Accepted"
+  },
+  "run_id": "intake-port-full-b635170-20261021T005151Z",
+  "created": "2026-10-21T00:51:51+00:00",
+  "kinds": [
+   {
+    "kind": "redteam",
+    "held": 72,
+    "n": 72,
+    "not_held": 0,
+    "not_held_range95": [
+     0.0,
+     0.0507
+    ]
+   },
+   {
+    "kind": "redteam_holdout",
+    "held": 72,
+    "n": 78,
+    "not_held": 6,
+    "not_held_range95": [
+     0.0357,
+     0.1578
+    ]
+   }
+  ]
+ },
+ "case_sets": {
+  "state": "measured",
+  "decision": {
+   "number": "0049",
+   "status": "Accepted (May, 2026-11-19, schema version 2)"
+  },
+  "families": [
+   {
+    "family": "intake",
+    "run_id": "intake-port-b635170-20261031T134554Z",
+    "created": "2026-10-31T13:45:54+00:00",
+    "cases": 2066,
+    "by_kind": {
+     "benign": 404,
+     "drug_context": 135,
+     "drug_context_holdout": 135,
+     "drug_context_holdout2": 135,
+     "drug_holdout": 104,
+     "drug_holdout2": 66,
+     "drug_holdout3": 88,
+     "drug_holdout4": 72,
+     "holdout": 404,
+     "icd_distractor": 81,
+     "icd_multi": 81,
+     "icd_none": 81,
+     "redteam": 72,
+     "redteam_holdout": 78,
+     "salt_swap": 10,
+     "variant": 60,
+     "variant_holdout": 60
+    }
+   },
+   {
+    "family": "llm_fallback",
+    "run_id": "llm-fallback-20261014T155211Z",
+    "created": null,
+    "cases": 165,
+    "by_kind": {
+     "holdout": 61,
+     "icd_distractor": 11,
+     "icd_multi": 12,
+     "icd_none": 81
+    }
+   },
+   {
+    "family": "deid",
+    "run_id": "deid-20261116T073855Z",
+    "created": "2026-11-16T07:38:55+00:00",
+    "cases": 720,
+    "by_kind": {
+     "phi": 240,
+     "phi_format": 240,
+     "phi_obf": 240
+    }
+   },
+   {
+    "family": "charts",
+    "run_id": "charts-20261117T174251Z",
+    "created": "2026-11-17T17:42:51+00:00",
+    "cases": 300,
+    "by_kind": {
+     "all": 300
+    }
+   },
+   {
+    "family": "doc_type",
+    "run_id": "doctype-20261014T142659Z",
+    "created": "2026-10-14T14:26:59+00:00",
+    "cases": 990,
+    "by_kind": {
+     "dev": 600,
+     "holdout": 310,
+     "real": 80
+    }
+   }
+  ]
+ },
+ "not_built": {
+  "state": "not_built",
+  "decision": {
+   "number": "0049",
+   "status": "Accepted (May, 2026-11-19, schema version 2)"
+  },
+  "items": [
+   {
+    "id": "runtime_cost",
+    "name": "Runtime, model routing and cost per case",
+    "why": "Not stored. Intake runs record extraction latency only; no run records model routing, tokens or cost per call. Planned: per-stage timing, tokens and cost per eval run, then trajectory traces from the product."
+   },
+   {
+    "id": "per_case_results",
+    "name": "Per-case results",
+    "why": "This file carries totals only. Rows per synthetic development case need a rule on what a row may show. Held-out cases are never shown."
+   },
+   {
+    "id": "rubric_history",
+    "name": "Rubric version history",
+    "why": "One rubric version is checked in (data/appeal_rubric.json). Earlier versions are in git history only."
+   },
+   {
+    "id": "site_readiness",
+    "name": "Setup of a new clinic (site readiness)",
+    "why": "Not built. Planned as a view of which payers, plans and drugs have verified policy data and passing evals for a new site. The demo has no real connectors, so a setup time cannot be measured."
    }
   ]
  }

@@ -1,5 +1,5 @@
 import { FileCheck2 } from 'lucide-react'
-import { DEFAULT_EVAL_SNAPSHOT } from '../../data/evalSnapshot'
+import { DEFAULT_EVAL_SNAPSHOT, NOT_IN_SNAPSHOT } from '../../data/evalSnapshot'
 import type { Dimension, EvalSnapshot } from '../../generated/evalSnapshotTypes'
 import { DecisionStatusBadge, SectionStateBadge } from './SnapshotBadges'
 
@@ -16,7 +16,17 @@ function calibrationCell(d: Dimension): string {
 }
 
 export function SnapshotRubricDimensionsSection({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { snapshot?: EvalSnapshot | null }) {
-  if (!snapshot) return null
+  if (!snapshot || !snapshot.appeal_rubric) {
+    return (
+      <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 flex items-center justify-between gap-2 flex-wrap">
+        <span className="text-sm font-semibold text-white flex items-center gap-2">
+          <FileCheck2 className="w-4 h-4 text-emerald-400" />
+          Appeal Rubric Dimensions · appeal_rubric.json
+        </span>
+        <span className="text-xs font-mono text-amber-300">{NOT_IN_SNAPSHOT}</span>
+      </div>
+    )
+  }
   const { appeal_rubric } = snapshot
 
   return (

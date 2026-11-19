@@ -1,5 +1,11 @@
 import { Clock, GitCompare } from 'lucide-react'
-import { DEFAULT_EVAL_SNAPSHOT, formatExactPValue, formatWilsonRange } from '../../data/evalSnapshot'
+import {
+  DEFAULT_EVAL_SNAPSHOT,
+  NOT_IN_SNAPSHOT,
+  formatClearauthDecisionLabel,
+  formatExactPValue,
+  formatWilsonRange,
+} from '../../data/evalSnapshot'
 import type { Comparison, EvalSnapshot } from '../../generated/evalSnapshotTypes'
 import { DecisionStatusBadge, SectionStateBadge } from './SnapshotBadges'
 
@@ -101,7 +107,7 @@ function ClocksRegistryCard({ clocks }: { clocks: EvalSnapshot['clocks'] }) {
       </div>
 
       <p className="text-xs text-slate-400 leading-relaxed">
-        Source-verified rules from <span className="font-mono text-slate-300">clock_registry.json</span>. Operate workflow clocks remain unchanged until clearauth-eval decision {clocks.decision.number} is accepted.
+        Source-verified rules from <span className="font-mono text-slate-300">clock_registry.json</span> ({formatClearauthDecisionLabel(clocks.decision)}).
       </p>
 
       <div className="space-y-2">
@@ -137,12 +143,24 @@ function ClocksRegistryCard({ clocks }: { clocks: EvalSnapshot['clocks'] }) {
   )
 }
 
+function MissingSectionCard({ title }: { title: string }) {
+  return (
+    <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-5 flex items-center justify-between gap-2 flex-wrap">
+      <h2 className="text-sm font-semibold text-white">{title}</h2>
+      <span className="text-xs font-mono text-amber-300">{NOT_IN_SNAPSHOT}</span>
+    </div>
+  )
+}
+
 export function PairedPromptsAndClocksCard({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { snapshot?: EvalSnapshot | null }) {
-  if (!snapshot) return null
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-      <PairedPromptsCard paired={snapshot.paired_prompts} />
-      <ClocksRegistryCard clocks={snapshot.clocks} />
+      {snapshot?.paired_prompts
+        ? <PairedPromptsCard paired={snapshot.paired_prompts} />
+        : <MissingSectionCard title="4. Paired Prompt Comparison · paired.py" />}
+      {snapshot?.clocks
+        ? <ClocksRegistryCard clocks={snapshot.clocks} />
+        : <MissingSectionCard title="5. Regulatory Clock Registry · clock_registry.json" />}
     </div>
   )
 }
