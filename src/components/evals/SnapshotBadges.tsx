@@ -1,5 +1,5 @@
 import { CheckCircle2, Clock, GitCommit, Hammer, Layers } from 'lucide-react'
-import { formatShortCommit, isDecisionAccepted } from '../../data/evalSnapshot'
+import { EVAL_SNAPSHOT_SOURCE_NOTE, formatShortCommit, isDecisionAccepted } from '../../data/evalSnapshot'
 import type { Decision, EvalSnapshot, SectionState, Stage } from '../../generated/evalSnapshotTypes'
 
 const SECTION_STATE_STYLE: Record<SectionState, { label: string; cls: string }> = {
@@ -56,7 +56,7 @@ export function SnapshotProvenanceBar({ snapshot }: { snapshot: EvalSnapshot }) 
       <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
         <div className="flex items-center gap-2 font-mono text-slate-300">
           <Layers className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span className="font-semibold text-white">eval_snapshot.json</span>
+          <span className="font-semibold text-white">Example · eval_snapshot.json</span>
           <span className="text-emerald-300">v{snapshot.schema_version}</span>
           <span className="inline-flex items-center gap-1 text-slate-400">
             <GitCommit className="w-3 h-3" />
@@ -67,6 +67,7 @@ export function SnapshotProvenanceBar({ snapshot }: { snapshot: EvalSnapshot }) 
           generated {snapshot.generated_at}
         </span>
       </div>
+      <p className="text-[11px] font-medium text-amber-300 leading-snug">{EVAL_SNAPSHOT_SOURCE_NOTE}</p>
       <p className="text-[11px] text-slate-400 leading-relaxed">{snapshot.basis}</p>
     </div>
   )

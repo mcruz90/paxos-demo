@@ -1,7 +1,7 @@
 import { Library, FileText, Pencil, Workflow, AlertTriangle, ArrowRight, Gauge, Terminal, GitCommit } from 'lucide-react'
 import { type IconType, type View } from '../types'
 import { universalPrimitives } from '../data/scenarios'
-import { DEFAULT_EVAL_SNAPSHOT, formatShortCommit, summarizeReadiness, totalE2eSilentErrors } from '../data/evalSnapshot'
+import { DEFAULT_EVAL_SNAPSHOT, EVAL_SNAPSHOT_SOURCE_NOTE, formatShortCommit, summarizeReadiness, totalE2eSilentErrors } from '../data/evalSnapshot'
 import type { EvalSnapshot } from '../generated/evalSnapshotTypes'
 import { NODE_META, INITIAL_HISTORY } from './instructions'
 import { WORKFLOW_PACKS } from './WorkflowSpecView'
@@ -124,10 +124,13 @@ export function BuildOverview({ setView }: { setView: (v: View) => void }) {
             <Gauge className="w-5 h-5 text-emerald-400" />
             <h1 className="text-xl font-bold font-display text-white">Control Plane</h1>
           </div>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border border-slate-700 bg-slate-900/60 text-slate-300">
+          <span
+            title={EVAL_SNAPSHOT_SOURCE_NOTE}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border border-slate-700 bg-slate-900/60 text-slate-300"
+          >
             <GitCommit className="w-3.5 h-3.5 text-emerald-400" />
             {DEFAULT_EVAL_SNAPSHOT
-              ? `eval_snapshot.json v${DEFAULT_EVAL_SNAPSHOT.schema_version} · ${formatShortCommit(DEFAULT_EVAL_SNAPSHOT.as_of_commit)}`
+              ? `Example snapshot v${DEFAULT_EVAL_SNAPSHOT.schema_version} · ${formatShortCommit(DEFAULT_EVAL_SNAPSHOT.as_of_commit)}`
               : 'not_run · awaiting snapshot'}
           </span>
         </div>

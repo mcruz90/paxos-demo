@@ -42,6 +42,9 @@ export function loadDefaultEvalSnapshot(): EvalSnapshot | null {
 
 export const DEFAULT_EVAL_SNAPSHOT: EvalSnapshot | null = loadDefaultEvalSnapshot()
 
+export const EVAL_SNAPSHOT_SOURCE_NOTE =
+  'Example snapshot (clearauth-eval PR #219). Contract: clearauth-eval decision 0049, Proposed.'
+
 export function isDecisionAccepted(decision: Pick<Decision, 'status'>): boolean {
   return decision.status.trim().toLowerCase().startsWith('accepted')
 }

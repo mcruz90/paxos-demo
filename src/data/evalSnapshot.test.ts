@@ -4,6 +4,7 @@ import generatedSource from '../generated/evalSnapshotTypes.ts?raw'
 import rawExampleSnapshot from './eval_snapshot.example.json'
 import evalSnapshotSchema from './eval_snapshot.schema.json'
 import {
+  EVAL_SNAPSHOT_SOURCE_NOTE,
   formatExactPValue,
   formatShortCommit,
   formatStageCount,
@@ -77,6 +78,7 @@ describe('real eval_snapshot.example.json invariants (ADR 0049)', () => {
     expect(s.as_of_commit.length).toBeGreaterThan(0)
     expect(s.generated_at.length).toBeGreaterThan(0)
     expect(formatShortCommit(s.as_of_commit)).toBe('8b18c447')
+    expect(EVAL_SNAPSHOT_SOURCE_NOTE).toBe('Example snapshot (clearauth-eval PR #219). Contract: clearauth-eval decision 0049, Proposed.')
 
     expect(s.readiness.state).toBe('measured')
     expect(s.readiness.decision.number).toBe('0014')

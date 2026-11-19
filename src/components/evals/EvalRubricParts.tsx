@@ -1,6 +1,6 @@
 import { Clock, RotateCcw, Stethoscope, Terminal } from 'lucide-react'
 import { JUDGE_CALIBRATION_SPEC, RUBRIC_DIMENSIONS, thresholdLabel } from '../../data/evalRubric'
-import { DEFAULT_EVAL_SNAPSHOT, formatShortCommit } from '../../data/evalSnapshot'
+import { DEFAULT_EVAL_SNAPSHOT, EVAL_SNAPSHOT_SOURCE_NOTE, formatShortCommit } from '../../data/evalSnapshot'
 import { SUITE_SIZE } from '../../data/evalRun'
 import { scenarios } from '../../data/scenarios'
 import { type CaseTier } from '../../types'
@@ -99,10 +99,13 @@ export function EvalCaseSetSection({
             Representative scenarios (demo fixture <span className="font-mono text-slate-400">{SUITE_SIZE}</span> target placeholder — live counts will read from <span className="font-mono">eval_snapshot.json</span>).
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border border-slate-600/60 bg-slate-800/60 text-slate-300">
+        <span
+          title={EVAL_SNAPSHOT_SOURCE_NOTE}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border border-slate-600/60 bg-slate-800/60 text-slate-300"
+        >
           <Clock className="w-3.5 h-3.5 text-slate-400" />
           {DEFAULT_EVAL_SNAPSHOT
-            ? `eval_snapshot.json v${DEFAULT_EVAL_SNAPSHOT.schema_version} · commit ${formatShortCommit(DEFAULT_EVAL_SNAPSHOT.as_of_commit)} · aggregates only`
+            ? `Example snapshot (PR #219) · v${DEFAULT_EVAL_SNAPSHOT.schema_version} · ${formatShortCommit(DEFAULT_EVAL_SNAPSHOT.as_of_commit)}`
             : 'No snapshot loaded · awaiting eval_snapshot.json'}
         </span>
       </div>

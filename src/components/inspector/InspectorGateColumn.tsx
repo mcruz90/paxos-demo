@@ -1,5 +1,5 @@
 import { CheckCircle2, Clock, Cpu, GitCommit, Link2, ShieldCheck, XCircle } from 'lucide-react'
-import { DEFAULT_EVAL_SNAPSHOT, formatShortCommit, isDecisionAccepted, summarizeReadiness } from '../../data/evalSnapshot'
+import { DEFAULT_EVAL_SNAPSHOT, EVAL_SNAPSHOT_SOURCE_NOTE, formatShortCommit, isDecisionAccepted, summarizeReadiness } from '../../data/evalSnapshot'
 import type { DoneEvent } from '../../lib/wire'
 import type { ScenarioConfig } from '../../types'
 import type { LiveStep } from '../poc/live/appealEvents'
@@ -66,8 +66,11 @@ function SnapshotReadinessCompactCard() {
     <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 space-y-2 text-[11px]">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <span className="text-xs font-semibold text-slate-200 uppercase tracking-wide">Harness Snapshot</span>
-        <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
-          <GitCommit className="w-3 h-3" />v{snap.schema_version} · {formatShortCommit(snap.as_of_commit)}
+        <span
+          title={EVAL_SNAPSHOT_SOURCE_NOTE}
+          className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+        >
+          <GitCommit className="w-3 h-3" />Example v{snap.schema_version} · {formatShortCommit(snap.as_of_commit)}
         </span>
       </div>
       <p className="font-mono text-slate-300">

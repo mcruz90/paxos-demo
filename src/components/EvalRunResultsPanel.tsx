@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ArrowRight, CheckCircle2, Cpu, GitCommit, Info, Layers, ShieldAlert, XCircle } from 'lucide-react'
 import { GRADERS, METHODOLOGY_META, MOCK_EVAL_RUN } from '../data/evalRun'
-import { DEFAULT_EVAL_SNAPSHOT, formatShortCommit } from '../data/evalSnapshot'
+import { DEFAULT_EVAL_SNAPSHOT, EVAL_SNAPSHOT_SOURCE_NOTE, formatShortCommit } from '../data/evalSnapshot'
 import { type CaseLink, type CaseStatus, type EvalMethodology, type MetricResult } from '../types'
 import { ClearauthEvalStagesCard } from './evals/ClearauthEvalStagesCard'
 import { E2eChainCard } from './evals/E2eChainCard'
@@ -122,12 +122,15 @@ function HarnessSnapshotBlock() {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-emerald-400" />
-          <h2 className="text-sm font-semibold text-white">Harness Snapshot · Real Data from clearauth-eval</h2>
+          <h2 className="text-sm font-semibold text-white">Harness Snapshot · Example from clearauth-eval PR #219</h2>
         </div>
         {DEFAULT_EVAL_SNAPSHOT && (
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+          <span
+            title={EVAL_SNAPSHOT_SOURCE_NOTE}
+            className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+          >
             <GitCommit className="w-3 h-3" />
-            v{DEFAULT_EVAL_SNAPSHOT.schema_version} · {formatShortCommit(DEFAULT_EVAL_SNAPSHOT.as_of_commit)}
+            Example v{DEFAULT_EVAL_SNAPSHOT.schema_version} · {formatShortCommit(DEFAULT_EVAL_SNAPSHOT.as_of_commit)}
           </span>
         )}
       </div>
