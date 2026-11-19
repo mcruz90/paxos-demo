@@ -21,7 +21,11 @@ async function runTourToEnd(page: Page) {
   }
   // Overlay cleared and the app is interactive again
   await expect(overlay).toHaveCount(0, { timeout: 6000 })
-  await page.getByRole('button', { name: 'Case Queue' }).click()
+  const queueBtn = page.getByRole('button', { name: 'Case Queue' })
+  if (await queueBtn.count() === 0) {
+    await page.getByRole('banner').getByRole('button', { name: 'Operate' }).click()
+  }
+  await queueBtn.click()
   await expect(page.getByRole('heading', { name: 'Case Queue' })).toBeVisible()
 }
 
