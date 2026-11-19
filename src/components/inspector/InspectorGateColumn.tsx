@@ -83,6 +83,7 @@ function SnapshotReadinessCompactCard() {
       <p className="font-mono text-slate-400">
         Judge calibration: {judgeN}/{snap.appeal_rubric.judge_bar.min_letters} · {snap.appeal_rubric.judge_bar.status}
       </p>
+      <p className="text-[10px] font-medium text-amber-300 leading-snug">{EVAL_SNAPSHOT_SOURCE_NOTE}</p>
     </div>
   )
 }

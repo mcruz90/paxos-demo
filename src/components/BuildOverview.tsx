@@ -137,6 +137,9 @@ export function BuildOverview({ setView }: { setView: (v: View) => void }) {
         <p className="text-sm text-slate-400 mt-0.5">
           The whole system the AI Lead governs, as a layered model — the foundation, the agent built on it, and the governance loop around it. Open any surface to drill in.
         </p>
+        {DEFAULT_EVAL_SNAPSHOT && (
+          <p className="text-xs font-medium text-amber-300 mt-1.5">{EVAL_SNAPSHOT_SOURCE_NOTE}</p>
+        )}
       </div>
 
       <div className="p-8">

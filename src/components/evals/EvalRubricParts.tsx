@@ -109,6 +109,9 @@ export function EvalCaseSetSection({
             : 'No snapshot loaded · awaiting eval_snapshot.json'}
         </span>
       </div>
+      {DEFAULT_EVAL_SNAPSHOT && (
+        <p className="text-[11px] font-medium text-amber-300">{EVAL_SNAPSHOT_SOURCE_NOTE}</p>
+      )}
       {editing ? (
         <EditableRecordList
           items={cases} onChange={onChangeCases} addLabel="Add eval case"

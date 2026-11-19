@@ -54,6 +54,7 @@ function SnapshotReadinessNotice() {
           </span>
         ))}
       </div>
+      <p className="text-[11px] font-medium text-amber-300 leading-snug">{EVAL_SNAPSHOT_SOURCE_NOTE}</p>
       <p className="text-[11px] text-slate-400">Held-out wording sets are one-shot with rotation (clearauth-eval decision 0004).</p>
     </div>
   )
