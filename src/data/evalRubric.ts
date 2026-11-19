@@ -129,7 +129,7 @@ export const JUDGE_CALIBRATION_SPEC: JudgeCalibrationSpec = {
   proposedMinLetters: 50,
   proposedMinKappa: 0.6,
   method: "Quadratic-weighted Cohen's κ (appeal_eval/calibration.py)",
-  policy: 'No LLM judge runs yet (Decision 0011). Judge dimensions remain strictly advisory until calibrated against clinician ratings on de-identified letters (proposed bar: κ ≥ 0.60 on ≥ 50 letters; owner decides).',
+  policy: 'No LLM judge runs yet. Judge dimensions remain strictly advisory until calibrated against clinician ratings on de-identified letters (thresholds live in eval_snapshot.json).',
 }
 
 export const METHOD_LABEL: Record<EvalMethodology, string> = {

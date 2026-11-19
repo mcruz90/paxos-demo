@@ -1,11 +1,16 @@
-import { Clock, RotateCcw, Stethoscope, Terminal } from 'lucide-react'
+import { RotateCcw, Stethoscope, Terminal } from 'lucide-react'
 import { JUDGE_CALIBRATION_SPEC, RUBRIC_DIMENSIONS, thresholdLabel } from '../../data/evalRubric'
-import { DEFAULT_EVAL_SNAPSHOT, EVAL_SNAPSHOT_SOURCE_NOTE, formatShortCommit } from '../../data/evalSnapshot'
-import { SUITE_SIZE } from '../../data/evalRun'
+import {
+  DEFAULT_EVAL_SNAPSHOT,
+  type EvalSnapshot,
+  NOT_IN_SNAPSHOT,
+  formatClearauthDecisionLabel,
+} from '../../data/evalSnapshot'
 import { scenarios } from '../../data/scenarios'
 import { type CaseTier } from '../../types'
 import { TierBadge } from '../ui'
 import { EditableRecordList } from '../versioning'
+import { CaseSetsSnapshotCard } from './CaseSetsSnapshotCard'
 
 export function AuthoredRubricCriteriaSection() {
   return (
@@ -37,19 +42,29 @@ export function AuthoredRubricCriteriaSection() {
   )
 }
 
-export function JudgeCalibrationSection({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { snapshot?: typeof DEFAULT_EVAL_SNAPSHOT }) {
-  const judgeDims = snapshot?.appeal_rubric.dimensions.filter(d => d.kind === 'judge') ?? []
+export function JudgeCalibrationSection({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { snapshot?: EvalSnapshot | null }) {
+  if (!snapshot || !snapshot.appeal_rubric) {
+    return (
+      <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4 flex items-center justify-between gap-2 flex-wrap">
+        <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+          <Stethoscope className="w-4 h-4 text-violet-400" />
+          Judge Calibration Status <span className="text-violet-300 font-normal">· J1–J4 Advisory Rubric</span>
+        </h2>
+        <span className="text-xs font-mono text-amber-300">{NOT_IN_SNAPSHOT}</span>
+      </div>
+    )
+  }
+
+  const judgeDims = snapshot.appeal_rubric.dimensions.filter(d => d.kind === 'judge')
   const maxN = judgeDims.reduce((acc, d) => Math.max(acc, d.calibration?.n ?? 0), 0)
   const firstKappa = judgeDims.find(d => typeof d.calibration?.kappa === 'number')?.calibration?.kappa ?? null
-  const bar = snapshot?.appeal_rubric.judge_bar
-  const minLetters = bar?.min_letters ?? JUDGE_CALIBRATION_SPEC.proposedMinLetters
-  const minKappa = bar?.min_kappa ?? JUDGE_CALIBRATION_SPEC.proposedMinKappa
-  const barStatus = bar?.status ?? 'not_run'
+  const bar = snapshot.appeal_rubric.judge_bar
+  const heldOutLabel = formatClearauthDecisionLabel(snapshot.redteam?.decision)
   const stats = [
-    { label: 'Judge Runner', value: snapshot ? `${snapshot.appeal_rubric.state} only` : 'Not run', sub: 'no model judge runs yet' },
-    { label: 'Clinician Ratings', value: snapshot ? `${maxN} / ${minLetters}` : 'not_run', sub: 'labeled de-identified letters' },
-    { label: `Bar (${barStatus})`, value: `κ_w ≥ ${minKappa.toFixed(2)}`, sub: firstKappa !== null ? `measured κ_w = ${firstKappa.toFixed(2)}` : 'unmeasured (κ = —)' },
-    { label: 'Held-Out Protocol', value: 'One-shot', sub: 'rotate set after tuning (clearauth-eval decision 0004)' },
+    { label: 'Judge Runner', value: `${snapshot.appeal_rubric.state} only`, sub: 'no model judge runs yet' },
+    { label: 'Clinician Ratings', value: `${maxN} / ${bar.min_letters}`, sub: 'labeled de-identified letters' },
+    { label: `Bar (${bar.status})`, value: `κ_w ≥ ${bar.min_kappa.toFixed(2)}`, sub: firstKappa !== null ? `measured κ_w = ${firstKappa.toFixed(2)}` : 'unmeasured (κ = —)' },
+    { label: 'Held-Out Protocol', value: 'One-shot', sub: `rotate set after tuning (${heldOutLabel})` },
   ]
   return (
     <div>
@@ -59,7 +74,7 @@ export function JudgeCalibrationSection({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { 
           Judge Calibration Status <span className="text-violet-300 font-normal">· J1–J4 Advisory Rubric</span>
         </h2>
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono border border-amber-500/30 bg-amber-500/10 text-amber-300">
-          {snapshot ? `${snapshot.appeal_rubric.state} · bar ${barStatus} · advisory only` : 'not_run · awaiting eval_snapshot.json'}
+          {snapshot.appeal_rubric.state} · bar {bar.status} · advisory only
         </span>
       </div>
       <p className="text-xs text-slate-500 mb-3">{JUDGE_CALIBRATION_SPEC.method} — defined in <span className="font-mono">calibration.py</span>.</p>
@@ -83,38 +98,20 @@ export function JudgeCalibrationSection({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { 
 }
 
 export function EvalCaseSetSection({
-  editing, cases, onChangeCases, onInspectScenario,
+  editing, cases, onChangeCases, onInspectScenario, snapshot = DEFAULT_EVAL_SNAPSHOT,
 }: {
   editing: boolean
   cases: { id: string; tier: string; exp: string; tag: string }[]
   onChangeCases: (cases: { id: string; tier: string; exp: string; tag: string }[]) => void
   onInspectScenario?: (scenarioId: string) => void
+  snapshot?: EvalSnapshot | null
 }) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="text-sm font-semibold text-white mb-0.5">Eval Case Set (Illustrative Fixture)</h2>
-          <p className="text-xs text-slate-500">
-            Representative scenarios (demo fixture <span className="font-mono text-slate-400">{SUITE_SIZE}</span> target placeholder — live counts will read from <span className="font-mono">eval_snapshot.json</span>).
-          </p>
-        </div>
-        <span
-          title={EVAL_SNAPSHOT_SOURCE_NOTE}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border border-slate-600/60 bg-slate-800/60 text-slate-300"
-        >
-          <Clock className="w-3.5 h-3.5 text-slate-400" />
-          {DEFAULT_EVAL_SNAPSHOT
-            ? `Example snapshot (PR #219) · v${DEFAULT_EVAL_SNAPSHOT.schema_version} · ${formatShortCommit(DEFAULT_EVAL_SNAPSHOT.as_of_commit)}`
-            : 'No snapshot loaded · awaiting eval_snapshot.json'}
-        </span>
-      </div>
-      {DEFAULT_EVAL_SNAPSHOT && (
-        <p className="text-[11px] font-medium text-amber-300">{EVAL_SNAPSHOT_SOURCE_NOTE}</p>
-      )}
+    <div className="space-y-4">
+      <CaseSetsSnapshotCard snapshot={snapshot} />
       {editing ? (
         <EditableRecordList
-          items={cases} onChange={onChangeCases} addLabel="Add eval case"
+          items={cases} onChange={onChangeCases} addLabel="Add walkthrough scenario"
           blank={{ id: '', tier: 'routine', exp: '', tag: 'none' }}
           fields={[
             { key: 'id', placeholder: 'case id', grow: 2 },
@@ -123,8 +120,11 @@ export function EvalCaseSetSection({
             { key: 'tag', placeholder: 'tag', grow: 1, options: ['none', 'regression', 'guardrail'] },
           ]}
         />
-      ) : (
+      ) : cases.length > 0 && (
         <div className="space-y-2">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+            Qualitative Walkthrough Scenarios (No Eval Scores)
+          </p>
           {cases.map((c, i) => (
             <div key={i} className="flex items-start gap-4 px-4 py-3 bg-slate-800/40 border border-slate-700/50 rounded-lg">
               <span className="font-mono text-xs text-emerald-400 w-44 shrink-0 pt-0.5">{c.id}</span>
@@ -149,12 +149,13 @@ export function EvalCaseSetSection({
   )
 }
 
-export function RubricLoopCallout() {
+export function RubricLoopCallout({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { snapshot?: EvalSnapshot | null }) {
+  const decisionLabel = formatClearauthDecisionLabel(snapshot?.redteam?.decision)
   return (
     <div className="flex items-start gap-3 px-4 py-3.5 bg-slate-800/50 border border-slate-700/60 rounded-xl">
       <RotateCcw className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
       <p className="text-sm text-slate-400 leading-relaxed">
-        Held-out wording sets are scored once only: after a fix tunes on what a held-out run surfaced, that wording rotates to development and a fresh held-out set is authored before the next run (Decision 0004).
+        Held-out wording sets are scored once only: after a fix tunes on what a held-out run surfaced, that wording rotates to development and a fresh held-out set is authored before the next run ({decisionLabel}).
       </p>
     </div>
   )
