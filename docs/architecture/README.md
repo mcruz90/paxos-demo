@@ -15,6 +15,10 @@ orchestration decision lived only in chat history. That decision is now
 
 ## Reading order
 
+The current case/evidence infrastructure increment is described in
+[14-case-evidence-runtime.md](14-case-evidence-runtime.md). It is provisional
+contract and pure validation code; persistence and API wiring are not live yet.
+
 | Doc | What it covers |
 | --- | --- |
 | [01-system-overview.md](01-system-overview.md) | C4 context + container view: actors, frontend/backend split, external systems, dual-branch strategy |
