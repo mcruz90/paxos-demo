@@ -1,5 +1,34 @@
 import { AlertTriangle, Check, CheckCircle2, Clock, FileText, Printer, ScrollText } from 'lucide-react'
 import { type Client, type ScenarioConfig } from '../../types'
+import { type ExplicitCaseTransition } from './exceptionStatusTransition'
+
+function PendingTransitionFooter({
+  transition,
+  onConfirm,
+}: {
+  transition: ExplicitCaseTransition
+  onConfirm: () => void
+}) {
+  const isWaitingDocs = transition.nextStatus === 'awaiting_documentation'
+  return (
+    <div className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border ${
+      isWaitingDocs ? 'bg-sky-500/10 border-sky-500/25' : 'bg-emerald-500/10 border-emerald-500/25'
+    }`}>
+      <p className={`text-xs leading-normal ${isWaitingDocs ? 'text-sky-300' : 'text-emerald-300'}`}>
+        {transition.summary}
+      </p>
+      <button
+        type="button"
+        onClick={onConfirm}
+        className={`shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors ${
+          isWaitingDocs ? 'bg-sky-600 hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'
+        }`}
+      >
+        {transition.actionLabel}
+      </button>
+    </div>
+  )
+}
 
 function ReadyForReviewFooter({
   letterOnScreen,
@@ -99,15 +128,18 @@ function StatusReceiptBar({
 // filing is only reachable when the generated letter is on screen — never from
 // the checklist alone, and never before generation has handed off to review.
 export function CaseActionFooter({
-  client, scenario, hasUnresolvedRemaining, letterOnScreen, letterReviewed, onPrint, onQuickApprove, onGoToLetter, onViewActivity,
+  client, scenario, hasUnresolvedRemaining, letterOnScreen, letterReviewed, pendingTransition, onConfirmStatusTransition, onPrint, onQuickApprove, onGoToLetter, onViewActivity,
 }: {
   client: Client; scenario?: ScenarioConfig; hasUnresolvedRemaining: boolean; letterOnScreen: boolean
-  letterReviewed: boolean; onPrint: () => void; onQuickApprove: () => void; onGoToLetter: () => void; onViewActivity: () => void
+  letterReviewed: boolean; pendingTransition?: ExplicitCaseTransition | null; onConfirmStatusTransition?: () => void
+  onPrint: () => void; onQuickApprove: () => void; onGoToLetter: () => void; onViewActivity: () => void
 }) {
   return (
     <div className="px-6 py-3 border-t border-slate-800 bg-slate-900/50 shrink-0 select-none">
       {hasUnresolvedRemaining ? (
         <p className="text-xs text-slate-400 text-center">Resolve open clinical exceptions above before filing the submission packet.</p>
+      ) : pendingTransition && onConfirmStatusTransition ? (
+        <PendingTransitionFooter transition={pendingTransition} onConfirm={onConfirmStatusTransition} />
       ) : client.status === 'ready_for_review' ? (
         <ReadyForReviewFooter letterOnScreen={letterOnScreen} letterReviewed={letterReviewed} onPrint={onPrint} onQuickApprove={onQuickApprove} onGoToLetter={onGoToLetter} />
       ) : (

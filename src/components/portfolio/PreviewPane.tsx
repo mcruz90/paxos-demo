@@ -10,6 +10,7 @@ import { CaseActionFooter } from './CaseActionFooter'
 import { type LocalCaseState, checklistProgress, countLocallyResolved, unresolvedCriteria } from './caseQueue'
 import { ChartQaTab } from './ChartQaTab'
 import { type CriterionActions } from './CriterionRow'
+import { type ExplicitCaseTransition } from './exceptionStatusTransition'
 import { LetterGeneration } from './LetterGeneration'
 import { LetterPreview } from './LetterPreview'
 import { LiveLetterGeneration } from './LiveLetterGeneration'
@@ -49,12 +50,14 @@ function PreviewTabBar({ isInitial, satisfied, total, docCount, activeTab, setAc
 
 export function PreviewPane({
   client, scenario, localState, actions, onQuickApprove, onPayerDecision, onSaveNarrative,
+  pendingTransition, onConfirmStatusTransition,
   selectedCiteIndex, onSelectCiteIndex, activeTab, setActiveTab, activeDocId, onViewDoc, onOpenDisputeResolver, generateCap, live,
 }: {
   client: Client | null; scenario: ScenarioConfig | null; localState: LocalCaseState; actions: CriterionActions
   onOpenCase?: (scenarioId: string, status: CaseStatus) => void
   onQuickApprove: (scenarioId: string) => void; onPayerDecision: (scenarioId: string, decision: 'accepted' | 'disputed') => void
-  onSaveNarrative?: (text: string) => void; selectedCiteIndex: number | null; onSelectCiteIndex: (idx: number | null) => void
+  onSaveNarrative?: (text: string) => void; pendingTransition?: ExplicitCaseTransition | null; onConfirmStatusTransition?: () => void
+  selectedCiteIndex: number | null; onSelectCiteIndex: (idx: number | null) => void
   activeTab: PreviewTab; setActiveTab: (tab: PreviewTab) => void; activeDocId: string | null; onViewDoc: (docId: string) => void
   onOpenDisputeResolver?: () => void; generateCap: UnitCapability; live?: LiveShellSession
 }) {
@@ -143,6 +146,7 @@ export function PreviewPane({
       <CaseActionFooter
         client={client} scenario={scenario} hasUnresolvedRemaining={hasUnresolvedRemaining}
         letterOnScreen={activeTab === 'letter'} letterReviewed={letterGen === 'review'}
+        pendingTransition={pendingTransition} onConfirmStatusTransition={onConfirmStatusTransition}
         onPrint={handlePrint} onQuickApprove={() => onQuickApprove(client.scenarioId)}
         onGoToLetter={() => setActiveTab('letter')} onViewActivity={() => setActiveTab('documents')}
       />
