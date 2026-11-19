@@ -1,32 +1,37 @@
 import { Boxes, CheckCircle, ChevronRight, Clock, GitCommit, Loader2, Rocket, Workflow } from 'lucide-react'
 import { METHOD_LABEL, RUBRIC_DIMENSIONS, thresholdLabel } from '../data/evalRubric'
-import { DEFAULT_EVAL_SNAPSHOT, EVAL_SNAPSHOT_SOURCE_NOTE, formatShortCommit, summarizeReadiness } from '../data/evalSnapshot'
+import {
+  DEFAULT_EVAL_SNAPSHOT,
+  type EvalSnapshot,
+  NOT_IN_SNAPSHOT,
+  formatClearauthDecisionLabel,
+  formatShortCommit,
+  formatSnapshotSourceNote,
+  summarizeReadiness,
+} from '../data/evalSnapshot'
 import { type View } from '../types'
+import { NotBuiltSnapshotCard } from './evals/NotBuiltSnapshotCard'
 import { DecisionStatusBadge, StageStateBadge } from './evals/SnapshotBadges'
-import { EVAL_SNAPSHOT_PLACEHOLDER } from './inspector/inspectorModel'
 import { type OnboardingTemplate } from './onboardingData'
 
-function SnapshotReadinessNotice() {
-  const snap = DEFAULT_EVAL_SNAPSHOT
-  if (!snap) {
+function SnapshotReadinessNotice({ snapshot }: { snapshot: EvalSnapshot | null }) {
+  const snap = snapshot
+  if (!snap || !snap.readiness) {
     return (
-      <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 space-y-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <p className="text-xs font-semibold text-slate-200 uppercase tracking-wide">clearauth-eval Readiness Snapshot</p>
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2 py-0.5 rounded-full border border-slate-600/60 bg-slate-900/60 text-slate-300">
-            <Clock className="w-3 h-3 text-slate-400" />
-            {EVAL_SNAPSHOT_PLACEHOLDER.state} · awaiting eval_snapshot.json
-          </span>
-        </div>
-        <p className="text-xs text-slate-400 leading-relaxed">
-          Stage readiness verdicts (targets.json), E2E flow totals, and held-out one-shot status load from the harness snapshot once exported.
-        </p>
+      <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-xs font-semibold text-slate-200 uppercase tracking-wide">clearauth-eval Readiness Snapshot</p>
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2 py-0.5 rounded-full border border-slate-600/60 bg-slate-900/60 text-amber-300">
+          <Clock className="w-3 h-3 text-slate-400" />
+          {NOT_IN_SNAPSHOT}
+        </span>
       </div>
     )
   }
 
   const counts = summarizeReadiness(snap.readiness.stages)
   const tracked = snap.readiness.stages.filter(s => s.state !== 'not_built')
+  const sourceNote = formatSnapshotSourceNote(snap)
+  const heldOutLabel = formatClearauthDecisionLabel(snap.redteam?.decision)
 
   return (
     <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 space-y-2.5">
@@ -34,7 +39,7 @@ function SnapshotReadinessNotice() {
         <p className="text-xs font-semibold text-slate-200 uppercase tracking-wide">clearauth-eval Readiness Snapshot</p>
         <div className="flex items-center gap-2 flex-wrap">
           <span
-            title={EVAL_SNAPSHOT_SOURCE_NOTE}
+            title={sourceNote}
             className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
           >
             <GitCommit className="w-3 h-3" />
@@ -54,17 +59,17 @@ function SnapshotReadinessNotice() {
           </span>
         ))}
       </div>
-      <p className="text-[11px] font-medium text-amber-300 leading-snug">{EVAL_SNAPSHOT_SOURCE_NOTE}</p>
-      <p className="text-[11px] text-slate-400">Held-out wording sets are one-shot with rotation (clearauth-eval decision 0004).</p>
+      <p className="text-[11px] font-medium text-amber-300 leading-snug">{sourceNote}</p>
+      <p className="text-[11px] text-slate-400">Held-out wording sets are one-shot with rotation ({heldOutLabel}).</p>
     </div>
   )
 }
 
 export function ValidateLaunchStep({
-  template, validating, validated, launched, onRunValidation, onLaunch, setView,
+  template, validating, validated, launched, onRunValidation, onLaunch, setView, snapshot = DEFAULT_EVAL_SNAPSHOT,
 }: {
   template: OnboardingTemplate; validating: boolean; validated: boolean; launched: boolean
-  onRunValidation: () => void; onLaunch: () => void; setView: (v: View) => void
+  onRunValidation: () => void; onLaunch: () => void; setView: (v: View) => void; snapshot?: EvalSnapshot | null
 }) {
   if (!validated) {
     return (
@@ -104,7 +109,7 @@ export function ValidateLaunchStep({
           <p className="text-xs text-emerald-300/70">{template.validation.sampleCases}/{template.validation.sampleCases} sample cases passed every active deterministic &amp; entailment check.</p>
         </div>
       </div>
-      <SnapshotReadinessNotice />
+      <SnapshotReadinessNotice snapshot={snapshot} />
       <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl overflow-hidden">
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-700/60">
           <div className="flex items-center gap-2"><Workflow className="w-4 h-4 text-slate-400" /><span className="text-sm font-medium text-slate-300">Eval Gate · shared rubric</span></div>
@@ -136,11 +141,10 @@ export function ValidateLaunchStep({
           </tbody>
         </table>
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
           { label: 'Net-New Code', value: '0 lines', sub: `${template.company} uses configuration, not bespoke code.` },
           { label: 'Configuration Split', value: `${template.validation.reusePct}% / ${100 - template.validation.reusePct}%`, sub: `${template.validation.netNew}.` },
-          { label: 'Setup Time', value: template.validation.timeEstimate, sub: 'configuration vs. multi-week build (illustrative)' },
         ].map(m => (
           <div key={m.label} className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-4">
             <p className="text-xs font-medium text-slate-400 mb-2">{m.label}</p>
@@ -148,6 +152,7 @@ export function ValidateLaunchStep({
             <p className="text-xs text-slate-500 mt-2 leading-relaxed">{m.sub}</p>
           </div>
         ))}
+        <NotBuiltSnapshotCard snapshot={snapshot} itemId="site_readiness" heading="Setup Time" compact />
       </div>
       <button onClick={onLaunch} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors">
         <Rocket className="w-4 h-4" />Launch {template.company}
