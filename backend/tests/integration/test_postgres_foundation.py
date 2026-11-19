@@ -19,6 +19,7 @@ from storage.migration_files import Migration, MigrationError, load_migrations
 
 pytestmark = pytest.mark.postgres
 MIGRATIONS = load_migrations(Path(__file__).parents[2] / "storage/sql")
+EXPECTED_VERSIONS = tuple(item.version for item in MIGRATIONS)
 
 
 @pytest.fixture
@@ -47,15 +48,17 @@ def connection_for(target):
 
 def test_migrate_repeat_and_reconnect_persists_case(isolated_database):
     with connection_for(isolated_database) as conn:
-        assert apply_migrations(conn, MIGRATIONS) == ("0001",)
+        assert apply_migrations(conn, MIGRATIONS) == EXPECTED_VERSIONS
         conn.execute(
             "INSERT INTO clearauth_cases (tenant_id, case_id, patient_ref) VALUES (%s, %s, %s)",
-            ("tenant-x", "case-x", "PAT-X"),
+            ("tenant-x", "00000000-0000-4000-8000-000000000001", "PAT-X"),
         )
     with connection_for(isolated_database) as conn:
         assert apply_migrations(conn, MIGRATIONS) == ()
         assert conn.execute("SELECT revision FROM clearauth_cases").fetchone() == (1,)
-        assert conn.execute("SELECT count(*) FROM clearauth_schema_migrations").fetchone() == (1,)
+        assert conn.execute("SELECT count(*) FROM clearauth_schema_migrations").fetchone() == (
+            len(MIGRATIONS),
+        )
 
 
 @pytest.mark.parametrize("mode", ["changed", "missing"])
@@ -66,20 +69,27 @@ def test_changed_or_missing_history_is_rejected(isolated_database, mode):
     with connection_for(isolated_database) as conn:
         with pytest.raises(MigrationError, match="history_incomplete|checksum_mismatch"):
             apply_migrations(conn, altered)
-        assert conn.execute("SELECT count(*) FROM clearauth_schema_migrations").fetchone() == (1,)
+        assert conn.execute("SELECT count(*) FROM clearauth_schema_migrations").fetchone() == (
+            len(MIGRATIONS),
+        )
 
 
 def test_entire_pending_batch_rolls_back_on_failure(isolated_database):
     body = "CREATE TABLE partial_write (value integer); SELECT 1/0;"
-    failed = Migration("0002", sha256(body.encode()).hexdigest(), body)
+    failed = Migration("0003", sha256(body.encode()).hexdigest(), body)
     with connection_for(isolated_database) as conn:
-        with pytest.raises(MigrationError, match="migration_execution_failed:0002:22012") as exc:
+        with pytest.raises(MigrationError, match="migration_execution_failed:0003:22012") as exc:
             apply_migrations(conn, MIGRATIONS + (failed,))
         assert "partial_write" not in str(exc.value)
         assert body not in str(exc.value)
-        for table in ("partial_write", "clearauth_cases", "clearauth_schema_migrations"):
+        for table in (
+            "partial_write",
+            "clearauth_cases",
+            "clearauth_case_events",
+            "clearauth_schema_migrations",
+        ):
             assert conn.execute("SELECT to_regclass(%s)", (table,)).fetchone() == (None,)
-        assert apply_migrations(conn, MIGRATIONS) == ("0001",)
+        assert apply_migrations(conn, MIGRATIONS) == EXPECTED_VERSIONS
 
 
 def test_two_runners_apply_each_version_once(isolated_database):
@@ -92,12 +102,12 @@ def test_two_runners_apply_each_version_once(isolated_database):
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda _: run(), range(2)))
-    assert sorted(results) == [(), ("0001",)]
+    assert sorted(results) == [(), EXPECTED_VERSIONS]
 
 
 def test_older_migration_cannot_be_added_behind_installed_history(isolated_database):
     body = "SELECT 2;"
-    later = Migration("0002", sha256(body.encode()).hexdigest(), body)
+    later = Migration("0003", sha256(body.encode()).hexdigest(), body)
     with connection_for(isolated_database) as conn:
         apply_migrations(conn, MIGRATIONS + (later,))
         # Simulate incomplete history; the runner must not fill the gap silently.
@@ -109,9 +119,9 @@ def test_older_migration_cannot_be_added_behind_installed_history(isolated_datab
 @pytest.mark.parametrize(
     "values",
     [
-        ("tenant-x", "case-x", "PAT-X", 0),
-        ("invalid tenant", "case-x", "PAT-X", 1),
-        ("tenant-x", "case-x", "invalid patient", 1),
+        ("tenant-x", "00000000-0000-4000-8000-000000000001", "PAT-X", 0),
+        ("invalid tenant", "00000000-0000-4000-8000-000000000001", "PAT-X", 1),
+        ("tenant-x", "00000000-0000-4000-8000-000000000001", "invalid patient", 1),
     ],
 )
 def test_case_constraints_reject_invalid_rows(isolated_database, values):
