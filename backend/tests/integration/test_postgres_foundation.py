@@ -76,9 +76,9 @@ def test_changed_or_missing_history_is_rejected(isolated_database, mode):
 
 def test_entire_pending_batch_rolls_back_on_failure(isolated_database):
     body = "CREATE TABLE partial_write (value integer); SELECT 1/0;"
-    failed = Migration("0003", sha256(body.encode()).hexdigest(), body)
+    failed = Migration("9999", sha256(body.encode()).hexdigest(), body)
     with connection_for(isolated_database) as conn:
-        with pytest.raises(MigrationError, match="migration_execution_failed:0003:22012") as exc:
+        with pytest.raises(MigrationError, match="migration_execution_failed:9999:22012") as exc:
             apply_migrations(conn, MIGRATIONS + (failed,))
         assert "partial_write" not in str(exc.value)
         assert body not in str(exc.value)
@@ -107,7 +107,7 @@ def test_two_runners_apply_each_version_once(isolated_database):
 
 def test_older_migration_cannot_be_added_behind_installed_history(isolated_database):
     body = "SELECT 2;"
-    later = Migration("0003", sha256(body.encode()).hexdigest(), body)
+    later = Migration("9999", sha256(body.encode()).hexdigest(), body)
     with connection_for(isolated_database) as conn:
         apply_migrations(conn, MIGRATIONS + (later,))
         # Simulate incomplete history; the runner must not fill the gap silently.

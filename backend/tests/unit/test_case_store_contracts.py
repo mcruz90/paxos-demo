@@ -64,6 +64,7 @@ def test_creation_event_cannot_claim_a_later_revision():
         CaseEventRecord.model_validate(
             {
                 "event_id": "event-x",
+                "event_sequence": 1,
                 "tenant_id": "tenant-x",
                 "case_id": "case-x",
                 "actor_id": "staff-x",
