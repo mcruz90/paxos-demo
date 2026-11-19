@@ -51,7 +51,7 @@ function ActivePipelineList({ onOpenCase }: { onOpenCase?: (scenarioId: string, 
   return (
     <div>
       <h2 className="text-sm font-semibold text-slate-300 mb-1">Active Pipeline</h2>
-      <p className="text-xs text-slate-500 mb-3">Cases currently in-flight with statutory SLA clocks — click any row to open its chart</p>
+      <p className="text-xs text-slate-500 mb-3">Cases currently in-flight (fixture roster) — click any row to open its chart</p>
       <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl overflow-hidden divide-y divide-slate-700/40">
         {PIPELINE_CASE_IDS.map(id => {
           const c = initialClients.find(cl => cl.name.endsWith(id))

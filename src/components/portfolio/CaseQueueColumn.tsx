@@ -20,7 +20,7 @@ function KpiStrip({ clients }: { clients: Client[] }) {
   const cards = [
     { label: 'Total Roster', value: clients.length, sub: 'Fixture queue synced', tone: 'text-slate-100' },
     { label: 'Needs Action', value: actionableCount, sub: 'Awaiting coordinator review', tone: actionableCount > 0 ? 'text-amber-300' : 'text-slate-100' },
-    { label: 'Due Today · Statutory SLA', value: dueTodayCount, sub: 'Part D / Commercial Rx & Medical clocks', tone: dueTodayCount > 0 ? 'text-red-300' : 'text-slate-100' },
+    { label: 'Due Today · Queue Target', value: dueTodayCount, sub: 'Per-plan decision clocks (when verified)', tone: dueTodayCount > 0 ? 'text-red-300' : 'text-slate-100' },
     { label: 'Ready for Sign-Off', value: readyCount, sub: 'Checklist addressed', tone: readyCount > 0 ? 'text-emerald-300' : 'text-slate-100' },
   ]
   return (
@@ -147,7 +147,7 @@ export function CaseQueueColumn({
                     <div className="col-span-2">Medication &amp; Diagnosis</div>
                     <div className="col-span-2">Payer &amp; Stage</div>
                     <div className="col-span-2">Criteria Readiness</div>
-                    <div className="col-span-2">Statutory SLA</div>
+                    <div className="col-span-2">Decision Clock</div>
                     <div className="col-span-2 text-right">Action</div>
                   </div>
                   {group.rows.map(client => (

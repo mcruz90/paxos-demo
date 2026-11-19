@@ -31,7 +31,7 @@ const OPERATE_TOUR: TourStep[] = [
     target: 'body', placement: 'center', skipBeacon: true, nav: { view: 'portfolio' },
     title: 'Operate — the PA coordinator’s workqueue',
     content: tc(
-      'Clinical staff land in an Epic-grounded workqueue sorted by action urgency and Part D / Commercial Rx and CMS statutory SLA clocks — never researching cases from scratch.',
+      'Clinical staff land in an Epic-grounded workqueue sorted by action urgency and single-rule decision clocks (or "Clock not determined" when unverified) — never researching cases from scratch.',
       'Arrows to navigate · Esc to exit'
     ),
   },

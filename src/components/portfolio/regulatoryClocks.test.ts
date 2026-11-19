@@ -3,44 +3,41 @@ import { initialClients, scenarios } from '../../data/scenarios'
 import { resolveRegulatoryClock } from './regulatoryClocks'
 
 describe('resolveRegulatoryClock', () => {
-  it('applies CMS-0057-F authority to device/medical targets instead of outpatient Rx rules', () => {
+  it('resolves verified single-rule 42 CFR 423.568(b) 72h clock only for standard Part D medication exceptions', () => {
+    const baseClient = initialClients.find(c => c.scenarioId === 'novo-ozempic-docgap')!
+    const partDScenario = { ...scenarios['novo-ozempic-docgap'], plan: 'Medicare Part D Formulary' }
+
+    expect(resolveRegulatoryClock({ ...baseClient, urgency: 'soon' }, partDScenario)).toEqual({
+      authority: '42 CFR 423.568(b)',
+      windowLabel: '72h Standard (Part D Exception)',
+      citation: '42 CFR 423.568(b)',
+      determined: true,
+    })
+
+    // Part D expedited and appeals are not yet source-verified in clock_registry.json
+    expect(resolveRegulatoryClock({ ...baseClient, urgency: 'today' }, partDScenario).determined).toBe(false)
+    expect(resolveRegulatoryClock({ ...baseClient, urgency: 'today' }, partDScenario).authority).toBe('Clock not determined')
+    expect(resolveRegulatoryClock(initialClients.find(c => c.scenarioId === 'novo-ozempic')!, { ...scenarios['novo-ozempic'], plan: 'Medicare Part D' }).determined).toBe(false)
+  })
+
+  it('returns "Clock not determined" for commercial PPO cases without mixing Part D or range labels', () => {
+    for (const sid of ['novo-ozempic-docgap', 'gilead-livdelzi', 'pediatric-esomeprazole']) {
+      const client = initialClients.find(c => c.scenarioId === sid)!
+      const info = resolveRegulatoryClock(client, scenarios[sid])
+      expect(info.determined).toBe(false)
+      expect(info.authority).toBe('Clock not determined')
+      expect(`${info.authority} ${info.windowLabel}`).not.toMatch(/Commercial Rx|147\.136|60–180|24–72|42 CFR/)
+    }
+  })
+
+  it('returns "Clock not determined" for device/procedure targets when plan rule is unverified', () => {
     const deviceClient = {
       ...initialClients[0],
       paTargetType: 'device' as const,
       urgency: 'today' as const,
     }
-    expect(resolveRegulatoryClock(deviceClient, scenarios['novo-ozempic-initial'])).toEqual({
-      authority: 'CMS-0057-F Medical',
-      windowLabel: '72h Expedited',
-    })
-
-    expect(resolveRegulatoryClock({ ...deviceClient, urgency: 'soon' }, scenarios['novo-ozempic-initial'])).toEqual({
-      authority: 'CMS-0057-F Medical',
-      windowLabel: '7d Standard',
-    })
-  })
-
-  it('applies 42 CFR 423.568 / Commercial Rx authority to outpatient initial medication PAs', () => {
-    const initClient = initialClients.find(c => c.scenarioId === 'novo-ozempic-docgap')!
-    const clock = resolveRegulatoryClock(initClient, scenarios['novo-ozempic-docgap'])
-    expect(clock.authority).toBe('42 CFR 423.568 / Commercial Rx')
-    expect(clock.windowLabel).toBe('72h Standard Rx')
-
-    const urgentClock = resolveRegulatoryClock({ ...initClient, urgency: 'today' }, scenarios['novo-ozempic-docgap'])
-    expect(urgentClock.windowLabel).toBe('24–72h Expedited Rx')
-  })
-
-  it('applies 45 CFR 147.136 / Part D Appeal authority to appeal and payer-response cases', () => {
-    const livdelziClient = initialClients.find(c => c.scenarioId === 'gilead-livdelzi')!
-    expect(resolveRegulatoryClock(livdelziClient, scenarios['gilead-livdelzi'])).toEqual({
-      authority: '45 CFR 147.136 / Part D Appeal',
-      windowLabel: '72h Expedited Appeal',
-    })
-
-    const riveraClient = initialClients.find(c => c.scenarioId === 'pediatric-esomeprazole')!
-    expect(resolveRegulatoryClock(riveraClient, scenarios['pediatric-esomeprazole'])).toEqual({
-      authority: '45 CFR 147.136 / Part D Appeal',
-      windowLabel: '60–180d Filing Window',
-    })
+    const info = resolveRegulatoryClock(deviceClient, scenarios['novo-ozempic-initial'])
+    expect(info.determined).toBe(false)
+    expect(info.authority).toBe('Clock not determined')
   })
 })
