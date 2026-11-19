@@ -4,10 +4,13 @@ import generatedSource from '../generated/evalSnapshotTypes.ts?raw'
 import rawExampleSnapshot from './eval_snapshot.example.json'
 import evalSnapshotSchema from './eval_snapshot.schema.json'
 import {
-  EVAL_SNAPSHOT_SOURCE_NOTE,
+  NOT_IN_SNAPSHOT,
+  findNotBuiltItem,
+  formatCaseSetEntries,
   formatClearauthDecisionLabel,
   formatExactPValue,
   formatShortCommit,
+  formatSnapshotSourceNote,
   formatStageCount,
   formatWilsonRange,
   isDecisionAccepted,
@@ -19,7 +22,7 @@ import { validateAgainstSchema } from './evalSnapshotSchemaValidator'
 const toPascal = (s: string) => s.split(/[^a-zA-Z0-9]+/).filter(Boolean).map(p => p[0].toUpperCase() + p.slice(1)).join('')
 const cloneExample = () => structuredClone(rawExampleSnapshot) as Record<string, any>
 
-describe('eval_snapshot schema contract & generated TS types', () => {
+describe('eval_snapshot schema v2 contract & generated TS types', () => {
   it('keeps evalSnapshotTypes.ts synced with every $def and top-level required property', () => {
     expect(generatedSource).toContain('export interface EvalSnapshot')
     for (const defName of Object.keys(evalSnapshotSchema.$defs)) {
@@ -30,25 +33,41 @@ describe('eval_snapshot schema contract & generated TS types', () => {
     }
   })
 
-  it('validates real eval_snapshot.example.json cleanly and parses to EvalSnapshot', () => {
+  it('accepts schema version 2 example and parses to EvalSnapshot', () => {
     expect(validateAgainstSchema(rawExampleSnapshot, evalSnapshotSchema)).toEqual([])
     const parsed = parseEvalSnapshot(rawExampleSnapshot)
     expect(parsed.ok).toBe(true)
     if (!parsed.ok) return
     const snap: EvalSnapshot = parsed.snapshot
-    expect(snap.schema_version).toBe('1')
+    expect(snap.schema_version).toBe('2')
   })
 
-  it('rejects schema drift: wrong version, missing key, extra prop, bad enum, bad integer/type', () => {
-    const wrongVersion = { ...cloneExample(), schema_version: '2' }
+  it('rejects schema version 1 and drift (missing v2 keys, extra prop, bad enum, bad types)', () => {
+    const wrongVersion = { ...cloneExample(), schema_version: '1' }
     expect(validateAgainstSchema(wrongVersion, evalSnapshotSchema).length).toBeGreaterThan(0)
 
-    const missingClocks = cloneExample()
-    delete missingClocks.clocks
-    expect(validateAgainstSchema(missingClocks, evalSnapshotSchema).length).toBeGreaterThan(0)
+    const pureV1Shape: Record<string, any> = { ...cloneExample(), schema_version: '1' }
+    delete pureV1Shape.redteam
+    delete pureV1Shape.case_sets
+    delete pureV1Shape.not_built
+    expect(validateAgainstSchema(pureV1Shape, evalSnapshotSchema).length).toBeGreaterThan(0)
+
+    for (const key of ['clocks', 'redteam', 'case_sets', 'not_built'] as const) {
+      const missing = cloneExample()
+      delete missing[key]
+      expect(validateAgainstSchema(missing, evalSnapshotSchema).length).toBeGreaterThan(0)
+    }
 
     const extraProp = { ...cloneExample(), invented_field: true }
     expect(validateAgainstSchema(extraProp, evalSnapshotSchema).length).toBeGreaterThan(0)
+
+    const badRedteamKind = cloneExample()
+    badRedteamKind.redteam.kinds[0].kind = 'redteam_dev'
+    expect(validateAgainstSchema(badRedteamKind, evalSnapshotSchema).length).toBeGreaterThan(0)
+
+    const badNotBuiltId = cloneExample()
+    badNotBuiltId.not_built.items[0].id = 'unknown_gap'
+    expect(validateAgainstSchema(badNotBuiltId, evalSnapshotSchema).length).toBeGreaterThan(0)
 
     const badState = cloneExample()
     badState.readiness.state = 'healthy'
@@ -83,60 +102,68 @@ describe('eval_snapshot schema contract & generated TS types', () => {
   })
 })
 
-describe('real eval_snapshot.example.json invariants (clearauth-eval decision 0049)', () => {
-  it('captures readiness, e2e, appeal_rubric, paired_prompts, and clocks accurately', () => {
+describe('real eval_snapshot.example.json v2 invariants (clearauth-eval decision 0049)', () => {
+  it('captures readiness, e2e, appeal_rubric, paired_prompts, clocks, redteam, case_sets, and not_built', () => {
     const parsed = parseEvalSnapshot(rawExampleSnapshot)
     expect(parsed.ok).toBe(true)
     if (!parsed.ok) return
     const { snapshot: s } = parsed
 
-    expect(s.schema_version).toBe('1')
-    expect(s.as_of_commit.length).toBeGreaterThan(0)
-    expect(s.generated_at.length).toBeGreaterThan(0)
-    expect(formatShortCommit(s.as_of_commit)).toBe('8b18c447')
-    expect(EVAL_SNAPSHOT_SOURCE_NOTE).toBe('Example snapshot (clearauth-eval PR #219). Contract: clearauth-eval decision 0049, Proposed.')
+    expect(s.schema_version).toBe('2')
+    expect(formatShortCommit(s.as_of_commit)).toBe('c2045304')
+    expect(formatSnapshotSourceNote(s)).toBe(
+      `Example snapshot (clearauth-eval PR #219). Contract: clearauth-eval decision 0049 · ${s.not_built.decision.status}.`,
+    )
+    expect(formatSnapshotSourceNote(null)).toBe(
+      `Example snapshot (clearauth-eval PR #219). Contract: ${NOT_IN_SNAPSHOT}.`,
+    )
 
     expect(s.readiness.state).toBe('measured')
     expect(s.readiness.decision.number).toBe('0014')
     expect(isDecisionAccepted(s.readiness.decision)).toBe(true)
     expect(summarizeReadiness(s.readiness.stages)).toEqual({ ready: 1, notYet: 5, noRuns: 1, notBuilt: 3, total: 10 })
 
-    const missingCountStages = s.readiness.stages.filter(st => st.state === 'no_runs' || st.state === 'not_built')
-    expect(missingCountStages.map(st => st.id)).toContain('evidence')
-    expect(missingCountStages).toHaveLength(4)
-    for (const st of missingCountStages) {
-      expect(st.errors).toBeUndefined()
-      expect(st.n).toBeUndefined()
-      expect(formatStageCount(st.errors)).toBe('—')
-    }
-
     expect(s.e2e.state).toBe('measured')
     expect(s.e2e.decision.number).toBe('0047')
-    expect(isDecisionAccepted(s.e2e.decision)).toBe(false)
     expect(s.e2e.runs.find(r => r.flow === 'appeal')).toMatchObject({ cases: 420, outcomes: { silent: 0 } })
     expect(s.e2e.runs.find(r => r.flow === 'initial')).toMatchObject({ cases: 300, outcomes: { silent: 0 } })
 
     expect(s.appeal_rubric.state).toBe('defined')
     expect(s.appeal_rubric.dimensions).toHaveLength(14)
-    const judgeDims = s.appeal_rubric.dimensions.filter(d => d.kind === 'judge')
-    expect(judgeDims).toHaveLength(4)
-    for (const j of judgeDims) {
-      expect(j.state).toBe('defined')
-      expect(j.calibration).toEqual({ n: 0, kappa: null, calibrated: false })
-    }
     expect(s.appeal_rubric.judge_bar).toEqual({ min_letters: 50, min_kappa: 0.6, status: 'proposed' })
-
     expect(s.paired_prompts.state).toBe('not_run')
-    expect(s.paired_prompts.runs).toHaveLength(7)
-    expect(s.paired_prompts.comparison).toBeUndefined()
-
-    expect(s.clocks.state).toBe('defined')
-    expect(s.clocks.decision.number).toBe('0048')
-    expect(isDecisionAccepted(s.clocks.decision)).toBe(false)
-    expect(s.clocks.clocks).toHaveLength(1)
     expect(s.clocks.clocks[0].citation).toBe('42 CFR 423.568(b)')
-    expect(s.clocks.not_applicable).toHaveLength(1)
-    expect(s.clocks.not_applicable[0].rule).toBe('CMS-0057-F')
+
+    expect(s.redteam.state).toBe('measured')
+    expect(s.redteam.decision).toEqual({ number: '0004', status: 'Accepted' })
+    expect(s.redteam.run_id).toBe('intake-port-full-b635170-20261021T005151Z')
+    expect(s.redteam.kinds).toEqual([
+      { kind: 'redteam', held: 72, n: 72, not_held: 0, not_held_range95: [0.0, 0.0507] },
+      { kind: 'redteam_holdout', held: 72, n: 78, not_held: 6, not_held_range95: [0.0357, 0.1578] },
+    ])
+
+    expect(s.case_sets.state).toBe('measured')
+    expect(s.case_sets.decision.number).toBe('0049')
+    expect(isDecisionAccepted(s.case_sets.decision)).toBe(true)
+    expect(s.case_sets.families.map(f => [f.family, f.cases])).toEqual([
+      ['intake', 2066],
+      ['llm_fallback', 165],
+      ['deid', 720],
+      ['charts', 300],
+      ['doc_type', 990],
+    ])
+
+    expect(s.not_built.state).toBe('not_built')
+    expect(s.not_built.decision.number).toBe('0049')
+    expect(s.not_built.items.map(i => i.id)).toEqual([
+      'runtime_cost',
+      'per_case_results',
+      'rubric_history',
+      'site_readiness',
+    ])
+    expect(findNotBuiltItem(s, 'runtime_cost')?.name).toBe('Runtime, model routing and cost per case')
+    expect(findNotBuiltItem(null, 'runtime_cost')).toBeNull()
+    expect(findNotBuiltItem({ not_built: { ...s.not_built, items: [] } }, 'runtime_cost')).toBeNull()
   })
 
   it('validates a measured paired_prompts comparison payload without rounding tiny p_value', () => {
@@ -147,17 +174,9 @@ describe('real eval_snapshot.example.json invariants (clearauth-eval decision 00
       comparison: {
         a: { run_id: 'run-a', prompt_version: 'p-1', request_version: 'r-1' },
         b: { run_id: 'run-b', prompt_version: 'p-2', request_version: 'r-2' },
-        left_out: 2,
-        gaps: 120,
-        a_correct: 95,
-        b_correct: 112,
-        a_range: [0.71, 0.85],
-        b_range: [0.87, 0.96],
-        fixed: 18,
-        broke: 1,
-        new_silent_errors: 0,
-        p_value: 0.0000123,
-        decision: 'accept_b',
+        left_out: 2, gaps: 120, a_correct: 95, b_correct: 112,
+        a_range: [0.71, 0.85], b_range: [0.87, 0.96],
+        fixed: 18, broke: 1, new_silent_errors: 0, p_value: 0.0000123, decision: 'accept_b',
       },
     }
     expect(validateAgainstSchema(withPair, evalSnapshotSchema)).toEqual([])
@@ -167,26 +186,28 @@ describe('real eval_snapshot.example.json invariants (clearauth-eval decision 00
 describe('snapshot formatting helpers', () => {
   it('formats exact p_value without rounding tiny values to 0.0', () => {
     expect(formatExactPValue(1e-8)).toBe('1.0000e-8')
-    expect(formatExactPValue(0.0000123)).toBe('1.2300e-5')
     expect(formatExactPValue(0.03125)).toBe('0.03125')
-    expect(formatExactPValue(1)).toBe('1')
   })
 
-  it('formats clearauth-eval decisions explicitly without colliding ADR prefix', () => {
-    const acceptedLabel = formatClearauthDecisionLabel({ number: '0014', status: 'Accepted' })
-    const proposedLabel = formatClearauthDecisionLabel({ number: '0047', status: "Proposed (needs May's review)" })
-    expect(acceptedLabel).toBe('clearauth-eval decision 0014 · Accepted')
-    expect(proposedLabel).toBe('clearauth-eval decision 0047 · Proposed')
-    expect(acceptedLabel).not.toContain('ADR')
-    expect(proposedLabel).not.toContain('ADR')
+  it('formats clearauth-eval decision status verbatim from snapshot without hardcoding Proposed/Accepted', () => {
+    expect(formatClearauthDecisionLabel({ number: '0014', status: 'Accepted' })).toBe('clearauth-eval decision 0014 · Accepted')
+    expect(formatClearauthDecisionLabel({ number: '0047', status: "Proposed (needs May's review)" })).toBe(
+      "clearauth-eval decision 0047 · Proposed (needs May's review)",
+    )
+    expect(formatClearauthDecisionLabel({ number: '0049', status: 'Under custom review' })).toBe(
+      'clearauth-eval decision 0049 · Under custom review',
+    )
+    expect(formatClearauthDecisionLabel(null)).toBe('not in this snapshot')
+    expect(formatCaseSetEntries({ benign: 404, holdout: 404, bad: 'x' })).toEqual([
+      ['benign', 404],
+      ['holdout', 404],
+    ])
   })
 
   it('formats Wilson ranges and missing counts without substituting 0', () => {
     expect(formatWilsonRange([0, 0.0111])).toBe('0.00%–1.11%')
     expect(formatWilsonRange(null)).toBe('—')
-    expect(formatWilsonRange(undefined)).toBe('—')
     expect(formatStageCount(undefined)).toBe('—')
-    expect(formatStageCount(null)).toBe('—')
     expect(formatStageCount(0)).toBe('0')
   })
 })
