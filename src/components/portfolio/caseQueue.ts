@@ -1,4 +1,4 @@
-import { type CaseStatus, type Client, type CriterionResult, type ScenarioConfig, type Urgency } from '../../types'
+import { type CaseStatus, type Client, type CriterionResult, type ScenarioConfig, type Urgency, type View } from '../../types'
 import { getCaseStage } from '../../data/scenarios'
 
 // ---------------------------------------------------------------------------
@@ -233,4 +233,21 @@ export function tourIdFor(client: Client): string | undefined {
     'pediatric-esomeprazole': 'tour-case-infant',
     'gilead-livdelzi':        'tour-case-livdelzi',
   }[client.scenarioId]
+}
+
+export interface PortfolioNavReset {
+  override: string | null | undefined
+  resetNonce: number
+  collapseSidebar: boolean
+}
+
+export function resolveSidebarNav(
+  nextView: View,
+  prevOverride: string | null | undefined,
+  prevNonce: number,
+): PortfolioNavReset {
+  if (nextView === 'portfolio') {
+    return { override: null, resetNonce: prevNonce + 1, collapseSidebar: false }
+  }
+  return { override: prevOverride, resetNonce: prevNonce, collapseSidebar: false }
 }

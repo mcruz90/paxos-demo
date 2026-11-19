@@ -25,7 +25,7 @@ import { phiFromContext } from './redaction'
 // durable case status changes go up through the on* callbacks.
 export function SplitPortfolioView({
   clients, onOpenCase, onQuickApprove, onPayerDecision, onUpdateClientStatus,
-  generateCap, live, onCaseOpenChange, onInspectInBuild, activeScenarioOverride,
+  generateCap, live, onCaseOpenChange, onInspectInBuild, activeScenarioOverride, queueResetNonce,
 }: {
   clients: Client[]
   onOpenCase: (scenarioId: string, status: CaseStatus) => void
@@ -33,7 +33,7 @@ export function SplitPortfolioView({
   onPayerDecision: (scenarioId: string, decision: 'accepted' | 'disputed') => void
   onUpdateClientStatus: (scenarioId: string, status: CaseStatus) => void
   generateCap: UnitCapability; live?: LiveShellSession; onCaseOpenChange?: (open: boolean) => void
-  onInspectInBuild?: (scenarioId: string) => void; activeScenarioOverride?: string | null
+  onInspectInBuild?: (scenarioId: string) => void; activeScenarioOverride?: string | null; queueResetNonce?: number
 }) {
   const [search, setSearch] = useState('')
   const [filterStage, setFilterStage] = useState<StageFilter>('all')
@@ -51,6 +51,10 @@ export function SplitPortfolioView({
     const hit = clients.find(c => c.scenarioId === activeScenarioOverride)
     if (hit) setSelectedId(hit.id)
   }, [activeScenarioOverride]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (queueResetNonce) setSelectedId(null)
+  }, [queueResetNonce])
 
   const [caseStates, setCaseStates] = useState<Record<string, LocalCaseState>>({})
   const [showCitations, setShowCitations] = useState(true)

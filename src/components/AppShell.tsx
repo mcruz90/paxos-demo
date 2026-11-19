@@ -18,7 +18,7 @@ import { type LiveShellSession } from './live/SessionGate'
 import { ROLE_DEFAULT_VIEW, VIEW_ROLE } from './navConfig'
 import { OnboardingView } from './OnboardingView'
 import { PlatformView } from './PlatformView'
-import { applyPayerDecision, quickApproveClient, setClientStatus } from './portfolio/caseQueue'
+import { applyPayerDecision, quickApproveClient, resolveSidebarNav, setClientStatus } from './portfolio/caseQueue'
 import { SplitPortfolioView } from './portfolio/SplitPortfolioView'
 import { Sidebar } from './Sidebar'
 import { SponsorView } from './SponsorView'
@@ -78,6 +78,7 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
   const [activeRole, setActiveRole] = useState<Role>('Operate')
   const [clients, setClients] = useState<Client[]>(initialClients)
   const [portfolioScenarioOverride, setPortfolioScenarioOverride] = useState<string | null | undefined>(undefined)
+  const [queueResetNonce, setQueueResetNonce] = useState(0)
   const [inspectScenarioId, setInspectScenarioId] = useState<string>('gilead-livdelzi')
   const [activeTour, setActiveTour] = useState<TourId | null>(null)
   const [tourRunning, setTourRunning] = useState(false)
@@ -91,8 +92,11 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
   }
 
   const handleSetView = (nextView: View) => {
+    const nav = resolveSidebarNav(nextView, portfolioScenarioOverride, queueResetNonce)
+    setPortfolioScenarioOverride(nav.override)
+    setQueueResetNonce(nav.resetNonce)
+    if (!nav.collapseSidebar) setIsSidebarCollapsed(false)
     setView(nextView)
-    if (nextView !== 'portfolio' && nextView !== 'poc') setIsSidebarCollapsed(false)
   }
 
   // Portfolio / Eval deep-link → opens the unified SplitPortfolioView chart workspace;
@@ -151,7 +155,7 @@ export function AppShell({ live }: { live?: LiveShellSession }) {
     <SplitPortfolioView
       clients={clients} onOpenCase={openCase} onQuickApprove={handleQuickApprove} onPayerDecision={handlePayerDecision}
       onUpdateClientStatus={handleUpdateClientStatus} generateCap={manifest.O4_generate} live={live}
-      onCaseOpenChange={setIsSidebarCollapsed} onInspectInBuild={handleInspectInBuild} activeScenarioOverride={portfolioScenarioOverride}
+      onCaseOpenChange={setIsSidebarCollapsed} onInspectInBuild={handleInspectInBuild} activeScenarioOverride={portfolioScenarioOverride} queueResetNonce={queueResetNonce}
     />
   )
 
