@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import * as evalRubric from './evalRubric'
 import { JUDGE_CALIBRATION_SPEC, RUBRIC_DIMENSIONS } from './evalRubric'
-import { MOCK_EVAL_RUN } from './evalRun'
+import * as evalRun from './evalRun'
+import { DEFAULT_EVAL_SNAPSHOT } from './evalSnapshot'
 
 describe('evalRubric and evalRun alignment with clearauth-eval', () => {
   it('contains no RAGAS, GEval, or LLM-as-judge labels', () => {
@@ -30,16 +31,16 @@ describe('evalRubric and evalRun alignment with clearauth-eval', () => {
     })
   })
 
-  it('marks unbuilt Advisory Judge cells as not run (score: null) in MOCK_EVAL_RUN', () => {
-    for (const row of MOCK_EVAL_RUN.results) {
-      for (const m of row.metrics) {
-        if (m.methodology === 'Advisory Judge') {
-          expect(m.score).toBeNull()
-          expect(m.notRun).toBe(true)
-        } else {
-          expect(typeof m.score).toBe('number')
-        }
-      }
+  it('does not export illustrative eval runs, runtime profiles, or fixture suite sizes; judge dims stay defined/uncalibrated in snapshot', () => {
+    expect('MOCK_EVAL_RUN' in evalRun).toBe(false)
+    expect('RUNTIME_PROFILE' in evalRun).toBe(false)
+    expect('SUITE_SIZE' in evalRun).toBe(false)
+
+    const judgeDims = DEFAULT_EVAL_SNAPSHOT!.appeal_rubric.dimensions.filter(d => d.kind === 'judge')
+    expect(judgeDims).toHaveLength(4)
+    for (const j of judgeDims) {
+      expect(j.state).toBe('defined')
+      expect(j.calibration).toEqual({ n: 0, kappa: null, calibrated: false })
     }
   })
 })
