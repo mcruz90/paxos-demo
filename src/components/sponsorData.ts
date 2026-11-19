@@ -23,6 +23,7 @@ export interface SponsorFunnel {
   netAccessPct: number
   kAnonymityFloor: number
   phiIdentifiersCount: number
+  illustrative: true
 }
 
 export const SPONSOR_BRANDS: SponsorBrand[] = [
@@ -141,5 +142,6 @@ export function computeSponsorFunnel(brand: SponsorBrand): SponsorFunnel {
     netAccessPct: brand.approvalRate,
     kAnonymityFloor: 10,
     phiIdentifiersCount: 0,
+    illustrative: true,
   }
 }

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
+import { CapabilityChip } from './live/CapabilityChip'
 import { computeSponsorFunnel, SPONSOR_BRANDS, type SponsorBrand } from './sponsorData'
-import { InfoHint } from './ui'
+import { IllustrativeTag, InfoHint } from './ui'
 
 export { SPONSOR_BRANDS, type SponsorBrand } from './sponsorData'
 
@@ -17,24 +18,30 @@ function SponsorKpiStrip({ brand }: { brand: SponsorBrand }) {
       <div className="rounded-xl p-4 bg-slate-800/40 border border-slate-700/60">
         <p className="text-xs text-slate-500 mb-1">Net Approval Rate</p>
         <p className="text-2xl font-bold font-mono text-emerald-400">{brand.approvalRate}%</p>
-        <TrendChip value={brand.approvalTrend} />
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <TrendChip value={brand.approvalTrend} />
+          <span className="text-[11px] text-slate-500">illustrative approval rate</span>
+        </div>
       </div>
       <div className="rounded-xl p-4 bg-slate-800/40 border border-slate-700/60">
         <p className="text-xs text-slate-500 mb-1 flex items-center gap-1.5">
-          Median Time to Therapy <InfoHint text="Median calendar days from initial denial to approved authorization across all live sites." wide />
+          Median Time to Therapy <InfoHint text="Illustrative median calendar days from initial denial to approved authorization across modeled sites." wide />
         </p>
         <p className="text-2xl font-bold font-mono text-white">{brand.medianDaysToTherapy}<span className="text-sm font-normal text-slate-500"> days</span></p>
-        <TrendChip value={brand.daysTrend} goodWhenNegative />
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <TrendChip value={brand.daysTrend} goodWhenNegative />
+          <span className="text-[11px] text-slate-500">illustrative median days</span>
+        </div>
       </div>
       <div className="rounded-xl p-4 bg-slate-800/40 border border-slate-700/60">
         <p className="text-xs text-slate-500 mb-1">Sites Live on ClearAuth</p>
         <p className="text-2xl font-bold font-mono text-white">{brand.sitesLive}<span className="text-sm font-normal text-slate-500"> / 42</span></p>
-        <span className="text-xs text-slate-500">deployments running product</span>
+        <span className="text-xs text-slate-500">illustrative deployments</span>
       </div>
       <div className="rounded-xl p-4 bg-slate-800/40 border border-slate-700/60">
         <p className="text-xs text-slate-500 mb-1">Cases This Quarter</p>
         <p className="text-2xl font-bold font-mono text-white">{brand.casesQuarter.toLocaleString()}</p>
-        <span className="text-xs text-slate-500">authorizations processed</span>
+        <span className="text-xs text-slate-500">illustrative quarterly volume</span>
       </div>
     </div>
   )
@@ -53,7 +60,7 @@ function AuthorizationFunnelCard({ brand }: { brand: SponsorBrand }) {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h2 className="text-sm font-semibold text-white">Authorization Conversion Funnel · First-Pass vs. Post-Appeal Recovery</h2>
-          <p className="text-xs text-slate-500 mt-0.5">How initial electronic submissions and citation-grounded appeals combine to lift net therapy initiation</p>
+          <p className="text-xs text-slate-500 mt-0.5">Illustrative funnel modeling how initial electronic submissions and citation-grounded appeals combine to lift net therapy initiation</p>
         </div>
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-emerald-500/10 border border-emerald-500/25 text-emerald-300">
           k-anonymity ≥ {f.kAnonymityFloor} · {f.phiIdentifiersCount} PHI identifiers
@@ -80,7 +87,7 @@ function PolicyFrictionMatrix({ brand }: { brand: SponsorBrand }) {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div className="rounded-xl p-5 bg-slate-800/40 border border-slate-700/60">
         <h2 className="text-sm font-semibold text-white mb-1">Payer Policy Friction &amp; Documentation Gaps</h2>
-        <p className="text-xs text-slate-500 mb-4">Aggregate criteria driving denials — pinpoints where prescriber education removes bottlenecks.</p>
+        <p className="text-xs text-slate-500 mb-4">Illustrative aggregate denial criteria — shows where prescriber education removes bottlenecks.</p>
         <div className="space-y-3">
           {brand.denialReasons.map(d => (
             <div key={d.reason}>
@@ -93,7 +100,7 @@ function PolicyFrictionMatrix({ brand }: { brand: SponsorBrand }) {
       </div>
       <div className="rounded-xl p-5 bg-slate-800/40 border border-slate-700/60">
         <h2 className="text-sm font-semibold text-white mb-1">Net Approval Rate by Payer</h2>
-        <p className="text-xs text-slate-500 mb-4">Where formulary coverage is strong vs. where non-preferred step barriers concentrate.</p>
+        <p className="text-xs text-slate-500 mb-4">Illustrative payer breakdown — where formulary coverage vs. step-therapy barriers concentrate.</p>
         <div className="space-y-3">
           {brand.byPayer.map(p => (
             <div key={p.payer}>
@@ -114,14 +121,18 @@ export function SponsorView() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="px-8 py-6 border-b border-slate-800">
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <h1 className="text-xl font-bold font-display text-white">Coverage Insights</h1>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
-            <ShieldCheck className="w-3 h-3" />De-identified · 0 PHI identifiers
-          </span>
+        <div className="flex items-center justify-between gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl font-bold font-display text-white">Coverage Insights</h1>
+            <CapabilityChip cap="simulated" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+              <ShieldCheck className="w-3 h-3" />De-identified · 0 PHI identifiers
+            </span>
+          </div>
+          <IllustrativeTag />
         </div>
         <p className="text-sm text-slate-400 mt-0.5">
-          Aggregate authorization outcomes across all 4 specialty brands running ClearAuth (k-anonymity ≥ 10; read-only market access plane).
+          Illustrative demo figures — not measured from live deployments or actual manufacturer programs (modeled on de-identified aggregate schema; k-anonymity ≥ 10, 0 PHI).
         </p>
         <div className="flex items-center gap-2 mt-4 flex-wrap">
           {SPONSOR_BRANDS.map(b => {

@@ -35,6 +35,7 @@ describe('SPONSOR_BRANDS and computeSponsorFunnel', () => {
       expect(funnel.netAccessPct).toBeGreaterThan(funnel.firstPassApprovedPct)
       expect(funnel.kAnonymityFloor).toBeGreaterThanOrEqual(10)
       expect(funnel.phiIdentifiersCount).toBe(0)
+      expect(funnel.illustrative).toBe(true)
     }
   })
 })
