@@ -1,6 +1,10 @@
 export interface JsonSchema {
-  $ref?: string
+  $schema?: string
+  $id?: string
   $defs?: Record<string, JsonSchema>
+  title?: string
+  description?: string
+  $ref?: string
   const?: unknown
   enum?: unknown[]
   type?: string | string[]
@@ -8,6 +12,48 @@ export interface JsonSchema {
   additionalProperties?: boolean
   properties?: Record<string, JsonSchema>
   items?: JsonSchema
+}
+
+const SUPPORTED_SCHEMA_KEYWORDS = new Set([
+  '$schema',
+  '$id',
+  '$defs',
+  'title',
+  'description',
+  '$ref',
+  'const',
+  'enum',
+  'type',
+  'required',
+  'additionalProperties',
+  'properties',
+  'items',
+])
+
+function findUnsupportedKeywords(schema: JsonSchema, path: string): string[] {
+  const errors: string[] = []
+  for (const key of Object.keys(schema)) {
+    if (!SUPPORTED_SCHEMA_KEYWORDS.has(key)) {
+      errors.push(`${path}: unsupported schema keyword "${key}"`)
+    }
+  }
+  if ('additionalProperties' in schema && typeof schema.additionalProperties !== 'boolean') {
+    errors.push(`${path}: unsupported schema keyword "additionalProperties" (must be boolean)`)
+  }
+  if (schema.$defs) {
+    for (const [k, def] of Object.entries(schema.$defs)) {
+      errors.push(...findUnsupportedKeywords(def, `${path}.$defs.${k}`))
+    }
+  }
+  if (schema.properties) {
+    for (const [k, prop] of Object.entries(schema.properties)) {
+      errors.push(...findUnsupportedKeywords(prop, `${path}.properties.${k}`))
+    }
+  }
+  if (schema.items) {
+    errors.push(...findUnsupportedKeywords(schema.items, `${path}.items`))
+  }
+  return errors
 }
 
 function matchesJsonType(value: unknown, kind: string): boolean {
@@ -48,17 +94,17 @@ function validateObject(
   }
   for (const [key, propSchema] of Object.entries(props)) {
     if (key in obj) {
-      errors.push(...validateAgainstSchema(obj[key], propSchema, root, `${path}.${key}`))
+      errors.push(...validateNode(obj[key], propSchema, root, `${path}.${key}`))
     }
   }
   return errors
 }
 
-export function validateAgainstSchema(
+function validateNode(
   value: unknown,
   schema: JsonSchema,
-  rootSchema: JsonSchema = schema,
-  path = '$',
+  rootSchema: JsonSchema,
+  path: string,
 ): string[] {
   const node = resolveRef(schema, rootSchema)
   const errors: string[] = []
@@ -79,11 +125,21 @@ export function validateAgainstSchema(
 
   if (Array.isArray(value) && node.items) {
     for (let i = 0; i < value.length; i++) {
-      errors.push(...validateAgainstSchema(value[i], node.items, rootSchema, `${path}[${i}]`))
+      errors.push(...validateNode(value[i], node.items, rootSchema, `${path}[${i}]`))
     }
   } else if (typeof value === 'object' && value !== null && !Array.isArray(value) && (node.properties || node.required)) {
     errors.push(...validateObject(value as Record<string, unknown>, node, rootSchema, path))
   }
 
   return errors
+}
+
+export function validateAgainstSchema(
+  value: unknown,
+  schema: JsonSchema,
+  rootSchema: JsonSchema = schema,
+  path = '$',
+): string[] {
+  const keywordErrors = path === '$' ? findUnsupportedKeywords(rootSchema, path) : []
+  return [...keywordErrors, ...validateNode(value, schema, rootSchema, path)]
 }

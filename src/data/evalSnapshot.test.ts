@@ -66,6 +66,21 @@ describe('eval_snapshot schema contract & generated TS types', () => {
     badJudgeStatus.appeal_rubric.judge_bar.status = 'draft'
     expect(validateAgainstSchema(badJudgeStatus, evalSnapshotSchema).length).toBeGreaterThan(0)
   })
+
+  it('rejects unsupported JSON Schema keywords instead of silently ignoring them (N8)', () => {
+    const withMinimum = { type: 'number', minimum: 0 }
+    const directErrors = validateAgainstSchema(5, withMinimum as any)
+    expect(directErrors.some(e => e.includes('minimum'))).toBe(true)
+
+    const schemaWithPattern = structuredClone(evalSnapshotSchema) as Record<string, any>
+    schemaWithPattern.$defs.comparison.properties.decision.pattern = '^[a-z_]+$'
+    const nestedErrors = validateAgainstSchema(rawExampleSnapshot, schemaWithPattern)
+    expect(nestedErrors.some(e => e.includes('pattern'))).toBe(true)
+
+    const schemaWithBadAddl = { type: 'object', additionalProperties: { type: 'string' } }
+    const addlErrors = validateAgainstSchema({}, schemaWithBadAddl as any)
+    expect(addlErrors.some(e => e.includes('additionalProperties'))).toBe(true)
+  })
 })
 
 describe('real eval_snapshot.example.json invariants (clearauth-eval decision 0049)', () => {
