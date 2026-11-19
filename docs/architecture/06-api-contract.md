@@ -417,3 +417,27 @@ Source of truth: [backend/.env.example](../../backend/.env.example).
 CORS is a `CORS_ORIGINS` allowlist with `allow_credentials=True` (cookies) —
 tightened from `["*"]` in Slice 2 ([ADR-0013](adr/0013-fastapi-bff-session-cookie-auth.md)),
 since a browser will not send credentials to a wildcard origin.
+
+## Durable patient case metadata (local integration increment)
+
+| Method | Path | Result |
+|---|---|---|
+| POST | `/api/patients/{patient_ref}/cases` | `CaseRecord` after commit; body contains only `idempotency_key` |
+| GET | `/api/patients/{patient_ref}/cases/{case_id}` | Current scoped `CaseRecord` |
+| GET | `/api/patients/{patient_ref}/cases/{case_id}/events` | Stored `CaseEventRecord[]`, ordered by `event_sequence` |
+
+All three require a browser session and an active durable group/patient grant;
+POST additionally requires CSRF. Bearer service credentials alone receive 401.
+Tenant/subject are resolved from session state, actor from the durable principal.
+The path patient is checked against the panel, never treated as authorization.
+Case ids are canonical UUIDv4. Extra body fields are rejected with 422. POST
+returns 200 for both first creation and identical replay; replay preserves the
+original creation revision. Reuse for another authorized patient returns 409.
+Missing case or grant is 404. Storage/commit failure is a metadata-only 503.
+
+The public event sequence is a stable allocation key, not commit order, a gapless
+count or a global incremental-consumption cursor. This increment still permits
+only case_created at revision 1. No evidence, artifacts, approvals or exports are
+exposed here. See [runtime contracts](14-case-evidence-runtime.md) for transaction,
+revocation and provisioning boundaries. The application database is not migrated
+by server startup, and these routes have not been wired to the UI.
