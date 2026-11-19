@@ -12,7 +12,8 @@ test('PH-3098 initial PA: unified Epic workspace keeps Operate focus, open packe
 
   // Opens directly inside unified SplitPortfolioView while Operate focus holds
   await expect(page.getByText('Prior Auth Criteria Checklist')).toBeVisible()
-  await expect(page.getByText(/^Operate ·/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Back to Queue' })).toBeVisible()
+  await expect(page.getByText("What the customer's PA team uses")).toBeVisible()
 
   // Open Packet tab → wait for simulated assembly → explicitly Open Packet → Approve & File
   await page.getByRole('button', { name: /2\. PA Packet/ }).click()
