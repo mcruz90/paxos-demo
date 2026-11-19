@@ -1,22 +1,57 @@
-import { Boxes, CheckCircle, ChevronRight, Clock, Loader2, Rocket, Workflow } from 'lucide-react'
+import { Boxes, CheckCircle, ChevronRight, Clock, GitCommit, Loader2, Rocket, Workflow } from 'lucide-react'
 import { METHOD_LABEL, RUBRIC_DIMENSIONS, thresholdLabel } from '../data/evalRubric'
+import { DEFAULT_EVAL_SNAPSHOT, formatShortCommit, summarizeReadiness } from '../data/evalSnapshot'
 import { type View } from '../types'
+import { DecisionStatusBadge, StageStateBadge } from './evals/SnapshotBadges'
 import { EVAL_SNAPSHOT_PLACEHOLDER } from './inspector/inspectorModel'
 import { type OnboardingTemplate } from './onboardingData'
 
 function SnapshotReadinessNotice() {
+  const snap = DEFAULT_EVAL_SNAPSHOT
+  if (!snap) {
+    return (
+      <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 space-y-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-xs font-semibold text-slate-200 uppercase tracking-wide">clearauth-eval Readiness Snapshot</p>
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2 py-0.5 rounded-full border border-slate-600/60 bg-slate-900/60 text-slate-300">
+            <Clock className="w-3 h-3 text-slate-400" />
+            {EVAL_SNAPSHOT_PLACEHOLDER.state} · awaiting eval_snapshot.json
+          </span>
+        </div>
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Stage readiness verdicts (targets.json), E2E flow totals, and held-out one-shot status load from the harness snapshot once exported.
+        </p>
+      </div>
+    )
+  }
+
+  const counts = summarizeReadiness(snap.readiness.stages)
+  const tracked = snap.readiness.stages.filter(s => s.state !== 'not_built')
+
   return (
-    <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 space-y-2">
+    <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 space-y-2.5">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-xs font-semibold text-slate-200 uppercase tracking-wide">clearauth-eval Readiness Snapshot</p>
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2 py-0.5 rounded-full border border-slate-600/60 bg-slate-900/60 text-slate-300">
-          <Clock className="w-3 h-3 text-slate-400" />
-          {EVAL_SNAPSHOT_PLACEHOLDER.state} · awaiting eval_snapshot.json
-        </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+            <GitCommit className="w-3 h-3" />
+            v{snap.schema_version} · {formatShortCommit(snap.as_of_commit)}
+          </span>
+          <DecisionStatusBadge decision={snap.readiness.decision} />
+        </div>
       </div>
-      <p className="text-xs text-slate-400 leading-relaxed">
-        Stage readiness verdicts (targets.json), E2E flow totals, and held-out one-shot status load from the harness snapshot once exported.
+      <p className="text-xs font-mono text-slate-300">
+        {counts.ready} ready · {counts.notYet} not yet · {counts.noRuns} no runs · {counts.notBuilt} not built
       </p>
+      <div className="flex flex-wrap gap-1.5">
+        {tracked.map(st => (
+          <span key={st.id} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-slate-700/60 bg-slate-900/50 text-[11px] font-mono text-slate-200">
+            <span>{st.id}</span>
+            <StageStateBadge state={st.state} />
+          </span>
+        ))}
+      </div>
+      <p className="text-[11px] text-slate-400">Held-out wording sets are one-shot with rotation (ADR 0004).</p>
     </div>
   )
 }

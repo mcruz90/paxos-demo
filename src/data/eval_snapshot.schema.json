@@ -1,0 +1,221 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "clearauth-eval/eval_snapshot.schema.json",
+ "title": "eval_snapshot.json, schema version 1 (decision 0049)",
+ "description": "The eval console's numbers for other apps. Written by python -m console.snapshot_json from stored results only. Every section has a state; a reader must show it and must not show a missing number as 0.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": ["schema_version", "as_of_commit", "generated_at", "basis", "readiness", "e2e", "appeal_rubric", "paired_prompts", "clocks"],
+ "properties": {
+  "schema_version": {"const": "1"},
+  "as_of_commit": {"type": "string", "description": "git commit of clearauth-eval the file was written from, or unknown"},
+  "generated_at": {"type": "string", "description": "UTC time the file was written, ISO 8601"},
+  "basis": {"type": "string"},
+  "readiness": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["state", "decision", "stages"],
+   "properties": {
+    "state": {"$ref": "#/$defs/section_state"},
+    "decision": {"$ref": "#/$defs/decision"},
+    "stages": {"type": "array", "items": {"$ref": "#/$defs/stage"}}
+   }
+  },
+  "e2e": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["state", "decision", "runs"],
+   "properties": {
+    "state": {"$ref": "#/$defs/section_state"},
+    "decision": {"$ref": "#/$defs/decision"},
+    "runs": {"type": "array", "items": {"$ref": "#/$defs/e2e_run"}}
+   }
+  },
+  "appeal_rubric": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["state", "decision", "dimensions", "judge_bar"],
+   "properties": {
+    "state": {"$ref": "#/$defs/section_state"},
+    "decision": {"$ref": "#/$defs/decision"},
+    "dimensions": {"type": "array", "items": {"$ref": "#/$defs/dimension"}},
+    "judge_bar": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": ["min_letters", "min_kappa", "status"],
+     "properties": {
+      "min_letters": {"type": "integer"},
+      "min_kappa": {"type": "number"},
+      "status": {"enum": ["proposed", "accepted"]}
+     }
+    }
+   }
+  },
+  "paired_prompts": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["state", "runs"],
+   "properties": {
+    "state": {"$ref": "#/$defs/section_state"},
+    "why": {"type": "string"},
+    "runs": {"type": "array", "items": {"$ref": "#/$defs/run_versions"}},
+    "comparison": {"$ref": "#/$defs/comparison"}
+   }
+  },
+  "clocks": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["state", "decision", "clocks", "not_applicable"],
+   "properties": {
+    "state": {"$ref": "#/$defs/section_state"},
+    "decision": {"$ref": "#/$defs/decision"},
+    "clocks": {"type": "array", "items": {"$ref": "#/$defs/clock"}},
+    "not_applicable": {"type": "array", "items": {"$ref": "#/$defs/not_applicable"}}
+   }
+  }
+ },
+ "$defs": {
+  "section_state": {"enum": ["measured", "not_run", "not_built", "defined"]},
+  "decision": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["number", "status"],
+   "properties": {
+    "number": {"type": "string"},
+    "status": {"type": "string", "description": "the status line of the decision file, for example Accepted or Proposed (needs May's review)"}
+   }
+  },
+  "nullable_string": {"type": ["string", "null"]},
+  "stage": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["id", "name", "state", "why", "target"],
+   "properties": {
+    "id": {"type": "string"},
+    "name": {"type": "string"},
+    "state": {"enum": ["ready", "not_yet", "no_runs", "not_built"]},
+    "why": {"type": "string"},
+    "target": {"type": ["object", "null"], "description": "the stage's row in console/targets.json"},
+    "errors": {"type": "integer", "description": "costly mistakes of the best candidate"},
+    "n": {"type": "integer"},
+    "error_range95": {"type": ["array", "null"], "items": {"type": "number"}, "description": "Wilson 95% range of the costly-mistake rate"},
+    "right": {"type": ["object", "null"], "additionalProperties": false, "required": ["k", "n"], "properties": {"k": {"type": "integer"}, "n": {"type": "integer"}}},
+    "candidate": {"$ref": "#/$defs/nullable_string"},
+    "in_clearauth": {"type": ["boolean", "null"]},
+    "lead": {"$ref": "#/$defs/nullable_string"},
+    "checked": {"$ref": "#/$defs/nullable_string"},
+    "basis": {"$ref": "#/$defs/nullable_string"}
+   }
+  },
+  "e2e_stage": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["id", "name", "run", "ok", "held", "silent", "inherited", "gold_fed_ok", "gold_fed_run"],
+   "properties": {
+    "id": {"type": "string"},
+    "name": {"type": "string"},
+    "run": {"type": ["integer", "null"]},
+    "ok": {"type": ["integer", "null"]},
+    "held": {"type": ["integer", "null"]},
+    "silent": {"type": ["integer", "null"]},
+    "inherited": {"type": ["integer", "null"]},
+    "gold_fed_ok": {"type": ["integer", "null"], "description": "right when given the right input"},
+    "gold_fed_run": {"type": ["integer", "null"]}
+   }
+  },
+  "e2e_run": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["run_id", "created", "flow", "deid", "fallback_model", "cases", "outcomes", "stages", "first_failure"],
+   "properties": {
+    "run_id": {"type": "string"},
+    "created": {"$ref": "#/$defs/nullable_string"},
+    "flow": {"type": "string"},
+    "deid": {"type": "string"},
+    "fallback_model": {"$ref": "#/$defs/nullable_string"},
+    "cases": {"type": "integer"},
+    "outcomes": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": ["pass", "held", "wrong", "silent"],
+     "properties": {"pass": {"type": "integer"}, "held": {"type": "integer"}, "wrong": {"type": "integer"}, "silent": {"type": "integer"}}
+    },
+    "stages": {"type": "array", "items": {"$ref": "#/$defs/e2e_stage"}},
+    "first_failure": {
+     "type": "array",
+     "items": {"type": "object", "additionalProperties": false, "required": ["id", "cases"], "properties": {"id": {"type": "string"}, "cases": {"type": "integer"}}}
+    },
+    "by_denial": {"type": "object"},
+    "missed_appeals": {"type": "object"}
+   }
+  },
+  "dimension": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["id", "kind", "question", "state"],
+   "properties": {
+    "id": {"type": "string"},
+    "kind": {"enum": ["deterministic", "entailment", "judge"]},
+    "question": {"type": "string"},
+    "state": {"enum": ["measured", "defined"]},
+    "calibration": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": ["n", "kappa", "calibrated"],
+     "properties": {"n": {"type": "integer"}, "kappa": {"type": ["number", "null"]}, "calibrated": {"type": "boolean"}}
+    }
+   }
+  },
+  "run_versions": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["run_id", "prompt_version", "request_version"],
+   "properties": {"run_id": {"type": "string"}, "prompt_version": {"type": "string"}, "request_version": {"type": "string"}}
+  },
+  "comparison": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["a", "b", "left_out", "gaps", "a_correct", "b_correct", "a_range", "b_range", "fixed", "broke", "new_silent_errors", "p_value", "decision"],
+   "properties": {
+    "a": {"$ref": "#/$defs/run_versions"},
+    "b": {"$ref": "#/$defs/run_versions"},
+    "left_out": {"type": "integer"},
+    "gaps": {"type": "integer"},
+    "a_correct": {"type": "integer"},
+    "b_correct": {"type": "integer"},
+    "a_range": {"type": ["array", "null"], "items": {"type": "number"}},
+    "b_range": {"type": ["array", "null"], "items": {"type": "number"}},
+    "fixed": {"type": "integer"},
+    "broke": {"type": "integer"},
+    "new_silent_errors": {"type": "integer"},
+    "p_value": {"type": "number", "description": "exact two-sided sign test on the discordant pairs, not rounded"},
+    "decision": {"type": "string"},
+    "delta": {"type": "number"},
+    "delta_low": {"type": "number"},
+    "delta_high": {"type": "number"}
+   }
+  },
+  "clock": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["id", "program", "request_type", "urgency", "duration", "unit", "start_event", "citation", "verified_on"],
+   "properties": {
+    "id": {"type": "string"},
+    "program": {"type": "string"},
+    "request_type": {"type": "string"},
+    "urgency": {"enum": ["standard", "expedited"]},
+    "duration": {"type": "integer"},
+    "unit": {"enum": ["hours", "calendar_days"]},
+    "start_event": {"type": "string"},
+    "citation": {"type": "string"},
+    "verified_on": {"type": "array", "items": {"type": "string"}}
+   }
+  },
+  "not_applicable": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["id", "rule", "subject", "citation"],
+   "properties": {"id": {"type": "string"}, "rule": {"type": "string"}, "subject": {"type": "string"}, "citation": {"type": "string"}}
+  }
+ }
+}

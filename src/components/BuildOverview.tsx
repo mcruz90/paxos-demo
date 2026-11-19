@@ -1,7 +1,8 @@
-import { Library, FileText, Pencil, Workflow, AlertTriangle, ArrowRight, Gauge, Terminal } from 'lucide-react'
+import { Library, FileText, Pencil, Workflow, AlertTriangle, ArrowRight, Gauge, Terminal, GitCommit } from 'lucide-react'
 import { type IconType, type View } from '../types'
 import { universalPrimitives } from '../data/scenarios'
-import { RUBRIC_DIMENSIONS } from '../data/evalRubric'
+import { DEFAULT_EVAL_SNAPSHOT, formatShortCommit, summarizeReadiness, totalE2eSilentErrors } from '../data/evalSnapshot'
+import type { EvalSnapshot } from '../generated/evalSnapshotTypes'
 import { NODE_META, INITIAL_HISTORY } from './instructions'
 import { WORKFLOW_PACKS } from './WorkflowSpecView'
 import { FAILURE_CLUSTERS } from './FailureReviewView'
@@ -27,14 +28,39 @@ interface Node {
 
 const criticalOpen = FAILURE_CLUSTERS.filter(c => c.severity === 'critical').length
 
-const NODES: Record<string, Node> = {
-  library:      { view: 'library',      Icon: Library,       title: 'Ontology Library',  role: 'The case skeleton + rule primitives every case shares', stat: `${universalPrimitives.length} rule primitives`,                 health: 'ok' },
-  specs:        { view: 'specs',        Icon: FileText,      title: 'Workflow Spec',      role: 'Pipeline structure — nodes, edges, edge cases',         stat: `${NODE_META.length} nodes · ${WORKFLOW_PACKS.length} packs`,     health: 'ok' },
-  instructions: { view: 'instructions', Icon: Pencil,        title: 'Agent Instructions', role: 'Behavior — the prompt authored per pipeline node',      stat: `${Object.keys(INITIAL_HISTORY).length} node instructions`,       health: 'ok' },
-  rubric:       { view: 'rubric',       Icon: Workflow,      title: 'Eval Rubric',        role: 'The quality gate every change must clear',              stat: `${RUBRIC_DIMENSIONS.length} scoring dimensions`,                  health: 'ok' },
-  failures:     { view: 'failures',     Icon: AlertTriangle, title: 'Failure Review',     role: 'Prod monitoring — clusters, root cause, remediation',   stat: `${FAILURE_CLUSTERS.length} clusters · ${criticalOpen} critical`,  health: criticalOpen > 0 ? 'critical' : 'ok' },
-  inspector:    { view: 'inspector',    Icon: Terminal,      title: 'Live Trace & Evals', role: 'PHI-redacted tokenizer, gatekeeper assertions & SSE audit', stat: 'Concept B · 3-pane inspector',                                   health: 'ok' },
+function buildNodes(snapshot: EvalSnapshot | null): Record<string, Node> {
+  const readiness = snapshot ? summarizeReadiness(snapshot.readiness.stages) : null
+  const targeted = readiness ? readiness.total - readiness.notBuilt : 0
+  const rubricDims = snapshot ? snapshot.appeal_rubric.dimensions.length : 0
+  const appealCases = snapshot?.e2e.runs.find(r => r.flow === 'appeal')?.cases
+  const initialCases = snapshot?.e2e.runs.find(r => r.flow === 'initial')?.cases
+  const totalSilent = snapshot ? totalE2eSilentErrors(snapshot.e2e.runs) : null
+
+  return {
+    library: { view: 'library', Icon: Library, title: 'Ontology Library', role: 'The case skeleton + rule primitives every case shares', stat: `${universalPrimitives.length} rule primitives`, health: 'ok' },
+    specs: { view: 'specs', Icon: FileText, title: 'Workflow Spec', role: 'Pipeline structure — nodes, edges, edge cases', stat: `${NODE_META.length} nodes · ${WORKFLOW_PACKS.length} packs`, health: 'ok' },
+    instructions: { view: 'instructions', Icon: Pencil, title: 'Agent Instructions', role: 'Behavior — the prompt authored per pipeline node', stat: `${Object.keys(INITIAL_HISTORY).length} node instructions`, health: 'ok' },
+    rubric: {
+      view: 'rubric',
+      Icon: Workflow,
+      title: 'Eval Rubric',
+      role: 'Stage readiness targets + appeal rubric dimensions',
+      stat: readiness ? `${readiness.ready}/${targeted} stages ready · ${rubricDims} rubric dims` : 'not_run · awaiting eval_snapshot.json',
+      health: readiness && readiness.ready === targeted ? 'ok' : 'attention',
+    },
+    failures: { view: 'failures', Icon: AlertTriangle, title: 'Failure Review', role: 'Prod monitoring — clusters, root cause, remediation', stat: `${FAILURE_CLUSTERS.length} clusters · ${criticalOpen} critical`, health: criticalOpen > 0 ? 'critical' : 'ok' },
+    inspector: {
+      view: 'inspector',
+      Icon: Terminal,
+      title: 'Live Trace & Evals',
+      role: 'PHI-redacted tokenizer, gatekeeper assertions & E2E chain blame',
+      stat: snapshot && totalSilent !== null ? `E2E: ${totalSilent} silent · ${appealCases ?? '—'} appeal / ${initialCases ?? '—'} initial` : 'not_run · awaiting snapshot',
+      health: snapshot ? (totalSilent === 0 ? 'ok' : 'attention') : 'attention',
+    },
+  }
 }
+
+const NODES: Record<string, Node> = buildNodes(DEFAULT_EVAL_SNAPSHOT)
 
 // Left → right: the foundation, the agent built on it, the governance loop
 // wrapping it. `edge` is the relation to the tier on its right.
@@ -93,9 +119,17 @@ export function BuildOverview({ setView }: { setView: (v: View) => void }) {
   return (
     <div className="flex-1 overflow-auto">
       <div className="px-8 py-6 border-b border-slate-800">
-        <div className="flex items-center gap-2.5">
-          <Gauge className="w-5 h-5 text-emerald-400" />
-          <h1 className="text-xl font-bold font-display text-white">Control Plane</h1>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <Gauge className="w-5 h-5 text-emerald-400" />
+            <h1 className="text-xl font-bold font-display text-white">Control Plane</h1>
+          </div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border border-slate-700 bg-slate-900/60 text-slate-300">
+            <GitCommit className="w-3.5 h-3.5 text-emerald-400" />
+            {DEFAULT_EVAL_SNAPSHOT
+              ? `eval_snapshot.json v${DEFAULT_EVAL_SNAPSHOT.schema_version} · ${formatShortCommit(DEFAULT_EVAL_SNAPSHOT.as_of_commit)}`
+              : 'not_run · awaiting snapshot'}
+          </span>
         </div>
         <p className="text-sm text-slate-400 mt-0.5">
           The whole system the AI Lead governs, as a layered model — the foundation, the agent built on it, and the governance loop around it. Open any surface to drill in.

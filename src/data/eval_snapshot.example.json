@@ -1,0 +1,677 @@
+{
+ "schema_version": "1",
+ "as_of_commit": "8b18c4478f6976389f6dc7fea7335545a9e7d74d",
+ "generated_at": "2026-11-19T02:07:13+00:00",
+ "basis": "Synthetic letters, charts and cases written by one author, scored by this repository. The numbers show where each stage stands against its target, not how well it reads real documents.",
+ "readiness": {
+  "state": "measured",
+  "decision": {
+   "number": "0014",
+   "status": "Accepted"
+  },
+  "stages": [
+   {
+    "id": "intake",
+    "name": "Read the denial letter",
+    "state": "not_yet",
+    "why": "Not yet: 81 costly mistakes; the target allows 0; hands-off on 75%; the target is 80%.",
+    "target": {
+     "max_errors": 0,
+     "min_n": 300,
+     "min_right": 0.8,
+     "unit": "held-out answers per field",
+     "why": "A silent error reaches the payer unchecked."
+    },
+    "errors": 81,
+    "n": 1037,
+    "error_range95": [
+     0.0633,
+     0.096
+    ],
+    "right": {
+     "k": 1219,
+     "n": 1616
+    },
+    "candidate": "the extractor fixes and the checked AI fallback with Qwen 3.5 0.8B",
+    "in_clearauth": false,
+    "lead": "With the fixes and the checked AI fallback (Qwen 3.5 0.8B): 0 silent errors in 1,616 answers on the held-out layouts; hands-off on 75% (right in total 84%: the rest right but flagged for a person). Other held-out letters: 81 silent errors (icd_distractor 81).",
+    "checked": "2026-10-21T02:54:39+00:00",
+    "basis": "Synthetic letters modelled on real formats. Rests on intake-port-full-b635170-20261021T005151Z (extractor) and pipeline-20261021T025439Z (AI fallback)"
+   },
+   {
+    "id": "doc_type",
+    "name": "Is it a denial?",
+    "state": "not_yet",
+    "why": "Not yet: 60 costly mistakes; the target allows 0.",
+    "target": {
+     "max_errors": 0,
+     "min_n": 300,
+     "unit": "held-out documents",
+     "why": "A missed denial loses the appeal deadline; a false one sends an approved patient into the denial workflow."
+    },
+    "errors": 60,
+    "n": 310,
+    "error_range95": [
+     0.1534,
+     0.2412
+    ],
+    "right": null,
+    "candidate": "Rules (frozen before the held-out set)",
+    "in_clearauth": false,
+    "lead": "Best candidate: 60 false and 0 missed denials in 310 held-out documents from 31 new layouts.",
+    "checked": "2026-10-14T14:26:59+00:00",
+    "basis": "Synthetic layouts; 10 labelled real letters"
+   },
+   {
+    "id": "deid",
+    "name": "Remove identifiers",
+    "state": "not_yet",
+    "why": "Not yet: 4 costly mistakes; the target allows 0.",
+    "target": {
+     "max_errors": 0,
+     "min_n": 300,
+     "unit": "letters",
+     "why": "A leak sends patient data to a model."
+    },
+    "errors": 4,
+    "n": 720,
+    "error_range95": [
+     0.0022,
+     0.0142
+    ],
+    "right": null,
+    "candidate": "Case identity and facts + pattern rules + two AI models + output screen",
+    "in_clearauth": false,
+    "lead": "With the case packet (Case identity and facts + pattern rules + two AI models + output screen): 4 of 720 held-out letters still show an identifier. Without a case packet (Pattern rules + two AI models + output screen): 8 of 720.",
+    "checked": "2026-11-16T07:38:55+00:00",
+    "basis": "Held-out synthetic identities and layouts"
+   },
+   {
+    "id": "llm",
+    "name": "AI fills a gap",
+    "state": "ready",
+    "why": "Meets its target.",
+    "target": {
+     "max_errors": 0,
+     "min_n": 300,
+     "unit": "held-out gaps",
+     "why": "The model must never make things worse."
+    },
+    "errors": 0,
+    "n": 342,
+    "error_range95": [
+     0.0,
+     0.0111
+    ],
+    "right": null,
+    "candidate": "the checked AI fallback with Qwen 3.5 0.8B",
+    "in_clearauth": false,
+    "lead": "Best model (Qwen 3.5 0.8B): 0 silent errors added in 342 gaps it tried, 342 of them on held-out letters; 113 filled automatically; provider errors not recorded.",
+    "checked": "2026-10-14",
+    "basis": "Synthetic letters; held-out layouts count toward the target"
+   },
+   {
+    "id": "criteria",
+    "name": "Check criteria against the chart",
+    "state": "not_yet",
+    "why": "Not yet: no second person has checked a sample.",
+    "target": {
+     "max_errors": 0,
+     "min_n": 300,
+     "unit": "charts",
+     "needs_second_labeller": true,
+     "second_labeller": {
+      "min_kappa": 0.8,
+      "min_agreement": 0.95,
+      "authors": [
+       "May"
+      ]
+     },
+     "why": "Telling a patient they don't qualify, wrongly, is the costliest error."
+    },
+    "errors": 0,
+    "n": 300,
+    "error_range95": [
+     0.0,
+     0.0126
+    ],
+    "right": null,
+    "candidate": "the rules checker",
+    "in_clearauth": false,
+    "lead": "0 serious errors in 300 charts; right on 1,650 of 1,650 criteria.",
+    "checked": "2026-11-17T17:42:51+00:00",
+    "basis": "Synthetic charts; one author wrote charts and checker"
+   },
+   {
+    "id": "appeal",
+    "name": "Appeal letter and citations",
+    "state": "not_yet",
+    "why": "Not yet: 1 costly mistake; the target allows 0; right on 0%; the target is 80%.",
+    "target": {
+     "max_errors": 0,
+     "min_n": 300,
+     "min_right": 0.8,
+     "unit": "planted claims on held-out wording",
+     "why": "An ungrounded claim in an appeal letter risks clinical or regulatory harm. Right means a clean held-out letter passes with no block: like intake's 80% hands-off, at least 80% of letters need no person (May, 2026-10-20)."
+    },
+    "errors": 1,
+    "n": 2415,
+    "error_range95": [
+     0.0001,
+     0.0023
+    ],
+    "right": {
+     "k": 0,
+     "n": 209
+    },
+    "candidate": "the claim-to-citation gate",
+    "in_clearauth": false,
+    "lead": "2,414 of 2,415 planted claims blocked; 0 of 209 clean letters pass with no block.",
+    "checked": "2026-11-10T17:18:31+00:00",
+    "basis": "Synthetic appeal drafts; held-out wording"
+   },
+   {
+    "id": "evidence",
+    "name": "evidence",
+    "state": "no_runs",
+    "why": "The console has no readiness card for this stage yet.",
+    "target": {
+     "max_errors": 0,
+     "min_n": 1,
+     "unit": "criteria quoted",
+     "why": "Every claim in a package must rest on the payer's or the label's own words."
+    },
+    "checked": null,
+    "basis": null
+   },
+   {
+    "id": "payer_response_and_counter_offers",
+    "name": "Payer response and counter-offers",
+    "state": "not_built",
+    "why": "Reading an approved dose, quantity or duration; flagging one too low.",
+    "target": null
+   },
+   {
+    "id": "submission_completeness",
+    "name": "Submission completeness",
+    "state": "not_built",
+    "why": "Whether a package has everything the payer asks for before it goes.",
+    "target": null
+   },
+   {
+    "id": "regulatory_deadlines",
+    "name": "Regulatory deadlines",
+    "state": "not_built",
+    "why": "Decision and appeal clocks by plan type and state.",
+    "target": null
+   }
+  ]
+ },
+ "e2e": {
+  "state": "measured",
+  "decision": {
+   "number": "0047",
+   "status": "Proposed (needs May's review)"
+  },
+  "runs": [
+   {
+    "run_id": "e2e-20261117T175043Z",
+    "created": "2026-11-17T17:50:43+00:00",
+    "flow": "appeal",
+    "deid": "models",
+    "fallback_model": "qwen3.5:2b-q4_K_M",
+    "cases": 420,
+    "outcomes": {
+     "pass": 369,
+     "held": 5,
+     "wrong": 46,
+     "silent": 0
+    },
+    "stages": [
+     {
+      "id": "sanitize",
+      "name": "Clean the letter",
+      "run": 420,
+      "ok": 420,
+      "held": 0,
+      "silent": 0,
+      "inherited": 0,
+      "gold_fed_ok": 420,
+      "gold_fed_run": 420
+     },
+     {
+      "id": "doc_type",
+      "name": "Tell what kind of document it is",
+      "run": 420,
+      "ok": 420,
+      "held": 0,
+      "silent": 0,
+      "inherited": 0,
+      "gold_fed_ok": 420,
+      "gold_fed_run": 420
+     },
+     {
+      "id": "intake",
+      "name": "Read the denial letter",
+      "run": 420,
+      "ok": 420,
+      "held": 0,
+      "silent": 0,
+      "inherited": 0,
+      "gold_fed_ok": 420,
+      "gold_fed_run": 420
+     },
+     {
+      "id": "retrieval",
+      "name": "Find the payer's policy",
+      "run": 420,
+      "ok": 419,
+      "held": 1,
+      "silent": 0,
+      "inherited": 0,
+      "gold_fed_ok": 419,
+      "gold_fed_run": 420
+     },
+     {
+      "id": "deid",
+      "name": "Remove identifiers",
+      "run": 420,
+      "ok": 416,
+      "held": 4,
+      "silent": 0,
+      "inherited": 0,
+      "gold_fed_ok": 416,
+      "gold_fed_run": 420
+     },
+     {
+      "id": "criteria",
+      "name": "Check criteria against the chart",
+      "run": 415,
+      "ok": 369,
+      "held": 0,
+      "silent": 0,
+      "inherited": 46,
+      "gold_fed_ok": 420,
+      "gold_fed_run": 420
+     },
+     {
+      "id": "state",
+      "name": "Say who does what next",
+      "run": 415,
+      "ok": 369,
+      "held": 0,
+      "silent": 0,
+      "inherited": 46,
+      "gold_fed_ok": 420,
+      "gold_fed_run": 420
+     },
+     {
+      "id": "readiness",
+      "name": "Say whether the appeal has ground",
+      "run": 415,
+      "ok": 408,
+      "held": 0,
+      "silent": 0,
+      "inherited": 7,
+      "gold_fed_ok": 420,
+      "gold_fed_run": 420
+     },
+     {
+      "id": "draft",
+      "name": "Draft the appeal from the tokenized records and check every quotation",
+      "run": 208,
+      "ok": 208,
+      "held": 0,
+      "silent": 0,
+      "inherited": 0,
+      "gold_fed_ok": 208,
+      "gold_fed_run": 211
+     },
+     {
+      "id": "rehydrate",
+      "name": "Put identifiers back and check each quotation against the records",
+      "run": 208,
+      "ok": 208,
+      "held": 0,
+      "silent": 0,
+      "inherited": 0,
+      "gold_fed_ok": 208,
+      "gold_fed_run": 208
+     },
+     {
+      "id": "response",
+      "name": "Read the payer's reply",
+      "run": 420,
+      "ok": 420,
+      "held": 0,
+      "silent": 0,
+      "inherited": 0,
+      "gold_fed_ok": 420,
+      "gold_fed_run": 420
+     }
+    ],
+    "first_failure": [
+     {
+      "id": "retrieval",
+      "cases": 1
+     },
+     {
+      "id": "deid",
+      "cases": 4
+     },
+     {
+      "id": "criteria",
+      "cases": 46
+     }
+    ],
+    "by_denial": {
+     "correct": {
+      "held": 2,
+      "pass": 183,
+      "silent": 0,
+      "wrong": 24
+     },
+     "wrongful": {
+      "held": 3,
+      "pass": 186,
+      "silent": 0,
+      "wrong": 22
+     }
+    },
+    "missed_appeals": {
+     "by_stage": {
+      "deid": 3
+     },
+     "cases": 3,
+     "of": 211
+    }
+   },
+   {
+    "run_id": "e2e-20261117T183400Z",
+    "created": "2026-11-17T18:34:00+00:00",
+    "flow": "initial",
+    "deid": "models",
+    "fallback_model": "qwen3.5:2b-q4_K_M",
+    "cases": 300,
+    "outcomes": {
+     "pass": 263,
+     "held": 3,
+     "wrong": 34,
+     "silent": 0
+    },
+    "stages": [
+     {
+      "id": "retrieval",
+      "name": "Find the payer's policy",
+      "run": 300,
+      "ok": 299,
+      "held": 1,
+      "silent": 0,
+      "inherited": 0,
+      "gold_fed_ok": 299,
+      "gold_fed_run": 300
+     },
+     {
+      "id": "deid",
+      "name": "Remove identifiers",
+      "run": 300,
+      "ok": 298,
+      "held": 2,
+      "silent": 0,
+      "inherited": 0,
+      "gold_fed_ok": 298,
+      "gold_fed_run": 300
+     },
+     {
+      "id": "criteria",
+      "name": "Check criteria against the chart",
+      "run": 297,
+      "ok": 263,
+      "held": 0,
+      "silent": 0,
+      "inherited": 34,
+      "gold_fed_ok": 300,
+      "gold_fed_run": 300
+     },
+     {
+      "id": "state",
+      "name": "Say who does what next",
+      "run": 297,
+      "ok": 263,
+      "held": 0,
+      "silent": 0,
+      "inherited": 34,
+      "gold_fed_ok": 300,
+      "gold_fed_run": 300
+     },
+     {
+      "id": "package",
+      "name": "Check the request package is complete",
+      "run": 80,
+      "ok": 80,
+      "held": 0,
+      "silent": 0,
+      "inherited": 0,
+      "gold_fed_ok": 300,
+      "gold_fed_run": 300
+     },
+     {
+      "id": "response",
+      "name": "Read the payer's reply",
+      "run": 300,
+      "ok": 300,
+      "held": 0,
+      "silent": 0,
+      "inherited": 0,
+      "gold_fed_ok": 300,
+      "gold_fed_run": 300
+     }
+    ],
+    "first_failure": [
+     {
+      "id": "retrieval",
+      "cases": 1
+     },
+     {
+      "id": "deid",
+      "cases": 2
+     },
+     {
+      "id": "criteria",
+      "cases": 34
+     }
+    ]
+   }
+  ]
+ },
+ "appeal_rubric": {
+  "state": "defined",
+  "decision": {
+   "number": "0011",
+   "status": "Accepted"
+  },
+  "dimensions": [
+   {
+    "id": "D1_gate_passed",
+    "kind": "deterministic",
+    "question": "Is every factual claim cited (no conflict, no uncited claim)?",
+    "state": "measured"
+   },
+   {
+    "id": "D2_structure",
+    "kind": "deterministic",
+    "question": "Does the letter name the drug at the top, ask for reconsideration, and carry a signature with an NPI, at 300 characters or more?",
+    "state": "measured"
+   },
+   {
+    "id": "D3a_names_denial_reason",
+    "kind": "deterministic",
+    "question": "Does the letter state the denial's actual reason, attributed to the denial?",
+    "state": "measured"
+   },
+   {
+    "id": "D3b_evidence_for_denied_criterion",
+    "kind": "deterministic",
+    "question": "Does a cited claim rest on chart evidence for the criterion the denial is about?",
+    "state": "measured"
+   },
+   {
+    "id": "D4_product_exact",
+    "kind": "deterministic",
+    "question": "Is the requested product named exactly, with no other salt or product of the same ingredient?",
+    "state": "measured"
+   },
+   {
+    "id": "D5_no_refusal",
+    "kind": "deterministic",
+    "question": "Is the letter free of refusal and AI-identity phrases?",
+    "state": "measured"
+   },
+   {
+    "id": "D6_no_raw_identifiers",
+    "kind": "deterministic",
+    "question": "On the Build plane, is every identifier tokenized?",
+    "state": "measured"
+   },
+   {
+    "id": "D7_no_hedging",
+    "kind": "deterministic",
+    "question": "Does the letter avoid arguing against itself (\"may not qualify\", \"unfortunately\")?",
+    "state": "measured"
+   },
+   {
+    "id": "E1_claim_citation",
+    "kind": "entailment",
+    "question": "Does each claim's cited span actually support it?",
+    "state": "measured"
+   },
+   {
+    "id": "E2_context_precision",
+    "kind": "entailment",
+    "question": "Of the claims cited to the chart, what share rest on evidence for one of the policy's criteria?",
+    "state": "measured"
+   },
+   {
+    "id": "J1_argument",
+    "kind": "judge",
+    "question": "Does the letter make the case for medical necessity, connecting each cited fact to the criterion it satisfies?",
+    "state": "defined",
+    "calibration": {
+     "n": 0,
+     "kappa": null,
+     "calibrated": false
+    }
+   },
+   {
+    "id": "J2_tone",
+    "kind": "judge",
+    "question": "Is the tone professional and factual, neither adversarial nor pleading?",
+    "state": "defined",
+    "calibration": {
+     "n": 0,
+     "kappa": null,
+     "calibrated": false
+    }
+   },
+   {
+    "id": "J3_clinical_coverage",
+    "kind": "judge",
+    "question": "Does the letter cover the clinical history a reviewer needs (diagnosis, prior treatments and outcomes, why this drug now)?",
+    "state": "defined",
+    "calibration": {
+     "n": 0,
+     "kappa": null,
+     "calibrated": false
+    }
+   },
+   {
+    "id": "J4_safety_language",
+    "kind": "judge",
+    "question": "Does the letter avoid promising outcomes and claims beyond the drug's label?",
+    "state": "defined",
+    "calibration": {
+     "n": 0,
+     "kappa": null,
+     "calibrated": false
+    }
+   }
+  ],
+  "judge_bar": {
+   "min_letters": 50,
+   "min_kappa": 0.6,
+   "status": "proposed"
+  }
+ },
+ "paired_prompts": {
+  "state": "not_run",
+  "runs": [
+   {
+    "run_id": "llm-fallback-20261014T155211Z",
+    "prompt_version": "p-1fd3e5ebed08",
+    "request_version": "r-5f4bc7ea337e"
+   },
+   {
+    "run_id": "llm-fallback-20261014T144013Z",
+    "prompt_version": "p-1fd3e5ebed08",
+    "request_version": "r-eece5075b2ed"
+   },
+   {
+    "run_id": "llm-fallback-20261006T015809Z",
+    "prompt_version": "p-1fd3e5ebed08",
+    "request_version": "r-eece5075b2ed"
+   },
+   {
+    "run_id": "llm-fallback-20261003T030144Z",
+    "prompt_version": "v1",
+    "request_version": "-"
+   },
+   {
+    "run_id": "llm-fallback-20261003T030143Z",
+    "prompt_version": "v1",
+    "request_version": "-"
+   },
+   {
+    "run_id": "llm-fallback-20261001T233357Z",
+    "prompt_version": "v1",
+    "request_version": "-"
+   },
+   {
+    "run_id": "llm-fallback-20261001T233118Z",
+    "prompt_version": "v1",
+    "request_version": "-"
+   }
+  ],
+  "why": "No comparison named: pass --compare RUN_A RUN_B."
+ },
+ "clocks": {
+  "state": "defined",
+  "decision": {
+   "number": "0048",
+   "status": "Proposed (needs May's review)"
+  },
+  "clocks": [
+   {
+    "id": "part_d_exception_standard",
+    "program": "part_d",
+    "request_type": "exception",
+    "urgency": "standard",
+    "duration": 72,
+    "unit": "hours",
+    "start_event": "supporting_statement_received",
+    "citation": "42 CFR 423.568(b)",
+    "verified_on": [
+     "2026-10-15",
+     "2026-10-23"
+    ]
+   }
+  ],
+  "not_applicable": [
+   {
+    "id": "cms_0057f_drugs",
+    "rule": "CMS-0057-F",
+    "subject": "drugs",
+    "citation": "CMS FAQ, Improving Prior Authorization Processes (CMS-0057-F)"
+   }
+  ]
+ }
+}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { RUBRIC_DIMENSIONS, thresholdLabel } from '../data/evalRubric'
 import { type CaseStatus, type View } from '../types'
 import { AuthoredRubricCriteriaSection, EvalCaseSetSection, JudgeCalibrationSection, RubricLoopCallout } from './evals/EvalRubricParts'
+import { SnapshotRubricDimensionsSection } from './evals/SnapshotRubricSection'
 import { EvalRunResultsPanel } from './EvalRunResultsPanel'
 import { IllustrativeTag, RoleChip } from './ui'
 import { ARTIFACT_ACTOR, ArtifactControls, BLOCKED_EXPERIMENT, diffList, EditableRecordList, JustPublishedBanner, SandboxPromotionBar, useVersioned, type VersionEntry, VersionHistoryPanel } from './versioning'
@@ -179,6 +180,7 @@ export function EvalRubricView({
           </div>
           {vs.justPublished !== null && !vs.editing && <JustPublishedBanner version={vs.justPublished} scope="The rubric now gates every client deployment." />}
           <ScoringDimensionsSection editing={vs.editing} dimensions={data.dimensions} onChangeDimensions={dimensions => set({ dimensions })} onOpenFailures={() => setView('failures')} />
+          {!vs.editing && <SnapshotRubricDimensionsSection />}
           {!vs.editing && <AuthoredRubricCriteriaSection />}
           {!vs.editing && <JudgeCalibrationSection />}
           <EvalCaseSetSection editing={vs.editing} cases={data.cases} onChangeCases={cases => set({ cases })} onInspectScenario={onInspectScenario} />

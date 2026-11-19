@@ -1,5 +1,6 @@
 import { Clock, RotateCcw, Stethoscope, Terminal } from 'lucide-react'
 import { JUDGE_CALIBRATION_SPEC, RUBRIC_DIMENSIONS, thresholdLabel } from '../../data/evalRubric'
+import { DEFAULT_EVAL_SNAPSHOT, formatShortCommit } from '../../data/evalSnapshot'
 import { SUITE_SIZE } from '../../data/evalRun'
 import { scenarios } from '../../data/scenarios'
 import { type CaseTier } from '../../types'
@@ -36,11 +37,18 @@ export function AuthoredRubricCriteriaSection() {
   )
 }
 
-export function JudgeCalibrationSection() {
+export function JudgeCalibrationSection({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { snapshot?: typeof DEFAULT_EVAL_SNAPSHOT }) {
+  const judgeDims = snapshot?.appeal_rubric.dimensions.filter(d => d.kind === 'judge') ?? []
+  const maxN = judgeDims.reduce((acc, d) => Math.max(acc, d.calibration?.n ?? 0), 0)
+  const firstKappa = judgeDims.find(d => typeof d.calibration?.kappa === 'number')?.calibration?.kappa ?? null
+  const bar = snapshot?.appeal_rubric.judge_bar
+  const minLetters = bar?.min_letters ?? JUDGE_CALIBRATION_SPEC.proposedMinLetters
+  const minKappa = bar?.min_kappa ?? JUDGE_CALIBRATION_SPEC.proposedMinKappa
+  const barStatus = bar?.status ?? 'not_run'
   const stats = [
-    { label: 'Judge Runner', value: 'Not built', sub: 'no model judge runs yet' },
-    { label: 'Clinician Ratings', value: `${JUDGE_CALIBRATION_SPEC.reviewedLetters} / ${JUDGE_CALIBRATION_SPEC.proposedMinLetters}`, sub: 'labeled de-identified letters' },
-    { label: 'Proposed Bar (May decides)', value: `κ_w ≥ ${JUDGE_CALIBRATION_SPEC.proposedMinKappa.toFixed(2)}`, sub: 'quadratic-weighted Cohen’s κ' },
+    { label: 'Judge Runner', value: snapshot ? `${snapshot.appeal_rubric.state} only` : 'Not run', sub: 'no model judge runs yet' },
+    { label: 'Clinician Ratings', value: snapshot ? `${maxN} / ${minLetters}` : 'not_run', sub: 'labeled de-identified letters' },
+    { label: `Bar (${barStatus})`, value: `κ_w ≥ ${minKappa.toFixed(2)}`, sub: firstKappa !== null ? `measured κ_w = ${firstKappa.toFixed(2)}` : 'unmeasured (κ = —)' },
     { label: 'Held-Out Protocol', value: 'One-shot', sub: 'rotate set after tuning (ADR 0004)' },
   ]
   return (
@@ -51,7 +59,7 @@ export function JudgeCalibrationSection() {
           Judge Calibration Status <span className="text-violet-300 font-normal">· J1–J4 Advisory Rubric</span>
         </h2>
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono border border-amber-500/30 bg-amber-500/10 text-amber-300">
-          {JUDGE_CALIBRATION_SPEC.status} · advisory only
+          {snapshot ? `${snapshot.appeal_rubric.state} · bar ${barStatus} · advisory only` : 'not_run · awaiting eval_snapshot.json'}
         </span>
       </div>
       <p className="text-xs text-slate-500 mb-3">{JUDGE_CALIBRATION_SPEC.method} — defined in <span className="font-mono">calibration.py</span>.</p>
@@ -93,7 +101,9 @@ export function EvalCaseSetSection({
         </div>
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border border-slate-600/60 bg-slate-800/60 text-slate-300">
           <Clock className="w-3.5 h-3.5 text-slate-400" />
-          No snapshot loaded · awaiting eval_snapshot.json
+          {DEFAULT_EVAL_SNAPSHOT
+            ? `eval_snapshot.json v${DEFAULT_EVAL_SNAPSHOT.schema_version} · commit ${formatShortCommit(DEFAULT_EVAL_SNAPSHOT.as_of_commit)} · aggregates only`
+            : 'No snapshot loaded · awaiting eval_snapshot.json'}
         </span>
       </div>
       {editing ? (

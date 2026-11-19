@@ -1,4 +1,5 @@
-import { CheckCircle2, Clock, Cpu, Link2, ShieldCheck, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, Cpu, GitCommit, Link2, ShieldCheck, XCircle } from 'lucide-react'
+import { DEFAULT_EVAL_SNAPSHOT, formatShortCommit, isDecisionAccepted, summarizeReadiness } from '../../data/evalSnapshot'
 import type { DoneEvent } from '../../lib/wire'
 import type { ScenarioConfig } from '../../types'
 import type { LiveStep } from '../poc/live/appealEvents'
@@ -37,20 +38,49 @@ function GateRow({
   )
 }
 
-function SnapshotEmptyStateCard() {
+function SnapshotReadinessCompactCard() {
+  const snap = DEFAULT_EVAL_SNAPSHOT
+  if (!snap) {
+    return (
+      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 space-y-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <span className="text-xs font-semibold text-slate-200 uppercase tracking-wide">Harness Snapshot</span>
+          <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border border-slate-700 bg-slate-950/70 text-slate-300">
+            <Clock className="w-3 h-3 text-slate-400" />
+            {EVAL_SNAPSHOT_PLACEHOLDER.state}
+          </span>
+        </div>
+        <p className="text-xs font-medium text-slate-200">{EVAL_SNAPSHOT_PLACEHOLDER.label}</p>
+        <p className="text-[11px] text-slate-400 leading-relaxed">{EVAL_SNAPSHOT_PLACEHOLDER.detail}</p>
+      </div>
+    )
+  }
+
+  const r = summarizeReadiness(snap.readiness.stages)
+  const readyIds = snap.readiness.stages.filter(s => s.state === 'ready').map(s => s.id).join(', ')
+  const appealRun = snap.e2e.runs.find(run => run.flow === 'appeal') ?? snap.e2e.runs[0]
+  const judgeN = snap.appeal_rubric.dimensions.filter(d => d.kind === 'judge').reduce((m, d) => Math.max(m, d.calibration?.n ?? 0), 0)
+  const e2eStatus = isDecisionAccepted(snap.e2e.decision) ? 'Accepted' : 'Proposed'
+
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 space-y-2">
+    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 space-y-2 text-[11px]">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
-          Harness Snapshot Status
-        </span>
-        <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border border-slate-700 bg-slate-950/70 text-slate-300">
-          <Clock className="w-3 h-3 text-slate-400" />
-          {EVAL_SNAPSHOT_PLACEHOLDER.state}
+        <span className="text-xs font-semibold text-slate-200 uppercase tracking-wide">Harness Snapshot</span>
+        <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+          <GitCommit className="w-3 h-3" />v{snap.schema_version} · {formatShortCommit(snap.as_of_commit)}
         </span>
       </div>
-      <p className="text-xs font-medium text-slate-200">{EVAL_SNAPSHOT_PLACEHOLDER.label}</p>
-      <p className="text-[11px] text-slate-400 leading-relaxed">{EVAL_SNAPSHOT_PLACEHOLDER.detail}</p>
+      <p className="font-mono text-slate-300">
+        Readiness: {r.ready} ready ({readyIds || '—'}) · {r.notYet} not yet · {r.noRuns} no runs · {r.notBuilt} not built
+      </p>
+      {appealRun && (
+        <p className="font-mono text-slate-400">
+          E2E ({appealRun.flow}): {appealRun.outcomes.pass}/{appealRun.cases} pass · {appealRun.outcomes.held} held · {appealRun.outcomes.silent} silent (ADR {snap.e2e.decision.number} {e2eStatus})
+        </p>
+      )}
+      <p className="font-mono text-slate-400">
+        Judge calibration: {judgeN}/{snap.appeal_rubric.judge_bar.min_letters} · {snap.appeal_rubric.judge_bar.status}
+      </p>
     </div>
   )
 }
@@ -142,7 +172,7 @@ export function InspectorGateColumn({
       </div>
 
       <CriterionTraceList scenario={scenario} activeCiteIndex={activeCiteIndex} onSelectCiteIndex={onSelectCiteIndex} />
-      <SnapshotEmptyStateCard />
+      <SnapshotReadinessCompactCard />
 
       {steps.length > 0 && (
         <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 space-y-2">
