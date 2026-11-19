@@ -3,19 +3,36 @@ import { initialClients, scenarios } from '../../data/scenarios'
 import { resolveRegulatoryClock } from './regulatoryClocks'
 
 describe('resolveRegulatoryClock', () => {
-  it('resolves verified single-rule 42 CFR 423.568(b) 72h clock only for standard Part D medication exceptions', () => {
+  it('resolves 42 CFR 423.568(b) 72h clock only for standard Part D exception requests with start event', () => {
     const baseClient = initialClients.find(c => c.scenarioId === 'novo-ozempic-docgap')!
     const partDScenario = { ...scenarios['novo-ozempic-docgap'], plan: 'Medicare Part D Formulary' }
 
-    expect(resolveRegulatoryClock({ ...baseClient, urgency: 'soon' }, partDScenario)).toEqual({
+    const resolved = resolveRegulatoryClock(
+      { ...baseClient, urgency: 'soon', requestType: 'exception' } as typeof baseClient & { requestType: 'exception' },
+      partDScenario,
+    )
+    expect(resolved).toEqual({
       authority: '42 CFR 423.568(b)',
-      windowLabel: '72h Standard (Part D Exception)',
+      windowLabel: "72 h from the prescriber's supporting statement",
       citation: '42 CFR 423.568(b)',
+      startEvent: 'supporting_statement_received',
       determined: true,
     })
 
+    // Part D non-exception requests (even when workflow status is 'exception') must not receive the exception clock
+    const coverageDet = resolveRegulatoryClock(
+      { ...baseClient, status: 'exception', urgency: 'soon', requestType: 'coverage_determination' } as typeof baseClient & { requestType: 'coverage_determination' },
+      partDScenario,
+    )
+    expect(coverageDet.determined).toBe(false)
+    expect(coverageDet.authority).toBe('Clock not determined')
+
+    const omittedReqType = resolveRegulatoryClock({ ...baseClient, status: 'exception', urgency: 'soon' }, partDScenario)
+    expect(omittedReqType.determined).toBe(false)
+    expect(omittedReqType.authority).toBe('Clock not determined')
+
     // Part D expedited and appeals are not yet source-verified in clock_registry.json
-    expect(resolveRegulatoryClock({ ...baseClient, urgency: 'today' }, partDScenario).determined).toBe(false)
+    expect(resolveRegulatoryClock({ ...baseClient, urgency: 'today', requestType: 'exception' } as typeof baseClient, partDScenario).determined).toBe(false)
     expect(resolveRegulatoryClock({ ...baseClient, urgency: 'today' }, partDScenario).authority).toBe('Clock not determined')
     expect(resolveRegulatoryClock(initialClients.find(c => c.scenarioId === 'novo-ozempic')!, { ...scenarios['novo-ozempic'], plan: 'Medicare Part D' }).determined).toBe(false)
   })
