@@ -13,6 +13,7 @@ import {
   groupByAction,
   logActivity,
   quickApproveClient,
+  resolveSidebarNav,
   statusAfterResolution,
   unresolvedCriteria,
 } from './caseQueue'
@@ -197,5 +198,23 @@ describe('status transitions', () => {
     const before = clients.map(c => c.status)
     quickApproveClient(clients, reviewCase.scenarioId)
     expect(clients.map(c => c.status)).toEqual(before)
+  })
+})
+
+describe('resolveSidebarNav', () => {
+  it('resets selected case and uncollapses sidebar when Case Queue is clicked', () => {
+    expect(resolveSidebarNav('portfolio', 'novo-ozempic', 2)).toEqual({
+      override: null,
+      resetNonce: 3,
+      collapseSidebar: false,
+    })
+  })
+
+  it('preserves queue override and nonce for non-queue views', () => {
+    expect(resolveSidebarNav('evals', 'novo-ozempic', 2)).toEqual({
+      override: 'novo-ozempic',
+      resetNonce: 2,
+      collapseSidebar: false,
+    })
   })
 })
