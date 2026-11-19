@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { ArrowRight, CheckCircle2, Cpu, GitCommit, Info, Layers, RotateCcw, ShieldAlert, XCircle } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Cpu, GitCommit, Info, Layers, ShieldAlert, XCircle } from 'lucide-react'
 import { GRADERS, METHODOLOGY_META, MOCK_EVAL_RUN } from '../data/evalRun'
 import { DEFAULT_EVAL_SNAPSHOT, formatShortCommit } from '../data/evalSnapshot'
 import { type CaseLink, type CaseStatus, type EvalMethodology, type MetricResult } from '../types'
 import { ClearauthEvalStagesCard } from './evals/ClearauthEvalStagesCard'
 import { E2eChainCard } from './evals/E2eChainCard'
 import { PairedPromptsAndClocksCard } from './evals/PairedPromptsAndClocksCard'
+import { CapabilityChip } from './live/CapabilityChip'
 import { InfoHint, TierBadge } from './ui'
 
 const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`)
@@ -139,7 +140,6 @@ function HarnessSnapshotBlock() {
 
 export function EvalRunResultsPanel({ onOpenCase }: { onOpenCase: (scenarioId: string, status: CaseStatus) => void }) {
   const run = MOCK_EVAL_RUN
-  const [running, setRunning] = useState(false)
   const [selected, setSelected] = useState<{ caseId: string; idx: number } | null>(null)
   const casesPassed = run.results.filter(r => r.overallPassed).length
   const redBlocked = run.redTeam.reduce((a, p) => a + p.blocked, 0)
@@ -160,32 +160,22 @@ export function EvalRunResultsPanel({ onOpenCase }: { onOpenCase: (scenarioId: s
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-[11px] px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 font-mono font-medium">
-          {DEFAULT_EVAL_SNAPSHOT
-            ? `eval_snapshot.json v${DEFAULT_EVAL_SNAPSHOT.schema_version} · ${formatShortCommit(DEFAULT_EVAL_SNAPSHOT.as_of_commit)}`
-            : run.platform}
-        </span>
-        <span className="text-xs text-slate-500 font-mono">{DEFAULT_EVAL_SNAPSHOT ? DEFAULT_EVAL_SNAPSHOT.generated_at : run.runId}</span>
-        <div className="flex items-center gap-2 ml-auto">
-          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${allPass ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-300 bg-amber-500/10 border-amber-500/20'}`}>
-            {allPass ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />} Fixture {casesPassed} / {run.results.length}
-          </span>
-          <button type="button" onClick={() => { setRunning(true); setSelected(null); setTimeout(() => setRunning(false), 500) }} disabled={running}
-            className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition disabled:opacity-60">
-            <RotateCcw className={`w-3.5 h-3.5 ${running ? 'animate-spin' : ''}`} /> {running ? 'Running…' : 'Re-run fixture'}
-          </button>
-        </div>
-      </div>
-
       <HarnessSnapshotBlock />
 
       <div className="border-t border-slate-800 pt-6 space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h2 className="text-sm font-semibold text-white">Demo Fixture Preview · Illustrative Per-Case Matrix</h2>
-          <span className="text-[11px] font-mono text-slate-400">{run.platform}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-sm font-semibold text-white">Demo Fixture Preview · Illustrative Per-Case Matrix</h2>
+            <CapabilityChip cap="simulated" />
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border ${allPass ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-300 bg-amber-500/10 border-amber-500/20'}`}>
+              {allPass ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />} Fixture {casesPassed} / {run.results.length} passing
+            </span>
+            <span className="text-[11px] font-mono text-slate-400">{run.runId}</span>
+          </div>
         </div>
-        <p className="text-xs text-slate-500">Illustrative walkthrough scores below use fixture cases ({run.runId}); Advisory Judge J1–J4 remain unbuilt until clinician calibration completes.</p>
+        <p className="text-xs text-slate-500">Illustrative walkthrough scores below use local fixture cases ({run.platform}); not produced by clearauth-eval. Advisory Judge J1–J4 remain unbuilt until clinician calibration completes.</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-start">
@@ -214,7 +204,7 @@ export function EvalRunResultsPanel({ onOpenCase }: { onOpenCase: (scenarioId: s
 
       <div>
         <h2 className="text-sm font-semibold text-white mb-1">Per-Case Fixture Scores (Advisory J1–J4 Columns Not Run)</h2>
-        <div className={`bg-slate-800/40 border border-slate-700/60 rounded-xl overflow-x-auto transition-opacity ${running ? 'opacity-40 animate-pulse' : ''}`}>
+        <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-slate-700/40 text-slate-500 uppercase tracking-wide">
