@@ -37,6 +37,8 @@ dependencies = [
   "langgraph==1.2.14",
   "langchain-core>=1.4.7,<2.0.0",
   "langgraph-checkpoint>=4.1.0,<5.0.0",
+  "psycopg[binary]==3.3.8",
+  "tzdata==2026.6 ; sys_platform == 'win32'",
 ]
 
 [dependency-groups]
@@ -62,6 +64,7 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = ["postgres: requires an explicit separate TEST_DATABASE_URL and PostgreSQL 18"]
 
 [tool.ruff]
 line-length = 100

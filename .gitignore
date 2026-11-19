@@ -38,6 +38,7 @@ htmlcov/
 # Environment — never commit secrets
 .env
 backend/.env
+.integration-db/
 
 # Local utility scripts (not part of the project)
 extract.py

@@ -47,6 +47,7 @@ from openapi_ext import build_openapi
 from security.sessions import COOKIE_NAME, CSRF_HEADER, get_session
 from security.tenancy import TenancyScope
 from sse import stream_events, stream_initial_pa_events, stream_resume_events
+from storage.lifecycle import database_lifespan
 
 if TYPE_CHECKING:
     from ml.llm_backend import LLMBackend
@@ -69,6 +70,7 @@ os.environ["LANGCHAIN_TRACING_V2"] = "false"
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
+    lifespan=database_lifespan,
     title="PaxOS Appeal Generation API",
     description="Streaming prior-authorization appeal generation backend.",
     version="0.1.0",
