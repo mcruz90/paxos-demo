@@ -7,6 +7,7 @@ export interface PolicyProjection {
   deepReviewPct: number
   fastSendPct: number
   hoursSavedPerCoordinator: string
+  illustrative: true
 }
 
 export interface PolicyQueuePreviewRow {
@@ -39,6 +40,7 @@ export function computePolicyProjection(
       deepReviewPct: 100,
       fastSendPct: 0,
       hoursSavedPerCoordinator: '~0.6 hrs',
+      illustrative: true,
     }
   }
   const fastFraction = (100 - sampleRatePct) / 100
@@ -49,6 +51,7 @@ export function computePolicyProjection(
     deepReviewPct: sampleRatePct,
     fastSendPct: 100 - sampleRatePct,
     hoursSavedPerCoordinator: `~${saved.toFixed(1)} hrs`,
+    illustrative: true,
   }
 }
 

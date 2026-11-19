@@ -3,8 +3,10 @@ import { ArrowRight, Building2, CheckCircle, History, Info, TrendingUp } from 'l
 import { initialClients, scenarios, TENANT } from '../data/scenarios'
 import { type CaseStatus } from '../types'
 import { computePolicyProjection, previewQueueUnderPolicy, type PolicyQueuePreviewRow } from './automationPolicy'
+import { CapabilityChip } from './live/CapabilityChip'
 import { resolveRegulatoryClock } from './portfolio/regulatoryClocks'
 import { ReviewPolicyControl } from './ReviewPolicyControl'
+import { IllustrativeTag } from './ui'
 
 const CHANGE_LOG = [
   { date: 'Jun 9, 2026', who: 'M. Torres', change: 'Sample rate: 1 in 10 → 1 in 5', reason: 'Q2 audit found two routine cases with unsupported doses' },
@@ -19,7 +21,7 @@ const TONE_CLS: Record<PolicyQueuePreviewRow['badgeTone'], string> = {
   violet: 'text-violet-300 bg-violet-500/10 border-violet-500/25',
 }
 
-function LiveQueueRoutingPreview({
+function FixtureQueueRoutingPreview({
   rows, onOpenCase,
 }: {
   rows: PolicyQueuePreviewRow[]; onOpenCase?: (scenarioId: string, status: CaseStatus) => void
@@ -28,8 +30,8 @@ function LiveQueueRoutingPreview({
     <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-700/60 flex items-center justify-between gap-2">
         <div>
-          <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wide">Live Workqueue Routing Preview ({rows.length} Active Cases)</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Recomputed live from your policy toggle &amp; sampling rate</p>
+          <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wide">Fixture Workqueue Routing Preview (Demo Cases · {rows.length})</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Illustrative routing preview — recomputed locally from your policy toggle &amp; sampling rate</p>
         </div>
       </div>
       <div className="divide-y divide-slate-700/40">
@@ -63,16 +65,16 @@ function LiveQueueRoutingPreview({
 
 function PolicyRightRail({ projection }: { projection: ReturnType<typeof computePolicyProjection> }) {
   const stats = [
-    { label: 'Auto-assembled volume', value: `≈ ${projection.autoAssembledPct}%`, note: 'of routine & overall volume', color: 'text-emerald-300' },
-    { label: 'Sampled for deep review', value: projection.deepReviewSampleLabel, note: `${projection.deepReviewPct}% audited · ${projection.fastSendPct}% 1-click ready`, color: 'text-amber-300' },
-    { label: 'Coordinator time saved', value: projection.hoursSavedPerCoordinator, note: 'per day per coordinator', color: 'text-violet-300' },
+    { label: 'Auto-assembled volume', value: `≈ ${projection.autoAssembledPct}%`, note: 'illustrative (assumes 55% routine mix)', color: 'text-emerald-300' },
+    { label: 'Sampled for deep review', value: projection.deepReviewSampleLabel, note: `illustrative · ${projection.deepReviewPct}% audited · ${projection.fastSendPct}% 1-click ready`, color: 'text-amber-300' },
+    { label: 'Coordinator time saved', value: projection.hoursSavedPerCoordinator, note: 'illustrative model / coordinator / day', color: 'text-violet-300' },
   ]
   return (
     <div className="w-72 shrink-0 space-y-4">
       <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4">
         <div className="flex items-center gap-2 mb-3">
           <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-          <p className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Projected impact</p>
+          <p className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Projected impact (illustrative)</p>
         </div>
         <div className="space-y-3">
           {stats.map(s => (
@@ -91,7 +93,7 @@ function PolicyRightRail({ projection }: { projection: ReturnType<typeof compute
         </div>
       </div>
       <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-3"><History className="w-3.5 h-3.5 text-slate-400" /><p className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Change log</p></div>
+        <div className="flex items-center gap-2 mb-3"><History className="w-3.5 h-3.5 text-slate-400" /><p className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Change log (demo fixture)</p></div>
         <div className="space-y-3">
           {CHANGE_LOG.map((entry, i) => (
             <div key={i} className="relative pl-3 border-l border-slate-700/60">
@@ -114,10 +116,14 @@ export function AutomationPolicyView({ onOpenCase }: { onOpenCase?: (scenarioId:
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="px-8 py-6 border-b border-slate-800 flex items-center justify-between">
+      <div className="px-8 py-6 border-b border-slate-800 flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold font-display text-white">Automation Policy</h1>
-          <p className="text-sm text-slate-400 mt-0.5">How much routine volume to auto-assemble and queue vs. review in depth — your team owns this knob</p>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl font-bold font-display text-white">Automation Policy</h1>
+            <CapabilityChip cap="simulated" />
+            <IllustrativeTag />
+          </div>
+          <p className="text-sm text-slate-400 mt-0.5">How much routine volume to auto-assemble and queue vs. review in depth — illustrative projections only</p>
         </div>
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs bg-slate-800 border border-slate-700" title={`Operating as ${TENANT.name} — ${TENANT.type}.`}>
           <Building2 className="w-3 h-3 text-slate-400" /><span className="text-slate-200 font-medium">{TENANT.name}</span>
@@ -128,14 +134,14 @@ export function AutomationPolicyView({ onOpenCase }: { onOpenCase?: (scenarioId:
           <div className="flex items-start gap-3 px-4 py-3 bg-slate-800/50 border border-slate-700/40 rounded-xl">
             <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
             <p className="text-xs text-slate-400 leading-relaxed">
-              ClearAuth stands up the capability and defaults at onboarding; your PA team tunes sampling thresholds below — previewed directly against active cases before applying.
+              ClearAuth stands up the capability and defaults at onboarding; your PA team tunes sampling thresholds below — previewed locally on demo fixture cases before applying.
             </p>
           </div>
           <ReviewPolicyControl
             routineVolumePct={55} autoAssemble={autoAssemble} onToggleAutoAssemble={setAutoAssemble}
             sampleRate={sampleRate} onChangeSampleRate={setSampleRate}
           />
-          <LiveQueueRoutingPreview rows={queueRows} onOpenCase={onOpenCase} />
+          <FixtureQueueRoutingPreview rows={queueRows} onOpenCase={onOpenCase} />
         </div>
         <PolicyRightRail projection={projection} />
       </div>

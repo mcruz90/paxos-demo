@@ -10,6 +10,7 @@ describe('computePolicyProjection', () => {
     expect(out.deepReviewPct).toBe(20)
     expect(out.fastSendPct).toBe(80)
     expect(out.hoursSavedPerCoordinator).toBe('~2.3 hrs')
+    expect(out.illustrative).toBe(true)
   })
 
   it('increases coordinator hours saved when sampling drops to 1-in-20 (5%)', () => {
