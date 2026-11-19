@@ -35,10 +35,10 @@ function RoutingDistribution() {
 
 function MetricDefinitions() {
   const defs = [
-    { name: 'Guideline Coverage', method: 'An LLM judge scores each letter against authored criteria — every PA criterion in the policy is addressed and backed by a cited source.' },
-    { name: 'Letter Structure', method: 'A deterministic parse verifies the letter contains the required sections: opening, clinical evidence block, authorization request, and closing.' },
-    { name: 'Safety Gate (1st pass)', method: 'The gatekeeper node applies a fixed rule set — drug name present, diagnosis present, denial reason addressed, minimum length, no refusal phrases.' },
-    { name: 'Claim-Citation Alignment', method: 'Each factual claim in the letter is matched against the set of retrieved citations; unmatched claims are flagged for review.' },
+    { name: 'Guideline Coverage', method: 'Defined ordinal rubric (J3) checking whether every PA criterion is addressed and backed by a cited source — advisory only until judge calibration completes.' },
+    { name: 'Letter Structure', method: 'A deterministic parse verifies the letter contains required sections: drug named at top, authorization request, clinical citations, and NPI signature.' },
+    { name: 'Safety Gate (1st pass)', method: 'The gatekeeper node applies a fixed rule set — exact drug match, diagnosis present, denial reason addressed, minimum length, zero refusal or hedging phrases.' },
+    { name: 'Claim-Citation Alignment', method: 'The deterministic claim->citation gate verifies each factual claim against retrieved source spans; conflicting or uncited claims block sending.' },
   ]
   return (
     <div>
@@ -114,7 +114,7 @@ export function EvalPlatformQualitySection() {
       </div>
       <MetricDefinitions />
       <p className="text-xs text-slate-600 pb-4">
-        Structure and safety metrics are computed deterministically; subjective dimensions are scored by an LLM judge calibrated against a clinician panel.
+        Structure, safety, and claim-citation metrics run deterministically; ordinal judge dimensions remain defined-only / advisory until calibrated against clinician ratings.
       </p>
     </div>
   )

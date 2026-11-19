@@ -12,9 +12,16 @@ const ACCENT: Record<string, { text: string; bg: string; border: string; dot: st
   amber: { text: 'text-amber-300', bg: 'bg-amber-500/10', border: 'border-amber-500/20', dot: 'bg-amber-400' },
   sky: { text: 'text-sky-300', bg: 'bg-sky-500/10', border: 'border-sky-500/20', dot: 'bg-sky-400' },
 }
-const CARD_ORDER: EvalMethodology[] = ['Deterministic', 'RAGAS', 'LLM-as-judge', 'Red-team']
+const CARD_ORDER: EvalMethodology[] = ['Deterministic', 'Entailment', 'Advisory Judge', 'Red-team']
 
 function CellChip({ metric, active, onClick }: { metric: MetricResult; active: boolean; onClick?: () => void }) {
+  if (metric.score === null || metric.notRun) {
+    return (
+      <span title="Defined in appeal_rubric.json — not run yet (advisory)" className="inline-block px-2 py-0.5 rounded text-xs font-mono border border-slate-700/60 bg-slate-900/40 text-slate-500">
+        —
+      </span>
+    )
+  }
   const clickable = !!metric.reason
   const cls = metric.passed ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' : 'text-red-300 bg-red-500/10 border-red-500/30'
   return (
@@ -38,12 +45,12 @@ function RuntimeSection({ run }: { run: typeof MOCK_EVAL_RUN }) {
     <div>
       <div className="flex items-center gap-2 mb-1">
         <Cpu className="w-4 h-4 text-violet-400" />
-        <h2 className="text-sm font-semibold text-white">Runtime · Cost, Latency &amp; Model Routing</h2>
-        <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300">traced in {run.runtime.tracedIn}</span>
+        <h2 className="text-sm font-semibold text-white">Runtime · Estimated Model Routing</h2>
+        <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300">{run.runtime.tracedIn}</span>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         {[
-          { label: 'Cost / case', value: `$${run.runtime.costPerCaseUsd.toFixed(3)}`, sub: 'end-to-end, all nodes' },
+          { label: 'Cost / case', value: `$${run.runtime.costPerCaseUsd.toFixed(3)}`, sub: 'illustrative estimate' },
           { label: 'Latency p50', value: fmtMs(run.runtime.p50Ms), sub: 'median wall-clock' },
           { label: 'Latency p95', value: fmtMs(run.runtime.p95Ms), sub: 'tail wall-clock' },
           { label: 'Tokens / case', value: run.runtime.tokensPerCase.toLocaleString(), sub: 'input + output' },
@@ -82,8 +89,8 @@ function RedTeamSection({ run, onOpenCase }: { run: typeof MOCK_EVAL_RUN; onOpen
   const total = run.redTeam.reduce((a, p) => a + p.probes, 0)
   return (
     <div>
-      <h2 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><ShieldAlert className="w-4 h-4 text-amber-400" /> Red-Team Probes</h2>
-      <p className="text-xs text-slate-500 mb-3">Adversarial attacks run against the pipeline — {blocked}/{total} blocked.</p>
+      <h2 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><ShieldAlert className="w-4 h-4 text-amber-400" /> Red-Team Probes (Demo Fixture)</h2>
+      <p className="text-xs text-slate-500 mb-3">Illustrative adversarial probes — {blocked}/{total} blocked.</p>
       <div className="space-y-2">
         {run.redTeam.map(p => {
           const clean = p.passRate === 1
@@ -117,9 +124,11 @@ export function EvalRunResultsPanel({ onOpenCase }: { onOpenCase: (scenarioId: s
   const groups: { methodology: EvalMethodology; count: number }[] = []
   GRADERS.forEach(g => { const last = groups.at(-1); if (last && last.methodology === g.methodology) last.count++; else groups.push({ methodology: g.methodology, count: 1 }) })
   const summary = (mth: EvalMethodology) => {
-    if (mth === 'Red-team') return { passed: redBlocked, total: redTotal, items: run.redTeam.map(p => ({ label: p.category, measures: p.attack })) }
+    if (mth === 'Red-team') return { passed: redBlocked, total: redTotal, notBuilt: false, items: run.redTeam.map(p => ({ label: p.category, measures: p.attack })) }
+    const items = GRADERS.filter(g => g.methodology === mth).map(g => ({ label: g.dimension, measures: g.measures }))
+    if (mth === 'Advisory Judge') return { passed: 0, total: items.length, notBuilt: true, items }
     const cells = run.results.flatMap(r => r.metrics.filter(x => x.methodology === mth))
-    return { passed: cells.filter(c => c.passed).length, total: cells.length, items: GRADERS.filter(g => g.methodology === mth).map(g => ({ label: g.dimension, measures: g.measures })) }
+    return { passed: cells.filter(c => c.passed).length, total: cells.length, notBuilt: false, items }
   }
   const selectedCase = selected ? run.results.find(r => r.caseId === selected.caseId) : null
   const selectedMetric = selectedCase && selected ? selectedCase.metrics[selected.idx] : null
@@ -149,7 +158,15 @@ export function EvalRunResultsPanel({ onOpenCase }: { onOpenCase: (scenarioId: s
           const s = summary(mth); const a = ACCENT[METHODOLOGY_META[mth].accent]
           return (
             <div key={mth} className={`rounded-xl border ${a.border} ${a.bg} p-4`}>
-              <div className="flex items-center gap-2 mb-1.5"><span className={`w-2 h-2 rounded-full ${a.dot}`} /><h3 className={`text-sm font-semibold ${a.text}`}>{mth}</h3><span className={`ml-auto font-mono text-xs font-semibold ${s.passed === s.total ? 'text-emerald-300' : 'text-amber-300'}`}>{s.passed}/{s.total}</span></div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className={`w-2 h-2 rounded-full ${a.dot}`} />
+                <h3 className={`text-sm font-semibold ${a.text}`}>{mth}</h3>
+                {s.notBuilt ? (
+                  <span className="ml-auto font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded bg-slate-800/70 border border-slate-600/40 text-slate-300">not built</span>
+                ) : (
+                  <span className={`ml-auto font-mono text-xs font-semibold ${s.passed === s.total ? 'text-emerald-300' : 'text-amber-300'}`}>{s.passed}/{s.total}</span>
+                )}
+              </div>
               <p className="text-xs text-slate-400 leading-relaxed mb-2.5">{METHODOLOGY_META[mth].blurb}</p>
               <div className="space-y-1 mb-2.5">{s.items.map(it => <div key={it.label} className="flex items-center gap-1 text-[11px] text-slate-300"><span>{it.label}</span><InfoHint text={it.measures} wide /></div>)}</div>
               <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-slate-700/40 text-slate-400 border border-slate-600/30">{METHODOLOGY_META[mth].method}</span>
@@ -161,7 +178,7 @@ export function EvalRunResultsPanel({ onOpenCase }: { onOpenCase: (scenarioId: s
       <RuntimeSection run={run} />
 
       <div>
-        <h2 className="text-sm font-semibold text-white mb-1">Per-Case Scores</h2>
+        <h2 className="text-sm font-semibold text-white mb-1">Per-Case Fixture Scores (Advisory J1–J4 Columns Not Run)</h2>
         <div className={`bg-slate-800/40 border border-slate-700/60 rounded-xl overflow-x-auto transition-opacity ${running ? 'opacity-40 animate-pulse' : ''}`}>
           <table className="w-full text-xs">
             <thead>
@@ -171,7 +188,7 @@ export function EvalRunResultsPanel({ onOpenCase }: { onOpenCase: (scenarioId: s
                 {groups.map(grp => <th key={grp.methodology} colSpan={grp.count} className={`text-center px-3 pt-2 pb-1 font-semibold normal-case ${ACCENT[METHODOLOGY_META[grp.methodology].accent].text}`}>{grp.methodology}</th>)}
               </tr>
               <tr className="border-b border-slate-700/60 text-slate-500 uppercase tracking-wide">
-                {GRADERS.map(g => <th key={g.dimension} className="text-center px-3 pb-2 font-medium normal-case text-slate-400 align-top">{g.dimension}<span className="block text-[10px] text-slate-600 font-mono">≥ {g.threshold.toFixed(2)}</span></th>)}
+                {GRADERS.map(g => <th key={g.dimension} className="text-center px-3 pb-2 font-medium normal-case text-slate-400 align-top">{g.dimension}<span className="block text-[10px] text-slate-600 font-mono">{g.status === 'not_built' ? 'not built' : `≥ ${g.threshold.toFixed(2)}`}</span></th>)}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/40">
@@ -191,7 +208,7 @@ export function EvalRunResultsPanel({ onOpenCase }: { onOpenCase: (scenarioId: s
         <div className="rounded-xl border border-red-500/30 bg-red-500/[0.05] p-5">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <XCircle className="w-4 h-4 text-red-400" /><span className="font-mono text-xs text-slate-200">{selectedCase.caseId}</span><span className="text-slate-600">·</span><span className="text-xs text-slate-300 font-mono">{selectedMetric.grader}</span>
-            <span className="ml-auto font-mono text-xs"><span className="text-red-300 font-semibold">{selectedMetric.score.toFixed(2)}</span> / {selectedMetric.threshold.toFixed(2)}</span>
+            <span className="ml-auto font-mono text-xs"><span className="text-red-300 font-semibold">{selectedMetric.score !== null ? selectedMetric.score.toFixed(2) : '—'}</span> / {selectedMetric.threshold.toFixed(2)}</span>
           </div>
           <p className="text-sm text-slate-300 leading-relaxed mb-4">{selectedMetric.reason}</p>
           {selectedMetric.caseLink && <CaseLinkButton link={selectedMetric.caseLink} onOpenCase={onOpenCase} />}

@@ -1,9 +1,8 @@
-import { CheckCircle2, RotateCcw, Stethoscope, Terminal } from 'lucide-react'
-import { JUDGE_CALIBRATION, RUBRIC_DIMENSIONS, thresholdLabel } from '../../data/evalRubric'
+import { Clock, RotateCcw, Stethoscope, Terminal } from 'lucide-react'
+import { JUDGE_CALIBRATION_SPEC, RUBRIC_DIMENSIONS, thresholdLabel } from '../../data/evalRubric'
 import { SUITE_SIZE } from '../../data/evalRun'
 import { scenarios } from '../../data/scenarios'
 import { type CaseTier } from '../../types'
-import { DUAL_REVIEWER_KAPPA } from '../inspector/inspectorModel'
 import { TierBadge } from '../ui'
 import { EditableRecordList } from '../versioning'
 
@@ -11,10 +10,10 @@ export function AuthoredRubricCriteriaSection() {
   return (
     <div>
       <h2 className="text-sm font-semibold text-white mb-1">
-        Authored Rubric Criteria <span className="text-violet-300 font-normal">· LLM-as-judge</span>
+        Advisory Judge Rubric Criteria · J1–J4 <span className="text-violet-300 font-normal">(not run yet)</span>
       </h2>
       <p className="text-xs text-slate-500 mb-3">
-        For subjective dimensions with no deterministic answer key, the AI Lead authors explicit pass criteria; an LLM grades each letter against them (HealthBench-style).
+        Anchored 1–4 ordinal dimensions defined in <span className="font-mono">appeal_rubric.json</span> — no judge runs today; scores remain strictly advisory until calibrated on de-identified letters.
       </p>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {RUBRIC_DIMENSIONS.filter(d => d.criteria).map(d => (
@@ -39,20 +38,23 @@ export function AuthoredRubricCriteriaSection() {
 
 export function JudgeCalibrationSection() {
   const stats = [
-    { label: 'Judge ↔ clinician agreement', value: `${JUDGE_CALIBRATION.agreementPct}%`, sub: `on ${JUDGE_CALIBRATION.labeledLetters} labeled letters` },
-    { label: "Cohen's κ", value: JUDGE_CALIBRATION.cohenKappa.toFixed(2), sub: 'inter-rater · substantial' },
-    { label: 'Dual-reviewer /chart-review', value: DUAL_REVIEWER_KAPPA.kappa.toFixed(2), sub: `${DUAL_REVIEWER_KAPPA.agreementPct}% on n=${DUAL_REVIEWER_KAPPA.sampleCriteria} criteria` },
-    { label: 'Last calibrated', value: JUDGE_CALIBRATION.lastCalibrated, sub: JUDGE_CALIBRATION.recalibrateOn },
+    { label: 'Judge Runner', value: 'Not built', sub: 'no model judge runs yet' },
+    { label: 'Clinician Ratings', value: `${JUDGE_CALIBRATION_SPEC.reviewedLetters} / ${JUDGE_CALIBRATION_SPEC.proposedMinLetters}`, sub: 'labeled de-identified letters' },
+    { label: 'Proposed Bar (May decides)', value: `κ_w ≥ ${JUDGE_CALIBRATION_SPEC.proposedMinKappa.toFixed(2)}`, sub: 'quadratic-weighted Cohen’s κ' },
+    { label: 'Held-Out Protocol', value: 'One-shot', sub: 'rotate set after tuning (ADR 0004)' },
   ]
   return (
     <div>
-      <h2 className="text-sm font-semibold text-white mb-1 flex items-center gap-2">
-        <Stethoscope className="w-4 h-4 text-violet-400" />
-        Is the Judge Trustworthy? <span className="text-violet-300 font-normal">· LLM-as-judge calibration</span>
-      </h2>
-      <p className="text-xs text-slate-500 mb-3">
-        An LLM grader only gets to gate clinical letters if it agrees with clinicians. Calibrated alongside Stage 5 dual-reviewer `/chart-review` κ = {DUAL_REVIEWER_KAPPA.kappa.toFixed(2)}.
-      </p>
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+        <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+          <Stethoscope className="w-4 h-4 text-violet-400" />
+          Judge Calibration Status <span className="text-violet-300 font-normal">· J1–J4 Advisory Rubric</span>
+        </h2>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono border border-amber-500/30 bg-amber-500/10 text-amber-300">
+          {JUDGE_CALIBRATION_SPEC.status} · advisory only
+        </span>
+      </div>
+      <p className="text-xs text-slate-500 mb-3">{JUDGE_CALIBRATION_SPEC.method} — defined in <span className="font-mono">calibration.py</span>.</p>
       <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-5 space-y-4">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map(t => (
@@ -65,7 +67,7 @@ export function JudgeCalibrationSection() {
         </div>
         <div className="flex items-start gap-2.5 px-3.5 py-3 bg-slate-900/40 border border-slate-700/50 rounded-lg">
           <Stethoscope className="w-4 h-4 text-violet-300 shrink-0 mt-0.5" />
-          <p className="text-xs text-slate-300 leading-relaxed">{JUDGE_CALIBRATION.escalation}</p>
+          <p className="text-xs text-slate-300 leading-relaxed">{JUDGE_CALIBRATION_SPEC.policy}</p>
         </div>
       </div>
     </div>
@@ -84,14 +86,14 @@ export function EvalCaseSetSection({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-sm font-semibold text-white mb-0.5">Eval Case Set</h2>
+          <h2 className="text-sm font-semibold text-white mb-0.5">Eval Case Set (Illustrative Fixture)</h2>
           <p className="text-xs text-slate-500">
-            Representative cases — full regression suite is <span className="font-mono text-slate-400">{SUITE_SIZE}</span> cases across all 6 pipeline stages.
+            Representative scenarios (demo fixture <span className="font-mono text-slate-400">{SUITE_SIZE}</span> target placeholder — live counts will read from <span className="font-mono">eval_snapshot.json</span>).
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/25">
-          <CheckCircle2 className="w-3.5 h-3.5" />
-          {DUAL_REVIEWER_KAPPA.graduatedEdits} graduated human_edited cases
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border border-slate-600/60 bg-slate-800/60 text-slate-300">
+          <Clock className="w-3.5 h-3.5 text-slate-400" />
+          No snapshot loaded · awaiting eval_snapshot.json
         </span>
       </div>
       {editing ? (
@@ -119,10 +121,7 @@ export function EvalCaseSetSection({
                 </div>
               </div>
               {onInspectScenario && scenarios[c.id] && (
-                <button
-                  type="button" onClick={() => onInspectScenario(c.id)}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-violet-300 hover:underline shrink-0 pt-0.5"
-                >
+                <button type="button" onClick={() => onInspectScenario(c.id)} className="inline-flex items-center gap-1 text-xs font-semibold text-violet-300 hover:underline shrink-0 pt-0.5">
                   <Terminal className="w-3.5 h-3.5" />Inspect Trace →
                 </button>
               )}
@@ -139,7 +138,7 @@ export function RubricLoopCallout() {
     <div className="flex items-start gap-3 px-4 py-3.5 bg-slate-800/50 border border-slate-700/60 rounded-xl">
       <RotateCcw className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
       <p className="text-sm text-slate-400 leading-relaxed">
-        The case set grows from production and `human_edited` coordinator refinements. Every reviewed failure graduates into a regression or guardrail fixture across `doc_type_eval`, `chart_eval`, and `appeal_eval`.
+        Held-out wording sets are scored once only: after a fix tunes on what a held-out run surfaced, that wording rotates to development and a fresh held-out set is authored before the next run (Decision 0004).
       </p>
     </div>
   )

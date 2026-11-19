@@ -21,8 +21,8 @@ export interface EvalRubricData {
 
 function methodColor(m: string): string {
   if (m.startsWith('Deterministic')) return 'text-sky-300'
-  if (m.startsWith('RAGAS')) return 'text-emerald-300'
-  if (m.startsWith('LLM-as-judge')) return 'text-violet-300'
+  if (m.startsWith('Entailment')) return 'text-emerald-300'
+  if (m.startsWith('Advisory')) return 'text-violet-300'
   if (m.startsWith('Red-team')) return 'text-amber-300'
   return 'text-slate-300'
 }
@@ -30,9 +30,9 @@ function methodColor(m: string): string {
 export const EVAL_RUBRIC_V1: EvalRubricData = {
   dimensions: [
     { d: 'Safety Gate', w: 'Deterministic ruleset clears (drug, diagnosis, denial addressed, length, no refusals)', m: 'Deterministic', p: '100%' },
-    { d: 'Letter Structure', w: 'All required sections present (opening, evidence, request, closing)', m: 'Deterministic', p: '100%' },
+    { d: 'Letter Structure', w: 'All required sections present (drug named at top, request, NPI signature)', m: 'Deterministic', p: '100%' },
     { d: 'Guideline Coverage', w: 'Each criterion has a supporting citation in the letter', m: 'Deterministic', p: '≥ 90%' },
-    { d: 'Claim-Citation Alignment', w: 'Every factual claim traces to a retrieved source', m: 'LLM-judge + trace', p: '≥ 95%' },
+    { d: 'Claim-Citation Alignment', w: 'Every factual claim traces to a retrieved source', m: 'Entailment', p: '≥ 95%' },
   ],
   cases: [
     { id: 'novo-ozempic', tier: 'routine', exp: 'All criteria explicit → routes Routine, auto-drafted letter passes safety gate.', tag: 'none' },
@@ -71,8 +71,8 @@ export const EVAL_RUBRIC_HISTORY: VersionEntry<EvalRubricData>[] = [
     snapshot: EVAL_RUBRIC_V2,
   },
   {
-    version: 3, actor: ARTIFACT_ACTOR, timestamp: 'Jun 17, 2026', note: 'Reclassify scoring methods + add LLM-as-judge rubrics',
-    deltas: ['~ "Claim-Citation Alignment" method: LLM-judge → RAGAS (model-graded)', '~ "Guideline Coverage" method: Deterministic → LLM-as-judge (rubric)', '+ dimension: "Context Precision" (RAGAS)', '+ dimension: "Clinical Argument Quality" (LLM-as-judge)', '+ dimension: "Tone & Empathy" (LLM-as-judge)', '+ dimension: "Medical Safety Language" (LLM-as-judge)'],
+    version: 3, actor: ARTIFACT_ACTOR, timestamp: 'Jun 17, 2026', note: 'Align scoring taxonomy to D1–D7 Deterministic, E1–E2 Entailment & J1–J4 Advisory Rubric',
+    deltas: ['~ "Claim-Citation Alignment": mapped to citation_gate.verify (Entailment)', '+ dimension: "Context Precision" (E2 · Entailment)', '+ dimensions: J1–J4 defined as Advisory Judge (not run yet)'],
     snapshot: EVAL_RUBRIC_V3,
   },
 ]
@@ -98,7 +98,7 @@ function ScoringDimensionsSection({
           fields={[
             { key: 'd', placeholder: 'dimension', grow: 2 },
             { key: 'w', placeholder: 'what it checks', grow: 4 },
-            { key: 'm', placeholder: 'method', grow: 2, options: ['Deterministic', 'RAGAS', 'LLM-as-judge', 'Red-team'] },
+            { key: 'm', placeholder: 'method', grow: 2, options: ['Deterministic', 'Entailment', 'Advisory Judge', 'Red-team'] },
             { key: 'p', placeholder: 'pass', grow: 1 },
           ]}
         />
@@ -128,7 +128,7 @@ function ScoringDimensionsSection({
       )}
       {!editing && (
         <p className="text-xs text-slate-600 mt-2">
-          Method reflects judgment depth: <span className="text-sky-300">Deterministic</span> → <span className="text-emerald-300">RAGAS</span> → <span className="text-violet-300">LLM-as-judge</span>. The <button onClick={onOpenFailures} className="text-emerald-400 hover:underline">failure review</button> feeds new cases back here.
+          Method reflects scorer type: <span className="text-sky-300">Deterministic</span> (D1–D7 rules) → <span className="text-emerald-300">Entailment</span> (E1–E2 claim gate) → <span className="text-violet-300">Advisory Judge</span> (J1–J4 defined, not run yet). The <button onClick={onOpenFailures} className="text-emerald-400 hover:underline">failure review</button> feeds new cases back here.
         </p>
       )}
     </div>
@@ -151,7 +151,7 @@ export function EvalRubricView({
       <div className="px-8 py-6 border-b border-slate-800 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold font-display text-white">Eval Rubric</h1>
-          <p className="text-sm text-slate-400 mt-0.5">How the eval harness was chosen, what it measures, and how it gates the <button onClick={() => setView('evals')} className="text-emerald-400 hover:underline">Quality Report</button> — every prompt or model change runs through this</p>
+          <p className="text-sm text-slate-400 mt-0.5">Appeal rubric definition aligned with <span className="font-mono">appeal_rubric.json</span> and the <button onClick={() => setView('evals')} className="text-emerald-400 hover:underline">Quality Report</button></p>
         </div>
         <div className="flex items-center gap-2"><RoleChip layer="build" /><IllustrativeTag /></div>
       </div>

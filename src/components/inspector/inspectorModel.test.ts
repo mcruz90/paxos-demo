@@ -1,12 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { scenarios } from '../../data/scenarios'
 import type { DoneEvent } from '../../lib/wire'
-import {
-  CLEARAUTH_EVAL_STAGES,
-  DUAL_REVIEWER_KAPPA,
-  buildGateAssertions,
-  buildRunMetadata,
-} from './inspectorModel'
+import * as inspectorModel from './inspectorModel'
+import { EVAL_SNAPSHOT_PLACEHOLDER, buildGateAssertions, buildRunMetadata } from './inspectorModel'
 
 describe('buildGateAssertions', () => {
   const livdelzi = scenarios['gilead-livdelzi']
@@ -35,14 +31,8 @@ describe('buildGateAssertions', () => {
       { drug_name_present: 1, diagnosis_present: 1, section_present: 0 },
       ozempic,
     )
-    expect(gates.find(g => g.key === 'drug_name_present')).toMatchObject({
-      status: 'pass',
-      value: 'PASS (1)',
-    })
-    expect(gates.find(g => g.key === 'section_present')).toMatchObject({
-      status: 'fail',
-      value: 'FAIL (0)',
-    })
+    expect(gates.find(g => g.key === 'drug_name_present')).toMatchObject({ status: 'pass', value: 'PASS (1)' })
+    expect(gates.find(g => g.key === 'section_present')).toMatchObject({ status: 'fail', value: 'FAIL (0)' })
     expect(gates.find(g => g.key === 'no_phi_leakage')).toEqual({
       key: 'no_phi_leakage',
       label: 'no_phi_leakage',
@@ -86,31 +76,10 @@ describe('buildRunMetadata', () => {
   })
 })
 
-describe('CLEARAUTH_EVAL_STAGES and DUAL_REVIEWER_KAPPA', () => {
-  it('exposes all 6 clearauth-eval pipeline stages with sample sizes and 95% CIs', () => {
-    expect(CLEARAUTH_EVAL_STAGES).toHaveLength(6)
-    expect(CLEARAUTH_EVAL_STAGES.map(s => s.module)).toEqual([
-      'doc_type_eval',
-      'intake_eval + llm_fallback',
-      'deid_eval',
-      'rxnorm',
-      'chart_eval',
-      'appeal_eval',
-    ])
-    for (const s of CLEARAUTH_EVAL_STAGES) {
-      expect(s.n).toBeGreaterThan(0)
-      expect(s.ci95).toMatch(/\d+\.\d+%–\d+\.\d+%/)
-    }
-  })
-
-  it('tracks dual-reviewer agreement and kappa threshold for Stage 5 readiness', () => {
-    expect(DUAL_REVIEWER_KAPPA).toMatchObject({
-      sampleCriteria: 82,
-      agreementPct: 96.3,
-      kappa: 0.84,
-      targetKappa: 0.8,
-      stage5Ready: true,
-      graduatedEdits: 14,
-    })
+describe('snapshot placeholder without hardcoded benchmark numbers', () => {
+  it('does not export CLEARAUTH_EVAL_STAGES or DUAL_REVIEWER_KAPPA', () => {
+    expect(Object.keys(inspectorModel)).not.toContain('CLEARAUTH_EVAL_STAGES')
+    expect(Object.keys(inspectorModel)).not.toContain('DUAL_REVIEWER_KAPPA')
+    expect(EVAL_SNAPSHOT_PLACEHOLDER.state).toBe('not_run')
   })
 })

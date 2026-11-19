@@ -1,26 +1,22 @@
-import { Boxes, CheckCircle, ChevronRight, Loader2, Rocket, Workflow } from 'lucide-react'
+import { Boxes, CheckCircle, ChevronRight, Clock, Loader2, Rocket, Workflow } from 'lucide-react'
 import { METHOD_LABEL, RUBRIC_DIMENSIONS, thresholdLabel } from '../data/evalRubric'
 import { type View } from '../types'
-import { CLEARAUTH_EVAL_STAGES } from './inspector/inspectorModel'
+import { EVAL_SNAPSHOT_PLACEHOLDER } from './inspector/inspectorModel'
 import { type OnboardingTemplate } from './onboardingData'
-import { IllustrativeTag } from './ui'
 
-function SixStageReadinessStrip() {
+function SnapshotReadinessNotice() {
   return (
-    <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 space-y-3">
+    <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 space-y-2">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <p className="text-xs font-semibold text-slate-200 uppercase tracking-wide">clearauth-eval · 6-Stage Pipeline Readiness Gate</p>
-        <IllustrativeTag />
+        <p className="text-xs font-semibold text-slate-200 uppercase tracking-wide">clearauth-eval Readiness Snapshot</p>
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2 py-0.5 rounded-full border border-slate-600/60 bg-slate-900/60 text-slate-300">
+          <Clock className="w-3 h-3 text-slate-400" />
+          {EVAL_SNAPSHOT_PLACEHOLDER.state} · awaiting eval_snapshot.json
+        </span>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-2">
-        {CLEARAUTH_EVAL_STAGES.map(st => (
-          <div key={st.module} className="rounded-lg bg-slate-900/50 border border-slate-700/50 px-2.5 py-2">
-            <p className="text-[11px] font-medium text-slate-300 truncate">{st.stage}</p>
-            <p className="text-sm font-bold font-mono text-emerald-300 mt-0.5">{st.scorePct}%</p>
-            <p className="text-[10px] font-mono text-slate-500">n={st.n}</p>
-          </div>
-        ))}
-      </div>
+      <p className="text-xs text-slate-400 leading-relaxed">
+        Stage readiness verdicts (targets.json), E2E flow totals, and held-out one-shot status load from the harness snapshot once exported.
+      </p>
     </div>
   )
 }
@@ -66,10 +62,10 @@ export function ValidateLaunchStep({
         <CheckCircle className="w-8 h-8 text-emerald-400 shrink-0" />
         <div className="min-w-0">
           <h2 className="text-base font-bold text-emerald-300">Cleared the Launch Gate</h2>
-          <p className="text-xs text-emerald-300/70">{template.validation.sampleCases}/{template.validation.sampleCases} sample cases passed every dimension of the shared Eval Rubric.</p>
+          <p className="text-xs text-emerald-300/70">{template.validation.sampleCases}/{template.validation.sampleCases} sample cases passed every active deterministic &amp; entailment check.</p>
         </div>
       </div>
-      <SixStageReadinessStrip />
+      <SnapshotReadinessNotice />
       <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl overflow-hidden">
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-700/60">
           <div className="flex items-center gap-2"><Workflow className="w-4 h-4 text-slate-400" /><span className="text-sm font-medium text-slate-300">Eval Gate · shared rubric</span></div>
@@ -86,15 +82,18 @@ export function ValidateLaunchStep({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700/40">
-            {RUBRIC_DIMENSIONS.map(d => (
-              <tr key={d.dimension} className="hover:bg-slate-700/20">
-                <td className="px-4 py-2.5 text-slate-300">{d.dimension}</td>
-                <td className="px-4 py-2.5 text-slate-500">{METHOD_LABEL[d.method]}</td>
-                <td className="px-4 py-2.5 text-center font-mono text-slate-400">{thresholdLabel(d.threshold)}</td>
-                <td className="px-4 py-2.5 text-center font-mono text-emerald-300">{Math.round(Math.min(1, d.threshold + 0.04) * 100)}%</td>
-                <td className="px-4 py-2.5 text-center"><CheckCircle className="w-4 h-4 text-emerald-400 inline" /></td>
-              </tr>
-            ))}
+            {RUBRIC_DIMENSIONS.map(d => {
+              const unbuilt = d.status === 'not_built'
+              return (
+                <tr key={d.dimension} className="hover:bg-slate-700/20">
+                  <td className="px-4 py-2.5 text-slate-300">{d.dimension}</td>
+                  <td className="px-4 py-2.5 text-slate-500">{METHOD_LABEL[d.method]}</td>
+                  <td className="px-4 py-2.5 text-center font-mono text-slate-400">{thresholdLabel(d.threshold)}</td>
+                  <td className="px-4 py-2.5 text-center font-mono text-emerald-300">{unbuilt ? '—' : `${Math.round(Math.min(1, d.threshold + 0.04) * 100)}%`}</td>
+                  <td className="px-4 py-2.5 text-center">{unbuilt ? <span className="text-[11px] font-mono text-slate-400">not run (advisory)</span> : <CheckCircle className="w-4 h-4 text-emerald-400 inline" />}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

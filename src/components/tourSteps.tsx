@@ -105,8 +105,8 @@ const BUILD_TOUR: TourStep[] = [
     target: 'body', placement: 'center', skipBeacon: true, nav: { view: 'rubric' },
     title: 'Eval Rubric — what "good" means, authored',
     content: tl([
-      'Per-dimension thresholds you author: deterministic safety gate, claim-citation faithfulness, guideline coverage, argument, tone, safety.',
-      'The LLM-as-judge dimensions are calibrated against a clinician panel.',
+      'Deterministic safety/structure checks (D1–D7) and the claim-citation gate (E1–E2).',
+      'Defined ordinal judge criteria (J1–J4) remain advisory until clinician calibration completes.',
       'Same gate every onboarding validation runs — one source of truth.',
     ], 'Change the rubric and the whole system is re-graded against it.'),
   },

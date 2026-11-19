@@ -1,21 +1,15 @@
-import { CheckCircle2, Cpu, Link2, ShieldCheck, XCircle } from 'lucide-react'
-import { GRADERS, MOCK_EVAL_RUN } from '../../data/evalRun'
+import { CheckCircle2, Clock, Cpu, Link2, ShieldCheck, XCircle } from 'lucide-react'
 import type { DoneEvent } from '../../lib/wire'
 import type { ScenarioConfig } from '../../types'
-import { CapabilityChip } from '../live/CapabilityChip'
 import type { LiveStep } from '../poc/live/appealEvents'
 import { StepList } from '../poc/live/StepList'
 import { TierBadge } from '../ui'
-import { type GateAssertion, CLEARAUTH_EVAL_STAGES, DUAL_REVIEWER_KAPPA, buildGateAssertions, buildRunMetadata } from './inspectorModel'
+import { type GateAssertion, EVAL_SNAPSHOT_PLACEHOLDER, buildGateAssertions, buildRunMetadata } from './inspectorModel'
 
 function GateRow({
-  gate,
-  activeCiteIndex,
-  onSelectCiteIndex,
+  gate, activeCiteIndex, onSelectCiteIndex,
 }: {
-  gate: GateAssertion
-  activeCiteIndex: number | null
-  onSelectCiteIndex: (idx: number) => void
+  gate: GateAssertion; activeCiteIndex: number | null; onSelectCiteIndex: (idx: number) => void
 }) {
   const linkable = gate.targetCiteIndex !== undefined
   const isLinked = linkable && activeCiteIndex === gate.targetCiteIndex
@@ -28,18 +22,13 @@ function GateRow({
 
   return (
     <button
-      type="button"
-      disabled={!linkable}
-      title={gate.label}
+      type="button" disabled={!linkable} title={gate.label}
       onClick={() => { if (linkable) onSelectCiteIndex(gate.targetCiteIndex!) }}
       className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border text-left text-[11px] transition-colors ${
         isLinked ? 'bg-violet-500/15 border-violet-500/40' : 'bg-slate-950/60 border-slate-800/80'
       } ${linkable ? 'hover:border-violet-500/40 cursor-pointer' : 'cursor-default'}`}
     >
-      <span className="flex items-center gap-2 text-slate-300 min-w-0 flex-1">
-        {icon}
-        <span className="truncate">{gate.label}</span>
-      </span>
+      <span className="flex items-center gap-2 text-slate-300 min-w-0 flex-1">{icon}<span className="truncate">{gate.label}</span></span>
       <span className={`${valueColor} font-semibold whitespace-nowrap shrink-0 flex items-center gap-1`}>
         {gate.value}
         {linkable && <Link2 className="w-3 h-3 text-slate-500" />}
@@ -48,81 +37,34 @@ function GateRow({
   )
 }
 
-function BenchmarkPreviewCard({ drugKey }: { drugKey: string }) {
-  const caseEval = MOCK_EVAL_RUN.results.find(r => r.caseId.includes(drugKey)) ?? MOCK_EVAL_RUN.results[0]
-  const ragas = caseEval?.metrics.find(m => m.grader === 'ragas.faithfulness')
-  const judgeEntries = (caseEval?.metrics ?? [])
-    .map((m, idx) => ({ m, dim: GRADERS[idx]?.dimension ?? `${m.grader} #${idx + 1}` }))
-    .filter(x => x.m.methodology === 'LLM-as-judge')
-
+function SnapshotEmptyStateCard() {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 space-y-2.5">
+    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 space-y-2">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <span className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
-          Offline Suite Preview
+          Harness Snapshot Status
         </span>
-        <CapabilityChip cap="simulated" />
+        <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border border-slate-700 bg-slate-950/70 text-slate-300">
+          <Clock className="w-3 h-3 text-slate-400" />
+          {EVAL_SNAPSHOT_PLACEHOLDER.state}
+        </span>
       </div>
-      <p className="text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1">
-        Illustrative benchmark fixture — not a run result for this case ({caseEval?.caseId}).
-      </p>
-      {ragas && (
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-xs gap-2">
-            <span className="text-slate-300 truncate">RAGAS Faithfulness</span>
-            <span className="font-mono text-slate-300 shrink-0">{(ragas.score * 100).toFixed(1)}%</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-            <div className="h-full rounded-full bg-slate-500" style={{ width: `${Math.round(ragas.score * 100)}%` }} />
-          </div>
-        </div>
-      )}
-      <div className="space-y-1.5 pt-1">
-        {judgeEntries.map(({ m, dim }) => (
-          <div key={`${m.grader}-${dim}`} className="space-y-1">
-            <div className="flex items-center justify-between text-xs gap-2">
-              <span className="text-slate-400 truncate">{dim}</span>
-              <span className="font-mono text-violet-300 shrink-0">{Math.round(m.score * 100)}%</span>
-            </div>
-            <div className="h-1 rounded-full bg-slate-800 overflow-hidden">
-              <div className="h-full bg-violet-500/70 rounded-full" style={{ width: `${Math.round(m.score * 100)}%` }} />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="pt-2.5 border-t border-slate-800/80 space-y-1.5">
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="font-semibold text-slate-300">6-Stage Pipeline Harness</span>
-          <span className="font-mono text-emerald-300">Dual-Reviewer κ = {DUAL_REVIEWER_KAPPA.kappa}</span>
-        </div>
-        <div className="space-y-1 font-mono text-[10px]">
-          {CLEARAUTH_EVAL_STAGES.map(s => (
-            <div key={s.module} className="flex items-center justify-between gap-2 text-slate-400">
-              <span className="truncate">{s.module} (n={s.n})</span>
-              <span className="shrink-0 text-slate-300">{s.scorePct}% <span className="text-slate-500">[{s.ci95}]</span></span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <p className="text-xs font-medium text-slate-200">{EVAL_SNAPSHOT_PLACEHOLDER.label}</p>
+      <p className="text-[11px] text-slate-400 leading-relaxed">{EVAL_SNAPSHOT_PLACEHOLDER.detail}</p>
     </div>
   )
 }
 
 function CriterionTraceList({
-  scenario,
-  activeCiteIndex,
-  onSelectCiteIndex,
+  scenario, activeCiteIndex, onSelectCiteIndex,
 }: {
-  scenario: ScenarioConfig
-  activeCiteIndex: number | null
-  onSelectCiteIndex: (idx: number) => void
+  scenario: ScenarioConfig; activeCiteIndex: number | null; onSelectCiteIndex: (idx: number) => void
 }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-semibold text-slate-200 uppercase tracking-wide flex items-center gap-1.5">
-          <Link2 className="w-3.5 h-3.5 text-violet-400" />
-          Criterion Grounding Trace
+          <Link2 className="w-3.5 h-3.5 text-violet-400" />Criterion Grounding Trace
         </span>
         <span className="text-[10px] text-slate-500">Syncs to Col 1</span>
       </div>
@@ -132,9 +74,7 @@ function CriterionTraceList({
           const ok = cr.status === 'found'
           return (
             <button
-              key={idx}
-              type="button"
-              onClick={() => onSelectCiteIndex(idx)}
+              key={idx} type="button" onClick={() => onSelectCiteIndex(idx)}
               className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border text-left text-xs transition-colors ${
                 active ? 'bg-violet-500/15 border-violet-500/45 text-white' : 'bg-slate-950/50 border-slate-800/70 text-slate-300 hover:border-slate-700'
               }`}
@@ -157,19 +97,10 @@ function CriterionTraceList({
 }
 
 export function InspectorGateColumn({
-  scenario,
-  done,
-  steps,
-  streaming,
-  activeCiteIndex,
-  onSelectCiteIndex,
+  scenario, done, steps, streaming, activeCiteIndex, onSelectCiteIndex,
 }: {
-  scenario: ScenarioConfig
-  done?: DoneEvent | null
-  steps: LiveStep[]
-  streaming: boolean
-  activeCiteIndex: number | null
-  onSelectCiteIndex: (idx: number) => void
+  scenario: ScenarioConfig; done?: DoneEvent | null; steps: LiveStep[]; streaming: boolean
+  activeCiteIndex: number | null; onSelectCiteIndex: (idx: number) => void
 }) {
   const meta = buildRunMetadata(done)
   const gates = buildGateAssertions(done?.structural_scores, scenario)
@@ -206,14 +137,12 @@ export function InspectorGateColumn({
           <span className="text-[10px] text-slate-500">Click rule to trace span</span>
         </div>
         <div className="space-y-1 font-mono text-xs">
-          {gates.map(g => (
-            <GateRow key={g.key} gate={g} activeCiteIndex={activeCiteIndex} onSelectCiteIndex={onSelectCiteIndex} />
-          ))}
+          {gates.map(g => <GateRow key={g.key} gate={g} activeCiteIndex={activeCiteIndex} onSelectCiteIndex={onSelectCiteIndex} />)}
         </div>
       </div>
 
       <CriterionTraceList scenario={scenario} activeCiteIndex={activeCiteIndex} onSelectCiteIndex={onSelectCiteIndex} />
-      <BenchmarkPreviewCard drugKey={scenario.drugKey} />
+      <SnapshotEmptyStateCard />
 
       {steps.length > 0 && (
         <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 space-y-2">
