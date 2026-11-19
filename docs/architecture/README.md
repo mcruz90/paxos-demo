@@ -16,8 +16,11 @@ orchestration decision lived only in chat history. That decision is now
 ## Reading order
 
 The current case/evidence infrastructure increment is described in
-[14-case-evidence-runtime.md](14-case-evidence-runtime.md). It is provisional
-contract and pure validation code; persistence and API wiring are not live yet.
+[14-case-evidence-runtime.md](14-case-evidence-runtime.md). Case metadata and
+events have PostgreSQL-backed routes. Evidence source and attachment persistence
+are follow-up work.
+See [15-case-intake.md](15-case-intake.md) for the case text preparation and
+shared tokenization boundary.
 
 | Doc | What it covers |
 | --- | --- |
