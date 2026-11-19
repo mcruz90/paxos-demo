@@ -173,6 +173,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/patients/{patient_ref}/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Case */
+        post: operations["create_case_api_patients__patient_ref__cases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_ref}/cases/{case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Case */
+        get: operations["read_case_api_patients__patient_ref__cases__case_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_ref}/cases/{case_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Case Events */
+        get: operations["read_case_events_api_patients__patient_ref__cases__case_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/reviews/pending": {
         parameters: {
             query?: never;
@@ -403,11 +454,57 @@ export interface components {
             /** Records */
             records: components["schemas"]["AuditRecord"][];
         };
+        /** CaseCreateRequest */
+        CaseCreateRequest: {
+            /** Idempotency Key */
+            idempotency_key: string;
+        };
+        /** CaseEventRecord */
+        CaseEventRecord: {
+            /**
+             * Action
+             * @constant
+             */
+            action: "case_created";
+            /** Actor Id */
+            actor_id: string;
+            /** Case Id */
+            case_id: string;
+            /**
+             * Case Revision
+             * @constant
+             */
+            case_revision: 1;
+            /** Event Id */
+            event_id: string;
+            /** Event Sequence */
+            event_sequence: number;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Tenant Id */
+            tenant_id: string;
+        };
         /**
          * CaseLifecycle
          * @enum {string}
          */
         CaseLifecycle: "initial_pa" | "appeal";
+        /** CaseRecord */
+        CaseRecord: {
+            /** Case Id */
+            case_id: string;
+            /** Patient Ref */
+            patient_ref: string;
+            /** Revision */
+            revision: number;
+            /** Tenant Id */
+            tenant_id: string;
+        };
         /**
          * CaseTier
          * @description Deterministic HITL review tier (S3 Slice 2). Assigned by the
@@ -976,6 +1073,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_case_api_patients__patient_ref__cases_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_case_api_patients__patient_ref__cases__case_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_ref: string;
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_case_events_api_patients__patient_ref__cases__case_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_ref: string;
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseEventRecord"][];
                 };
             };
             /** @description Validation Error */

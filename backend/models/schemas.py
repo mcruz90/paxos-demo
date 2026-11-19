@@ -24,6 +24,7 @@ from models.auth import (
     LoginResponse,
     MeResponse,
 )
+from models.case_authorization import CaseIdentity
 from models.case_evidence import (
     CaseRecord,
     EvidenceAttachment,
@@ -73,11 +74,14 @@ from models.requests import (
     AppealRequest,
     InitialPaRequest,
     PaSubmission,
+    PatientRef,
     ResumeAppealRequest,
 )
 from models.tenancy import SEEDED_TENANT_ID
 
 __all__ = [
+    "PatientRef",
+    "CaseIdentity",
     "CaseAccess",
     "CaseCreateRequest",
     "CaseEventRecord",

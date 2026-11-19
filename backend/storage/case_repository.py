@@ -28,12 +28,12 @@ WHERE e.tenant_id = %s AND e.actor_id = %s
   AND e.action = 'case_created' AND e.idempotency_key = %s
 """
 _EVENTS = """
-SELECT e.event_id, e.tenant_id, e.case_id::text AS case_id, e.actor_id, e.action,
+SELECT e.event_id, e.event_sequence, e.tenant_id, e.case_id::text AS case_id, e.actor_id, e.action,
        e.case_revision, e.idempotency_key, e.occurred_at
 FROM clearauth_case_events e
 JOIN clearauth_cases c ON c.tenant_id = e.tenant_id AND c.case_id = e.case_id
 WHERE c.tenant_id = %s AND c.patient_ref = %s AND c.case_id = %s
-ORDER BY e.occurred_at, e.event_id
+ORDER BY e.event_sequence
 """
 
 

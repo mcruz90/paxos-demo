@@ -2,8 +2,8 @@
 
 Status: contracts/pure attachment preparation are recorded locally. A separate
 case repository increment has real-database and full regression validation;
-Claude re-review remains a separate gate. No new live API, reassessment or
-frontend capability is claimed.
+Claude re-review remains a separate gate. Patient-scoped case metadata routes
+are implemented locally; reassessment and frontend capability remain pending.
 PostgreSQL in a dedicated Docker service/volume is the agreed storage direction.
 
 The server's authenticated tenant and persistent patient/case identity scope every
@@ -43,17 +43,17 @@ use database constraints, and verify stored canonical content/digests. Models al
 are not authentication or a substitute for transactional integrity.
 
 Gemini owns UI implementation. Pydantic models are re-exported via models.schemas;
-once routes are added, OpenAPI-generated wire types remain the frontend contract
+OpenAPI-generated wire types for the new case routes are the frontend contract
 (ADR-0012). Existing demo types and fixtures are not promoted to live by this change.
 
 ## Case persistence boundary (separate increment)
 
 CaseAccess is a trusted server-resolved grant for one tenant/patient/actor. It is
 required at every repository read/write; there is no platform wildcard or default
-scope. It is not an HTTP model or an authorization factory. Future routes must
-derive it from authenticated tenant and panel authorization; constructing a model
-does not prove those grants. CaseCreateRequest accepts only idempotency_key;
-client-supplied case_id is forbidden. No new route is exposed by this increment.
+scope. It is not an HTTP model or an authorization factory. The new routes derive
+it from authenticated session identity and durable group/patient authorization;
+constructing a model does not prove those grants. CaseCreateRequest accepts only
+idempotency_key; client-supplied case_id is forbidden.
 
 CaseRepository stages a case and a metadata-only case_created event in one
 transaction. Request identity is tenant + actor + operation + idempotency key.
@@ -76,11 +76,50 @@ are append-only through this repository; this is not a database-admin tamper-pro
 log. Existing pipeline audit/review stores remain unchanged and in memory.
 Invalid boundary input uses case_input_invalid, separately from driver failures
 and invalid stored records. There is only one creation event per case today;
-before adding revision-2 event types, add a database sequence and order by it
-instead of transaction-time plus random UUID. No total-order guarantee is claimed.
+migration 0003 now adds a positive, unique bigint identity event_sequence and
+reads order by it. This is allocation order, not cross-transaction commit order.
+Rollback leaves gaps. Migration of existing rows supplies stable identifiers,
+not reconstructed history. Before revision-2 writes, serialize mutations with
+a per-case row lock and enforce expected revision; this slice adds no such writes.
 
 Migration 0002 adds only case-creation events. Evidence/source repositories,
 optimistic evidence updates, findings, artifacts, approval/export and persistent
 pipeline audit remain future increments. No clinical facts or gold labels enter
 these infrastructure tests. Backend-canonical pediatric esomeprazole was selected
 by May on November 18 for subsequent clinical fixture work.
+
+## Authenticated patient case access (local increment, November 18)
+
+Migration 0004 implements ADR-0017 group panels: a tenant-scoped principal maps
+an authenticated session subject (the current demo username) to a bounded internal
+actor id and role. Principals start inactive. Groups hold user memberships and
+patient assignments, with composite tenant foreign keys. No migration, login or
+API request seeds membership, activates a principal, or grants a patient panel.
+Provisioning and a real identity provider remain separate operator work; no
+application database has been migrated or provisioned in this increment.
+
+The metadata routes require a valid cookie session and CSRF on POST. Bearer
+service credentials cannot select a tenant or actor and receive 401 on these
+patient routes. Existing platform metadata routes retain their prior behavior.
+Tenant and subject come only from authenticated request state; the route's patient
+reference is a requested resource, not a grant. The database resolves active
+principal + role + group membership + patient assignment in the same transaction
+as the case operation. Coordinator, clinician and tenant admin all need a panel;
+there is no role wildcard or break-glass bypass. Missing/revoked grants and absent
+cases produce the same 404. Body extra fields (including grants) are forbidden.
+
+Shared locks on the matched principal/membership/assignment rows hold through
+outer commit. An admitted operation finishes before a concurrent revocation;
+subsequent requests reload grants and are denied. Sessions themselves remain the
+existing in-memory demo authentication seam, not a new production identity system.
+The CaseService owns the connection transaction and returns only after successful
+commit, including deferred constraints. Repository/connection failures produce a
+sanitized 503; conflicting idempotency reuse produces 409. These routes expose
+case and event metadata only. They do not route to legacy generation/resume code
+or make those legacy endpoints panel-authorized.
+
+Event identity semantics follow PostgreSQL's
+[identity-column](https://www.postgresql.org/docs/18/ddl-identity-columns.html) and
+[sequence](https://www.postgresql.org/docs/18/functions-sequence.html) contracts.
+Sequence values are not a gapless count, a safe global polling watermark, or a
+clinical ordering claim. Exactly one case_created event per case remains enforced.

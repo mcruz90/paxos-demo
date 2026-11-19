@@ -31,6 +31,7 @@ class CaseCreateRequest(FrozenRecord):
 
 class CaseEventRecord(FrozenRecord):
     event_id: RecordId
+    event_sequence: Annotated[int, Field(ge=1, le=9223372036854775807)]
     tenant_id: TenantId
     case_id: RecordId
     actor_id: RecordId
