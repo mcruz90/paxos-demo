@@ -44,8 +44,8 @@ export function flagMisfiledPages(
 }
 
 // Returns authored sourceDocuments when present, or builds citation-excerpt
-// views from scenario citations plus a held-back wrong-patient guard example so
-// cases without full source records are labeled honestly.
+// views from scenario citations so cases without full source records are
+// labeled honestly without fabricating extra documents.
 export function ensureSourceDocuments(scenario: ScenarioConfig): SourceDocument[] {
   if (scenario.sourceDocuments && scenario.sourceDocuments.length > 0) {
     return scenario.sourceDocuments
@@ -99,23 +99,6 @@ export function ensureSourceDocuments(scenario: ScenarioConfig): SourceDocument[
       ],
     })
   }
-
-  const expectedName = scenario.patientContext?.patientName ?? 'Patient on file'
-  docs.push({
-    id: 'doc-misfiled-hold',
-    title: 'Fax Attachment p.4 — Misfiled Lab Page (Held Back)',
-    source: 'Quest Fax Ingest Guard',
-    meta: 'p.4 · Citation excerpt (no full document) · Misfiled Header Hold',
-    blocks: [
-      { text: 'Held back — no full source document on file; page header belongs to Arthur Pendelton (DOB 11/03/1951), not this patient.' },
-      { text: 'Excluded automatically from criteria grounding and outbound LLM context per wrong-patient guardrail (HANDOFF §5.2).' },
-    ],
-    patientMismatchHold: {
-      detectedName: 'Arthur Pendelton (DOB 11/03/1951)',
-      expectedName,
-      reason: 'Header identifier mismatch — excluded from criteria grounding (HANDOFF §5.2)',
-    },
-  })
 
   return docs
 }

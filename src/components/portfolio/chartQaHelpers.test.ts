@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { scenarios } from '../../data/scenarios'
-import { ensureSourceDocuments } from './sourceDocuments'
+import type { SourceDocument } from '../../types'
 import {
   countDocumentsByCategory,
   deriveCounterOfferComparison,
@@ -24,16 +24,26 @@ describe('deriveCounterOfferComparison', () => {
 
 describe('filterDocumentsByCategory and countDocumentsByCategory', () => {
   it('buckets held wrong-patient docs separately from labs/rx and clinical consults', () => {
-    const docs = ensureSourceDocuments(scenarios['gilead-livdelzi'])
+    const docs: SourceDocument[] = [
+      { id: 'doc-consult', title: 'Consult', source: 'Hepatology Consult', meta: 'p.1', blocks: [{ text: 'note' }] },
+      { id: 'doc-lab', title: 'Labs', source: 'Lab Report', meta: 'p.2', blocks: [{ text: 'lab' }] },
+      {
+        id: 'doc-held',
+        title: 'Misfiled Lab',
+        source: 'Reference Lab',
+        meta: 'p.4',
+        blocks: [{ text: 'other patient' }],
+        patientMismatchHold: { detectedName: 'Other Patient', expectedName: 'Diane Okafor', reason: 'Header mismatch' },
+      },
+    ]
     const counts = countDocumentsByCategory(docs)
-    expect(counts.all).toBe(docs.length)
-    expect(counts.held).toBe(1)
+    expect(counts).toEqual({ all: 3, clinical: 1, labs_meds: 1, held: 1 })
     expect(counts.clinical + counts.labs_meds + counts.held).toBe(counts.all)
 
     const heldDocs = filterDocumentsByCategory(docs, 'held')
     expect(heldDocs).toHaveLength(1)
-    expect(heldDocs[0].id).toBe('doc-misfiled-hold')
+    expect(heldDocs[0].id).toBe('doc-held')
 
-    expect(filterDocumentsByCategory(docs, 'all')).toHaveLength(docs.length)
+    expect(filterDocumentsByCategory(docs, 'all')).toHaveLength(3)
   })
 })

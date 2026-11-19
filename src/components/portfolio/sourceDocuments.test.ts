@@ -95,17 +95,18 @@ describe('ensureSourceDocuments', () => {
     expect(ensureSourceDocuments(ozempic)).toBe(ozempic.sourceDocuments)
   })
 
-  it('labels synthesized fallback documents as citation excerpts without full documents, never EHR records', () => {
-    const humira = scenarios['humira-cigna']
-    const docs = ensureSourceDocuments(humira)
-    expect(docs.length).toBeGreaterThan(0)
-    for (const doc of docs) {
-      expect(doc.meta).toContain('Citation excerpt (no full document)')
-      expect(doc.meta).not.toContain('EHR record')
-      expect(doc.blocks[0].text).toContain('no full source document on file')
+  it('labels synthesized fallback documents as citation excerpts without fabricating a wrong-patient hold', () => {
+    for (const id of ['humira-cigna', 'gilead-livdelzi']) {
+      const docs = ensureSourceDocuments(scenarios[id])
+      expect(docs.length).toBeGreaterThan(0)
+      for (const doc of docs) {
+        expect(doc.meta).toContain('Citation excerpt (no full document)')
+        expect(doc.meta).not.toContain('EHR record')
+        expect(doc.blocks[0].text).toContain('no full source document on file')
+        expect(doc.patientMismatchHold).toBeUndefined()
+      }
+      expect(JSON.stringify(docs)).not.toMatch(/\bQuest\b|Arthur Pendelton/)
     }
-    const heldDoc = docs.find(d => d.patientMismatchHold)
-    expect(heldDoc?.id).toBe('doc-misfiled-hold')
   })
 })
 
@@ -116,7 +117,7 @@ describe('flagMisfiledPages & findCitedBlock safety guard', () => {
         {
           id: 'doc-wrong',
           title: 'Misfiled Lab',
-          source: 'Quest Labs',
+          source: 'Reference Lab',
           meta: 'p.1',
           blocks: [{ text: 'Wrong patient text', criterionLabel: 'Diagnosis' }],
           patientMismatchHold: {
