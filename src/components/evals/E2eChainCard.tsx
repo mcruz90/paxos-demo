@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Workflow } from 'lucide-react'
-import { DEFAULT_EVAL_SNAPSHOT, formatStageCount } from '../../data/evalSnapshot'
+import { DEFAULT_EVAL_SNAPSHOT, NOT_IN_SNAPSHOT, formatStageCount } from '../../data/evalSnapshot'
 import type { E2eRun, E2eStage, EvalSnapshot } from '../../generated/evalSnapshotTypes'
 import { DecisionStatusBadge, SectionStateBadge } from './SnapshotBadges'
 
@@ -119,8 +119,18 @@ function E2eRunDetails({ run }: { run: E2eRun }) {
 }
 
 export function E2eChainCard({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { snapshot?: EvalSnapshot | null }) {
-  const [selectedFlow, setSelectedFlow] = useState<string>(snapshot?.e2e.runs[0]?.flow ?? 'appeal')
-  if (!snapshot) return null
+  const [selectedFlow, setSelectedFlow] = useState<string>(snapshot?.e2e?.runs?.[0]?.flow ?? 'appeal')
+  if (!snapshot || !snapshot.e2e) {
+    return (
+      <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-5 flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Workflow className="w-4 h-4 text-sky-400" />
+          <h2 className="text-sm font-semibold text-white">2. End-to-End Chain · Fed vs. Gold-Fed Totals &amp; Stage Blame</h2>
+        </div>
+        <span className="text-xs font-mono text-amber-300">{NOT_IN_SNAPSHOT}</span>
+      </div>
+    )
+  }
 
   const { e2e } = snapshot
   const activeRun = e2e.runs.find(r => r.flow === selectedFlow) ?? e2e.runs[0]

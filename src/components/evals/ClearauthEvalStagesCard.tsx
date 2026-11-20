@@ -1,13 +1,13 @@
 import { Clock, Layers } from 'lucide-react'
 import {
   DEFAULT_EVAL_SNAPSHOT,
+  NOT_IN_SNAPSHOT,
   formatStageCount,
   formatStageTargetSummary,
   formatWilsonRange,
   summarizeReadiness,
 } from '../../data/evalSnapshot'
 import type { EvalSnapshot, Stage } from '../../generated/evalSnapshotTypes'
-import { EVAL_SNAPSHOT_PLACEHOLDER } from '../inspector/inspectorModel'
 import { DecisionStatusBadge, SectionStateBadge, SnapshotProvenanceBar, StageStateBadge } from './SnapshotBadges'
 
 function StagePresenceBadge({ inClearauth }: { inClearauth: Stage['in_clearauth'] }) {
@@ -42,14 +42,13 @@ function ReadinessEmptyFallback() {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-slate-400" />
-          <h2 className="text-sm font-semibold text-white">clearauth-eval · Pipeline Readiness Snapshot</h2>
+          <h2 className="text-sm font-semibold text-white">1. Readiness per Stage · targets.json</h2>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-0.5 rounded-full border border-slate-600/60 bg-slate-900/60 text-slate-300">
+        <span className="inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-0.5 rounded-full border border-slate-600/60 bg-slate-900/60 text-amber-300">
           <Clock className="w-3.5 h-3.5 text-slate-400" />
-          {EVAL_SNAPSHOT_PLACEHOLDER.state} · awaiting eval_snapshot.json
+          {NOT_IN_SNAPSHOT}
         </span>
       </div>
-      <p className="text-xs text-slate-400 leading-relaxed">{EVAL_SNAPSHOT_PLACEHOLDER.detail}</p>
     </div>
   )
 }
@@ -124,7 +123,7 @@ function UnbuiltStagesStrip({ stages }: { stages: Stage[] }) {
 }
 
 export function ClearauthEvalStagesCard({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { snapshot?: EvalSnapshot | null }) {
-  if (!snapshot) return <ReadinessEmptyFallback />
+  if (!snapshot || !snapshot.readiness) return <ReadinessEmptyFallback />
 
   const { readiness } = snapshot
   const targeted = readiness.stages.filter(s => s.state !== 'not_built')

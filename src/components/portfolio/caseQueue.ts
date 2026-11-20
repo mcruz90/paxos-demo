@@ -238,7 +238,7 @@ export function tourIdFor(client: Client): string | undefined {
 export interface PortfolioNavReset {
   override: string | null | undefined
   resetNonce: number
-  collapseSidebar: boolean
+  expandSidebar: boolean
 }
 
 export function resolveSidebarNav(
@@ -247,7 +247,7 @@ export function resolveSidebarNav(
   prevNonce: number,
 ): PortfolioNavReset {
   if (nextView === 'portfolio') {
-    return { override: null, resetNonce: prevNonce + 1, collapseSidebar: false }
+    return { override: null, resetNonce: prevNonce + 1, expandSidebar: true }
   }
-  return { override: prevOverride, resetNonce: prevNonce, collapseSidebar: false }
+  return { override: prevOverride, resetNonce: prevNonce, expandSidebar: nextView !== 'poc' }
 }

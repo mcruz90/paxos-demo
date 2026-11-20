@@ -24,10 +24,10 @@ export interface RedactionEntry {
 }
 
 const REASON: Record<PhiCategory, string> = {
-  Name:        'Names — HIPAA Safe Harbor §164.514(b)(2)(A)',
-  Date:        'Dates more specific than year — §(C)',
-  'Member ID': 'Health-plan beneficiary number — §(H)',
-  MRN:         'Medical record number — §(G)',
+  Name:        'Name (masked)',
+  Date:        'Date month/day (masked; year kept)',
+  'Member ID': 'Member ID (masked)',
+  MRN:         'MRN pattern (masked)',
 }
 const TOKEN: Record<Exclude<PhiCategory, 'Date'>, string> = {
   Name:        '[REDACTED — NAME]',
@@ -42,8 +42,8 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-// Replaces PHI with category tokens; dates keep their year (years are Safe-
-// Harbor-permissible), everything more specific is masked.
+// Replaces matched identifiers with category tokens; dates keep their year
+// and mask month/day. Demo pattern matcher only — not HIPAA Safe Harbor.
 export function redactText(text: string, phi: PhiDictionary): { text: string; hits: PhiCategory[] } {
   const hits: PhiCategory[] = []
   let out = text

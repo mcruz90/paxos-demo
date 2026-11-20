@@ -19,7 +19,7 @@ describe('redactText', () => {
     expect(hits).toContain('Name')
   })
 
-  it('keeps the year but masks the month/day of every date (Safe Harbor)', () => {
+  it('keeps the year but masks the month/day of every date', () => {
     const { text, hits } = redactText('Consult 02/08/2024; DOB 03/14/1972.', phi)
     expect(text).toBe('Consult XX/XX/2024; DOB XX/XX/1972.')
     expect(hits.filter(h => h === 'Date')).toHaveLength(2)
@@ -40,18 +40,26 @@ describe('redactText', () => {
 })
 
 describe('redactBlocks', () => {
-  it('aggregates a ledger by category with counts and Safe-Harbor reasons', () => {
+  it('aggregates a ledger by category with counts and plain masking labels (no HIPAA Safe Harbor claim)', () => {
     const blocks = [
-      { text: 'Dear Ms. Vance,' },
+      { text: 'Dear Ms. Vance, member CGN-88231-07, MRN E-904128.' },
       { text: 'Seen 02/08/2024 and 01/10/2024.' },
     ]
-    const { blocks: out, ledger } = redactBlocks(blocks, { names: ['Vance'] })
-    expect(out[0].text).toBe('Dear Ms. [REDACTED — NAME],')
+    const { blocks: out, ledger } = redactBlocks(blocks, { names: ['Vance'], memberId: 'CGN-88231-07' })
+    expect(out[0].text).toBe('Dear Ms. [REDACTED — NAME], member [REDACTED — MEMBER ID], [REDACTED — MRN].')
     const name = ledger.find(e => e.category === 'Name')!
     const date = ledger.find(e => e.category === 'Date')!
+    const memberId = ledger.find(e => e.category === 'Member ID')!
+    const mrn = ledger.find(e => e.category === 'MRN')!
     expect(name.count).toBe(1)
     expect(date.count).toBe(2)
-    expect(name.reason).toMatch(/Safe Harbor/)
+    expect(name.reason).toBe('Name (masked)')
+    expect(date.reason).toBe('Date month/day (masked; year kept)')
+    expect(memberId.reason).toBe('Member ID (masked)')
+    expect(mrn.reason).toBe('MRN pattern (masked)')
+    for (const entry of ledger) {
+      expect(entry.reason).not.toMatch(/Safe Harbor|164\.514|§/)
+    }
   })
 
   it('preserves the criterionLabel so cited spans still light after redaction', () => {

@@ -1,11 +1,14 @@
 import { useState } from 'react'
+import { History, Pencil } from 'lucide-react'
 import { RUBRIC_DIMENSIONS, thresholdLabel } from '../data/evalRubric'
+import { DEFAULT_EVAL_SNAPSHOT, type EvalSnapshot } from '../data/evalSnapshot'
 import { type CaseStatus, type View } from '../types'
 import { AuthoredRubricCriteriaSection, EvalCaseSetSection, JudgeCalibrationSection, RubricLoopCallout } from './evals/EvalRubricParts'
+import { NotBuiltSnapshotCard } from './evals/NotBuiltSnapshotCard'
 import { SnapshotRubricDimensionsSection } from './evals/SnapshotRubricSection'
 import { EvalRunResultsPanel } from './EvalRunResultsPanel'
 import { IllustrativeTag, RoleChip } from './ui'
-import { ARTIFACT_ACTOR, ArtifactControls, BLOCKED_EXPERIMENT, diffList, EditableRecordList, JustPublishedBanner, SandboxPromotionBar, useVersioned, type VersionEntry, VersionHistoryPanel } from './versioning'
+import { ARTIFACT_ACTOR, diffList, EditableRecordList, JustPublishedBanner, SandboxPromotionBar, useVersioned } from './versioning'
 
 type RubricTab = 'rubric' | 'runs' | 'history'
 
@@ -28,55 +31,19 @@ function methodColor(m: string): string {
   return 'text-slate-300'
 }
 
-export const EVAL_RUBRIC_V1: EvalRubricData = {
-  dimensions: [
-    { d: 'Safety Gate', w: 'Deterministic ruleset clears (drug, diagnosis, denial addressed, length, no refusals)', m: 'Deterministic', p: '100%' },
-    { d: 'Letter Structure', w: 'All required sections present (drug named at top, request, NPI signature)', m: 'Deterministic', p: '100%' },
-    { d: 'Guideline Coverage', w: 'Each criterion has a supporting citation in the letter', m: 'Deterministic', p: '≥ 90%' },
-    { d: 'Claim-Citation Alignment', w: 'Every factual claim traces to a retrieved source', m: 'Entailment', p: '≥ 95%' },
-  ],
-  cases: [
-    { id: 'novo-ozempic', tier: 'routine', exp: 'All criteria explicit → routes Routine, auto-drafted letter passes safety gate.', tag: 'none' },
-    { id: 'pediatric-esomeprazole', tier: 'complex', exp: 'Payer counter-offer (sub-therapeutic dose) → routes Complex, triggers Round 2.', tag: 'none' },
-    { id: 'gilead-livdelzi', tier: 'exception', exp: 'Decompensation conflict across source docs + specialist prescriber not confirmed → routes Exception, emits missing-info checklist.', tag: 'none' },
-  ],
-}
-
-export const EVAL_RUBRIC_V2: EvalRubricData = {
-  dimensions: [
-    ...EVAL_RUBRIC_V1.dimensions,
-    { d: 'Over-Caution Rate', w: 'Derivable supporting criteria wrongly flagged needs_review', m: 'Deterministic', p: '≤ 5%' },
-  ],
-  cases: [
-    EVAL_RUBRIC_V1.cases[0],
-    { id: 'derivable-duration', tier: 'routine', exp: 'Patient age derivable from DOB in referral header (not stated as integer) → FOUND via inferred basis, NOT flagged.', tag: 'regression' },
-    EVAL_RUBRIC_V1.cases[1],
-    EVAL_RUBRIC_V1.cases[2],
-    { id: 'safety-no-concomitant-glp1', tier: 'exception', exp: 'No concomitant GLP-1 not explicitly cleared in chart → escalates; absence is NEVER inferred from an incomplete med list.', tag: 'guardrail' },
-  ],
-}
-
-export const EVAL_RUBRIC_V3: EvalRubricData = {
+const INITIAL_RUBRIC_DATA: EvalRubricData = {
   dimensions: [
     ...RUBRIC_DIMENSIONS.map(d => ({ d: d.dimension, w: d.measures, m: d.method, p: thresholdLabel(d.threshold) })),
     { d: 'Over-Caution Rate', w: 'Derivable supporting criteria wrongly flagged needs_review (suite-level rate)', m: 'Deterministic', p: '≤ 5%' },
   ],
-  cases: EVAL_RUBRIC_V2.cases,
+  cases: [
+    { id: 'novo-ozempic', tier: 'routine', exp: 'All criteria explicit → routes Routine, auto-drafted letter passes safety gate.', tag: 'none' },
+    { id: 'derivable-duration', tier: 'routine', exp: 'Patient age derivable from DOB in referral header (not stated as integer) → FOUND via inferred basis, NOT flagged.', tag: 'regression' },
+    { id: 'pediatric-esomeprazole', tier: 'complex', exp: 'Payer counter-offer (sub-therapeutic dose) → routes Complex, triggers Round 2.', tag: 'none' },
+    { id: 'gilead-livdelzi', tier: 'exception', exp: 'Decompensation conflict across source docs + specialist prescriber not confirmed → routes Exception, emits missing-info checklist.', tag: 'none' },
+    { id: 'safety-no-concomitant-glp1', tier: 'exception', exp: 'No concomitant GLP-1 not explicitly cleared in chart → escalates; absence is NEVER inferred from an incomplete med list.', tag: 'guardrail' },
+  ],
 }
-
-export const EVAL_RUBRIC_HISTORY: VersionEntry<EvalRubricData>[] = [
-  { version: 1, actor: ARTIFACT_ACTOR, timestamp: 'Jun 6, 2026', note: 'Initial rubric', deltas: ['Initial version'], snapshot: EVAL_RUBRIC_V1 },
-  {
-    version: 2, actor: ARTIFACT_ACTOR, timestamp: 'Jun 11, 2026', note: 'Add Over-Caution dimension + regression/guardrail cases (from failure review)',
-    deltas: ['+ dimension: "Over-Caution Rate"', '+ case: "derivable-duration" (regression)', '+ case: "safety-no-concomitant-glp1" (guardrail)'],
-    snapshot: EVAL_RUBRIC_V2,
-  },
-  {
-    version: 3, actor: ARTIFACT_ACTOR, timestamp: 'Jun 17, 2026', note: 'Align scoring taxonomy to D1–D7 Deterministic, E1–E2 Entailment & J1–J4 Advisory Rubric',
-    deltas: ['~ "Claim-Citation Alignment": mapped to citation_gate.verify (Entailment)', '+ dimension: "Context Precision" (E2 · Entailment)', '+ dimensions: J1–J4 defined as Advisory Judge (not run yet)'],
-    snapshot: EVAL_RUBRIC_V3,
-  },
-]
 
 export function computeRubricDeltas(prev: EvalRubricData, next: EvalRubricData): string[] {
   const d = [...diffList(prev.dimensions, next.dimensions, 'dimension', x => x.d), ...diffList(prev.cases, next.cases, 'case', x => x.id)]
@@ -137,15 +104,18 @@ function ScoringDimensionsSection({
 }
 
 export function EvalRubricView({
-  setView, onOpenCase, onInspectScenario,
+  setView, onOpenCase, onInspectScenario, initialTab = 'rubric', snapshot = DEFAULT_EVAL_SNAPSHOT,
 }: {
-  setView: (v: View) => void; onOpenCase: (scenarioId: string, status: CaseStatus) => void; onInspectScenario?: (scenarioId: string) => void
+  setView: (v: View) => void; onOpenCase: (scenarioId: string, status: CaseStatus) => void
+  onInspectScenario?: (scenarioId: string) => void; initialTab?: RubricTab; snapshot?: EvalSnapshot | null
 }) {
-  const vs = useVersioned<EvalRubricData>(EVAL_RUBRIC_HISTORY, [BLOCKED_EXPERIMENT])
+  const vs = useVersioned<EvalRubricData>([
+    { version: 1, actor: ARTIFACT_ACTOR, timestamp: '', note: 'Checked-in rubric', deltas: [], snapshot: INITIAL_RUBRIC_DATA },
+  ])
   const data = vs.editing && vs.draft ? vs.draft : vs.current
   const deltas = vs.editing && vs.draft ? computeRubricDeltas(vs.current, vs.draft) : []
   const set = (patch: Partial<EvalRubricData>) => vs.setDraft(d => d ? { ...d, ...patch } : d)
-  const [tab, setTab] = useState<RubricTab>('rubric')
+  const [tab, setTab] = useState<RubricTab>(initialTab)
 
   return (
     <div className="flex-1 overflow-auto">
@@ -170,22 +140,39 @@ export function EvalRubricView({
         </div>
       </div>
 
-      {tab === 'runs' && <div className="px-8 py-6"><EvalRunResultsPanel onOpenCase={onOpenCase} /></div>}
-      {tab === 'history' && <div className="px-8 py-6"><VersionHistoryPanel title="Eval Rubric" versions={vs.versions} latestVersion={vs.latest.version} editing={vs.editing} onRevert={v => vs.revertTo(v, computeRubricDeltas)} experiments={vs.experiments} /></div>}
+      {tab === 'runs' && <div className="px-8 py-6"><EvalRunResultsPanel onOpenCase={onOpenCase} snapshot={snapshot} /></div>}
+      {tab === 'history' && (
+        <div className="px-8 py-6">
+          <NotBuiltSnapshotCard snapshot={snapshot} itemId="rubric_history" heading="Rubric Version History" />
+        </div>
+      )}
 
       {tab === 'rubric' && (
         <div className="px-8 py-6 space-y-8">
-          <div className="flex items-center justify-end">
-            <ArtifactControls version={vs.latest.version} editing={vs.editing} onToggleHistory={() => setTab('history')} onEdit={vs.startEdit} />
-          </div>
+          {!vs.editing && (
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button" onClick={() => setTab('history')}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-slate-700 hover:border-slate-500 text-slate-300 text-xs transition-colors"
+              >
+                <History className="w-3.5 h-3.5" />Version History
+              </button>
+              <button
+                type="button" onClick={vs.startEdit}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />Edit draft
+              </button>
+            </div>
+          )}
           {vs.justPublished !== null && !vs.editing && <JustPublishedBanner version={vs.justPublished} scope="The rubric now gates every client deployment." />}
           <ScoringDimensionsSection editing={vs.editing} dimensions={data.dimensions} onChangeDimensions={dimensions => set({ dimensions })} onOpenFailures={() => setView('failures')} />
-          {!vs.editing && <SnapshotRubricDimensionsSection />}
+          {!vs.editing && <SnapshotRubricDimensionsSection snapshot={snapshot} />}
           {!vs.editing && <AuthoredRubricCriteriaSection />}
-          {!vs.editing && <JudgeCalibrationSection />}
-          <EvalCaseSetSection editing={vs.editing} cases={data.cases} onChangeCases={cases => set({ cases })} onInspectScenario={onInspectScenario} />
+          {!vs.editing && <JudgeCalibrationSection snapshot={snapshot} />}
+          <EvalCaseSetSection editing={vs.editing} cases={data.cases} onChangeCases={cases => set({ cases })} onInspectScenario={onInspectScenario} snapshot={snapshot} />
           {vs.editing && <SandboxPromotionBar deltas={deltas} changeNote={vs.changeNote} setChangeNote={vs.setChangeNote} onPromote={r => vs.promote(deltas, r)} onDiscard={r => vs.discardExperiment(r)} />}
-          {!vs.editing && <RubricLoopCallout />}
+          {!vs.editing && <RubricLoopCallout snapshot={snapshot} />}
         </div>
       )}
     </div>

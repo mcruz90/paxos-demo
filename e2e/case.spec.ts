@@ -24,7 +24,7 @@ test('PH-3098 initial PA: unified Epic workspace keeps Operate focus, open packe
   await page.screenshot({ path: 'e2e/__screens__/case-approved.png', fullPage: true })
 })
 
-test('PH-3101 pre-submission doc gap: resolver modal dispatches query cleanly', async ({ page }) => {
+test('PH-3101 pre-submission doc gap: resolver modal dispatches query cleanly without auto-transition', async ({ page }) => {
   await goToQueue(page)
   await page.getByText('Case #PH-3101').first().click()
 
@@ -32,5 +32,11 @@ test('PH-3101 pre-submission doc gap: resolver modal dispatches query cleanly', 
   await page.getByText('Send Provider In-Basket / Outbound Query').click()
   await page.getByRole('button', { name: /Send Query to/ }).click()
 
+  // Must not auto-transition status after 400ms without an explicit user action.
+  await page.waitForTimeout(600)
+  await expect(page.getByText(/Outbound Provider Query Dispatched/)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Move to Awaiting Documentation' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Move to Awaiting Documentation' }).click()
   await expect(page.getByText(/Outbound Provider Query Dispatched|Awaiting Docs/).first()).toBeVisible()
 })

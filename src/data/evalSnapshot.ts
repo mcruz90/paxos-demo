@@ -1,9 +1,16 @@
-import type { Decision, E2eRun, EvalSnapshot, Stage } from '../generated/evalSnapshotTypes'
+import type {
+  Decision,
+  E2eRun,
+  EvalSnapshot,
+  NotBuiltItem,
+  Stage,
+} from '../generated/evalSnapshotTypes'
 import rawExampleSnapshot from './eval_snapshot.example.json'
 import evalSnapshotSchema from './eval_snapshot.schema.json'
 import { type JsonSchema, validateAgainstSchema } from './evalSnapshotSchemaValidator'
 
 export type {
+  CaseSet,
   Clock,
   Comparison,
   Decision,
@@ -12,10 +19,16 @@ export type {
   E2eStage,
   EvalSnapshot,
   NotApplicable,
+  NotBuiltItem,
+  RedteamKind,
   RunVersions,
   SectionState,
   Stage,
 } from '../generated/evalSnapshotTypes'
+
+export type NotBuiltId = NotBuiltItem['id']
+
+export const NOT_IN_SNAPSHOT = 'not in this snapshot'
 
 export type ParseEvalSnapshotResult =
   | { ok: true; snapshot: EvalSnapshot }
@@ -42,15 +55,39 @@ export function loadDefaultEvalSnapshot(): EvalSnapshot | null {
 
 export const DEFAULT_EVAL_SNAPSHOT: EvalSnapshot | null = loadDefaultEvalSnapshot()
 
-export const EVAL_SNAPSHOT_SOURCE_NOTE =
-  'Example snapshot (clearauth-eval PR #219). Contract: clearauth-eval decision 0049, Proposed.'
-
 export function isDecisionAccepted(decision: Pick<Decision, 'status'>): boolean {
   return decision.status.trim().toLowerCase().startsWith('accepted')
 }
 
-export function formatClearauthDecisionLabel(decision: Pick<Decision, 'number' | 'status'>): string {
-  return `clearauth-eval decision ${decision.number} · ${isDecisionAccepted(decision) ? 'Accepted' : 'Proposed'}`
+export function formatClearauthDecisionLabel(
+  decision: Pick<Decision, 'number' | 'status'> | null | undefined,
+): string {
+  if (!decision) return NOT_IN_SNAPSHOT
+  return `clearauth-eval decision ${decision.number} · ${decision.status}`
+}
+
+export function formatSnapshotSourceNote(
+  snapshot: Pick<EvalSnapshot, 'not_built' | 'case_sets'> | null | undefined,
+): string {
+  const decision = snapshot?.not_built?.decision ?? snapshot?.case_sets?.decision
+  if (!decision) return `Example snapshot (clearauth-eval PR #219). Contract: ${NOT_IN_SNAPSHOT}.`
+  return `Example snapshot (clearauth-eval PR #219). Contract: ${formatClearauthDecisionLabel(decision)}.`
+}
+
+export const EVAL_SNAPSHOT_SOURCE_NOTE = formatSnapshotSourceNote(DEFAULT_EVAL_SNAPSHOT)
+
+export function findNotBuiltItem(
+  snapshot: Pick<EvalSnapshot, 'not_built'> | null | undefined,
+  id: NotBuiltId,
+): NotBuiltItem | null {
+  return snapshot?.not_built?.items?.find(item => item.id === id) ?? null
+}
+
+export function formatCaseSetEntries(byKind: Record<string, unknown> | null | undefined): [string, number][] {
+  if (!byKind) return []
+  return Object.entries(byKind).filter(
+    (entry): entry is [string, number] => typeof entry[1] === 'number' && Number.isFinite(entry[1]),
+  )
 }
 
 export function formatShortCommit(commit: string): string {

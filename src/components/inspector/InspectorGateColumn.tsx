@@ -1,11 +1,19 @@
 import { CheckCircle2, Clock, Cpu, GitCommit, Link2, ShieldCheck, XCircle } from 'lucide-react'
-import { DEFAULT_EVAL_SNAPSHOT, EVAL_SNAPSHOT_SOURCE_NOTE, formatClearauthDecisionLabel, formatShortCommit, summarizeReadiness } from '../../data/evalSnapshot'
+import {
+  DEFAULT_EVAL_SNAPSHOT,
+  type EvalSnapshot,
+  NOT_IN_SNAPSHOT,
+  formatClearauthDecisionLabel,
+  formatShortCommit,
+  formatSnapshotSourceNote,
+  summarizeReadiness,
+} from '../../data/evalSnapshot'
 import type { DoneEvent } from '../../lib/wire'
 import type { ScenarioConfig } from '../../types'
 import type { LiveStep } from '../poc/live/appealEvents'
 import { StepList } from '../poc/live/StepList'
 import { TierBadge } from '../ui'
-import { type GateAssertion, EVAL_SNAPSHOT_PLACEHOLDER, buildGateAssertions, buildRunMetadata } from './inspectorModel'
+import { type GateAssertion, buildGateAssertions, buildRunMetadata } from './inspectorModel'
 
 function GateRow({
   gate, activeCiteIndex, onSelectCiteIndex,
@@ -38,35 +46,36 @@ function GateRow({
   )
 }
 
-function SnapshotReadinessCompactCard() {
-  const snap = DEFAULT_EVAL_SNAPSHOT
-  if (!snap) {
+function SnapshotReadinessCompactCard({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { snapshot?: EvalSnapshot | null }) {
+  const snap = snapshot
+  if (!snap || !snap.readiness) {
     return (
       <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="text-xs font-semibold text-slate-200 uppercase tracking-wide">Harness Snapshot</span>
-          <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border border-slate-700 bg-slate-950/70 text-slate-300">
+          <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border border-slate-700 bg-slate-950/70 text-amber-300">
             <Clock className="w-3 h-3 text-slate-400" />
-            {EVAL_SNAPSHOT_PLACEHOLDER.state}
+            {NOT_IN_SNAPSHOT}
           </span>
         </div>
-        <p className="text-xs font-medium text-slate-200">{EVAL_SNAPSHOT_PLACEHOLDER.label}</p>
-        <p className="text-[11px] text-slate-400 leading-relaxed">{EVAL_SNAPSHOT_PLACEHOLDER.detail}</p>
       </div>
     )
   }
 
   const r = summarizeReadiness(snap.readiness.stages)
   const readyIds = snap.readiness.stages.filter(s => s.state === 'ready').map(s => s.id).join(', ')
-  const appealRun = snap.e2e.runs.find(run => run.flow === 'appeal') ?? snap.e2e.runs[0]
-  const judgeN = snap.appeal_rubric.dimensions.filter(d => d.kind === 'judge').reduce((m, d) => Math.max(m, d.calibration?.n ?? 0), 0)
+  const appealRun = snap.e2e?.runs?.find(run => run.flow === 'appeal') ?? snap.e2e?.runs?.[0]
+  const judgeN = snap.appeal_rubric?.dimensions
+    ?.filter(d => d.kind === 'judge')
+    .reduce((m, d) => Math.max(m, d.calibration?.n ?? 0), 0)
+  const sourceNote = formatSnapshotSourceNote(snap)
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 space-y-2 text-[11px]">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <span className="text-xs font-semibold text-slate-200 uppercase tracking-wide">Harness Snapshot</span>
         <span
-          title={EVAL_SNAPSHOT_SOURCE_NOTE}
+          title={sourceNote}
           className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
         >
           <GitCommit className="w-3 h-3" />Example v{snap.schema_version} · {formatShortCommit(snap.as_of_commit)}
@@ -75,15 +84,21 @@ function SnapshotReadinessCompactCard() {
       <p className="font-mono text-slate-300">
         Readiness: {r.ready} ready ({readyIds || '—'}) · {r.notYet} not yet · {r.noRuns} no runs · {r.notBuilt} not built
       </p>
-      {appealRun && (
+      {appealRun && snap.e2e ? (
         <p className="font-mono text-slate-400">
           E2E ({appealRun.flow}): {appealRun.outcomes.pass}/{appealRun.cases} pass · {appealRun.outcomes.held} held · {appealRun.outcomes.silent} silent ({formatClearauthDecisionLabel(snap.e2e.decision)})
         </p>
+      ) : (
+        <p className="font-mono text-amber-300">E2E: {NOT_IN_SNAPSHOT}</p>
       )}
-      <p className="font-mono text-slate-400">
-        Judge calibration: {judgeN}/{snap.appeal_rubric.judge_bar.min_letters} · {snap.appeal_rubric.judge_bar.status}
-      </p>
-      <p className="text-[10px] font-medium text-amber-300 leading-snug">{EVAL_SNAPSHOT_SOURCE_NOTE}</p>
+      {snap.appeal_rubric ? (
+        <p className="font-mono text-slate-400">
+          Judge calibration: {judgeN}/{snap.appeal_rubric.judge_bar.min_letters} · {snap.appeal_rubric.judge_bar.status}
+        </p>
+      ) : (
+        <p className="font-mono text-amber-300">Judge calibration: {NOT_IN_SNAPSHOT}</p>
+      )}
+      <p className="text-[10px] font-medium text-amber-300 leading-snug">{sourceNote}</p>
     </div>
   )
 }
@@ -130,10 +145,10 @@ function CriterionTraceList({
 }
 
 export function InspectorGateColumn({
-  scenario, done, steps, streaming, activeCiteIndex, onSelectCiteIndex,
+  scenario, done, steps, streaming, activeCiteIndex, onSelectCiteIndex, snapshot = DEFAULT_EVAL_SNAPSHOT,
 }: {
   scenario: ScenarioConfig; done?: DoneEvent | null; steps: LiveStep[]; streaming: boolean
-  activeCiteIndex: number | null; onSelectCiteIndex: (idx: number) => void
+  activeCiteIndex: number | null; onSelectCiteIndex: (idx: number) => void; snapshot?: EvalSnapshot | null
 }) {
   const meta = buildRunMetadata(done)
   const gates = buildGateAssertions(done?.structural_scores, scenario)
@@ -175,7 +190,7 @@ export function InspectorGateColumn({
       </div>
 
       <CriterionTraceList scenario={scenario} activeCiteIndex={activeCiteIndex} onSelectCiteIndex={onSelectCiteIndex} />
-      <SnapshotReadinessCompactCard />
+      <SnapshotReadinessCompactCard snapshot={snapshot} />
 
       {steps.length > 0 && (
         <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 space-y-2">

@@ -10,6 +10,28 @@ export interface Decision {
 
 export type NullableString = string | null
 
+export interface RedteamKind {
+  kind: 'redteam' | 'redteam_holdout'
+  held: number
+  n: number
+  not_held: number
+  not_held_range95: number[]
+}
+
+export interface CaseSet {
+  family: 'intake' | 'llm_fallback' | 'deid' | 'charts' | 'doc_type'
+  run_id: string
+  created: NullableString
+  cases: number
+  by_kind: Record<string, unknown>
+}
+
+export interface NotBuiltItem {
+  id: 'runtime_cost' | 'per_case_results' | 'rubric_history' | 'site_readiness'
+  name: string
+  why: string
+}
+
 export interface Stage {
   id: string
   name: string
@@ -121,7 +143,7 @@ export interface NotApplicable {
 }
 
 export interface EvalSnapshot {
-  schema_version: '1'
+  schema_version: '2'
   as_of_commit: string
   generated_at: string
   basis: string
@@ -156,5 +178,22 @@ export interface EvalSnapshot {
     decision: Decision
     clocks: Clock[]
     not_applicable: NotApplicable[]
+  }
+  redteam: {
+    state: SectionState
+    decision: Decision
+    run_id: NullableString
+    created: NullableString
+    kinds: RedteamKind[]
+  }
+  case_sets: {
+    state: SectionState
+    decision: Decision
+    families: CaseSet[]
+  }
+  not_built: {
+    state: SectionState
+    decision: Decision
+    items: NotBuiltItem[]
   }
 }

@@ -7,12 +7,13 @@ import { type LiveShellSession } from '../live/SessionGate'
 import { CaseQueueColumn } from './CaseQueueColumn'
 import {
   type AttachedExcerpt, EMPTY_LOCAL_CASE_STATE, type LocalCaseState, type StageFilter, type UrgencyFilter,
-  allExceptionsResolved, buildDispatchArtifact, filterClients, groupByAction, logActivity, statusAfterResolution,
+  allExceptionsResolved, buildDispatchArtifact, filterClients, groupByAction, logActivity,
 } from './caseQueue'
 import { type CriterionActions } from './CriterionRow'
 import { EvidencePane } from './EvidencePane'
 import { buildCriterionResolverContext, buildDisputeResolverContext } from './exceptionResolver'
 import { ExceptionResolverModal, type ResolutionPath } from './ExceptionResolverModal'
+import { resolveExplicitCaseTransition } from './exceptionStatusTransition'
 import { patientForClient } from './patient'
 import { PatientProfile } from './PatientProfile'
 import { PreviewPane, type PreviewTab } from './PreviewPane'
@@ -87,14 +88,12 @@ export function SplitPortfolioView({
   const selectedScenario = selectedClient ? (scenarios[selectedClient.scenarioId] ?? null) : null
   const selectedLocalState = selectedClient ? getLocalCaseState(selectedClient.scenarioId) : EMPTY_LOCAL_CASE_STATE
 
-  // Applies local state updates and transitions status only once every exception resolves.
+  // Applies local criterion/activity state updates only — case status changes
+  // happen exclusively through explicit named user actions (never timers).
   const updateSelectedCaseState = (updater: (prev: LocalCaseState) => LocalCaseState) => {
     if (!selectedClient || !selectedScenario) return
     const next = updater(getLocalCaseState(selectedClient.scenarioId))
     setCaseStates(prev => ({ ...prev, [selectedClient.scenarioId]: next }))
-    if (allExceptionsResolved(selectedScenario, next)) {
-      setTimeout(() => onUpdateClientStatus(selectedClient.scenarioId, statusAfterResolution(next)), 400)
-    }
   }
 
   const now = () => new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
@@ -160,6 +159,16 @@ export function SplitPortfolioView({
     setResolver(null)
   }
 
+  const pendingTransition =
+    selectedClient && selectedScenario
+      ? resolveExplicitCaseTransition(selectedClient.status, selectedScenario, selectedLocalState)
+      : null
+
+  const handleConfirmStatusTransition = () => {
+    if (!selectedClient || !pendingTransition) return
+    onUpdateClientStatus(selectedClient.scenarioId, pendingTransition.nextStatus)
+  }
+
   const isClientExceptionsResolved = (client: Client) => {
     const sc = scenarios[client.scenarioId]
     return !!sc && client.status === 'exception' && allExceptionsResolved(sc, getLocalCaseState(client.scenarioId))
@@ -171,6 +180,7 @@ export function SplitPortfolioView({
         <PreviewPane
           client={selectedClient} scenario={selectedScenario} localState={selectedLocalState} actions={criterionActions}
           onOpenCase={onOpenCase} onQuickApprove={onQuickApprove} onPayerDecision={onPayerDecision} onSaveNarrative={handleSaveNarrative}
+          pendingTransition={pendingTransition} onConfirmStatusTransition={handleConfirmStatusTransition}
           selectedCiteIndex={activeCiteIndex} onSelectCiteIndex={setActiveCiteIndex} activeTab={activeTab} setActiveTab={setActiveTab}
           activeDocId={activeDocId} onViewDoc={viewDoc}
           onOpenDisputeResolver={selectedScenario?.round2Appeal ? () => setResolver({ mode: 'dispute' }) : undefined}

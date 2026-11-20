@@ -41,7 +41,7 @@ function ResolverFooter({
   const statusText = path === null
     ? 'Select a resolution action on the right to continue'
     : path === 'workflow'
-      ? 'Query will be logged in Activity Log and case moves to Awaiting Documentation'
+      ? 'Query will be logged in Activity Log — confirm the status move from the case footer once all exceptions are addressed'
       : `${selectedCount} local excerpt(s) staged — attach provisionally or reassess criterion`
 
   const buttonText = path === null

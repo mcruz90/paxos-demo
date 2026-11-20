@@ -1,13 +1,13 @@
 {
  "$schema": "https://json-schema.org/draft/2020-12/schema",
  "$id": "clearauth-eval/eval_snapshot.schema.json",
- "title": "eval_snapshot.json, schema version 1 (decision 0049)",
- "description": "The eval console's numbers for other apps. Written by python -m console.snapshot_json from stored results only. Every section has a state; a reader must show it and must not show a missing number as 0.",
+ "title": "eval_snapshot.json, schema version 2 (decision 0049)",
+ "description": "The eval console's numbers for other apps. Written by python -m console.snapshot_json from stored results only. Every section has a state; a reader must show it and must not show a missing number as 0. Every eval number a reader shows comes from this file; a part with no source here shows its not_built item.",
  "type": "object",
  "additionalProperties": false,
- "required": ["schema_version", "as_of_commit", "generated_at", "basis", "readiness", "e2e", "appeal_rubric", "paired_prompts", "clocks"],
+ "required": ["schema_version", "as_of_commit", "generated_at", "basis", "readiness", "e2e", "appeal_rubric", "paired_prompts", "clocks", "redteam", "case_sets", "not_built"],
  "properties": {
-  "schema_version": {"const": "1"},
+  "schema_version": {"const": "2"},
   "as_of_commit": {"type": "string", "description": "git commit of clearauth-eval the file was written from, or unknown"},
   "generated_at": {"type": "string", "description": "UTC time the file was written, ISO 8601"},
   "basis": {"type": "string"},
@@ -72,6 +72,38 @@
     "clocks": {"type": "array", "items": {"$ref": "#/$defs/clock"}},
     "not_applicable": {"type": "array", "items": {"$ref": "#/$defs/not_applicable"}}
    }
+  },
+  "redteam": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["state", "decision", "run_id", "created", "kinds"],
+   "properties": {
+    "state": {"$ref": "#/$defs/section_state"},
+    "decision": {"$ref": "#/$defs/decision"},
+    "run_id": {"$ref": "#/$defs/nullable_string"},
+    "created": {"$ref": "#/$defs/nullable_string"},
+    "kinds": {"type": "array", "items": {"$ref": "#/$defs/redteam_kind"}}
+   }
+  },
+  "case_sets": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["state", "decision", "families"],
+   "properties": {
+    "state": {"$ref": "#/$defs/section_state"},
+    "decision": {"$ref": "#/$defs/decision"},
+    "families": {"type": "array", "items": {"$ref": "#/$defs/case_set"}}
+   }
+  },
+  "not_built": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["state", "decision", "items"],
+   "properties": {
+    "state": {"$ref": "#/$defs/section_state"},
+    "decision": {"$ref": "#/$defs/decision"},
+    "items": {"type": "array", "items": {"$ref": "#/$defs/not_built_item"}}
+   }
   }
  },
  "$defs": {
@@ -86,6 +118,40 @@
    }
   },
   "nullable_string": {"type": ["string", "null"]},
+  "redteam_kind": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["kind", "held", "n", "not_held", "not_held_range95"],
+   "properties": {
+    "kind": {"enum": ["redteam", "redteam_holdout"]},
+    "held": {"type": "integer"},
+    "n": {"type": "integer"},
+    "not_held": {"type": "integer"},
+    "not_held_range95": {"type": "array", "items": {"type": "number"}, "description": "Wilson 95% range of the share not held"}
+   }
+  },
+  "case_set": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["family", "run_id", "created", "cases", "by_kind"],
+   "properties": {
+    "family": {"enum": ["intake", "llm_fallback", "deid", "charts", "doc_type"]},
+    "run_id": {"type": "string"},
+    "created": {"$ref": "#/$defs/nullable_string"},
+    "cases": {"type": "integer"},
+    "by_kind": {"type": "object", "description": "distinct cases per kind (or split); counts only"}
+   }
+  },
+  "not_built_item": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["id", "name", "why"],
+   "properties": {
+    "id": {"enum": ["runtime_cost", "per_case_results", "rubric_history", "site_readiness"]},
+    "name": {"type": "string"},
+    "why": {"type": "string"}
+   }
+  },
   "stage": {
    "type": "object",
    "additionalProperties": false,

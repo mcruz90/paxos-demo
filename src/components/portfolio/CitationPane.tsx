@@ -46,7 +46,7 @@ function DocumentExcerpt({
   )
 }
 
-// Right pane: verbatim EHR evidence behind each criterion, synced with the
+// Right pane: citation excerpts on file for each criterion, synced with the
 // hovered/selected criterion in the workspace.
 export function CitationPane({
   scenario,
@@ -78,7 +78,7 @@ export function CitationPane({
             <BookmarkPlus className="w-4 h-4 text-emerald-400 shrink-0" />
             <h3 className="text-sm font-semibold text-slate-200">Citation Ground Truth</h3>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">Quoted evidence directly from the EHR record</p>
+          <p className="text-xs text-slate-500 mt-0.5">Excerpts on file</p>
         </div>
       )}
 
@@ -134,7 +134,7 @@ export function CitationPane({
                 />
               ) : (
                 <p className="text-xs text-slate-500 italic pl-3 leading-relaxed">
-                  Supporting evidence verified in clinical record
+                  No excerpt on file for this criterion
                 </p>
               )}
             </div>

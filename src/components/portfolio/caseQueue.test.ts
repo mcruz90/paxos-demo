@@ -206,7 +206,7 @@ describe('resolveSidebarNav', () => {
     expect(resolveSidebarNav('portfolio', 'novo-ozempic', 2)).toEqual({
       override: null,
       resetNonce: 3,
-      collapseSidebar: false,
+      expandSidebar: true,
     })
   })
 
@@ -214,7 +214,15 @@ describe('resolveSidebarNav', () => {
     expect(resolveSidebarNav('evals', 'novo-ozempic', 2)).toEqual({
       override: 'novo-ozempic',
       resetNonce: 2,
-      collapseSidebar: false,
+      expandSidebar: true,
+    })
+  })
+
+  it('keeps collapsed sidebar state unchanged when navigating to poc', () => {
+    expect(resolveSidebarNav('poc', 'novo-ozempic', 2)).toEqual({
+      override: 'novo-ozempic',
+      resetNonce: 2,
+      expandSidebar: false,
     })
   })
 })
