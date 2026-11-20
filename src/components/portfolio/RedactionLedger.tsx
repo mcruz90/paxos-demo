@@ -19,6 +19,8 @@ export function RedactionLedger({
 
   return (
     <div
+      role="region"
+      aria-label="Redaction Ledger"
       className={[
         'absolute inset-y-0 right-0 w-72 bg-slate-900 border-l border-slate-800 shadow-2xl',
         'flex flex-col transition-transform duration-300 z-20',
@@ -30,7 +32,12 @@ export function RedactionLedger({
           <ShieldCheck className="w-4 h-4 text-violet-400" />
           Redaction Ledger
         </span>
-        <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close redaction ledger"
+          className="text-slate-500 hover:text-slate-300 transition-colors"
+        >
           <X className="w-4 h-4" />
         </button>
       </div>

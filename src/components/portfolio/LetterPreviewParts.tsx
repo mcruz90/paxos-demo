@@ -9,9 +9,10 @@ export function CitationPill({ index, source, page, active, onSelect }: {
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onSelect}
       className={[
-        'inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-sans text-[11px] font-semibold border transition-all mx-0.5 align-baseline',
+        'inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-sans text-[11px] font-semibold border transition-all mx-0.5 align-baseline focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500',
         active ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100',
       ].join(' ')}
       title={`Jump to ${source} (${page}) in Source Chart`}
@@ -32,7 +33,14 @@ export function CitedCriterionRow({ index, scenario, heading, showAnswer, active
       className={`pl-3 border-l-4 rounded-sm pr-2 py-2 transition-colors cursor-pointer ${active ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300'}`}
     >
       <div className="flex items-start justify-between gap-2 flex-wrap">
-        <p className="text-xs font-bold text-slate-800">{heading}</p>
+        <button
+          type="button"
+          aria-pressed={active}
+          onClick={e => { e.stopPropagation(); onSelect(index) }}
+          className="text-left text-xs font-bold text-slate-800 hover:text-emerald-700 focus:outline-none focus-visible:underline"
+        >
+          {heading}
+        </button>
         {cite && <CitationPill index={index} source={cite.source} page={cite.page} active={active} onSelect={() => onSelect(index)} />}
       </div>
       {showAnswer && <p className="text-xs text-emerald-600 font-semibold mt-0.5">Answer: Met</p>}
@@ -68,7 +76,8 @@ export function LetterVerificationBar({
     { k: 'Citations', v: states.citationStatus },
     { k: 'Sources', v: states.sourceStatus },
     { k: 'Conflicts', v: states.contradictionStatus },
-    { k: 'Gate', v: states.gateStatus },
+    { k: 'Policy match', v: states.policyMatchStatus },
+    { k: 'Validation', v: states.validationStatus },
     { k: 'Approval', v: states.approvalStatus },
   ]
   return (

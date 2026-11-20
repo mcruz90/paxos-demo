@@ -64,6 +64,7 @@ export function FixtureChat({
         {suggestions.filter(s => !asked.has(s.q)).map(s => (
           <button
             key={s.q}
+            type="button"
             onClick={() => ask(s.q, s.a)}
             className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-medium text-violet-300 bg-violet-500/10 border border-violet-500/25 hover:bg-violet-500/20 transition-colors"
           >
@@ -78,9 +79,15 @@ export function FixtureChat({
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') askFree() }}
           placeholder={placeholder}
+          aria-label={placeholder}
           className={`flex-1 bg-slate-950/60 border border-slate-700 rounded-lg px-2.5 py-1.5 ${bubbleText} text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500`}
         />
-        <button onClick={askFree} className="p-1.5 rounded-lg text-violet-300 hover:bg-violet-500/10 transition-colors">
+        <button
+          type="button"
+          onClick={askFree}
+          aria-label="Send question"
+          className="p-1.5 rounded-lg text-violet-300 hover:bg-violet-500/10 transition-colors"
+        >
           <Send className="w-3.5 h-3.5" />
         </button>
       </div>
