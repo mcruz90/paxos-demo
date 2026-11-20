@@ -18,7 +18,9 @@ def run_retrieval(state: PipelineState) -> PipelineState:
     """Look up PA requirements and populate *pa_context*.
 
     Resolution order: exact plan_id → drug alias substring → generic fallback.
-    Never raises; always returns a non-empty pa_context string.
+    Only a plan_id hit supplies payer criteria; a drug-alias hit is recorded
+    but gets the generic text (ADR-0019). Never raises; always returns a
+    non-empty pa_context string.
 
     Args:
         state: Current pipeline state with an initialized AppealRequest.

@@ -357,7 +357,9 @@ each `synthesis` step event.
   each); informational, not gating. May be `{}` if scoring itself failed.
 - `pa_resolution` — `"plan_id" | "drug_alias" | "generic"` (or `""`):
   which retrieval path produced the PA context. `generic` means the letter
-  cites no payer-specific criteria — downstream review should weight that.
+  cites no payer-specific criteria. `drug_alias` means the same text (the drug
+  has a pack under another plan, whose criteria are not used, ADR-0019). Both
+  route to the exception tier.
 - `retry_count` (S2 Slice 4, additive) — gatekeeper retries that preceded
   the pass.
 - `correlation_id` (S2 Slice 4, additive) — the logical run's ID, equal to

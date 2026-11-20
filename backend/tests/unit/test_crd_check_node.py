@@ -44,10 +44,13 @@ def test_derive_pa_required_plan_id_hit() -> None:
     assert "CIGNA-CNF360-2024" in result.basis
 
 
-def test_derive_pa_required_drug_alias_hit() -> None:
+def test_derive_pa_required_drug_alias_hit_is_unknown() -> None:
+    """A pack for this drug under another plan says nothing about this plan:
+    the verdict is unknown and a person decides (ADR-0019)."""
     result = derive_pa_required("drug_alias", "Ozempic (semaglutide)", "UNKNOWN-PLAN-2099")
-    assert result.required is True
-    assert "drug" in result.basis.lower()
+    assert result.required is None
+    assert "needs review by a person" in result.basis.lower()
+    assert "UNKNOWN-PLAN-2099" in result.basis
 
 
 def test_derive_pa_required_registry_miss_is_unknown_not_not_required() -> None:

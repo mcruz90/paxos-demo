@@ -178,8 +178,8 @@ was answered); any `conflict` → denied → `AppealHandoff` pointer carrying
 pointer; launching it is a separate human-gated request.
 
 **Stub CRD semantics:** the pa_requirements registry stands in for the
-payer's CRD endpoint. A plan_id or drug-alias hit means a PA is required; a
-registry miss is **unknown** (`pa_required.required = null`): the run exits
+payer's CRD endpoint. A plan_id hit means a PA is required. A drug-alias hit
+(a pack for this drug under another plan, ADR-0019) or a registry miss is **unknown** (`pa_required.required = null`): the run exits
 before assembly, submits nothing, and a person decides (ADR-0018). The
 registry never answers "PA not required"; only a real payer CRD query can.
 
