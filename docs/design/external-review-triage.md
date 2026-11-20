@@ -180,7 +180,8 @@ row (appeals-escalation domain).
   ADR** when scheduled.
 - See also the `documentation_supplied` provenance criticism in slice7 below.
 - **AMENDMENT (2026-10-16, ADR-0018) to §5.3 CRD resolution precedence:** a
-  registry miss (no pack matches the plan_id or a drug alias) no longer gives
+  registry miss (the plan_id is not a pack — a drug-alias match counts as a
+  miss since ADR-0019) no longer gives
   `pa_required = false` ("fail-open; flag in audit for manual review"). It
   gives **unknown** (`pa_required.required = null`): nothing is submitted and
   a person decides. Step 2's "No" branch now reads `pa_required = null`

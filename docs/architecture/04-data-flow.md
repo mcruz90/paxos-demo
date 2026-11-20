@@ -125,7 +125,7 @@ without a code can match a full label. Label matching ignores case and
 whitespace. A version starts on its recorded date and ends before any
 recorded end date.
 
-One compatible pack supplies the payer criteria. Missing, incompatible or
+One compatible pack supplies the payer criteria. Only packs for the request's own plan are searched: a pack for the same drug under another plan never supplies criteria (ADR-0019). Missing, incompatible or
 overlapping policies produce a named hold with a next action. Appeal and
 initial-PA nodes use the server's local calendar date via `date.today()`. A
 future caller-supplied applicability date will replace that default. The

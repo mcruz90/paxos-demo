@@ -126,6 +126,36 @@ def test_retrieval_resolves_by_plan_id_cigna_livdelzi() -> None:
     assert "livdelzi" in ctx or "seladelpar" in ctx or "pbc" in ctx
 
 
+def test_retrieval_drug_alias_never_lends_another_plans_criteria() -> None:
+    """When plan_id is unknown, a drug-name match must not supply another
+    plan's criteria (a UHC Ozempic request must not get Cigna's pack). The
+    run records a hold and the case goes to a person (ADR-0019)."""
+    req = AppealRequest(
+        scenario_id="ozempic-unknown-plan",
+        drug="Ozempic (semaglutide)",
+        diagnosis="Type 2 Diabetes Mellitus",
+        denial_text="Authorization denied.",
+        denial_reason="step therapy",
+        plan="UnitedHealthcare Choice Plus",
+        plan_id="UHC-UNKNOWN-2026",
+        criteria_results=[],
+    )
+    updated = run_retrieval(_state(req))
+    assert updated["pa_context"] == ""
+    assert updated["pa_resolution"] == "generic"
+    assert "missing_policy" in updated["policy_hold"]
+    for packs in requirements_lookup._BY_PLAN_ID.values():
+        for pack in packs:
+            assert pack.criteria_text not in updated["policy_hold"]
+
+
+# ---------------------------------------------------------------------------
+# NEW — resolution path must be recorded, not invisible (hardening item 5).
+# A letter generated from the generic fallback is a materially different
+# artifact (no payer-specific criteria); audit + tier routing need the signal.
+# ---------------------------------------------------------------------------
+
+
 def test_retrieval_records_plan_id_resolution_path() -> None:
     """Exact plan_id hit → pa_resolution == 'plan_id'."""
     updated = run_retrieval(_state(_ozempic_cigna_request()))

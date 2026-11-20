@@ -24,6 +24,20 @@ def _request(**overrides: Any) -> InitialPaRequest:
     return InitialPaRequest(**kwargs)
 
 
+def test_crd_check_other_plans_drug_pack_is_unknown() -> None:
+    """ADR-0019: a pack for this drug under another plan says nothing about
+    this plan. The verdict is unknown, no criteria are used, a person decides."""
+    state = run_pa_ingestion(
+        _request(plan="UnitedHealthcare Choice Plus", plan_id="UHC-UNKNOWN-2026")
+    )
+    updated = run_crd_check(state)
+    assert updated["pa_required"] is not None
+    assert updated["pa_required"].required is None
+    assert "needs review by a person" in updated["pa_required"].basis.lower()
+    assert updated["pa_context"] == ""
+    assert updated["pa_resolution"] == "generic"
+
+
 def test_crd_check_populates_state_on_plan_id_hit() -> None:
     state = run_pa_ingestion(_request())
     updated = run_crd_check(state)

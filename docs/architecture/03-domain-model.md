@@ -328,8 +328,8 @@ test update, in the same commit.**
 | **Anchor** | One drug × payer × policy combination the golden set is built around (`ozempic_cigna`, `esomeprazole_uhc_pediatric`, `livdelzi_cigna_hepatology`). Scenarios derive from anchors. |
 | **Golden set** | The canonical, provenance-tracked dataset under `backend/golden/` + `evals/fixtures/scenarios.json` — see [/docs/golden-set-governance.md](../golden-set-governance.md) and [ADR-0004](adr/0004-golden-set-canonical-dataset.md). |
 | **plan_id** | Payer plan identifier (e.g. `CIGNA-CNF360-2024`) — the most specific PA-policy lookup key. Cigna market segments: `cnf_` (nonformulary), `ip_NNN` (employer PDL), `ip_NNN_ifp` (individual/ACA). |
-| **Drug alias** | Alternate names for a drug (brand/generic) used as the retrieval fallback when `plan_id` doesn't match. |
-| **pa_resolution** | Which retrieval path produced the PA context: `plan_id` (payer-specific), `drug_alias` (fallback), `generic` (boilerplate). A generic-fallback letter is a materially different artifact — this is audit-relevant (hard-5). |
+| **Drug alias** | Alternate names for a drug (brand/generic) inside one plan's pack. They match the requested product for that plan only. A pack for the same drug under another plan never supplies criteria (ADR-0019); the case holds and goes to a person. |
+| **pa_resolution** | Which retrieval path produced the PA context: `plan_id` (one compatible payer policy), `generic` (a named policy hold, no criteria). `drug_alias` is kept in the type for historical records only (ADR-0019: no criteria, a person decides); strict resolution no longer emits it. Audit-relevant (hard-5). |
 | **BIN/PCN/Group** | Pharmacy-claim routing identifiers; the Sprint 5 hook for coverage-driven pack resolution via `golden/coverage_pool.json`. |
 | **COB** | Coordination of benefits — primary plan governs PA; Medicaid is always payer of last resort. |
 | **Security hold** | ETL-set flag on a request whose source document showed injection phrases, bidi characters, or hidden PDF text. Enforced at the pipeline gate (hard-1). |
