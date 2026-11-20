@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { reducePaEvent, initialPaState, type LivePaState } from './paEvents'
+import { reducePaEvent, initialPaState, crdVerdictLabel, type LivePaState } from './paEvents'
 import type { PaSubmitEvent } from '../../../lib/wire'
 
 const fold = (events: PaSubmitEvent[]): LivePaState => events.reduce(reducePaEvent, initialPaState)
@@ -50,5 +50,21 @@ describe('reducePaEvent', () => {
     expect(state.status).toBe('error')
     expect(state.error).toBe('boom')
     expect(state.correlationId).toBe('case:a1')
+  })
+})
+
+describe('crdVerdictLabel', () => {
+  it('labels a required PA', () => {
+    expect(crdVerdictLabel(true)).toBe('PA required')
+  })
+
+  it('labels a source-backed "not required" as the early exit', () => {
+    expect(crdVerdictLabel(false)).toBe('PA not required — CRD early exit')
+  })
+
+  it('labels an unknown verdict (registry miss) for a person, never "not required"', () => {
+    const label = crdVerdictLabel(null)
+    expect(label).toBe('Unknown — needs review by a person')
+    expect(label).not.toMatch(/not required/i)
   })
 })

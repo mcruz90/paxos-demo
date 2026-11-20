@@ -16,7 +16,7 @@ export interface LivePaState {
   steps: LiveStep[]
   /** CRD pre-check verdict (present on `done`). */
   paRequired: InitialPaDoneEvent['pa_required'] | null
-  /** Payer determination; null when the CRD early-exits ("PA not required"). */
+  /** Payer determination; null when the CRD early-exits (not required, or unknown). */
   outcome: InitialPaDoneEvent['outcome']
   /** Appeal pointer, present iff the determination is denied. */
   appealHandoff: InitialPaDoneEvent['appeal_handoff']
@@ -56,4 +56,13 @@ export function reducePaEvent(state: LivePaState, event: PaSubmitEvent): LivePaS
     case 'error':
       return { ...state, status: 'error', error: event.message, correlationId: event.correlation_id }
   }
+}
+
+/**
+ * Headline for the CRD verdict. `null` = unknown (a registry miss): a person
+ * decides, so it must never read as "PA not required" (ADR-0018).
+ */
+export function crdVerdictLabel(required: boolean | null): string {
+  if (required === null) return 'Unknown — needs review by a person'
+  return required ? 'PA required' : 'PA not required — CRD early exit'
 }

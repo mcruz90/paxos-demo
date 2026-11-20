@@ -3,8 +3,9 @@
 CRD (Coverage Requirements Discovery) pre-check: is a PA required for this
 drug × plan, and on what basis? Stub semantics: the pa_requirements registry
 stands in for the payer's CRD endpoint — a plan_id/drug-alias hit means a PA
-requirement is on file; a registry miss (generic resolution) means none is on
-file and the pipeline early-exits with required=False.
+requirement is on file. A registry miss (generic resolution) means nothing is
+known: the verdict is unknown (required=None) and a person decides — never
+"PA not required" (clearauth-eval gap analysis; May, 2026-10-15).
 """
 
 from __future__ import annotations
@@ -49,13 +50,13 @@ def test_derive_pa_required_drug_alias_hit() -> None:
     assert "drug" in result.basis.lower()
 
 
-def test_derive_pa_required_registry_miss_means_not_required() -> None:
-    """Generic resolution = no payer requirement on file — the early-exit
-    signal. The basis must say so explicitly (stub CRD; production queries
-    the payer)."""
+def test_derive_pa_required_registry_miss_is_unknown_not_not_required() -> None:
+    """Generic resolution = nothing on file, which is not evidence that no PA
+    is required. The verdict is unknown and the basis sends it to a person."""
     result = derive_pa_required("generic", "Unknownia (xyzab)", "SOME-PPO-2024")
-    assert result.required is False
-    assert "no pa requirement on file" in result.basis.lower()
+    assert result.required is None
+    assert "needs review by a person" in result.basis.lower()
+    assert "not required" not in result.basis.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -72,7 +73,7 @@ def test_crd_check_populates_state_on_plan_id_hit() -> None:
     assert updated["pa_context"] != ""
 
 
-def test_crd_check_registry_miss_sets_not_required() -> None:
+def test_crd_check_registry_miss_sets_unknown() -> None:
     state = run_pa_ingestion(
         _request(
             scenario_id="unknownia-initial",
@@ -85,7 +86,7 @@ def test_crd_check_registry_miss_sets_not_required() -> None:
     )
     updated = run_crd_check(state)
     assert updated["pa_required"] is not None
-    assert updated["pa_required"].required is False
+    assert updated["pa_required"].required is None
     assert updated["pa_resolution"] == "generic"
 
 

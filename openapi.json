@@ -799,15 +799,22 @@
         "type": "object"
       },
       "PaRequired": {
-        "description": "CRD pre-check result: is a PA required for this drug \u00d7 plan, and why.",
+        "description": "CRD pre-check result: is a PA required for this drug \u00d7 plan, and why.\n\n``required`` is ``None`` when the answer is unknown (no requirement on\nfile for this drug \u00d7 plan): the case goes to a person, never to \"PA not\nrequired\". ``False`` means a source actually said no PA is needed.",
         "properties": {
           "basis": {
             "title": "Basis",
             "type": "string"
           },
           "required": {
-            "title": "Required",
-            "type": "boolean"
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required"
           }
         },
         "required": [

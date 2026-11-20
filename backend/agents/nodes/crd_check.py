@@ -6,11 +6,11 @@ Pure function — the registry lookup's file I/O happens once at module load
 
 Stub semantics: the pa_requirements registry stands in for the payer's CRD
 endpoint (Da Vinci CRD in production). A plan_id or drug-alias hit means a PA
-requirement is on file; a registry miss means none is on file and the
-pipeline early-exits ("PA not required" conditional edge). Note the stub
-fails open on registry gaps — a drug missing from the registry reads as "no
-PA required" — which is acceptable only while the registry is the
-authoritative source; a real payer CRD query replaces this lookup.
+requirement is on file. A registry miss is not evidence that no PA is
+needed, so the verdict is unknown (``required=None``): the pipeline exits
+before assembly, submits nothing, and the case goes to a person (ADR-0018;
+PRD slice 4 §5.3 as amended). The registry never says "PA not required" —
+only a real payer CRD answer can; a payer CRD query replaces this lookup.
 """
 
 from __future__ import annotations
@@ -29,7 +29,8 @@ def derive_pa_required(resolution: PaResolution, drug: str, plan_id: str) -> PaR
 
     Returns:
         PaRequired with a human-readable basis naming how the verdict was
-        reached.
+        reached. A registry miss gives ``required=None`` (unknown — a person
+        decides), never ``False``.
     """
     if resolution == "plan_id":
         return PaRequired(
@@ -45,10 +46,11 @@ def derive_pa_required(resolution: PaResolution, drug: str, plan_id: str) -> PaR
             ),
         )
     return PaRequired(
-        required=False,
+        required=None,
         basis=(
-            f"No PA requirement on file for {drug} × {plan_id} "
-            "(registry lookup — stub CRD; production queries the payer's CRD endpoint)."
+            f"Unknown — needs review by a person: nothing on file for {drug} × "
+            f"{plan_id}, so whether a PA is required isn't known (registry lookup — "
+            "stub CRD; production queries the payer's CRD endpoint)."
         ),
     )
 

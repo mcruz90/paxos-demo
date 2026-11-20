@@ -29,6 +29,7 @@ pass. New decisions get new ADRs at decision time.
 | [0015](0015-document-anchored-grounding-spans.md) | Document-anchored grounding spans — GroundingRef carries character offsets | Accepted |
 | [0016](0016-single-shell-capability-manifest.md) | Single-shell destination, incremental migration behind a capability manifest (X5 Option 3) | Accepted |
 | [0017](0017-tenancy-patient-assignment.md) | Tenancy and user→patient assignment model (P7; seam lands pre-DB as a discipline seam) | Accepted |
+| [0018](0018-crd-registry-miss-goes-to-a-person.md) | A CRD registry miss is "unknown", and a person decides (never "PA not required") | Accepted |
 
 ## Statuses
 

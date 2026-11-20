@@ -65,7 +65,7 @@ export const LIFECYCLE_SKELETON_V1: LifecycleSkeletonData = {
       role: 'Da Vinci CRD — is a prior authorization required for this drug × plan, and which policy pack governs it? Resolves the pack on BIN/PCN/Group.',
       gates: ['A PA is required for this drug × plan — otherwise auto-approve and close'],
       fields: [
-        { name: 'pa_required', type: 'bool' },
+        { name: 'pa_required', type: 'bool | null' },
         { name: 'resolved_pack', type: 'PolicyPack' },
         { name: 'bin / pcn / group', type: 'str' },
         { name: 'effective_dates', type: 'DateRange' },
