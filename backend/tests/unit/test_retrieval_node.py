@@ -77,28 +77,6 @@ def test_retrieval_contains_drug_name(base_appeal_request) -> None:
     assert "ozempic" in ctx or "semaglutide" in ctx
 
 
-def test_retrieval_unknown_drug_returns_generic_context() -> None:
-    """A drug that matches no pack key and no alias falls back to generic context."""
-    req = AppealRequest(
-        scenario_id="unknownia-xyzab",
-        drug="Unknownia (xyzab)",
-        diagnosis="Rare Syndrome X",
-        denial_text="Authorization denied.",
-        denial_reason="formulary not covered",
-        plan="Some PPO",
-        plan_id="SOME-PPO-2024",
-        criteria_results=[],
-    )
-    updated = run_retrieval(_state(req))
-    ctx = updated["pa_context"]
-    assert isinstance(ctx, str)
-    assert len(ctx) > 0
-    # Generic fallback should NOT contain any pack-specific drug name
-    assert "ozempic" not in ctx.lower()
-    assert "livdelzi" not in ctx.lower()
-    assert "esomeprazole" not in ctx.lower()
-
-
 # ---------------------------------------------------------------------------
 # NEW — plan_id resolution (Slice 3: pa_requirements.json lookup)
 # ---------------------------------------------------------------------------
@@ -148,67 +126,18 @@ def test_retrieval_resolves_by_plan_id_cigna_livdelzi() -> None:
     assert "livdelzi" in ctx or "seladelpar" in ctx or "pbc" in ctx
 
 
-def test_retrieval_falls_back_to_drug_alias_when_plan_unknown() -> None:
-    """When plan_id is unknown, retrieval falls back to drug substring match."""
-    req = AppealRequest(
-        scenario_id="ozempic-unknown-plan",
-        drug="Ozempic (semaglutide)",
-        diagnosis="Type 2 Diabetes Mellitus",
-        denial_text="Authorization denied.",
-        denial_reason="step therapy",
-        plan="SomePPO",
-        plan_id="UNKNOWN-PLAN-2099",
-        criteria_results=[],
-    )
-    updated = run_retrieval(_state(req))
-    ctx = updated["pa_context"].lower()
-    # Should find the ozempic pack via drug alias fallback
-    assert "ozempic" in ctx or "semaglutide" in ctx
-
-
-# ---------------------------------------------------------------------------
-# NEW — resolution path must be recorded, not invisible (hardening item 5).
-# A letter generated from the generic fallback is a materially different
-# artifact (no payer-specific criteria); audit + tier routing need the signal.
-# ---------------------------------------------------------------------------
-
-
 def test_retrieval_records_plan_id_resolution_path() -> None:
     """Exact plan_id hit → pa_resolution == 'plan_id'."""
     updated = run_retrieval(_state(_ozempic_cigna_request()))
     assert updated["pa_resolution"] == "plan_id"
 
 
-def test_retrieval_records_drug_alias_resolution_path() -> None:
-    """Unknown plan_id but known drug → pa_resolution == 'drug_alias'."""
-    req = AppealRequest(
-        scenario_id="ozempic-unknown-plan",
-        drug="Ozempic (semaglutide)",
-        diagnosis="Type 2 Diabetes Mellitus",
-        denial_text="Authorization denied.",
-        denial_reason="step therapy",
-        plan="SomePPO",
-        plan_id="UNKNOWN-PLAN-2099",
-        criteria_results=[],
-    )
-    updated = run_retrieval(_state(req))
-    assert updated["pa_resolution"] == "drug_alias"
-
-
-def test_retrieval_records_generic_resolution_path() -> None:
-    """No pack resolves → pa_resolution == 'generic' (the silent-fallback case)."""
-    req = AppealRequest(
-        scenario_id="unknownia-xyzab",
-        drug="Unknownia (xyzab)",
-        diagnosis="Rare Syndrome X",
-        denial_text="Authorization denied.",
-        denial_reason="formulary not covered",
-        plan="Some PPO",
-        plan_id="SOME-PPO-2024",
-        criteria_results=[],
-    )
-    updated = run_retrieval(_state(req))
+def test_retrieval_holds_for_known_drug_on_unknown_plan() -> None:
+    request = _ozempic_cigna_request().model_copy(update={"plan_id": "SYNTHETIC-PLAN"})
+    updated = run_retrieval(_state(request))
     assert updated["pa_resolution"] == "generic"
+    assert not updated["pa_context"]
+    assert "missing_policy" in updated["policy_hold"]
 
 
 def test_retrieval_state_purity() -> None:

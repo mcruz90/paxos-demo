@@ -95,7 +95,7 @@ stateDiagram-v2
     security_gate --> error_event : request.security_hold
     security_gate --> ingestion
     ingestion --> retrieval
-    retrieval --> synthesis : attempt 1
+    retrieval --> synthesis : compatible policy
     synthesis --> gatekeeper : stream collected
     gatekeeper --> tier_router : passed
     tier_router --> finalize : tier assigned (+ eval_structural, ref hash)
@@ -104,16 +104,15 @@ stateDiagram-v2
     gatekeeper --> synthesis : failed, attempt < 3
     gatekeeper --> error_event : failed, attempt == 3
     ingestion --> error_event : unhandled exception (broad catch)
-    retrieval --> error_event : unhandled exception (broad catch)
+    retrieval --> error_event : policy hold or unhandled exception
     done_event --> [*] : routine / complex
     hold --> [*] : parked — first stream ends; resume is a separate request
     error_event --> [*]
 ```
 
-Retry semantics: only the **synthesis → gatekeeper** pair retries
-(`MAX_RETRIES = 3`); ingestion/retrieval failures are not retried (retrieval
-by design cannot fail — generic fallback). `retry_count` rides along in
-`PipelineState` and is reported on the terminal `ErrorEvent`.
+Only the **synthesis → gatekeeper** pair retries, up to three attempts.
+A policy hold ends the run with its reason and next action. The terminal
+ErrorEvent reports the retry count from PipelineState.
 
 Tier routing (S3 Slice 3): a gatekeeper pass runs **tier_router** — the
 deterministic HITL router (never an LLM; Illinois, MD HB 1563) — before
@@ -157,7 +156,7 @@ stateDiagram-v2
     security_gate --> error_event : request.security_hold
     security_gate --> pa_ingestion
     pa_ingestion --> crd_check
-    crd_check --> done_event : unknown — registry miss, needs a person (early exit, nothing submitted)
+    crd_check --> done_event : unknown — policy hold before assembly
     crd_check --> pa_assembly : PA required
     pa_assembly --> pas_submit : canonical PaSubmission → rail adapter
     pas_submit --> determination
@@ -178,10 +177,10 @@ was answered); any `conflict` → denied → `AppealHandoff` pointer carrying
 pointer; launching it is a separate human-gated request.
 
 **Stub CRD semantics:** the pa_requirements registry stands in for the
-payer's CRD endpoint. A plan_id or drug-alias hit means a PA is required; a
-registry miss is **unknown** (`pa_required.required = null`): the run exits
-before assembly, submits nothing, and a person decides (ADR-0018). The
-registry never answers "PA not required"; only a real payer CRD query can.
+payer's CRD endpoint. A compatible policy yields a PA-required verdict. An
+unresolved policy yields an unknown verdict (`pa_required.required = null`)
+with a reason and next action. The run exits before assembly for human
+review (ADR-0018).
 
 ## SimPhase — frontend POC flow
 

@@ -67,7 +67,10 @@ async def _ingestion_node(state: PipelineState) -> PipelineState:
 async def _retrieval_node(state: PipelineState) -> PipelineState:
     writer = get_stream_writer()
     writer(StepEvent(step="retrieval", label="Retrieving PA requirements…"))
-    return run_retrieval(state)
+    updated = run_retrieval(state)
+    if policy_hold := updated.get("policy_hold"):
+        writer(ErrorEvent(message=policy_hold))
+    return updated
 
 
 async def _synthesis_node(state: PipelineState, config: RunnableConfig) -> PipelineState:
@@ -219,7 +222,11 @@ def _build_graph() -> StateGraph:
 
     graph.add_edge(START, "ingestion")
     graph.add_edge("ingestion", "retrieval")
-    graph.add_edge("retrieval", "synthesis")
+    graph.add_conditional_edges(
+        "retrieval",
+        lambda state: END if state.get("policy_hold") else "synthesis",
+        {END: END, "synthesis": "synthesis"},
+    )
     graph.add_edge("synthesis", "gatekeeper")
     graph.add_conditional_edges(
         "gatekeeper",

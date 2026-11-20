@@ -33,20 +33,19 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from agents.review_queue import derive_pending_reviews, is_run_parked
 from api.auth import router as auth_router
-from audit.store import all_records
+from api.cases import router as cases_router
+from api.observations import router as observations_router
 from models.schemas import (
     AppealRequest,
-    AuditRecordsResponse,
     InitialPaRequest,
-    PendingReviewsResponse,
     ResumeAppealRequest,
 )
 from openapi_ext import build_openapi
 from security.sessions import COOKIE_NAME, CSRF_HEADER, get_session
 from security.tenancy import TenancyScope
 from sse import stream_events, stream_initial_pa_events, stream_resume_events
+from storage.lifecycle import database_lifespan
 
 if TYPE_CHECKING:
     from ml.llm_backend import LLMBackend
@@ -69,6 +68,7 @@ os.environ["LANGCHAIN_TRACING_V2"] = "false"
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
+    lifespan=database_lifespan,
     title="PaxOS Appeal Generation API",
     description="Streaming prior-authorization appeal generation backend.",
     version="0.1.0",
@@ -99,6 +99,8 @@ app.add_middleware(
 # Session-cookie auth routes (login / logout / me) — the BFF credential surface
 # beside the Bearer scheme (ADR-0013).
 app.include_router(auth_router)
+app.include_router(observations_router)
+app.include_router(cases_router)
 
 # ---------------------------------------------------------------------------
 # Auth middleware — must run before body parsing so bad tokens get 401, not 422
@@ -267,39 +269,6 @@ async def resume_appeal(body: ResumeAppealRequest, request: Request) -> Streamin
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         },
-    )
-
-
-@app.get("/api/audit/records")
-async def list_audit_records(request: Request) -> AuditRecordsResponse:
-    """List the audit trail (S3 Task 3) — read-only, metadata + hashes only.
-
-    Authentication + tenant scoping: enforced by the auth_middleware before this
-    is reached, which resolves the caller's :class:`TenancyScope` onto
-    ``request.state`` (session tenant, or platform for a Bearer caller). The
-    handler stays logic-free — it reads a plain value and passes it to the
-    fail-closed store boundary; a session sees only its tenant's records
-    (ADR-0017), a service caller sees all.
-    """
-    return AuditRecordsResponse(records=all_records(request.state.tenancy_scope))
-
-
-@app.get("/api/reviews/pending")
-async def list_pending_reviews(request: Request) -> PendingReviewsResponse:
-    """List exception-tier runs awaiting human review (S3 Task 3).
-
-    Authentication + tenant scoping: enforced by the auth_middleware, which
-    resolves the caller's :class:`TenancyScope` onto ``request.state``. Metadata
-    only — never the draft body (a deferred Slice 4c surface). The queue is
-    derived from the audit trail (ADR-0011); the handler wires the tenant-scoped
-    store snapshot and the live parked-check into the pure derivation, so the
-    queue is scoped through the same fail-closed store boundary as the audit
-    listing (a session sees only its tenant's parked runs; a service caller all).
-    """
-    return PendingReviewsResponse(
-        reviews=derive_pending_reviews(
-            all_records(request.state.tenancy_scope), is_run_parked
-        )
     )
 
 

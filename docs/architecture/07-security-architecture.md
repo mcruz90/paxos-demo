@@ -140,3 +140,23 @@ claim→citation enforcement is golden-set `claim_citation` scorer work.
    step (fail-closed, ADR-0017).
 
 Any change that weakens one of these needs an ADR, not just a PR.
+
+## Patient-case routes: durable panel enforcement
+
+The local case API described in [06](06-api-contract.md#durable-patient-case-metadata-local-integration-increment)
+implements the group panel boundary accepted in ADR-0017. Session tenant and
+subject identify an explicitly provisioned active database principal; its actor
+id is used for audit. Client bodies cannot supply claims or grants. All supported
+tenant roles require a matching group membership and patient assignment. There
+is no automatic login enrollment, Bearer wildcard, or break-glass path.
+
+Authorization reads and case I/O share a transaction. Shared locks on the matched
+principal, membership and patient assignment prevent revocation from committing
+mid-operation; subsequent requests reload authorization. Missing grants and cases
+are indistinguishable 404 responses. Every write needs cookie CSRF and the outer
+commit must succeed before HTTP success. Failures return fixed metadata codes.
+
+This is isolated synthetic infrastructure on the existing in-memory session
+provider. It does not harden the legacy generation/resume paths, implement an IdP,
+provision application accounts, introduce production database roles, or make the
+administrative local database tamper-proof. Those boundaries remain separate work.

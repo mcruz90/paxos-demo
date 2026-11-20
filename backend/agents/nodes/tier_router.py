@@ -50,13 +50,13 @@ def decide_tier(signals: TierSignals) -> CaseTier:
       assessed at all (no routine-by-vacuous-truth), gatekeeper exhausted,
       novel denial reason, or a generic-fallback pack (``pa_resolution ==
       "generic"`` — a generic letter is never auto-routed past a human).
-    - complex: any finding mid-band, a payer counter-offer, a first drug/plan
-      pairing (``pa_resolution == "drug_alias"``: the drug is known but this
-      exact plan pack is not), or a gatekeeper pass that needed retries
-      (routine requires a first-pass gatekeeper).
+    - complex: any finding mid-band, a payer counter-offer, a historical
+      drug-alias resolution, or a gatekeeper pass that needed retries.
     - routine: everything else — all findings >= 0.95, first-pass, no flags.
 
-    Exception takes precedence over complex.
+    Exception takes precedence over complex. The legacy resolution rules
+    preserve the tier for callers replaying pre-T-10 signals. Current
+    policy holds terminate before the graph reaches this node.
     """
     if (
         not signals.confidences
@@ -86,9 +86,7 @@ def run_tier_router(state: PipelineState) -> PipelineState:
         Updated state with ``tier`` set. Input state is not mutated.
     """
     signals = TierSignals(
-        confidences=tuple(
-            cr.confidence for cr in state["request"].criteria_results
-        ),
+        confidences=tuple(cr.confidence for cr in state["request"].criteria_results),
         gatekeeper_retries=state["retry_count"],
         pa_resolution=state["pa_resolution"],
     )

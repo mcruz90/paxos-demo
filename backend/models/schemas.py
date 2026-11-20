@@ -24,6 +24,14 @@ from models.auth import (
     LoginResponse,
     MeResponse,
 )
+from models.case_authorization import CaseIdentity
+from models.case_evidence import (
+    CaseRecord,
+    EvidenceAttachment,
+    EvidenceAttachRequest,
+    SourceVersion,
+)
+from models.case_store import CaseAccess, CaseCreateRequest, CaseEventRecord, PersistentCaseId
 from models.domain import (
     AppealHandoff,
     Citation,
@@ -66,11 +74,22 @@ from models.requests import (
     AppealRequest,
     InitialPaRequest,
     PaSubmission,
+    PatientRef,
     ResumeAppealRequest,
 )
 from models.tenancy import SEEDED_TENANT_ID
 
 __all__ = [
+    "PatientRef",
+    "CaseIdentity",
+    "CaseAccess",
+    "CaseCreateRequest",
+    "CaseEventRecord",
+    "PersistentCaseId",
+    "CaseRecord",
+    "SourceVersion",
+    "EvidenceAttachRequest",
+    "EvidenceAttachment",
     # enums
     "RuleType",
     "CriterionStatus",
