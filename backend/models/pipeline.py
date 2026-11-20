@@ -12,7 +12,7 @@ imported here, not just forward-referenced.
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from models.domain import AppealHandoff, PaOutcome, PaRequired
 from models.enums import CaseTier
@@ -25,6 +25,7 @@ class PipelineState(TypedDict):
     pa_context: str
     # Set by retrieval ("" before retrieval runs)
     pa_resolution: PaResolution
+    policy_hold: NotRequired[str]
     appeal_text: str
     model_name: str
     passed_gatekeeper: bool

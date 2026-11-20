@@ -114,15 +114,26 @@ flowchart TB
 
 ### Retrieval resolution (where Flow 2 meets Flow 1)
 
-[retrieval.py](../../backend/agents/nodes/retrieval.py) loads
-`data/pa_requirements.json` **once at module import** (validated pack-by-pack;
-malformed packs raise `ETLParseError`), building two lookup tables:
+[requirements_lookup.py](../../backend/agents/requirements_lookup.py) validates
+the payer policy registry at import and preserves each pack for an exact
+plan ID. It narrows those packs by product and formulation, then by indication
+and effective date. Product matching accepts a strength and either order of
+a recognized brand and ingredient pair. The full product and formulation
+must match a registry alias after normalization. Every ICD-10 code in a
+diagnosis must match a code or category configured in the pack. A diagnosis
+without a code can match a full label. Label matching ignores case and
+whitespace. A version starts on its recorded date and ends before any
+recorded end date.
 
-1. `plan_id` → criteria_text — exact match, most specific (`pa_resolution="plan_id"`)
-2. drug alias (lowercased) → criteria_text — substring match on the request's drug (`pa_resolution="drug_alias"`)
-3. neither → generic boilerplate (`pa_resolution="generic"`) — never raises
+One compatible pack supplies the payer criteria. Missing, incompatible or
+overlapping policies produce a named hold with a next action. Appeal and
+initial-PA nodes use the server's local calendar date via `date.today()`. A
+future caller-supplied applicability date will replace that default. The
+resolver accepts an explicit `as_of` for historical lookups. For dated revisions without a separately documented
+effective date, the demo registry uses the revision date as its earliest
+applicability date.
 
-The fired path travels through `PipelineState.pa_resolution` to
-`DoneEvent.pa_resolution` so the audit trail can distinguish a payer-specific
-letter from a generic-fallback one (hard-5). Sprint 5 extends resolution to
-BIN/PCN/Group + market + tier via `golden/coverage_pool.json`.
+Patient facts remain on the request. Appeal retrieval places selected registry
+criteria in the policy context. A policy hold ends the appeal before synthesis
+and leaves the policy context empty. An initial-PA hold exits before assembly
+or submission and returns an unknown requirement with its review action.

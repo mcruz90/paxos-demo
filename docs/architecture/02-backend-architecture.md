@@ -117,10 +117,10 @@ I/O once at module load):
 | Node | Contract | Does |
 | --- | --- | --- |
 | [ingestion.py](../../backend/agents/nodes/ingestion.py) | `(AppealRequest) → PipelineState` | Initializes state to zero values |
-| [retrieval.py](../../backend/agents/nodes/retrieval.py) | `(PipelineState) → PipelineState` | PA criteria lookup: exact `plan_id` → drug-alias substring → generic fallback; records which path fired in `pa_resolution` (hard-5); never raises |
+| [retrieval.py](../../backend/agents/nodes/retrieval.py) | `(PipelineState) → PipelineState` | Loads criteria from the compatible payer policy or records a hold. A policy hold ends the run before synthesis |
 | [synthesis.py](../../backend/agents/nodes/synthesis.py) | `build_prompt(state) → str`; `apply_synthesis(state, text, model) → PipelineState` | Fills the XML-delimited template from `agents/prompts.py`; the *graph* owns the streaming loop so it can interleave ChunkEvents (hard-9) |
 | [gatekeeper.py](../../backend/agents/nodes/gatekeeper.py) | `(PipelineState) → PipelineState` | Deterministic checks, in order: length ≥ 300 chars, drug present, diagnosis present, no refusal/AI-identity phrases. Sets `passed_gatekeeper`, appends `errors`. Owns `MAX_RETRIES` (the graph's conditional edge and the tier router both import it) |
-| [tier_router.py](../../backend/agents/nodes/tier_router.py) | `decide_tier(TierSignals) → CaseTier`; `(PipelineState) → PipelineState` | **Deterministic HITL tier routing (S3 Slice 2) — never an LLM deciding tier** (Illinois, MD HB 1563). Routine = all criteria confidence ≥ 0.95 + first-pass gatekeeper; complex = any [0.70, 0.95), counter-offer, `drug_alias` resolution (first drug/plan pairing), or passed-after-retries; exception = any < 0.70/unassessed/no criteria, gatekeeper exhausted, novel denial reason, or `pa_resolution == "generic"` (the hard-5 signal's consumer). Exception > complex. Sets `PipelineState.tier`. **Wired (S3 Slice 3):** the gatekeeper-pass conditional edge routes `gatekeeper → tier_router → finalize`, and `tier` rides the `DoneEvent` + `AuditRecord`. The exhausted path carries no tier (no letter produced). **S3 Slice 4a:** an `exception` tier then parks at the `hold` node via `interrupt()` for human review (ADR-0010) — after `finalize` emits the `DoneEvent`, so the stream still terminates with `done` |
+| [tier_router.py](../../backend/agents/nodes/tier_router.py) | `decide_tier(TierSignals) → CaseTier`; `(PipelineState) → PipelineState` | **Deterministic HITL tier routing (S3 Slice 2) — never an LLM deciding tier** (Illinois, MD HB 1563). Routine = all criteria confidence ≥ 0.95 + first-pass gatekeeper; complex = any [0.70, 0.95), counter-offer, `drug_alias` resolution from historical signals, or passed-after-retries; exception = any < 0.70/unassessed/no criteria, gatekeeper exhausted, novel denial reason, or `pa_resolution == "generic"` in historical signals. Current policy holds stop before tier routing. Exception > complex. Sets `PipelineState.tier`. **Wired (S3 Slice 3):** the gatekeeper-pass conditional edge routes `gatekeeper → tier_router → finalize`, and `tier` rides the `DoneEvent` + `AuditRecord`. The exhausted path carries no tier (no letter produced). **S3 Slice 4a:** an `exception` tier then parks at the `hold` node via `interrupt()` for human review (ADR-0010) — after `finalize` emits the `DoneEvent`, so the stream still terminates with `done` |
 
 ## The initial-PA pipeline (S2)
 
@@ -137,13 +137,13 @@ union has no `chunk` member.
 | Node | Contract | Does |
 | --- | --- | --- |
 | [pa_ingestion.py](../../backend/agents/nodes/pa_ingestion.py) | `(InitialPaRequest) → InitialPaState` | Initializes state to zero values |
-| [crd_check.py](../../backend/agents/nodes/crd_check.py) | `(InitialPaState) → InitialPaState` | `derive_pa_required` (pure rule): registry hit ⇒ required with basis; miss ⇒ `required=False` "no PA requirement on file". **Stub CRD — the registry stands in for the payer's CRD endpoint and fails open on registry gaps**; a real payer query replaces the lookup |
+| [crd_check.py](../../backend/agents/nodes/crd_check.py) | `(InitialPaState) → InitialPaState` | A compatible policy yields a PA-required verdict in the stub. An unresolved policy yields an unknown verdict and exits before assembly |
 | [pa_assembly.py](../../backend/agents/nodes/pa_assembly.py) | `build_submission(request, pa_context) → PaSubmission` | Canonical structured PA request; the rail shape is the adapter's job |
 | [pas_submit.py](../../backend/agents/nodes/pas_submit.py) | `(InitialPaState) → InitialPaState` | Transmits via [etl/pas_rail/adapter.py](../../backend/etl/pas_rail/adapter.py) — canonical in, X12-278 shape out, deterministic `submission_ref` (a retry never mints a second rail identity). Rail-accurate: appeals never ride PAS |
 | [determination.py](../../backend/agents/nodes/determination.py) | `derive_determination(evidence, pend_cycles, ref) → PaOutcome` | Deterministic evidence-based stub: all-found ⇒ approved; empty/needs_review ⇒ pended (bounded loop, `MAX_PEND_CYCLES=1`); conflict ⇒ denied ⇒ `make_appeal_handoff` pointer (human-gated, never auto-launches the appeal) |
 
-The registry lookup itself (plan_id → drug-alias → generic + validated pack
-loader) lives in
+The [policy compatibility rules](04-data-flow.md#retrieval-resolution-where-flow-2-meets-flow-1)
+are implemented in
 [agents/requirements_lookup.py](../../backend/agents/requirements_lookup.py),
 extracted from the retrieval node when CRD became its second consumer
 (CLAUDE.md DRY). Both lifecycles share the security-hold gate semantics and

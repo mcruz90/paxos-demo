@@ -1,119 +1,140 @@
-"""agents/requirements_lookup.py — PA requirements registry lookup.
-
-Extracted from agents/nodes/retrieval.py when the CRD-check node became its
-second consumer (S2 Slice 2; CLAUDE.md DRY — extract on the second
-occurrence). Pure lookup: no DB calls, no LLM calls; file I/O happens once at
-module load (fail-fast at boot is intentional — see
-docs/project-review-hardening.md deferred items).
-
-Resolution order (Sprint 1):
-  1. Exact plan_id match (most specific — identifies the payer policy).
-  2. Drug alias substring match on the drug name (fallback when plan_id unknown).
-  3. Generic fallback — never raises.
-
-Sprint 5 hook: extend to (BIN/PCN/Group + market + tier) via golden/coverage_pool.json.
-See _S5_COVERAGE_HOOK comment in data/pa_requirements.json.
-"""
+"""Resolve the payer policy applicable to a specific request."""
 
 from __future__ import annotations
 
 import json
+import re
+from collections import defaultdict
+from datetime import date
 from pathlib import Path
+from typing import Self
 
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError, model_validator
 
 from errors import ETLParseError
 from models.schemas import PaResolution
 
 _REQUIREMENTS_PATH = Path(__file__).parent.parent / "data" / "pa_requirements.json"
+_ICD10_CODE = re.compile(r"(?<![\w.])[A-Z][0-9][0-9A-Z](?:\.[0-9A-Z]{1,4})?(?!\w|\.[A-Z0-9])")
+_STRENGTH = re.compile(
+    r"(?<![\w./-])\d+(?:\.\d+)?\s*(?:mcg|mg|g|ml|units?)"
+    r"(?:\s*/\s*(?:\d+(?:\.\d+)?\s*)?ml)?(?![\w/-])"
+)
+_PRODUCT_WITH_INGREDIENT = re.compile(r"([^()]+) \(([^()]+)\)(.*)")
 
 
 class _PaPack(BaseModel):
-    """Shape of one entry in pa_requirements.json's 'packs' object.
-
-    Validated up front so a malformed pack raises ETLParseError (a typed,
-    diagnosable error) instead of a bare KeyError deep in dict access.
-    """
-
     plan_id: str
-    criteria_text: str
-    drug_aliases: list[str]
+    criteria_text: str = Field(min_length=1)
+    drug_aliases: list[str] = Field(min_length=1)
+    indications: list[str] = Field(min_length=1)
+    icd10_codes: list[str] = Field(default_factory=list)
+    icd10_categories: list[str] = Field(default_factory=list)
+    effective_from: date
+    effective_until: date | None = None
+
+    @model_validator(mode="after")
+    def validate_effective_window(self) -> Self:
+        if self.effective_until is not None and self.effective_until <= self.effective_from:
+            raise ValueError("effective_until must be after effective_from")
+        return self
+
+    def applies_on(self, as_of: date) -> bool:
+        return self.effective_from <= as_of and (
+            self.effective_until is None or as_of < self.effective_until
+        )
 
 
 _PacksAdapter = TypeAdapter(dict[str, _PaPack])
 
-GENERIC_CONTEXT = (
-    "PA Requirements — General:\n"
-    "Prior authorization is required for this medication. "
-    "Submit clinical documentation including diagnosis codes, "
-    "failed alternative therapies, and prescriber specialty. "
-    "Contact the plan's PA department for drug-specific criteria."
-)
 
-
-def _load_requirements() -> tuple[dict[str, str], dict[str, str]]:
-    """Load pa_requirements.json and build plan_id and drug-alias lookup dicts.
-
-    Returns:
-        (by_plan_id, by_drug_alias) — both map a key to a criteria_text string.
-
-    Raises:
-        ETLParseError: If the JSON file is malformed or a pack is missing a
-            required field (plan_id, criteria_text, drug_aliases).
-        FileNotFoundError: If the file is missing (propagated — fail fast).
-    """
+def _load_requirements() -> dict[str, list[_PaPack]]:
+    """Load and validate the registry once, retaining every pack for each plan."""
     try:
         raw = json.loads(_REQUIREMENTS_PATH.read_text(encoding="utf-8"))
         packs = _PacksAdapter.validate_python(raw["packs"])
     except json.JSONDecodeError as exc:
         raise ETLParseError(f"pa_requirements.json is malformed: {exc}") from exc
-    except (KeyError, ValidationError) as exc:
+    except (KeyError, TypeError, ValidationError) as exc:
         raise ETLParseError(f"pa_requirements.json has an invalid pack: {exc}") from exc
 
-    by_plan_id: dict[str, str] = {}
-    by_drug_alias: dict[str, str] = {}
-
+    by_plan_id: dict[str, list[_PaPack]] = defaultdict(list)
     for pack in packs.values():
-        by_plan_id[pack.plan_id] = pack.criteria_text
-        for alias in pack.drug_aliases:
-            by_drug_alias.setdefault(alias.lower(), pack.criteria_text)
-
-    return by_plan_id, by_drug_alias
+        by_plan_id[pack.plan_id].append(pack)
+    return dict(by_plan_id)
 
 
-_BY_PLAN_ID, _BY_DRUG_ALIAS = _load_requirements()
+_BY_PLAN_ID = _load_requirements()
 
 
-def resolve_requirements(plan_id: str, drug: str) -> tuple[str, PaResolution]:
-    """Resolve PA criteria text for a drug × plan.
+def _normalize_label(value: str) -> str:
+    return " ".join(value.casefold().split())
 
-    Resolution order: exact plan_id → drug alias substring → generic fallback.
-    Never raises; always returns a non-empty criteria string plus which path
-    fired (audit-relevant — a generic-fallback artifact is materially
-    different from a payer-specific one, hard-5).
 
-    Args:
-        plan_id: Payer plan identifier (e.g. "CIGNA-CNF360-2024").
-        drug: Drug name as requested (brand and/or INN).
+def _matches(value: str, labels: list[str]) -> bool:
+    normalized = _normalize_label(value)
+    return bool(normalized) and any(normalized == _normalize_label(label) for label in labels)
 
-    Returns:
-        (criteria_text, resolution) — resolution ∈ {"plan_id", "drug_alias",
-        "generic"}.
+
+def _matches_product(value: str, pack: _PaPack) -> bool:
+    label = _normalize_label(_STRENGTH.sub(" ", value.casefold()))
+    if _matches(label, pack.drug_aliases):
+        return True
+    pair = _PRODUCT_WITH_INGREDIENT.fullmatch(label)
+    if pair is None:
+        return False
+    first, second, formulation = pair.groups()
+    return _matches(f"{second} ({first}){formulation}", pack.drug_aliases)
+
+
+def _matches_indication(value: str, pack: _PaPack) -> bool:
+    codes = _ICD10_CODE.findall(value.upper())
+    if not codes:
+        return _matches(value, pack.indications)
+    return all(
+        code in pack.icd10_codes or code.partition(".")[0] in pack.icd10_categories
+        for code in codes
+    )
+
+
+def _hold(reason: str, next_action: str) -> tuple[str, PaResolution]:
+    return f"Policy hold ({reason}). {next_action}", "generic"
+
+
+def resolve_requirements(
+    plan_id: str,
+    drug: str,
+    *,
+    diagnosis: str = "",
+    as_of: date | None = None,
+) -> tuple[str, PaResolution]:
+    """Return payer criteria for one compatible policy, or a named hold and next action.
+
+    The second tuple item distinguishes criteria ("plan_id") from the hold message
+    ("generic"). Products match a whole label after strength and order
+    normalization. Indications use ICD-10 when present and whole labels
+    otherwise. Effective intervals include the start and exclude the end.
     """
-    drug_lower = drug.lower()
+    candidates = _BY_PLAN_ID.get(plan_id)
+    if not candidates:
+        return _hold("missing_policy", "Obtain the policy for the requested plan.")
 
-    criteria = _BY_PLAN_ID.get(plan_id)
-    resolution: PaResolution = "plan_id"
+    candidates = [pack for pack in candidates if _matches_product(drug, pack)]
+    if not candidates:
+        return _hold("product_mismatch", "Confirm the requested product and formulation.")
 
-    if criteria is None:
-        resolution = "drug_alias"
-        for alias, text in _BY_DRUG_ALIAS.items():
-            if alias in drug_lower:
-                criteria = text
-                break
+    if not diagnosis.strip():
+        return _hold("missing_indication", "Confirm the indication for the request.")
+    candidates = [pack for pack in candidates if _matches_indication(diagnosis, pack)]
+    if not candidates:
+        return _hold("indication_mismatch", "Confirm the indication and obtain its policy.")
 
-    if criteria is None:
-        criteria = GENERIC_CONTEXT
-        resolution = "generic"
+    if as_of is None:
+        return _hold("missing_effective_date", "Confirm the policy applicability date.")
+    candidates = [pack for pack in candidates if pack.applies_on(as_of)]
+    if not candidates:
+        return _hold("no_effective_version", "Obtain the policy version in effect on that date.")
+    if len(candidates) > 1:
+        return _hold("ambiguous_policy", "Verify the applicable policy version with the payer.")
 
-    return criteria, resolution
+    return candidates[0].criteria_text, "plan_id"
