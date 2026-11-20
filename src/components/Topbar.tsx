@@ -36,6 +36,7 @@ export function Topbar({
           {SECTIONS.map(({ name }) => (
             <button
               key={name}
+              type="button"
               onClick={() => onRoleChange(name)}
               className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                 activeRole === name
@@ -55,14 +56,18 @@ export function Topbar({
       {/* Utilities */}
       <div className="flex items-center gap-1.5 ml-auto shrink-0">
         <button
+          type="button"
           onClick={onStartTour}
+          aria-label="Guided Tour"
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
         >
           <Activity className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Guided Tour</span>
         </button>
         <button
+          type="button"
           onClick={onToggleTheme}
+          aria-label={theme === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}
           title={theme === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}
           className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
         >
@@ -70,6 +75,7 @@ export function Topbar({
         </button>
         {liveSession && (
           <button
+            type="button"
             onClick={liveSession.onLogout}
             title={`Signed in as ${liveSession.userId} — click to sign out`}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700/70 text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition-colors ml-1"

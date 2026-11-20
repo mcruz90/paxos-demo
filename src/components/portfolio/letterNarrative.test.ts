@@ -44,16 +44,18 @@ describe('buildVerificationStates', () => {
   const livdelzi = scenarios['gilead-livdelzi']
   const ozempic = scenarios['novo-ozempic']
 
-  it('separates citation, source, contradiction, gate, and approval states without universal safety claims', () => {
+  it('separates citation, source, contradiction, policy match, validation, and approval states without universal safety claims', () => {
     const st = buildVerificationStates({ scenario: livdelzi })
     expect(st.citationStatus).toMatch(/^\d+\/\d+ cited$/)
     expect(st.sourceStatus).toBe('Citation excerpt only')
     expect(st.contradictionStatus).toBe('1 open contradiction(s)')
-    expect(st.gateStatus).toBe('Not evaluated')
+    expect(st).toHaveProperty('policyMatchStatus', 'Not evaluated')
+    expect(st).toHaveProperty('validationStatus', 'Not evaluated')
+    expect(st).not.toHaveProperty('gateStatus')
     expect(st.approvalStatus).toBe('Unsigned draft — pending human approval')
   })
 
-  it('marks edited drafts as unsaved local draft and surfaces explicit gate resolution when evaluated', () => {
+  it('marks edited drafts as unsaved local draft and formats policy match without marking validation evaluated', () => {
     const st = buildVerificationStates({
       scenario: ozempic,
       editedNarrative: 'edited paragraph',
@@ -61,8 +63,17 @@ describe('buildVerificationStates', () => {
     })
     expect(st.sourceStatus).toBe('Full documents indexed')
     expect(st.contradictionStatus).toBe('0 open in checklist')
-    expect(st.gateStatus).toBe('plan_id')
+    expect(st).toHaveProperty('policyMatchStatus', 'plan_id')
+    expect(st).toHaveProperty('validationStatus', 'Not evaluated')
+    expect(st).not.toHaveProperty('gateStatus')
     expect(st.approvalStatus).toBe('Unsaved local draft — not validated')
+
+    const genericHold = buildVerificationStates({
+      scenario: ozempic,
+      gateResolution: 'generic',
+    })
+    expect(genericHold).toHaveProperty('policyMatchStatus', 'generic — hold, no specific policy')
+    expect(genericHold).toHaveProperty('validationStatus', 'Not evaluated')
   })
 })
 

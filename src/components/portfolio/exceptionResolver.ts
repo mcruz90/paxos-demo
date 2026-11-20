@@ -37,6 +37,7 @@ export interface DocChatFixture {
 
 export interface ResolverContext {
   title: string
+  gapSummary: string
   policyNote: string // the gap / payer position being resolved
   options: ResolverEvidenceOption[]
   guidelineHits: ResolverGuidelineHit[]
@@ -44,13 +45,25 @@ export interface ResolverContext {
   // exists. Rendered as a first-class resolution path — dispatching it IS the
   // resolution, so it is never a checkbox mixed in with evidence options.
   workflow?: WorkflowPlan
-  // What a simulated EHR/registry pull can verify for this criterion — present
-  // only when the scenario fixture documents it (never invented).
+  // What a simulated local patient-record lookup surfaces — present only when
+  // the scenario fixture documents it (never invented).
   ehrVerify?: EhrVerification
   // Suggested Q&A over the retrieved evidence (fixture-derived answers).
   docChat?: DocChatFixture
   // Side-by-side conflicting chart sources for contradiction criteria.
   conflictSources?: { source: string; claim: string }[]
+}
+
+export function summarizeGap(policyNote: string, maxChars = 115): string {
+  const clean = policyNote.replace(/\s+/g, ' ').trim()
+  if (clean.length <= maxChars) return clean
+  const firstSentenceEnd = clean.search(/[.!?](?:\s|$)/)
+  if (firstSentenceEnd >= 30 && firstSentenceEnd < maxChars) {
+    return clean.slice(0, firstSentenceEnd + 1)
+  }
+  const clipped = clean.slice(0, maxChars - 1)
+  const lastSpace = clipped.lastIndexOf(' ')
+  return `${(lastSpace > 40 ? clipped.slice(0, lastSpace) : clipped).trimEnd()}…`
 }
 
 function pubmedUrl(pmid: string): string {
@@ -95,9 +108,11 @@ export function buildDisputeResolverContext(scenario: ScenarioConfig): ResolverC
     })
   }
 
+  const policyNote = `${offer.summary} ${offer.newDenialReason}`
   return {
     title: `Dispute payer counter-offer — ${scenario.drug}`,
-    policyNote: `${offer.summary} ${offer.newDenialReason}`,
+    gapSummary: summarizeGap(policyNote),
+    policyNote,
     options,
     guidelineHits: round2 ? [buildGuidelineHit(round2)] : [],
     docChat: round2
@@ -142,6 +157,7 @@ export function buildCriterionResolverContext(
   const round2 = scenario.round2Appeal
   return {
     title: `Resolve exception — ${criterion.rule.label}`,
+    gapSummary: summarizeGap(criterion.note),
     policyNote: criterion.note,
     options,
     guidelineHits: round2 ? [buildGuidelineHit(round2)] : [],

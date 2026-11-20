@@ -12,8 +12,16 @@ export interface VerificationStates {
   citationStatus: string
   sourceStatus: string
   contradictionStatus: string
-  gateStatus: string
+  policyMatchStatus: string
+  validationStatus: string
   approvalStatus: string
+}
+
+export function formatPolicyMatch(paResolution?: string | null): string {
+  const trimmed = paResolution?.trim() ?? ''
+  if (!trimmed) return 'Not evaluated'
+  if (trimmed === 'generic') return 'generic — hold, no specific policy'
+  return trimmed
 }
 
 export interface RevisionInfo {
@@ -62,7 +70,8 @@ export function buildVerificationStates({
     citationStatus: `${citedCount}/${total} cited`,
     sourceStatus: hasFullDocs ? 'Full documents indexed' : 'Citation excerpt only',
     contradictionStatus: contradictions > 0 ? `${contradictions} open contradiction(s)` : '0 open in checklist',
-    gateStatus: gateResolution && gateResolution.trim().length > 0 ? gateResolution : 'Not evaluated',
+    policyMatchStatus: formatPolicyMatch(gateResolution),
+    validationStatus: 'Not evaluated',
     approvalStatus: editedNarrative ? 'Unsaved local draft — not validated' : 'Unsigned draft — pending human approval',
   }
 }

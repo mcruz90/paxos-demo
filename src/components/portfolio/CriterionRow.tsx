@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AlertTriangle, Check, CheckCircle2, Clock, FileSearch, HelpCircle, Zap } from 'lucide-react'
 import { type CriterionResult } from '../../types'
 import { ruleIcons } from '../ui'
@@ -95,6 +96,7 @@ function CriterionResolveBar({ criterion, actions, isConflict }: { criterion: Cr
 export function CriterionRow({ index, criterion, localState, actions, isSelected, onSelect }: {
   index?: number; criterion: CriterionResult; localState: LocalCaseState; actions: CriterionActions; isSelected: boolean; onSelect: () => void
 }) {
+  const [expandedNote, setExpandedNote] = useState(false)
   const isDispatched = localState.dispatched.includes(criterion.rule.label)
   const isPending = localState.pendingDispatch.includes(criterion.rule.label)
   const isOverriding = localState.pendingOverride === criterion.rule.label
@@ -103,6 +105,7 @@ export function CriterionRow({ index, criterion, localState, actions, isSelected
   const branch = derivePathwayBranch(criterion)
   const isConflict = taxonomy.code === 'conflict'
   const isOpenException = !overrideNote && !isDispatched && criterion.status !== 'found'
+  const canExpandNote = !isOpenException && criterion.note.length > 140
   const bgCls = isConflict
     ? 'epic-card-rose bg-red-500/10 border-red-500/40 hover:border-red-500/60'
     : isOpenException
@@ -116,7 +119,14 @@ export function CriterionRow({ index, criterion, localState, actions, isSelected
         {isConflict ? <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-400" /> : isOpenException ? <HelpCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" /> : <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1 flex-wrap">
-            <span className="text-xs font-semibold text-slate-100 leading-snug">{index !== undefined ? `${index}. ` : ''}{criterion.rule.label}</span>
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); onSelect() }}
+              aria-pressed={isSelected}
+              className="text-left text-xs font-semibold text-slate-100 leading-snug hover:text-emerald-300 focus:outline-none focus-visible:underline"
+            >
+              {index !== undefined ? `${index}. ` : ''}{criterion.rule.label}
+            </button>
             <div className="flex items-center gap-1.5 shrink-0">
               <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${branch.badgeCls}`}>{branch.operator}</span>
               <span className={`text-[11px] whitespace-nowrap ${TAXONOMY_CLS[taxonomy.code]}`}>
@@ -124,7 +134,17 @@ export function CriterionRow({ index, criterion, localState, actions, isSelected
               </span>
             </div>
           </div>
-          <p className={`text-xs text-slate-400 leading-snug ${isOpenException ? '' : 'line-clamp-2'}`}>{criterion.note}</p>
+          <p className={`text-xs text-slate-400 leading-snug ${canExpandNote && !expandedNote ? 'line-clamp-2' : ''}`}>{criterion.note}</p>
+          {canExpandNote && (
+            <button
+              type="button"
+              aria-expanded={expandedNote}
+              onClick={e => { e.stopPropagation(); setExpandedNote(v => !v) }}
+              className="text-[11px] text-blue-400 hover:underline mt-0.5"
+            >
+              {expandedNote ? 'Show less' : 'Show full finding'}
+            </button>
+          )}
           <div className="flex items-center gap-1.5 mt-1">
             <span className="text-slate-500 inline-flex items-center text-xs">{ruleIcons[criterion.rule.type]}</span>
             <span className="text-[11px] text-slate-500">Source: {criterion.docSource}</span>

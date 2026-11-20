@@ -30,7 +30,7 @@ function PreviewTabBar({ isInitial, satisfied, total, docCount, activeTab, setAc
     { tab: 'documents', label: `3. Chart Q&A & Activity Log (${docCount})` },
   ]
   return (
-    <div className="px-6 pt-2.5 border-b border-slate-800 bg-slate-900/10 flex gap-5 shrink-0 overflow-x-auto">
+    <div data-testid="preview-tab-bar" className="px-5 pt-2.5 border-b border-slate-800 bg-slate-900/10 flex flex-wrap gap-x-4 gap-y-1 shrink-0">
       {tabs.map(item => (
         <button
           key={item.tab}
@@ -146,6 +146,7 @@ export function PreviewPane({
       <CaseActionFooter
         client={client} scenario={scenario} hasUnresolvedRemaining={hasUnresolvedRemaining}
         letterOnScreen={activeTab === 'letter'} letterReviewed={letterGen === 'review'}
+        editedNarrative={localState.editedNarrative} gateResolution={gateResolution}
         pendingTransition={pendingTransition} onConfirmStatusTransition={onConfirmStatusTransition}
         onPrint={handlePrint} onQuickApprove={() => onQuickApprove(client.scenarioId)}
         onGoToLetter={() => setActiveTab('letter')} onViewActivity={() => setActiveTab('documents')}

@@ -154,7 +154,7 @@ export function PatientProfile({
         {collapsed ? (
           <CollapsedStoryboardRail activeClient={activeClient} displayName={patient.displayName} onExpand={() => setCollapsed(false)} />
         ) : (
-          <aside id="tour-epic-storyboard" className="w-64 shrink-0 border-r border-slate-800 epic-storyboard bg-slate-900/40 overflow-y-auto p-4 space-y-4">
+          <aside id="tour-epic-storyboard" className="w-60 shrink-0 border-r border-slate-800 epic-storyboard bg-slate-900/40 overflow-y-auto p-4 space-y-4">
             <StoryboardHeader patient={patient} scenario={scenario} activeClient={activeClient} onCollapse={() => setCollapsed(true)} />
             <StoryboardDetails patient={patient} scenario={scenario} activeScenarioId={activeScenarioId} profile={profile} onSelectCase={onSelectCase} />
           </aside>

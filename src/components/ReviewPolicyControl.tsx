@@ -25,7 +25,12 @@ function RoutineTierCard({
           {typeof routineVolumePct === 'number' && <span className="text-xs text-slate-500">≈{routineVolumePct}% of volume</span>}
         </div>
         <button
-          onClick={toggleAuto} disabled={readOnly} role="switch" aria-checked={autoAssemble}
+          type="button"
+          onClick={toggleAuto}
+          disabled={readOnly}
+          role="switch"
+          aria-checked={autoAssemble}
+          aria-label="Auto-assemble and queue routine prior authorizations"
           className={`w-9 h-5 rounded-full p-0.5 transition-colors shrink-0 ${autoAssemble ? 'bg-emerald-500' : 'bg-slate-700'} ${readOnly ? 'opacity-60 cursor-default' : ''}`}
         >
           <div className={`w-4 h-4 rounded-full bg-white transition-transform ${autoAssemble ? 'translate-x-4' : ''}`} />
@@ -42,7 +47,7 @@ function RoutineTierCard({
           <div className="grid grid-cols-4 gap-1.5">
             {SAMPLE_OPTIONS.map(opt => (
               <button
-                key={opt.rate} onClick={() => setRate(opt.rate)} disabled={readOnly}
+                key={opt.rate} type="button" onClick={() => setRate(opt.rate)} disabled={readOnly}
                 className={`px-2 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                   sampleRate === opt.rate ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'
                 } ${readOnly ? 'cursor-default' : sampleRate === opt.rate ? '' : 'hover:text-white hover:border-slate-600'}`}

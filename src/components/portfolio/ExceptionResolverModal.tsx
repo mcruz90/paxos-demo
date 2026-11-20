@@ -1,28 +1,41 @@
-import { useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { AlertTriangle, Mail, X } from 'lucide-react'
 import { type AttachedExcerpt } from './caseQueue'
 import { type ResolverContext, assembleJustification } from './exceptionResolver'
 import { EvidenceDiscoveryConsole } from './EvidenceDiscoveryConsole'
 import { ConflictComparisonCard, JustificationOptions, JustifyPathToggle, SelectedEvidenceStrip, WorkflowQueryCard } from './ResolverPanes'
+import { useDialogFocus } from './useDialogFocus'
 
 export type ResolutionPath = 'workflow' | 'justify'
 
-function ResolverHeader({ ctx, onClose }: { ctx: ResolverContext; onClose: () => void }) {
+function ResolverHeader({ titleId, ctx, onClose }: { titleId: string; ctx: ResolverContext; onClose: () => void }) {
   const [showPolicy, setShowPolicy] = useState(false)
-  const isLong = ctx.policyNote.length > 140
+  const hasDetail = ctx.policyNote.trim() !== ctx.gapSummary.trim()
 
   return (
     <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-slate-800 bg-slate-950/60 shrink-0">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           {ctx.conflictSources?.length ? <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" /> : <Mail className="w-4 h-4 text-amber-400 shrink-0" />}
-          <h2 className="text-base font-bold text-white truncate">{ctx.title}</h2>
+          <h2 id={titleId} className="text-base font-bold text-white truncate">{ctx.title}</h2>
         </div>
-        <p className={`text-xs text-slate-400 mt-1 leading-relaxed max-w-3xl ${isLong && !showPolicy ? 'line-clamp-2' : ''}`}>{ctx.policyNote}</p>
-        {isLong && (
-          <button type="button" onClick={() => setShowPolicy(v => !v)} className="text-[11px] text-blue-400 hover:underline mt-0.5">
-            {showPolicy ? 'Hide policy detail' : 'Expand policy detail'}
-          </button>
+        <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-3xl">{ctx.gapSummary}</p>
+        {hasDetail && (
+          <div className="mt-1">
+            <button
+              type="button"
+              aria-expanded={showPolicy}
+              onClick={() => setShowPolicy(v => !v)}
+              className="text-[11px] text-blue-400 hover:underline"
+            >
+              {showPolicy ? 'Hide policy detail' : 'Show policy detail'}
+            </button>
+            {showPolicy && (
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed max-w-3xl rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2">
+                {ctx.policyNote}
+              </p>
+            )}
+          </div>
         )}
       </div>
       <button type="button" onClick={onClose} aria-label="Close exception resolver" className="text-slate-400 hover:text-white transition-colors shrink-0 p-1 rounded-lg hover:bg-slate-800">
@@ -83,6 +96,10 @@ export function ExceptionResolverModal({
   onApply: (justification: string, path: ResolutionPath, excerpts: AttachedExcerpt[]) => void
   onClose: () => void
 }) {
+  const titleId = useId()
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef, onClose)
+
   const preIds = Array.from(new Set([...ctx.options.filter(o => o.preselected).map(o => o.id), ...initialAttached.map(e => e.id)]))
   const [selected, setSelected] = useState<string[]>(preIds)
   const [custom, setCustom] = useState('')
@@ -100,15 +117,25 @@ export function ExceptionResolverModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 md:p-6" onClick={onClose}>
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-        <ResolverHeader ctx={ctx} onClose={onClose} />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden focus:outline-none"
+        onClick={e => e.stopPropagation()}
+      >
+        <ResolverHeader titleId={titleId} ctx={ctx} onClose={onClose} />
+        <div data-testid="selected-evidence-bar" className="px-6 py-2.5 border-b border-slate-800 bg-slate-950/40 shrink-0">
+          <SelectedEvidenceStrip options={ctx.options} selected={selected} onRemove={toggle} />
+        </div>
         <div className="flex-1 flex flex-col lg:flex-row gap-5 p-5 overflow-y-auto min-h-[420px]">
           <div className="flex-1 min-w-0 flex flex-col gap-4">
             {ctx.conflictSources && ctx.conflictSources.length > 0 && <ConflictComparisonCard conflictSources={ctx.conflictSources} />}
             <EvidenceDiscoveryConsole ctx={ctx} selected={selected} onAttach={attach} />
           </div>
           <div className="w-full lg:w-[410px] shrink-0 flex flex-col gap-3">
-            <SelectedEvidenceStrip options={ctx.options} selected={selected} onRemove={toggle} />
             {ctx.workflow && <WorkflowQueryCard workflow={ctx.workflow} active={path === 'workflow'} onSelect={() => setPath('workflow')} />}
             {ctx.workflow && <JustifyPathToggle active={path === 'justify'} onSelect={() => setPath('justify')} />}
             <JustificationOptions

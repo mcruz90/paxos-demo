@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
 import { type ScenarioConfig } from '../../types'
 import { useLiveAppeal } from '../poc/live/useLiveAppeal'
+import { formatPolicyMatch } from './letterNarrative'
 
 /**
  * Compound capability chip (May's decision 2026-07-20). Neither a plain LIVE
@@ -47,13 +48,14 @@ export function LiveLetterGeneration({
 
   const { status, steps, letter, error, done: doneEvent } = appeal.state
   const done = status === 'done'
-  const gateStatus = doneEvent?.pa_resolution || 'Not evaluated'
+  const policyMatch = done ? formatPolicyMatch(doneEvent?.pa_resolution) : 'Not evaluated'
+  const isPolicyHold = done && doneEvent?.pa_resolution?.trim() === 'generic'
 
   const milestones = [
     { label: 'Payer Policy & Benefit Rules Matched', complete: done || steps.length > 0 },
     { label: 'Clinical Criteria Grounded to Source Chart', complete: done || steps.length >= 2 },
     { label: 'Assembling Medical Necessity Packet', complete: done || !!letter },
-    { label: `Gatekeeper Status: ${done ? gateStatus : 'Not evaluated'}`, complete: done && !!doneEvent?.pa_resolution },
+    { label: `Policy match: ${policyMatch}`, complete: done && !!doneEvent?.pa_resolution && !isPolicyHold },
   ]
 
   return (

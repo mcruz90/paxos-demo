@@ -29,7 +29,9 @@ export function Sidebar({
         {/* Logo — top accent stripe reflects the active role */}
         <div className={`${isCollapsed ? 'px-2.5 py-4 flex justify-center' : 'px-5 py-5'} border-b border-slate-800 ${ROLE_TOP_BORDER[activeRole]}`}>
           <button
+            type="button"
             onClick={onStartTour}
+            aria-label={`${modeBadge.wordmark} — Guided Tour`}
             title={`${modeBadge.wordmark} — Guided Tour`}
             className={`flex items-center gap-2.5 hover:opacity-80 transition-opacity text-left ${isCollapsed ? 'justify-center' : 'w-full'}`}
           >
@@ -48,6 +50,7 @@ export function Sidebar({
               return (
                 <button
                   key={v}
+                  type="button"
                   id={v === 'library' ? 'tour-sidebar-library' : undefined}
                   onClick={() => setView(v)}
                   title={isCollapsed ? label : undefined}
@@ -82,7 +85,9 @@ export function Sidebar({
         </div>
       </aside>
       <button
+        type="button"
         onClick={onToggleCollapse}
+        aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         className={`absolute top-3.5 z-50 w-5 h-8 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-r-lg flex items-center justify-center cursor-pointer text-slate-400 transition-all duration-300 shadow-sm ${ROLE_TOGGLE_GLOW[activeRole]} ${
           isCollapsed ? 'left-14 -ml-[1px]' : 'left-60 -ml-[1px]'
         }`}
