@@ -1,7 +1,8 @@
 import { RotateCcw, Stethoscope, Terminal } from 'lucide-react'
-import { JUDGE_CALIBRATION_SPEC, RUBRIC_DIMENSIONS, thresholdLabel } from '../../data/evalRubric'
+import { JUDGE_CALIBRATION_SPEC } from '../../data/evalRubric'
 import {
   DEFAULT_EVAL_SNAPSHOT,
+  type Dimension,
   type EvalSnapshot,
   NOT_IN_SNAPSHOT,
   formatClearauthDecisionLabel,
@@ -12,31 +13,74 @@ import { TierBadge } from '../ui'
 import { EditableRecordList } from '../versioning'
 import { CaseSetsSnapshotCard } from './CaseSetsSnapshotCard'
 
-export function AuthoredRubricCriteriaSection() {
+function shortDimensionCode(id: string): string {
+  return id.split('_')[0] || id
+}
+
+function formatJudgeRange(dims: Dimension[]): string {
+  if (dims.length === 0) return ''
+  const first = shortDimensionCode(dims[0].id)
+  const last = shortDimensionCode(dims[dims.length - 1].id)
+  return dims.length === 1 || first === last ? first : `${first}–${last}`
+}
+
+function formatJudgeState(rubric: NonNullable<EvalSnapshot['appeal_rubric']>, dims: Dimension[]): string {
+  if (dims.length > 0 && dims.every(d => d.state === 'measured')) return 'measured'
+  if (dims.some(d => d.state === 'measured')) return 'partially measured'
+  return rubric.state === 'defined' ? 'not run yet' : rubric.state
+}
+
+export function AuthoredRubricCriteriaSection({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { snapshot?: EvalSnapshot | null } = {}) {
+  const judgeDims = snapshot?.appeal_rubric?.dimensions.filter(d => d.kind === 'judge') ?? null
+  if (!snapshot?.appeal_rubric || !judgeDims || judgeDims.length === 0) {
+    return (
+      <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4 flex items-center justify-between gap-2 flex-wrap">
+        <h2 className="text-sm font-semibold text-white">Advisory Judge Rubric Dimensions</h2>
+        <span className="text-xs font-mono text-amber-300">{NOT_IN_SNAPSHOT}</span>
+      </div>
+    )
+  }
+
+  const range = formatJudgeRange(judgeDims)
+  const stateLabel = formatJudgeState(snapshot.appeal_rubric, judgeDims)
+
   return (
     <div>
       <h2 className="text-sm font-semibold text-white mb-1">
-        Advisory Judge Rubric Criteria · J1–J4 <span className="text-violet-300 font-normal">(not run yet)</span>
+        Advisory Judge Rubric Dimensions{range ? ` · ${range}` : ''}{' '}
+        <span className="text-violet-300 font-normal">({stateLabel})</span>
       </h2>
       <p className="text-xs text-slate-500 mb-3">
-        Anchored 1–4 ordinal dimensions defined in <span className="font-mono">appeal_rubric.json</span> — no judge runs today; scores remain strictly advisory until calibrated on de-identified letters.
+        {stateLabel === 'measured' ? (
+          <>
+            Anchored ordinal dimensions read from <span className="font-mono">eval_snapshot.json</span> (<span className="font-mono">appeal_rubric</span>) — advisory rubric dimensions scored in this snapshot.
+          </>
+        ) : stateLabel === 'partially measured' ? (
+          <>
+            Anchored ordinal dimensions read from <span className="font-mono">eval_snapshot.json</span> (<span className="font-mono">appeal_rubric</span>) — partially measured; unmeasured dimensions remain advisory definitions only.
+          </>
+        ) : (
+          <>
+            Anchored ordinal dimensions read from <span className="font-mono">eval_snapshot.json</span> (<span className="font-mono">appeal_rubric</span>) — no judge runs today; scores remain strictly advisory until calibrated on de-identified letters.
+          </>
+        )}
       </p>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {RUBRIC_DIMENSIONS.filter(d => d.criteria).map(d => (
-          <div key={d.dimension} className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-sm font-semibold text-violet-300">{d.dimension}</h3>
-              <span className="ml-auto font-mono text-xs text-slate-400">{d.grader} · {thresholdLabel(d.threshold)}</span>
+        {judgeDims.map(d => {
+          const cal = d.calibration
+          const calText = cal
+            ? `n=${cal.n} · κ=${cal.kappa === null || cal.kappa === undefined ? '—' : cal.kappa.toFixed(2)}`
+            : d.state
+          return (
+            <div key={d.id} className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold font-mono text-violet-300">{d.id}</h3>
+                <span className="ml-auto font-mono text-xs text-slate-400">{d.state} · {calText}</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">{d.question}</p>
             </div>
-            <ul className="space-y-1.5">
-              {d.criteria!.map((c, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-slate-300 leading-relaxed">
-                  <span className="text-violet-400 mt-0.5 shrink-0">✓</span><span>{c}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
@@ -48,7 +92,7 @@ export function JudgeCalibrationSection({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { 
       <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4 flex items-center justify-between gap-2 flex-wrap">
         <h2 className="text-sm font-semibold text-white flex items-center gap-2">
           <Stethoscope className="w-4 h-4 text-violet-400" />
-          Judge Calibration Status <span className="text-violet-300 font-normal">· J1–J4 Advisory Rubric</span>
+          Judge Calibration Status
         </h2>
         <span className="text-xs font-mono text-amber-300">{NOT_IN_SNAPSHOT}</span>
       </div>
@@ -56,12 +100,18 @@ export function JudgeCalibrationSection({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { 
   }
 
   const judgeDims = snapshot.appeal_rubric.dimensions.filter(d => d.kind === 'judge')
+  const range = formatJudgeRange(judgeDims)
+  const stateSummary = formatJudgeState(snapshot.appeal_rubric, judgeDims)
   const maxN = judgeDims.reduce((acc, d) => Math.max(acc, d.calibration?.n ?? 0), 0)
   const firstKappa = judgeDims.find(d => typeof d.calibration?.kappa === 'number')?.calibration?.kappa ?? null
   const bar = snapshot.appeal_rubric.judge_bar
   const heldOutLabel = formatClearauthDecisionLabel(snapshot.redteam?.decision)
   const stats = [
-    { label: 'Judge Runner', value: `${snapshot.appeal_rubric.state} only`, sub: 'no model judge runs yet' },
+    {
+      label: 'Judge Runner',
+      value: stateSummary === 'not run yet' ? `${snapshot.appeal_rubric.state} only` : stateSummary,
+      sub: stateSummary === 'not run yet' ? 'no model judge runs yet' : 'read from snapshot appeal_rubric',
+    },
     { label: 'Clinician Ratings', value: `${maxN} / ${bar.min_letters}`, sub: 'labeled de-identified letters' },
     { label: `Bar (${bar.status})`, value: `κ_w ≥ ${bar.min_kappa.toFixed(2)}`, sub: firstKappa !== null ? `measured κ_w = ${firstKappa.toFixed(2)}` : 'unmeasured (κ = —)' },
     { label: 'Held-Out Protocol', value: 'One-shot', sub: `rotate set after tuning (${heldOutLabel})` },
@@ -71,7 +121,7 @@ export function JudgeCalibrationSection({ snapshot = DEFAULT_EVAL_SNAPSHOT }: { 
       <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
         <h2 className="text-sm font-semibold text-white flex items-center gap-2">
           <Stethoscope className="w-4 h-4 text-violet-400" />
-          Judge Calibration Status <span className="text-violet-300 font-normal">· J1–J4 Advisory Rubric</span>
+          Judge Calibration Status{range ? <span className="text-violet-300 font-normal">· {range} Advisory Rubric</span> : null}
         </h2>
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono border border-amber-500/30 bg-amber-500/10 text-amber-300">
           {snapshot.appeal_rubric.state} · bar {bar.status} · advisory only
