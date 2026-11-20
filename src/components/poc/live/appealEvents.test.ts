@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { reduceAppealEvent, initialGenState, isParked, type LiveGenState } from './appealEvents'
+import { reduceAppealEvent, initialGenState, isParked, resolutionNote, type LiveGenState } from './appealEvents'
 import type { AppealEvent } from '../../../lib/wire'
 
 const fold = (events: AppealEvent[]): LiveGenState => events.reduce(reduceAppealEvent, initialGenState)
@@ -43,5 +43,25 @@ describe('reduceAppealEvent', () => {
     expect(state.status).toBe('error')
     expect(state.error).toBe('boom')
     expect(state.correlationId).toBe('case:a1')
+  })
+})
+
+describe('resolutionNote', () => {
+  it('flags the generic fallback', () => {
+    expect(resolutionNote('generic')).toEqual({ warn: true, text: 'Generic-fallback letter (no plan-specific policy matched)' })
+  })
+
+  it('flags a drug-name-only match as no policy for this plan, never a policy match', () => {
+    const note = resolutionNote('drug_alias')
+    expect(note?.warn).toBe(true)
+    expect(note?.text).toBe("No policy on file for this plan — another plan's criteria not used; needs a person")
+  })
+
+  it('shows a plan match plainly', () => {
+    expect(resolutionNote('plan_id')).toEqual({ warn: false, text: 'Policy match plan_id' })
+  })
+
+  it('shows nothing before retrieval', () => {
+    expect(resolutionNote('')).toBeNull()
   })
 })

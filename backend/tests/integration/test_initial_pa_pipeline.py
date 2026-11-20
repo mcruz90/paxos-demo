@@ -243,3 +243,21 @@ async def test_denied_path_hands_off_to_appeal() -> None:
     assert done.outcome.decision is PaDecision.denied
     assert done.appeal_handoff is not None
     assert done.appeal_handoff.case_ref == "PA-2026-0847"
+
+
+@pytest.mark.asyncio
+async def test_drug_alias_only_match_exits_unknown_and_submits_nothing() -> None:
+    """Known drug, unknown plan: another plan's pack must not drive a PA
+    submission. CRD is unknown, nothing is assembled or submitted (ADR-0019)."""
+    events = await _collect(
+        _ozempic_request(plan="UnitedHealthcare Choice Plus", plan_id="UHC-UNKNOWN-2026")
+    )
+    step_names = [e.step for e in events if isinstance(e, StepEvent)]
+    assert "assemble" not in step_names
+    done = [e for e in events if isinstance(e, InitialPaDoneEvent)]
+    assert len(done) == 1
+    assert done[0].pa_required.required is None
+    # Strict resolution (T-10) holds as missing_policy; it never borrows the
+    # Cigna pack that lists this drug.
+    assert done[0].pa_resolution == "generic"
+    assert done[0].submission_ref == ""

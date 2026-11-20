@@ -9,6 +9,7 @@
 import { TierBadge } from '../../ui'
 import type { CaseTier } from '../../../types'
 import type { DoneEvent } from '../../../lib/wire'
+import { resolutionNote } from './appealEvents'
 
 const NEXT_STEP: Record<CaseTier, string> = {
   routine: 'Cleared for submission.',
@@ -18,6 +19,7 @@ const NEXT_STEP: Record<CaseTier, string> = {
 
 export function DonePanel({ done }: { done: DoneEvent }) {
   const scores = Object.entries(done.structural_scores ?? {})
+  const note = resolutionNote(done.pa_resolution)
   return (
     <div className="bg-slate-900/60 border border-slate-700/60 rounded-xl p-4 space-y-3">
       <div className="flex items-center gap-2">
@@ -30,12 +32,7 @@ export function DonePanel({ done }: { done: DoneEvent }) {
         {done.retry_count > 0 && (
           <span className="text-amber-400">Passed after {done.retry_count} {done.retry_count === 1 ? 'retry' : 'retries'}</span>
         )}
-        {done.pa_resolution === 'generic' && (
-          <span className="text-amber-400">Generic-fallback letter (no plan-specific policy matched)</span>
-        )}
-        {done.pa_resolution && done.pa_resolution !== 'generic' && (
-          <span>Policy match <span className="text-slate-200">{done.pa_resolution}</span></span>
-        )}
+        {note && <span className={note.warn ? 'text-amber-400' : undefined}>{note.text}</span>}
       </div>
 
       {scores.length > 0 && (

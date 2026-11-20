@@ -180,7 +180,9 @@ pointer; launching it is a separate human-gated request.
 payer's CRD endpoint. A compatible policy yields a PA-required verdict. An
 unresolved policy yields an unknown verdict (`pa_required.required = null`)
 with a reason and next action. The run exits before assembly for human
-review (ADR-0018).
+review (ADR-0018). A pack for this drug under another plan does not count
+(ADR-0019). The registry never answers "PA not required"; only a real payer CRD
+query can.
 
 ## SimPhase — frontend POC flow
 
