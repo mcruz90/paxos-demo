@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "api:dump": "cd backend && uv run python -m tools.dump_openapi",
-    "api:types": "openapi-typescript ./openapi.json -o ./src/generated/api-types.d.ts"
+    "api:types": "openapi-typescript ./openapi.json -o ./src/generated/api-types.d.ts",
+    "eval:types": "node scripts/generate-eval-snapshot-types.mjs",
+    "eval:types:check": "node scripts/generate-eval-snapshot-types.mjs --check"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",

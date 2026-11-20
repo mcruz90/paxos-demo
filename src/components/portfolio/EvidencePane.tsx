@@ -1,13 +1,12 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileText } from 'lucide-react'
 import { type ScenarioConfig } from '../../types'
 import { CitationPane } from './CitationPane'
 import { type PhiDictionary } from './redaction'
+import { defaultDocId, ensureSourceDocuments } from './sourceDocuments'
 import { SourceDocViewer } from './SourceDocViewer'
 
-// Col 3 of the split view: the collapsible evidence pane — rendered source
-// documents (when the case authored them) or the citation snippet cards, with
-// the vertical toggle handle. View state lives in the parent so criterion
-// clicks and the Documents vault can drive it.
+// Col 3 of the split view: single unified header bar (Document Switcher dropdown
+// + Source Chart / Criteria Snippets toggle) above the chart or excerpt cards.
 export function EvidencePane({
   scenario,
   phi,
@@ -31,54 +30,87 @@ export function EvidencePane({
   activeDocId: string | null
   onSelectDoc: (docId: string | null) => void
 }) {
+  const docs = ensureSourceDocuments(scenario)
+  const shownDocId = activeDocId ?? defaultDocId(docs) ?? ''
+
   return (
     <div className="flex shrink-0 overflow-hidden">
       <button
+        type="button"
         onClick={onToggleCitations}
-        title={showCitations ? 'Hide citations' : 'Show citations'}
+        aria-expanded={showCitations}
+        title={showCitations ? 'Hide source chart' : 'Show source chart'}
         className="w-6 shrink-0 border-l border-slate-800 bg-slate-900/40 hover:bg-slate-800 flex flex-col items-center gap-2 py-3 text-slate-400 hover:text-emerald-300 transition-colors"
       >
         {showCitations ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         <span className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-semibold uppercase tracking-wider">
-          Citations
+          Source Chart
         </span>
       </button>
-      <div className={`border-l border-slate-800 flex flex-col transition-all duration-300 ease-in-out overflow-hidden ${showCitations ? 'w-[640px]' : 'w-0'}`}>
-        {scenario.sourceDocuments?.length ? (
-          <div className="flex gap-1 p-2 border-b border-slate-800 shrink-0">
-            {([
-              { view: 'source' as const,    label: 'Source Doc' },
-              { view: 'citations' as const, label: 'Citations'  },
-            ]).map(({ view, label }) => (
-              <button
-                key={view}
-                onClick={() => setCiteView(view)}
-                className={[
-                  'flex-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors border',
-                  citeView === view
-                    ? 'bg-slate-800 border-slate-700 text-emerald-300'
-                    : 'bg-transparent border-transparent text-slate-500 hover:text-slate-300',
-                ].join(' ')}
+      <div className={`border-l border-slate-800 flex flex-col transition-all duration-300 ease-in-out overflow-hidden ${showCitations ? 'w-[360px] 2xl:w-[440px]' : 'w-0'}`}>
+        {/* Single compact header bar */}
+        <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-800 bg-slate-900/40 shrink-0">
+          {citeView === 'source' && docs.length > 0 ? (
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <select
+                aria-label="Switch source document"
+                value={shownDocId}
+                onChange={e => onSelectDoc(e.target.value)}
+                className="w-full max-w-[240px] bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs font-medium text-slate-200 focus:outline-none focus:border-emerald-500"
               >
-                {label}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        <div className="flex-1 min-h-0 w-[640px]">
-          {scenario.sourceDocuments?.length && citeView === 'source' ? (
+                {docs.map((doc, idx) => (
+                  <option key={doc.id} value={doc.id}>
+                    Doc {idx + 1}/{docs.length}: {doc.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <span className="text-xs font-semibold text-slate-300 truncate">Criteria Evidence Snippets</span>
+          )}
+
+          {docs.length > 0 && (
+            <div className="inline-flex items-center gap-0.5 rounded-md bg-slate-950 border border-slate-800 p-0.5 shrink-0">
+              {([
+                { view: 'source' as const,    label: 'Chart' },
+                { view: 'citations' as const, label: 'Snippets' },
+              ]).map(({ view, label }) => (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => setCiteView(view)}
+                  className={[
+                    'px-2 py-1 rounded text-[11px] font-semibold transition-colors',
+                    citeView === view
+                      ? 'bg-slate-800 text-slate-100'
+                      : 'text-slate-500 hover:text-slate-300',
+                  ].join(' ')}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-h-0 w-[360px] 2xl:w-[440px]">
+          {docs.length && citeView === 'source' ? (
             <SourceDocViewer
               scenario={scenario}
               activeCiteIndex={activeCiteIndex}
               activeDocId={activeDocId}
               onSelectDoc={onSelectDoc}
               phi={phi}
+              forcePlane="operate"
+              compactHeader
             />
           ) : (
             <CitationPane
               scenario={scenario}
               highlightedIndex={activeCiteIndex}
               onSelectIndex={onSelectCiteIndex}
+              compactHeader
             />
           )}
         </div>

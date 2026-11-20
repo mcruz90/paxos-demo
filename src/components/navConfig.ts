@@ -1,4 +1,4 @@
-import { LayoutDashboard, Library, FileText, AlertTriangle, Pencil, BarChart2, LineChart, Rocket, Boxes, Workflow, Sliders, Gauge } from 'lucide-react'
+import { LayoutDashboard, Library, FileText, AlertTriangle, Pencil, BarChart2, LineChart, Rocket, Boxes, Workflow, Sliders, Gauge, Terminal } from 'lucide-react'
 import { type View, type Role } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -35,6 +35,7 @@ export const SECTIONS: readonly NavSection[] = [
       ['instructions', Pencil,        'Agent Instructions'],
       ['rubric',       Workflow,      'Eval Rubric'],
       ['failures',     AlertTriangle, 'Failure Review'],
+      ['inspector',    Terminal,      'Live Trace & Evals'],
     ],
   },
   {
@@ -66,6 +67,7 @@ export const VIEW_ROLE: Record<View, Role> = {
   instructions: 'Build',
   rubric:       'Build',
   failures:     'Build',
+  inspector:    'Build',
   onboarding:   'Scale',
   platform:     'Scale',
   sponsor:      'Sponsor',

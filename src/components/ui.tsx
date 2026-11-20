@@ -71,14 +71,8 @@ export function RuleTag({ type }: { type: RuleType }) {
 }
 
 export function StageBadge({ stage }: { stage: 'Initial PA' | 'Appeal' }) {
-  // Initial PA is highlighted (the front-of-lifecycle work we lead with); Appeal
-  // is neutral. Kept off the status palette (emerald/amber/violet) so the two
-  // columns don't read as the same axis.
-  const className = stage === 'Initial PA'
-    ? 'bg-blue-500/10 text-blue-300 border-blue-500/20'
-    : 'bg-slate-700/40 text-slate-300 border-slate-600/40'
   return (
-    <span className={`px-2 py-0.5 rounded-md text-xs font-medium border whitespace-nowrap ${className}`}>
+    <span className="px-2 py-0.5 rounded-md text-xs font-medium border whitespace-nowrap bg-slate-800/40 text-slate-400 border-slate-700/50">
       {stage}
     </span>
   )

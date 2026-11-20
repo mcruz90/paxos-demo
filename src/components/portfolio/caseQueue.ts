@@ -1,4 +1,4 @@
-import { type CaseStatus, type Client, type CriterionResult, type ScenarioConfig, type Urgency } from '../../types'
+import { type CaseStatus, type Client, type CriterionResult, type ScenarioConfig, type Urgency, type View } from '../../types'
 import { getCaseStage } from '../../data/scenarios'
 
 // ---------------------------------------------------------------------------
@@ -23,22 +23,43 @@ export interface ActivityEntry {
 // queue view: workflows dispatched, findings overridden with a rationale, the
 // in-progress dispatch/override UI state, and the per-case activity log.
 // Local to the session (demo).
+export interface AttachedExcerpt {
+  id: string
+  title: string
+  detail: string
+}
+
+export interface FindingsDelta {
+  priorStatus: string
+  priorNote: string
+  reassessedStatus: string
+  attachedCount: number
+  rationale: string
+  at: string
+}
+
 export interface LocalCaseState {
   dispatched: string[]
   pendingDispatch: string[]
   overrides: Record<string, string>
+  attachedExcerpts?: Record<string, AttachedExcerpt[]>
+  findingsDeltas?: Record<string, FindingsDelta>
   pendingOverride: string | null
   overrideInput: string
   activity: ActivityEntry[]
+  editedNarrative?: string
 }
 
 export const EMPTY_LOCAL_CASE_STATE: LocalCaseState = {
   dispatched: [],
   pendingDispatch: [],
   overrides: {},
+  attachedExcerpts: {},
+  findingsDeltas: {},
   pendingOverride: null,
   overrideInput: '',
   activity: [],
+  editedNarrative: undefined,
 }
 
 export function logActivity(local: LocalCaseState, entry: ActivityEntry): LocalCaseState {
@@ -212,4 +233,21 @@ export function tourIdFor(client: Client): string | undefined {
     'pediatric-esomeprazole': 'tour-case-infant',
     'gilead-livdelzi':        'tour-case-livdelzi',
   }[client.scenarioId]
+}
+
+export interface PortfolioNavReset {
+  override: string | null | undefined
+  resetNonce: number
+  expandSidebar: boolean
+}
+
+export function resolveSidebarNav(
+  nextView: View,
+  prevOverride: string | null | undefined,
+  prevNonce: number,
+): PortfolioNavReset {
+  if (nextView === 'portfolio') {
+    return { override: null, resetNonce: prevNonce + 1, expandSidebar: true }
+  }
+  return { override: prevOverride, resetNonce: prevNonce, expandSidebar: nextView !== 'poc' }
 }

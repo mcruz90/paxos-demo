@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 test('case queue: action-needed grouping, Due column, no overdue, no New Case, auto-sync', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: /Skip the tour/ }).click()
+  await page.getByRole('button', { name: 'Case Queue' }).click()
 
   await expect(page.getByRole('heading', { name: 'Case Queue' })).toBeVisible()
 

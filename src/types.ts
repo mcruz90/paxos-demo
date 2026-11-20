@@ -1,4 +1,4 @@
-export type View = 'landing' | 'portfolio' | 'poc' | 'build_home' | 'library' | 'evals' | 'onboarding' | 'platform' | 'failures' | 'specs' | 'instructions' | 'rubric' | 'sponsor' | 'automation'
+export type View = 'landing' | 'portfolio' | 'poc' | 'build_home' | 'library' | 'evals' | 'onboarding' | 'platform' | 'failures' | 'specs' | 'instructions' | 'rubric' | 'inspector' | 'sponsor' | 'automation'
 export type Role = 'Operate' | 'Build' | 'Scale' | 'Sponsor'
 export type IntakePhase = 'upload' | 'analyzing' | 'extracted'
 export type ClientType = 'medtech' | 'patient'
@@ -95,6 +95,7 @@ export interface ScenarioConfig {
   // ── Initial-PA lifecycle (lifecycle === 'initial_pa') ─────────────────────
   // Absent ⇒ this is an appeal scenario and the fields below do not apply.
   lifecycle?: CaseLifecycle
+  requestType?: 'exception' | 'coverage_determination'
   // CRD pre-check: is a PA required for this drug × plan, and on what basis?
   paRequired?: { required: boolean; basis: string }
   // The therapy the structured PA request asks the payer to authorize.
@@ -152,6 +153,7 @@ export interface SourceDocument {
   source: string    // classified by documentKind() for the letterhead/icon
   meta: string      // provenance line: 'encounter 02/08/2024 · p.1 · Epic'
   blocks: SourceDocBlock[]
+  patientMismatchHold?: { detectedName: string; expectedName: string; reason: string }
 }
 
 // How close a case is to its regulatory turnaround deadline — drives queue
@@ -173,6 +175,7 @@ export interface Client {
   patientRef?: string
   // Absent ⇒ 'medication' (the current default across all cases).
   paTargetType?: PaTargetType
+  requestType?: 'exception' | 'coverage_determination'
   name: string                  // Case reference, e.g. 'Case #PH-3101'
   patientDisplayName?: string   // Human-readable patient name, e.g. 'Margaret Vance'
   patientDob?: string           // Date of birth label, e.g. '03/14/1972'
@@ -218,21 +221,21 @@ export interface CaseLink {
 }
 
 // The evaluation methods that score the system (not competitors — they each
-// measure a different facet and all run together). These are *methods*, ordered
-// by how much subjective judgment the scorer exercises:
+// measure a different facet). Ordered by scorer objectivity:
 //   Deterministic  — rule-based, no model
-//   RAGAS          — model-graded NLI / claim verification (low subjectivity)
-//   LLM-as-judge   — graded against authored rubric criteria (subjective)
+//   Entailment     — deterministic claim-to-citation gate & context precision
+//   Advisory Judge — defined ordinal rubric (1–4); not built / advisory only
 //   Red-team       — adversarial probes
-export type EvalMethodology = 'Deterministic' | 'RAGAS' | 'LLM-as-judge' | 'Red-team'
+export type EvalMethodology = 'Deterministic' | 'Entailment' | 'Advisory Judge' | 'Red-team'
 
 export interface MetricResult {
   methodology: EvalMethodology
-  grader: string            // e.g. "FaithfulnessMetric"
-  method: string            // e.g. "LLM-as-judge (RAG)", "Deterministic"
-  score: number             // 0–1
+  grader: string            // e.g. "citation_gate.verify", "gatekeeper.assert"
+  method: string            // e.g. "Rule-based (no model)", "Advisory (not run)"
+  score: number | null      // 0–1, or null when not run
   threshold: number         // 0–1
   passed: boolean
+  notRun?: boolean
   reason?: string           // grader explanation, undefined for trivial passes
   caseLink?: CaseLink       // for a failing metric: the real case it points to
 }

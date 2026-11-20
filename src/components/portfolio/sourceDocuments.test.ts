@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { scenarios } from '../../data/scenarios'
 import type { SourceDocument } from '../../types'
-import { defaultDocId, findCitedBlock } from './sourceDocuments'
+import { defaultDocId, ensureSourceDocuments, findCitedBlock, flagMisfiledPages } from './sourceDocuments'
 
 const DOCS: SourceDocument[] = [
   {
@@ -87,4 +87,50 @@ describe('sourceDocuments parity with criteria/citations', () => {
       }
     })
   }
+})
+
+describe('ensureSourceDocuments', () => {
+  it('returns authored sourceDocuments verbatim when present', () => {
+    const ozempic = scenarios['novo-ozempic']
+    expect(ensureSourceDocuments(ozempic)).toBe(ozempic.sourceDocuments)
+  })
+
+  it('labels synthesized fallback documents as citation excerpts without fabricating a wrong-patient hold', () => {
+    for (const id of ['humira-cigna', 'gilead-livdelzi']) {
+      const docs = ensureSourceDocuments(scenarios[id])
+      expect(docs.length).toBeGreaterThan(0)
+      for (const doc of docs) {
+        expect(doc.meta).toContain('Citation excerpt (no full document)')
+        expect(doc.meta).not.toContain('EHR record')
+        expect(doc.blocks[0].text).toContain('no full source document on file')
+        expect(doc.patientMismatchHold).toBeUndefined()
+      }
+      expect(JSON.stringify(docs)).not.toMatch(/\bQuest\b|Arthur Pendelton/)
+    }
+  })
+})
+
+describe('flagMisfiledPages & findCitedBlock safety guard', () => {
+  it('excludes wrong-patient held documents from citation lookups and flags mismatching names', () => {
+    const heldDocs: SourceDocument[] = flagMisfiledPages(
+      [
+        {
+          id: 'doc-wrong',
+          title: 'Misfiled Lab',
+          source: 'Reference Lab',
+          meta: 'p.1',
+          blocks: [{ text: 'Wrong patient text', criterionLabel: 'Diagnosis' }],
+          patientMismatchHold: {
+            detectedName: 'Arthur Pendelton',
+            expectedName: 'Diane Okafor',
+            reason: 'Header mismatch',
+          },
+        },
+        DOCS[0],
+      ],
+      'Diane Okafor',
+    )
+    expect(heldDocs[0].patientMismatchHold?.detectedName).toBe('Arthur Pendelton')
+    expect(findCitedBlock(heldDocs, 'Diagnosis')?.docId).toBe('doc-a')
+  })
 })

@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { initialClients, scenarios } from '../../data/scenarios'
 import { resolvePatientContext } from '../../data/patientContext'
-import { phiFromContext, redactBlocks, redactText } from './redaction'
+import {
+  buildEvalPlaneTokenization,
+  deriveSpecialtyToken,
+  phiFromContext,
+  redactBlocks,
+  redactText,
+  shiftClinicalDates,
+} from './redaction'
 
 describe('redactText', () => {
   const phi = { names: ['Margaret Vance', 'Vance'], memberId: 'CGN-88231-07' }
@@ -12,7 +19,7 @@ describe('redactText', () => {
     expect(hits).toContain('Name')
   })
 
-  it('keeps the year but masks the month/day of every date (Safe Harbor)', () => {
+  it('keeps the year but masks the month/day of every date', () => {
     const { text, hits } = redactText('Consult 02/08/2024; DOB 03/14/1972.', phi)
     expect(text).toBe('Consult XX/XX/2024; DOB XX/XX/1972.')
     expect(hits.filter(h => h === 'Date')).toHaveLength(2)
@@ -33,18 +40,26 @@ describe('redactText', () => {
 })
 
 describe('redactBlocks', () => {
-  it('aggregates a ledger by category with counts and Safe-Harbor reasons', () => {
+  it('aggregates a ledger by category with counts and plain masking labels (no HIPAA Safe Harbor claim)', () => {
     const blocks = [
-      { text: 'Dear Ms. Vance,' },
+      { text: 'Dear Ms. Vance, member CGN-88231-07, MRN E-904128.' },
       { text: 'Seen 02/08/2024 and 01/10/2024.' },
     ]
-    const { blocks: out, ledger } = redactBlocks(blocks, { names: ['Vance'] })
-    expect(out[0].text).toBe('Dear Ms. [REDACTED — NAME],')
+    const { blocks: out, ledger } = redactBlocks(blocks, { names: ['Vance'], memberId: 'CGN-88231-07' })
+    expect(out[0].text).toBe('Dear Ms. [REDACTED — NAME], member [REDACTED — MEMBER ID], [REDACTED — MRN].')
     const name = ledger.find(e => e.category === 'Name')!
     const date = ledger.find(e => e.category === 'Date')!
+    const memberId = ledger.find(e => e.category === 'Member ID')!
+    const mrn = ledger.find(e => e.category === 'MRN')!
     expect(name.count).toBe(1)
     expect(date.count).toBe(2)
-    expect(name.reason).toMatch(/Safe Harbor/)
+    expect(name.reason).toBe('Name (masked)')
+    expect(date.reason).toBe('Date month/day (masked; year kept)')
+    expect(memberId.reason).toBe('Member ID (masked)')
+    expect(mrn.reason).toBe('MRN pattern (masked)')
+    for (const entry of ledger) {
+      expect(entry.reason).not.toMatch(/Safe Harbor|164\.514|§/)
+    }
   })
 
   it('preserves the criterionLabel so cited spans still light after redaction', () => {
@@ -91,5 +106,36 @@ describe('the Build plane leaves no patient identifiers in a rendered golden doc
     const joined = blocks.map(b => b.text).join(' ')
     expect(joined).not.toMatch(/\d{1,2}\/\d{1,2}\/\d{4}/) // no unmasked dates
     expect(joined).not.toContain('Vance')                 // no surname leaks
+  })
+})
+
+describe('clearauth-eval tokenization upgrades (specialty token, date shift, residual tripwire)', () => {
+  it('maps prescriber specialties to NPI taxonomy role tokens', () => {
+    expect(deriveSpecialtyToken('Hepatology')).toBe('{{HEPATOLOGIST_NAME_1}}')
+    expect(deriveSpecialtyToken('Rheumatology')).toBe('{{RHEUMATOLOGIST_NAME_1}}')
+    expect(deriveSpecialtyToken('Endocrinology')).toBe('{{ENDOCRINOLOGIST_NAME_1}}')
+    expect(deriveSpecialtyToken('Pediatric Gastroenterology')).toBe('{{PEDIATRIC_GI_NAME_1}}')
+    expect(deriveSpecialtyToken(undefined)).toBe('{{PRESCRIBER_NAME_1}}')
+  })
+
+  it('shifts clinical dates by a constant offset preserving exact intervals', () => {
+    const out = shiftClinicalDates('Consult 05/28/2026 and follow-up 06/02/2026.', -42)
+    expect(out.count).toBe(2)
+    expect(out.text).toBe('04/16/2026 [shifted -42d] and follow-up 04/21/2026 [shifted -42d].'.replace(/^/, 'Consult '))
+  })
+
+  it('computes specialty token, shifted date count, and actual residual leak check', () => {
+    const client = initialClients.find(c => c.scenarioId === 'gilead-livdelzi')!
+    const sc = scenarios['gilead-livdelzi']
+    const ctx = resolvePatientContext(sc, client)
+    const meta = buildEvalPlaneTokenization(
+      [{ text: `Consult 05/28/2026 for ${ctx.patientName}.` }],
+      ctx,
+      -42,
+    )
+    expect(meta.specialtyToken).toBe('{{HEPATOLOGIST_NAME_1}}')
+    expect(meta.dateOffsetDays).toBe(-42)
+    expect(meta.shiftedSampleCount).toBe(1)
+    expect(meta.residualHeld).toBe(false)
   })
 })

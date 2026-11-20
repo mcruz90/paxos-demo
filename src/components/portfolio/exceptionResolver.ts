@@ -17,6 +17,10 @@ export interface ResolverEvidenceOption {
 }
 
 export interface ResolverGuidelineHit {
+  id: string
+  category: string
+  effectiveDate: string
+  accessLevel: string
   ref: string     // full citation string
   pmid: string
   url: string     // real PubMed link — the PMID is real, so the URL is too
@@ -33,6 +37,7 @@ export interface DocChatFixture {
 
 export interface ResolverContext {
   title: string
+  gapSummary: string
   policyNote: string // the gap / payer position being resolved
   options: ResolverEvidenceOption[]
   guidelineHits: ResolverGuidelineHit[]
@@ -40,15 +45,43 @@ export interface ResolverContext {
   // exists. Rendered as a first-class resolution path — dispatching it IS the
   // resolution, so it is never a checkbox mixed in with evidence options.
   workflow?: WorkflowPlan
-  // What a simulated EHR/registry pull can verify for this criterion — present
-  // only when the scenario fixture documents it (never invented).
+  // What a simulated local patient-record lookup surfaces — present only when
+  // the scenario fixture documents it (never invented).
   ehrVerify?: EhrVerification
   // Suggested Q&A over the retrieved evidence (fixture-derived answers).
   docChat?: DocChatFixture
+  // Side-by-side conflicting chart sources for contradiction criteria.
+  conflictSources?: { source: string; claim: string }[]
+}
+
+export function summarizeGap(policyNote: string, maxChars = 115): string {
+  const clean = policyNote.replace(/\s+/g, ' ').trim()
+  if (clean.length <= maxChars) return clean
+  const firstSentenceEnd = clean.search(/[.!?](?:\s|$)/)
+  if (firstSentenceEnd >= 30 && firstSentenceEnd < maxChars) {
+    return clean.slice(0, firstSentenceEnd + 1)
+  }
+  const clipped = clean.slice(0, maxChars - 1)
+  const lastSpace = clipped.lastIndexOf(' ')
+  return `${(lastSpace > 40 ? clipped.slice(0, lastSpace) : clipped).trimEnd()}…`
 }
 
 function pubmedUrl(pmid: string): string {
   return `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`
+}
+
+function buildGuidelineHit(round2: NonNullable<ScenarioConfig['round2Appeal']>): ResolverGuidelineHit {
+  const yearMatch = round2.guidelineRef.match(/\b(19|20)\d{2}\b/)
+  return {
+    id: `guideline:${round2.guidelinePMID}`,
+    category: 'Clinical Guideline',
+    effectiveDate: yearMatch?.[0] ?? 'Unspecified',
+    accessLevel: 'Local golden-set corpus',
+    ref: round2.guidelineRef,
+    pmid: round2.guidelinePMID,
+    url: pubmedUrl(round2.guidelinePMID),
+    snippet: round2.keyArgument,
+  }
 }
 
 // Dispute mode: the payer counter-offered (e.g. sub-therapeutic dose) and the
@@ -65,23 +98,23 @@ export function buildDisputeResolverContext(scenario: ScenarioConfig): ResolverC
       id: 'labeled-dose',
       title: `Labeled dosing supports ${round2.requiredDose}`,
       detail: round2.keyArgument,
-      preselected: true,
+      preselected: false,
     })
     options.push({
-      id: 'guideline',
+      id: `guideline:${round2.guidelinePMID}`,
       title: `Clinical guideline (PMID ${round2.guidelinePMID})`,
       detail: `${round2.guidelineRef} — supports ${round2.requiredDose}.`,
       preselected: false,
     })
   }
 
+  const policyNote = `${offer.summary} ${offer.newDenialReason}`
   return {
     title: `Dispute payer counter-offer — ${scenario.drug}`,
-    policyNote: `${offer.summary} ${offer.newDenialReason}`,
+    gapSummary: summarizeGap(policyNote),
+    policyNote,
     options,
-    guidelineHits: round2
-      ? [{ ref: round2.guidelineRef, pmid: round2.guidelinePMID, url: pubmedUrl(round2.guidelinePMID), snippet: round2.keyArgument }]
-      : [],
+    guidelineHits: round2 ? [buildGuidelineHit(round2)] : [],
     docChat: round2
       ? {
           suggestions: [
@@ -96,8 +129,8 @@ export function buildDisputeResolverContext(scenario: ScenarioConfig): ResolverC
 }
 
 // Criterion mode: a needs_review / conflict criterion is resolved with an
-// evidence-backed justification. Presets come from the AI's suggestedAction
-// and the criterion's outbound workflowPlan.
+// evidence-backed justification. Options start unselected so clinicians
+// explicitly attach reviewed evidence without overwriting source facts.
 export function buildCriterionResolverContext(
   scenario: ScenarioConfig,
   criterion: CriterionResult,
@@ -106,18 +139,16 @@ export function buildCriterionResolverContext(
   if (criterion.suggestedAction) {
     options.push({
       id: 'suggested',
-      title: 'Apply the suggested resolution',
+      title: 'Scenario Fixture Note (Suggested Follow-up)',
       detail: criterion.suggestedAction,
-      preselected: true,
+      preselected: false,
     })
   }
-  // EHR auto-verify: the finding becomes an attachable evidence option, but
-  // never preselected — the operator attaches it after running the pull.
   const ehrVerify = scenario.ehrVerifications?.[criterion.rule.label]
   if (ehrVerify) {
     options.push({
       id: 'ehr',
-      title: `EHR verification — ${ehrVerify.registry}`,
+      title: `Local fixture record — ${ehrVerify.registry}`,
       detail: ehrVerify.finding,
       preselected: false,
     })
@@ -126,13 +157,13 @@ export function buildCriterionResolverContext(
   const round2 = scenario.round2Appeal
   return {
     title: `Resolve exception — ${criterion.rule.label}`,
+    gapSummary: summarizeGap(criterion.note),
     policyNote: criterion.note,
     options,
-    guidelineHits: round2
-      ? [{ ref: round2.guidelineRef, pmid: round2.guidelinePMID, url: pubmedUrl(round2.guidelinePMID), snippet: round2.keyArgument }]
-      : [],
+    guidelineHits: round2 ? [buildGuidelineHit(round2)] : [],
     workflow: criterion.workflowPlan,
     ehrVerify,
+    conflictSources: criterion.conflictSources,
     docChat: ehrVerify
       ? {
           suggestions: [

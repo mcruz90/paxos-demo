@@ -1,118 +1,165 @@
-import { type ReactNode, useEffect, useState } from 'react'
-import { ArrowLeft, Database, FileText, FolderOpen, Stethoscope, User } from 'lucide-react'
-import { type ScenarioConfig } from '../../types'
+import { type ReactNode, useState } from 'react'
+import { CheckCircle2, Clock, PanelLeftClose, PanelLeftOpen, User } from 'lucide-react'
 import { patientProfiles } from '../../data/patients'
-import { ClinicalProfile } from './ClinicalProfile'
-import { type Patient } from './patient'
-import { PatientDocVault } from './PatientDocVault'
-import { PriorAuthHub } from './PriorAuthHub'
-import { TrialAdherenceLog } from './TrialAdherenceLog'
+import { getCaseStage } from '../../data/scenarios'
+import { type Client, type ScenarioConfig } from '../../types'
+import { StageBadge, StatusBadge } from '../ui'
+import { type Patient, type PatientProfileData } from './patient'
+import { WorkqueueRibbon } from './WorkqueueRibbon'
 
-type ModuleKey = 'clinical' | 'pa-hub' | 'trials' | 'vault'
+function ageFromDob(dob?: string): string | null {
+  const m = dob?.match(/(\d{4})$/)
+  if (!m) return null
+  const age = 2026 - Number(m[1])
+  return age >= 0 && age <= 120 ? `${age}` : null
+}
 
-const MODULES: { key: ModuleKey; label: string; Icon: typeof User }[] = [
-  { key: 'clinical', label: 'Clinical Profile',      Icon: Stethoscope },
-  { key: 'pa-hub',   label: 'Prior Auth Hub',        Icon: FileText },
-  { key: 'trials',   label: 'Trial & Adherence Log', Icon: Database },
-  { key: 'vault',    label: 'Document Vault & Q&A',  Icon: FolderOpen },
-]
-
-// Patient-centric shell: a module sidebar over one patient's whole file. The
-// Prior Auth Hub hosts the active case workspace (passed in as `workspace`);
-// the other modules render patient-level data. Demo-only patient↔case grouping
-// (O9/G1 backend gap).
-export function PatientProfile({
-  patient,
-  scenario,
-  activeScenarioId,
-  onSelectCase,
-  onBackToQueue,
-  workspace,
-}: {
-  patient: Patient
-  scenario: ScenarioConfig
-  activeScenarioId: string
-  onSelectCase: (scenarioId: string) => void
-  onBackToQueue: () => void
-  workspace: ReactNode
+function CollapsedStoryboardRail({ activeClient, displayName, onExpand }: {
+  activeClient?: Client; displayName: string; onExpand: () => void
 }) {
-  const [active, setActive] = useState<ModuleKey>('pa-hub')
-  useEffect(() => { setActive('pa-hub') }, [patient.patientRef])
+  const urgencyDot = activeClient?.urgency === 'today' ? 'bg-red-500' : activeClient?.urgency === 'soon' ? 'bg-amber-500' : 'bg-emerald-500'
+  return (
+    <aside id="tour-epic-storyboard" className="w-12 shrink-0 border-r border-slate-800 epic-storyboard bg-slate-900/40 flex flex-col items-center py-3 gap-3">
+      <button
+        type="button"
+        onClick={onExpand}
+        aria-label="Expand patient storyboard"
+        title={`Expand ${displayName} storyboard`}
+        className="w-8 h-8 rounded-lg border border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-300 flex items-center justify-center transition-colors"
+      >
+        <PanelLeftOpen className="w-4 h-4" />
+      </button>
+      <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center relative" title={displayName}>
+        <User className="w-4 h-4 text-slate-400" />
+        <span className={`w-2 h-2 rounded-full absolute -top-0.5 -right-0.5 ${urgencyDot}`} />
+      </div>
+    </aside>
+  )
+}
 
-  const profile = patientProfiles[patient.patientRef]
+function StoryboardHeader({ patient, scenario, activeClient, onCollapse }: {
+  patient: Patient; scenario: ScenarioConfig; activeClient?: Client; onCollapse: () => void
+}) {
+  const ageStr = ageFromDob(patient.dob)
+  const sexStr = scenario.patientContext?.patientSex
+  return (
+    <div className="pb-3.5 border-b border-slate-800 text-center space-y-1.5 relative">
+      <button
+        type="button"
+        onClick={onCollapse}
+        aria-label="Collapse patient storyboard"
+        title="Collapse storyboard to widen workspace"
+        className="absolute top-0 right-0 p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+      >
+        <PanelLeftClose className="w-4 h-4" />
+      </button>
+      <div className="w-14 h-14 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center mx-auto">
+        <User className="w-7 h-7 text-slate-400" />
+      </div>
+      <h2 className="text-sm font-bold text-white uppercase tracking-wide leading-tight pt-1">
+        {patient.displayName}{ageStr ? `, ${ageStr}${sexStr && sexStr !== '—' ? sexStr : ''}` : ''}
+      </h2>
+      <div className="text-xs text-slate-400 space-y-0.5">
+        {patient.dob && <p>DOB {patient.dob} · <span className="font-mono">{patient.patientRef}</span></p>}
+        <p className="leading-snug">{scenario.plan} · {scenario.planId}</p>
+      </div>
+      {activeClient && (
+        <div className="pt-1 flex flex-col items-center gap-1.5">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-semibold">
+            <Clock className="w-3.5 h-3.5" /> SLA Clock: {activeClient.deadline}
+          </span>
+          <StageBadge stage={getCaseStage(activeClient)} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StoryboardDetails({ patient, scenario, activeScenarioId, profile, onSelectCase }: {
+  patient: Patient; scenario: ScenarioConfig; activeScenarioId: string; profile?: PatientProfileData; onSelectCase: (sid: string) => void
+}) {
   const history = profile?.paHistory ?? []
-  const paCount = patient.cases.length + history.length
+  const diagnoses = profile?.clinical?.diagnoses ?? [{ code: '', label: scenario.diagnosis }]
+  const medications = profile?.clinical?.medications ?? []
+  const trials = profile?.trials ?? []
+  const allergies = profile?.clinical?.allergies ?? ['NKDA']
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Patient banner */}
-      <div className="px-6 py-4 border-b border-slate-800 shrink-0">
-        <button onClick={onBackToQueue} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-2">
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Queue
-        </button>
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
-            <User className="w-5 h-5 text-slate-400" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-bold text-white leading-tight">{patient.displayName}</h2>
-            <div className="flex items-center gap-2 text-xs text-slate-400 flex-wrap mt-0.5">
-              <span className="font-mono text-slate-500">{patient.patientRef}</span>
-              {patient.dob && <><span className="text-slate-700">·</span><span>DOB {patient.dob}</span></>}
-              {patient.payer && <><span className="text-slate-700">·</span><span>{patient.payer}</span></>}
-              <span className="text-slate-700">·</span>
-              <span>{paCount} prior auth{paCount !== 1 ? 's' : ''}</span>
-            </div>
-          </div>
+    <>
+      <div className="space-y-1">
+        <p className="text-xs font-bold text-slate-200">Active Problems</p>
+        <div className="space-y-1 text-xs text-slate-300 leading-snug">
+          {diagnoses.map((d, i) => <p key={i}>{d.label} {d.code && <span className="font-mono text-slate-400">({d.code})</span>}</p>)}
         </div>
       </div>
-
-      {/* Module sidebar + content */}
-      <div className="flex-1 flex overflow-hidden min-h-0">
-        <nav className="w-56 shrink-0 border-r border-slate-800 p-3 space-y-1 bg-slate-950/30">
-          {MODULES.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              onClick={() => setActive(key)}
-              className={[
-                'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-left transition-colors',
-                active === key
-                  ? 'bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 font-semibold'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent',
-              ].join(' ')}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span className="leading-tight">{label}</span>
-              {key === 'pa-hub' && (
-                <span className="ml-auto text-[10px] font-mono text-slate-500">{paCount}</span>
-              )}
-            </button>
-          ))}
-        </nav>
-
-        <div className="flex-1 min-h-0 overflow-hidden">
-          {active === 'pa-hub' ? (
-            <PriorAuthHub
-              patient={patient}
-              activeScenarioId={activeScenarioId}
-              history={history}
-              onSelectCase={onSelectCase}
-              workspace={workspace}
-            />
-          ) : (
-            <div className="h-full overflow-y-auto p-6">
-              {active === 'clinical' && <ClinicalProfile data={profile?.clinical} scenario={scenario} />}
-              {active === 'trials'   && <TrialAdherenceLog data={profile} />}
-              {active === 'vault'    && (
-                <PatientDocVault
-                  documents={scenario.sourceDocuments ?? []}
-                  data={profile}
-                  patientRef={patient.patientRef}
-                />
-              )}
-            </div>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-bold text-slate-200">Step-Therapy Trials</p>
+          {profile?.compliance && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800/60 text-slate-300 border border-slate-700">PDC {profile.compliance.pdc}</span>}
+        </div>
+        <div className="space-y-1 text-xs text-slate-300 leading-snug">
+          {trials.length > 0 ? trials.slice(0, 2).map((t, i) => (
+            <p key={i} className="flex items-start gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+              <span><span className="font-mono text-[11px] text-slate-400">{t.date}</span> · {t.therapy} ({t.supply})</span>
+            </p>
+          )) : medications.length > 0 ? medications.slice(0, 2).map((m, i) => <p key={i}>{m.name} · {m.sig}</p>) : (
+            <p className="text-slate-500 italic">No external pharmacy fill log in fixture; refer to source citations.</p>
           )}
         </div>
+      </div>
+      <div className="space-y-1">
+        <p className="text-xs font-bold text-slate-200">Allergies</p>
+        <p className="text-xs text-slate-300 leading-snug">{allergies.join(', ')}</p>
+      </div>
+      <div className="pt-2 border-t border-slate-800 space-y-1.5">
+        <p className="text-xs font-bold text-slate-200">PA History</p>
+        <div className="space-y-1.5">
+          {patient.cases.map(c => (
+            <button key={c.id} type="button" onClick={() => onSelectCase(c.scenarioId)}
+              className={`w-full text-left rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${c.scenarioId === activeScenarioId ? 'epic-card border-blue-500/50 text-slate-100 font-semibold' : 'bg-slate-900/40 border-slate-800 text-slate-300 hover:border-slate-700'}`}>
+              <div className="flex items-center justify-between gap-1">
+                <span className="truncate">{c.drug.split(' ')[0]} (Current)</span>
+                <StatusBadge status={c.status} />
+              </div>
+            </button>
+          ))}
+          {history.map((h, i) => (
+            <div key={i} className="text-xs text-slate-400 px-1 flex items-center justify-between gap-1">
+              <span className="truncate">{h.drug}</span>
+              <span className="text-emerald-400 shrink-0 capitalize">{h.decision}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+export function PatientProfile({
+  patient, scenario, activeScenarioId, clients, onSelectClient, onSelectCase, onBackToQueue, onInspectInBuild, workspace,
+}: {
+  patient: Patient; scenario: ScenarioConfig; activeScenarioId: string; clients: Client[]
+  onSelectClient: (id: number) => void; onSelectCase: (scenarioId: string) => void
+  onBackToQueue: () => void; onInspectInBuild?: (scenarioId: string) => void; workspace: ReactNode
+}) {
+  const [collapsed, setCollapsed] = useState(false)
+  const profile = patientProfiles[patient.patientRef]
+  const activeClient = clients.find(c => c.scenarioId === activeScenarioId) ?? patient.cases[0]
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <WorkqueueRibbon clients={clients} activeScenarioId={activeScenarioId} onSelectClient={onSelectClient} onBackToQueue={onBackToQueue} onInspectInBuild={onInspectInBuild} />
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {collapsed ? (
+          <CollapsedStoryboardRail activeClient={activeClient} displayName={patient.displayName} onExpand={() => setCollapsed(false)} />
+        ) : (
+          <aside id="tour-epic-storyboard" className="w-60 shrink-0 border-r border-slate-800 epic-storyboard bg-slate-900/40 overflow-y-auto p-4 space-y-4">
+            <StoryboardHeader patient={patient} scenario={scenario} activeClient={activeClient} onCollapse={() => setCollapsed(true)} />
+            <StoryboardDetails patient={patient} scenario={scenario} activeScenarioId={activeScenarioId} profile={profile} onSelectCase={onSelectCase} />
+          </aside>
+        )}
+        <div className="flex-1 flex overflow-hidden min-w-0">{workspace}</div>
       </div>
     </div>
   )
