@@ -1,6 +1,69 @@
 import { AlertTriangle, Check, CheckCircle2, Clock, FileText, Printer, ScrollText } from 'lucide-react'
-import { type Client, type ScenarioConfig } from '../../types'
+import { type CaseStatus, type Client, type ScenarioConfig } from '../../types'
 import { type ExplicitCaseTransition } from './exceptionStatusTransition'
+import { formatPolicyMatch } from './letterNarrative'
+
+export interface LetterActionStatus {
+  artifactVersion: string
+  validationState: string
+  approvalEligibility: string
+  policyMatch: string | null
+  isPolicyHold: boolean
+}
+
+export function buildLetterActionStatus({
+  clientStatus,
+  hasUnresolvedRemaining,
+  editedNarrative,
+  gateResolution,
+}: {
+  clientStatus: CaseStatus
+  hasUnresolvedRemaining: boolean
+  editedNarrative?: string
+  gateResolution?: string | null
+}): LetterActionStatus {
+  const isEdited = !!(editedNarrative && editedNarrative.trim().length > 0)
+  const trimmedResolution = gateResolution?.trim() ?? ''
+  const artifactVersion = isEdited
+    ? 'Unsaved local draft — not validated (edited inline)'
+    : 'Unsaved local draft — not validated'
+  const validationState = 'not evaluated'
+  let approvalEligibility = 'Not evaluated — no server artifact (demo approval only)'
+  if (clientStatus === 'submitted') {
+    approvalEligibility = 'Submitted (demo local state)'
+  } else if (hasUnresolvedRemaining) {
+    approvalEligibility = 'Not eligible — unresolved exceptions in checklist'
+  } else if (isEdited) {
+    approvalEligibility = 'Not eligible for live filing — local edit not validated'
+  }
+  const policyMatch = trimmedResolution ? formatPolicyMatch(trimmedResolution) : null
+  const isPolicyHold = trimmedResolution === 'generic'
+  return { artifactVersion, validationState, approvalEligibility, policyMatch, isPolicyHold }
+}
+
+function LetterActionStatusStrip({ status }: { status: LetterActionStatus }) {
+  return (
+    <div
+      data-testid="letter-action-status"
+      className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-1.5"
+    >
+      <span className="text-slate-300">
+        <span className="text-slate-500">Artifact:</span> {status.artifactVersion}
+      </span>
+      <span className="text-slate-300">
+        <span className="text-slate-500">Validation:</span> {status.validationState}
+      </span>
+      {status.policyMatch && (
+        <span className={status.isPolicyHold ? 'text-amber-300 font-medium' : 'text-slate-300'}>
+          <span className="text-slate-500">Policy match:</span> {status.policyMatch}
+        </span>
+      )}
+      <span className="text-slate-300">
+        <span className="text-slate-500">Approval:</span> {status.approvalEligibility}
+      </span>
+    </div>
+  )
+}
 
 function PendingTransitionFooter({
   transition,
@@ -128,14 +191,22 @@ function StatusReceiptBar({
 // filing is only reachable when the generated letter is on screen — never from
 // the checklist alone, and never before generation has handed off to review.
 export function CaseActionFooter({
-  client, scenario, hasUnresolvedRemaining, letterOnScreen, letterReviewed, pendingTransition, onConfirmStatusTransition, onPrint, onQuickApprove, onGoToLetter, onViewActivity,
+  client, scenario, hasUnresolvedRemaining, letterOnScreen, letterReviewed, editedNarrative, gateResolution, pendingTransition, onConfirmStatusTransition, onPrint, onQuickApprove, onGoToLetter, onViewActivity,
 }: {
   client: Client; scenario?: ScenarioConfig; hasUnresolvedRemaining: boolean; letterOnScreen: boolean
-  letterReviewed: boolean; pendingTransition?: ExplicitCaseTransition | null; onConfirmStatusTransition?: () => void
+  letterReviewed: boolean; editedNarrative?: string; gateResolution?: string | null
+  pendingTransition?: ExplicitCaseTransition | null; onConfirmStatusTransition?: () => void
   onPrint: () => void; onQuickApprove: () => void; onGoToLetter: () => void; onViewActivity: () => void
 }) {
+  const statusInfo = buildLetterActionStatus({
+    clientStatus: client.status,
+    hasUnresolvedRemaining,
+    editedNarrative,
+    gateResolution,
+  })
   return (
     <div className="px-6 py-3 border-t border-slate-800 bg-slate-900/50 shrink-0 select-none">
+      {letterOnScreen && <LetterActionStatusStrip status={statusInfo} />}
       {hasUnresolvedRemaining ? (
         <p className="text-xs text-slate-400 text-center">Resolve open clinical exceptions above before filing the submission packet.</p>
       ) : pendingTransition && onConfirmStatusTransition ? (

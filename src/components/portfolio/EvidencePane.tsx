@@ -36,7 +36,9 @@ export function EvidencePane({
   return (
     <div className="flex shrink-0 overflow-hidden">
       <button
+        type="button"
         onClick={onToggleCitations}
+        aria-expanded={showCitations}
         title={showCitations ? 'Hide source chart' : 'Show source chart'}
         className="w-6 shrink-0 border-l border-slate-800 bg-slate-900/40 hover:bg-slate-800 flex flex-col items-center gap-2 py-3 text-slate-400 hover:text-emerald-300 transition-colors"
       >
@@ -45,7 +47,7 @@ export function EvidencePane({
           Source Chart
         </span>
       </button>
-      <div className={`border-l border-slate-800 flex flex-col transition-all duration-300 ease-in-out overflow-hidden ${showCitations ? 'w-[420px] xl:w-[480px]' : 'w-0'}`}>
+      <div className={`border-l border-slate-800 flex flex-col transition-all duration-300 ease-in-out overflow-hidden ${showCitations ? 'w-[360px] 2xl:w-[440px]' : 'w-0'}`}>
         {/* Single compact header bar */}
         <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-800 bg-slate-900/40 shrink-0">
           {citeView === 'source' && docs.length > 0 ? (
@@ -76,6 +78,7 @@ export function EvidencePane({
               ]).map(({ view, label }) => (
                 <button
                   key={view}
+                  type="button"
                   onClick={() => setCiteView(view)}
                   className={[
                     'px-2 py-1 rounded text-[11px] font-semibold transition-colors',
@@ -91,7 +94,7 @@ export function EvidencePane({
           )}
         </div>
 
-        <div className="flex-1 min-h-0 w-[420px] xl:w-[480px]">
+        <div className="flex-1 min-h-0 w-[360px] 2xl:w-[440px]">
           {docs.length && citeView === 'source' ? (
             <SourceDocViewer
               scenario={scenario}

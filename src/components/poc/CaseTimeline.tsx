@@ -5,7 +5,7 @@ import type { TimelineEvent } from '../../types'
 export function CaseTimeline({ events, compact = false }: { events: TimelineEvent[]; compact?: boolean }) {
   if (compact) {
     return (
-      <div className="flex items-center gap-2 overflow-x-auto text-xs py-0.5">
+      <div data-testid="case-timeline" className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs py-0.5">
         {events.map((ev, i) => (
           <Fragment key={i}>
             {i > 0 && <span className="text-slate-600 shrink-0">→</span>}
@@ -27,7 +27,7 @@ export function CaseTimeline({ events, compact = false }: { events: TimelineEven
   }
 
   return (
-    <div className="flex items-start">
+    <div className="flex flex-wrap items-start gap-y-3">
       {events.map((ev, i) => (
         <Fragment key={i}>
           {i > 0 && (
@@ -35,7 +35,7 @@ export function CaseTimeline({ events, compact = false }: { events: TimelineEven
               events[i - 1].status !== 'pending' ? 'bg-slate-600' : 'bg-slate-700'
             }`} />
           )}
-          <div className="flex flex-col items-center gap-0.5 shrink-0 w-28">
+          <div className="flex flex-col items-center gap-0.5 shrink-0 min-w-[6.5rem] max-w-[8rem]">
             <div className={`w-5 h-5 rounded-full flex items-center justify-center border transition-colors ${
               ev.status === 'done'    ? 'bg-emerald-500/10 border-emerald-500/50' :
               ev.status === 'flagged' ? 'bg-amber-500/10 border-amber-500/50' :
