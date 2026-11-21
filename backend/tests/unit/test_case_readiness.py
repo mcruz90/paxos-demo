@@ -48,7 +48,9 @@ def by_id(result):
 
 
 def test_alternate_preserves_missing_trials_and_actions():
-    result = assess(source("\n".join([AGE, SWALLOW, "Prescription omeprazole: intolerance."])))
+    result = assess(
+        source("\n".join([AGE, SWALLOW, "Prescription omeprazole: intolerance: reported nausea."]))
+    )
     assert result.ready and result.pathway == "swallowing"
     rows = by_id(result)
     assert rows["omeprazole"].status == "met"
@@ -85,9 +87,18 @@ def test_requested_attestation_blocks_alternate_until_documented():
 
 
 def test_step_path_requires_documented_outcome_for_every_agent():
-    chart = "\n".join([AGE, "Prescription omeprazole: failure.", "Pantoprazole: intolerance."])
+    chart = "\n".join(
+        [
+            AGE,
+            "Prescription omeprazole: failure: symptoms persisted.",
+            "Pantoprazole: intolerance: reported nausea.",
+        ]
+    )
     assert not assess(source(chart + "\nRabeprazole: prescribed.")).ready
-    assert assess(source(chart + "\nRabeprazole: contraindication.")).pathway == "step_therapy"
+    assert (
+        assess(source(chart + "\nRabeprazole: contraindication: documented allergy.")).pathway
+        == "step_therapy"
+    )
 
 
 def test_age_and_under_six_auto_process():
@@ -139,3 +150,63 @@ def test_other_matched_policy_requires_review():
     result = assess(source(AGE), plan_id="CIGNA-CNF360-2024", drug="Ozempic", diagnosis="E11.9")
     assert result.policy_text and result.policy_sha256 and not result.ready
     assert result.blockers == ("policy_review",) and result.next_action
+
+
+@pytest.mark.parametrize(
+    ("agent", "outcome"),
+    [
+        ("Prescription omeprazole", "contraindication"),
+        ("Pantoprazole", "failure"),
+        ("Rabeprazole", "intolerance"),
+    ],
+)
+def test_bare_outcome_requires_agent_specific_reason(agent, outcome):
+    drug = agent.lower().removeprefix("prescription ")
+    result = assess(
+        source(f"{AGE}\n{agent}: {outcome}."),
+        source(f"{agent}: {outcome}: reason from context.", "guide", "guideline"),
+    )
+    row = by_id(result)[drug]
+    assert row.status == "missing"
+    assert row.next_action == f"Document the reason for {drug} {outcome}."
+    assert "source_review" not in result.blockers
+
+
+@pytest.mark.parametrize("reason", ["X", "ß" * 300])
+def test_reason_is_cited_verbatim_and_bounded_in_source_characters(reason):
+    line = f"Pantoprazole: failure: {reason}."
+    body = f"{AGE}\n{line}"
+    rows = by_id(assess(source(body)))
+    row = rows["pantoprazole"]
+    assert row.status == "met" and "source_review" not in rows
+    (cite,) = row.evidence
+    assert body[cite.start : cite.end] == cite.excerpt == line
+
+
+@pytest.mark.parametrize("reason", [" " * 3, "X" * 301])
+def test_unusable_reason_cannot_satisfy_trial(reason):
+    result = assess(source(f"{AGE}\nPantoprazole: failure: {reason}."))
+    assert by_id(result)["pantoprazole"].status == "missing"
+
+
+def test_feeding_tube_conflict_blocks_an_otherwise_ready_case():
+    chart = source("\n".join([AGE, SWALLOW, TUBE]))
+    assert assess(chart).ready
+    result = assess(chart, source("Medications not administered via feeding tube.", "other"))
+    row = by_id(result)["feeding_tube"]
+    assert not result.ready and result.blockers == ("feeding_tube",)
+    assert row.status == "conflict" and row.next_action
+    assert {cite.source_version_id for cite in row.evidence} == {"chart", "other"}
+
+
+@pytest.mark.parametrize(
+    "sep", ["\n", "\r\n", "\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"]
+)
+def test_citation_excludes_separator_and_preserves_source_offsets(sep):
+    first = "Chart annotation 📝."
+    body = sep.join([first, TUBE, ""])
+    rows = by_id(assess(source(body)))
+    for key, line, start in [("source_review", first, 0), ("feeding_tube", TUBE, len(first + sep))]:
+        (cite,) = rows[key].evidence
+        assert (cite.start, cite.end) == (start, start + len(line))
+        assert body[cite.start : cite.end] == cite.excerpt == line
