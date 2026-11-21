@@ -18,7 +18,7 @@ LABELS = {
     "diagnosis": "Document an indication compatible with the pediatric GERD policy.",
     "age": "Age at request determines automatic processing below age six.",
     **{
-        d: f"Document {d} failure, contraindication, or intolerance"
+        d: f"Document the reason for {d} failure, contraindication, or intolerance"
         + (" for a prescription formulation." if d == "omeprazole" else ".")
         for d in DRUGS
     },
@@ -35,7 +35,9 @@ ACTIONS = {
 }
 AGE = re.compile(r"age at request: (\d{1,3}) years?\.")
 TRIAL = re.compile(
-    r"(prescription omeprazole|pantoprazole|rabeprazole): (failure|contraindication|intolerance|prescribed)\."
+    r"(prescription omeprazole|pantoprazole|rabeprazole): "
+    r"(?:(failure|contraindication|intolerance)(?:: (.{1,300}))?|prescribed)\.",
+    re.IGNORECASE | re.ASCII,
 )
 SWALLOW = re.compile(
     r"unable to swallow whole tablets or capsules due to (age|dysphagia|oral/motor difficulties)\."
@@ -57,10 +59,14 @@ def classify(line: str) -> tuple[tuple[str, str], ...]:
     age = AGE.fullmatch(text)
     if age and int(age[1]) <= 125:
         return (("age", str(int(age[1]))),)
-    trial = TRIAL.fullmatch(text)
+    trial = TRIAL.fullmatch(line.strip())
     if trial:
-        outcome = "unknown" if trial[2] == "prescribed" else "yes"
-        return ((trial[1].removeprefix("prescription "), outcome),)
+        drug = trial[1].lower().removeprefix("prescription ")
+        if trial[2] is None:
+            return ((drug, "unknown"),)
+        if trial[3] and trial[3].strip():
+            return ((drug, "yes"),)
+        return ((drug, trial[2].lower()),)
     if SWALLOW.fullmatch(text):
         return (("swallowing", "yes"),)
     if text.startswith(SIGNED) and SWALLOW.fullmatch(text.removeprefix(SIGNED)):
@@ -91,7 +97,7 @@ def observations(
         seen.add(source.source_version_id)
         offset = 0
         for raw in source.body.splitlines(keepends=True):
-            line = raw.rstrip("\r\n")
+            line = raw.rstrip("\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029")
             if line.strip():
                 cite = Citation.from_line(source, offset, line)
                 for key, value in classify(line):
@@ -121,6 +127,13 @@ def finding(key: str, items: list[Observation]) -> Finding:
         return Finding(
             key, LABELS[key], "met", "Documented in the cited patient record.", None, cites
         )
+    action = ACTIONS[key]
+    if key in DRUGS:
+        reasons_needed = sorted(values & {"failure", "contraindication", "intolerance"})
+        if reasons_needed:
+            action = " ".join(
+                f"Document the reason for {key} {outcome}." for outcome in reasons_needed
+            )
     return Finding(
-        key, LABELS[key], "missing", "Patient documentation is insufficient.", ACTIONS[key], cites
+        key, LABELS[key], "missing", "Patient documentation is insufficient.", action, cites
     )
