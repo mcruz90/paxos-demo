@@ -132,10 +132,17 @@
             "type": "integer"
           },
           "excerpt": {
-            "maxLength": 1024,
-            "minLength": 1,
-            "title": "Excerpt",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excerpt"
           },
           "role": {
             "enum": [
@@ -414,7 +421,7 @@
           "age_years": {
             "anyOf": [
               {
-                "maximum": 9998.0,
+                "maximum": 125.0,
                 "minimum": 0.0,
                 "type": "integer"
               },

@@ -41,9 +41,8 @@ class PediatricFixtureReader:
         ):
             return None
         records = {
-            "gi-consult-v1": "Age at request: 7 years.\nDiagnosis: K21.0.",
-            "slp-v1": "Unable to swallow whole tablets or capsules due to dysphagia.",
-            "chart-v1": "Tolerates crushed medication.\nPrescription omeprazole: intolerance: witnessed choking.",
+            "gi-2026-10-21-v1": "Age at request: 7 years.\nDiagnosis: K21.0.",
+            "slp-2026-10-07-v1": "Unable to swallow whole tablets or capsules due to dysphagia.",
         }
         sources = tuple(
             SourceVersion(
@@ -59,10 +58,10 @@ class PediatricFixtureReader:
             for key, body in records.items()
         )
         identity = get_identity("esomeprazole_uhc_pediatric")
-        claim_date = date(2026, 5, 14)
+        claim_date = date(2026, 10, 23)
         return AssessmentInputs(
             sources,
-            "UHC-CHOICE-2024",
+            "UHC-CHOICE-2026",
             "Nexium oral suspension",
             "K21.0",
             date.fromisoformat(identity.patient_dob),

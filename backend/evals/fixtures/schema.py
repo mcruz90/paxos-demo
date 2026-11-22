@@ -3,6 +3,7 @@
 EvalScenario is the canonical labeled record for one PA denial case.
 Use load_scenarios_fixture() to load and validate the fixture file.
 """
+
 from __future__ import annotations
 
 from enum import StrEnum
@@ -46,9 +47,9 @@ class EvalDimension(StrEnum):
     snake_case to be valid Python identifiers. The mapping is 1-to-1.
     """
 
-    coverage = "coverage"          # coverage model accuracy, policy citations
-    structure = "structure"        # letter structure and formatting
-    safety = "safety"              # safety criteria (no concurrent GLP-1, etc.)
+    coverage = "coverage"  # coverage model accuracy, policy citations
+    structure = "structure"  # letter structure and formatting
+    safety = "safety"  # safety criteria (no concurrent GLP-1, etc.)
     claim_citation = "claim_citation"  # faithfulness: claim traceable to source document
     over_caution = "over_caution"  # refusal when appeal is clearly appropriate
 
@@ -124,6 +125,8 @@ class ExpectedOutcome(BaseModel):
 
 
 class EvalScenario(BaseModel):
+    determination_summary: str | None = None
+    appeal_history: str | None = None
     scenario_id: str
     anchor_id: str
     denial_type: Literal["clinical_pa", "coding_error", "administrative", "redteam"]

@@ -45,11 +45,11 @@ class FixturesAdapterError(ValueError):
 @dataclass(frozen=True)
 class _AnchorMeta:
     manufacturer: str
-    config_file: str   # frontend configFile key, e.g. "ozempic_cigna_base.json"
-    drug_key: str      # short drug key for retrieval lookup
+    config_file: str  # frontend configFile key, e.g. "ozempic_cigna_base.json"
+    drug_key: str  # short drug key for retrieval lookup
     category_key: str
     category_label: str
-    diagnosis: str     # canonical clinical diagnosis string (matches MOCK_APPEAL_TEXT / ETL output)
+    diagnosis: str  # canonical clinical diagnosis string (matches MOCK_APPEAL_TEXT / ETL output)
 
 
 _ANCHOR_META: dict[str, _AnchorMeta] = {
@@ -127,6 +127,8 @@ def _criterion_to_result(c: ScenarioCriterion) -> CriterionResult:
 
 def _derive_denial_reason(scenario: EvalScenario) -> str:
     """Derive a short denial_reason from the unmet criterion or the first discrepancy signal."""
+    if scenario.determination_summary:
+        return scenario.determination_summary
     primary_key = scenario.expected_outcome.primary_argument_key
     if primary_key:
         for c in scenario.criteria:
@@ -139,6 +141,10 @@ def _derive_denial_reason(scenario: EvalScenario) -> str:
 
 def _derive_denial_text(scenario: EvalScenario, reason: str) -> str:
     """Synthesize a minimal denial text suitable for the synthesis prompt context."""
+    if scenario.determination_summary:
+        return "\n".join(
+            filter(None, (scenario.payer, scenario.drug, reason, scenario.appeal_history))
+        )
     return render_minimal_denial(
         payer=scenario.payer,
         drug=scenario.drug,

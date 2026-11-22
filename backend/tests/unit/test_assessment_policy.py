@@ -9,7 +9,7 @@ from tests.unit.test_case_readiness import AGE, TUBE, assess, source
 
 def test_structured_rule_is_pinned_and_cited(monkeypatch):
     pack, _ = resolve_pack(
-        "UHC-CHOICE-2024", "Nexium oral suspension", diagnosis="K21.0", as_of=date(2026, 5, 14)
+        "UHC-CHOICE-2026", "Nexium oral suspension", diagnosis="K21.0", as_of=date(2026, 5, 14)
     )
     rule = pack.auto_process
     assert rule.quote in (Path(__file__).parents[2] / rule.source).read_text(encoding="utf-8")

@@ -5,6 +5,8 @@ from typing import Literal
 
 from models.case_evidence import CaseRecord, SourceVersion
 
+MAX_AGE_YEARS = 125
+
 
 @dataclass(frozen=True)
 class Citation:

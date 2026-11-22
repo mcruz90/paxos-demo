@@ -45,7 +45,7 @@
         "Nexium (esomeprazole) oral suspension",
         "Nexium oral suspension"
       ],
-      "plan_id": "UHC-CHOICE-2024",
+      "plan_id": "UHC-CHOICE-2026",
       "payer": "UnitedHealthcare",
       "drug": "Nexium for Oral Suspension (esomeprazole)",
       "source_policy": "golden/policies/esomeprazole_uhc_pediatric.md",

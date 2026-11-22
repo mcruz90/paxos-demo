@@ -35,7 +35,7 @@ def assess(*documents, **overrides):
     from cases.assessment import assess_case
 
     request = dict(
-        plan_id="UHC-CHOICE-2024",
+        plan_id="UHC-CHOICE-2026",
         drug="Nexium oral suspension",
         diagnosis="K21.0",
         as_of=date(2026, 8, 1),
@@ -109,7 +109,7 @@ def test_age_and_under_six_auto_process():
     missing = assess_case(
         CASE,
         [source(AGE + "\n" + TUBE)],
-        plan_id="UHC-CHOICE-2024",
+        plan_id="UHC-CHOICE-2026",
         drug="Nexium oral suspension",
         diagnosis="K21.0",
         as_of=date(2026, 8, 1),

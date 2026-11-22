@@ -11,7 +11,7 @@ from datetime import date
 from hashlib import sha256
 
 from agents.requirements_lookup import AutoProcessRule, resolve_pack
-from cases.assessment_records import Assessment, Finding
+from cases.assessment_records import MAX_AGE_YEARS, Assessment, Finding
 from cases.pediatric_findings import (
     DRUGS,
     LABELS,
@@ -59,7 +59,8 @@ def _verified_age(
         - dob.year
         - ((service_date.month, service_date.day) < (dob.month, dob.day))
     )
-    if years < 0 or patient_values(items) - {str(years)}:
+    valid_age = 0 <= years <= MAX_AGE_YEARS
+    if not valid_age or patient_values(items) - {str(years)}:
         return Finding(
             "age",
             label,
@@ -67,7 +68,7 @@ def _verified_age(
             "The age inputs disagree.",
             "Reconcile the chart age and the trusted claim and birth dates.",
             evidence,
-        ), (years if years >= 0 else None)
+        ), (years if valid_age else None)
     return Finding(
         "age", label, "met", "Calculated on the claim date of service.", None, evidence
     ), years

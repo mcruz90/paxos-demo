@@ -1,16 +1,15 @@
 """Bounded public view of a case assessment and its trusted source dependency."""
 
 import os
-from dataclasses import replace
+from dataclasses import asdict
 from typing import Annotated, Literal
 
 from fastapi import Request
 from pydantic import BaseModel, Field
 
 from cases.assessment import assess_case
-from cases.assessment_records import Assessment, Citation, Finding
+from cases.assessment_records import MAX_AGE_YEARS, Assessment, Finding
 from cases.assessment_sources import PediatricFixtureReader, SourceReader
-from cases.pediatric_findings import DRUGS
 from models.case_evidence import CaseRecord, Digest, RecordId, Revision
 
 
@@ -29,7 +28,7 @@ class AssessmentCitation(BaseModel):
     start: int = Field(ge=0, lt=100000)
     end: int = Field(gt=0, le=100000)
     role: Literal["patient", "context"]
-    excerpt: Text
+    excerpt: Text | None
 
 
 class AssessmentCriterion(BaseModel):
@@ -47,22 +46,29 @@ class CaseAssessment(BaseModel):
     pathway: Literal["no_pa_required", "step_therapy", "swallowing", "feeding_tube"] | None
     blockers: tuple[RecordId, ...] = Field(max_length=16)
     policy_sha256: Digest | None
-    age_years: int | None = Field(ge=0, le=9998)
+    age_years: int | None = Field(ge=0, le=MAX_AGE_YEARS)
     next_action: Text | None
 
 
-def _public_evidence(row: Finding) -> tuple[Citation, ...]:
-    if row.criterion_id == "source_review":
-        return ()
-    citations = []
+def _public_criterion(row: Finding) -> AssessmentCriterion:
+    evidence = []
     for cite in row.evidence[:64]:
-        line = cite.excerpt.strip()
-        if row.criterion_id in DRUGS and line.count(":") > 1:
-            # Keep a verifiable outcome span. Free-text reasons can contain private dates.
-            line = line[: line.index(":", line.index(":") + 1)]
-        start = cite.start + len(cite.excerpt) - len(cite.excerpt.lstrip())
-        citations.append(replace(cite, start=start, end=start + len(line), excerpt=line))
-    return tuple(citations)
+        fields = asdict(cite)
+        if row.criterion_id == "source_review":
+            fields["excerpt"] = None
+        else:
+            # Only surrounding whitespace falls outside the recognized statement.
+            line = cite.excerpt.strip()
+            fields["start"] += len(cite.excerpt) - len(cite.excerpt.lstrip())
+            fields.update(end=fields["start"] + len(line), excerpt=line)
+        evidence.append(AssessmentCitation.model_validate(fields))
+    return AssessmentCriterion(
+        criterion_id=row.criterion_id,
+        requirement=row.requirement,
+        status=row.status,
+        next_action=row.next_action,
+        evidence=tuple(evidence),
+    )
 
 
 def public_assessment(case: CaseRecord, reader: SourceReader) -> CaseAssessment:
@@ -89,8 +95,15 @@ def public_assessment(case: CaseRecord, reader: SourceReader) -> CaseAssessment:
             dob=inputs.dob,
             service_date=inputs.service_date,
         )
-    result = replace(
-        result,
-        findings=tuple(replace(row, evidence=_public_evidence(row)) for row in result.findings),
+    return CaseAssessment.model_validate(
+        {
+            "revision": result.revision,
+            "findings": tuple(map(_public_criterion, result.findings)),
+            "ready": result.ready,
+            "pathway": result.pathway,
+            "blockers": result.blockers,
+            "policy_sha256": result.policy_sha256,
+            "age_years": result.age_years,
+            "next_action": result.next_action,
+        }
     )
-    return CaseAssessment.model_validate(result, from_attributes=True)
