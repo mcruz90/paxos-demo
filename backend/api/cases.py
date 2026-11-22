@@ -4,7 +4,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
+from api.assessment import CaseAssessment, assessment_reader, public_assessment
 from api.case_dependencies import case_errors, case_service
+from cases.assessment_sources import SourceReader
 from models.schemas import (
     CaseCreateRequest,
     CaseEventRecord,
@@ -36,3 +38,15 @@ def read_case_events(
 ) -> tuple[CaseEventRecord, ...]:
     with case_errors():
         return service.events(patient_ref, case_id)
+
+
+@router.get("/{case_id}/assessment")
+def read_case_assessment(
+    patient_ref: PatientRef,
+    case_id: PersistentCaseId,
+    service: Service,
+    reader: Annotated[SourceReader, Depends(assessment_reader)],
+) -> CaseAssessment:
+    with case_errors():
+        case = service.read(patient_ref, case_id)
+        return public_assessment(case, reader)

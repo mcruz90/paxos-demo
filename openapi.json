@@ -123,6 +123,114 @@
         "title": "AppealRequest",
         "type": "object"
       },
+      "AssessmentCitation": {
+        "properties": {
+          "end": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 100000.0,
+            "title": "End",
+            "type": "integer"
+          },
+          "excerpt": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "patient",
+              "context"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "source_version_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "title": "Source Version Id",
+            "type": "string"
+          },
+          "start": {
+            "exclusiveMaximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_version_id",
+          "source_sha256",
+          "start",
+          "end",
+          "role",
+          "excerpt"
+        ],
+        "title": "AssessmentCitation",
+        "type": "object"
+      },
+      "AssessmentCriterion": {
+        "properties": {
+          "criterion_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "title": "Criterion Id",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/AssessmentCitation"
+            },
+            "maxItems": 64,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "next_action": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Action"
+          },
+          "requirement": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Requirement",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "met",
+              "missing",
+              "conflict"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "criterion_id",
+          "requirement",
+          "status",
+          "next_action",
+          "evidence"
+        ],
+        "title": "AssessmentCriterion",
+        "type": "object"
+      },
       "AuditProvenance": {
         "description": "What the outbound artifact was when it left the system (S2 Slice 4).\n\nAI-accountability provenance (CLAUDE.md \u00a7AI Output Accountability): the\naudit trail must record what was actually verified before an artifact\nreached a payer, not just that a pipeline ran. `as_is` = machine output,\nno human in the loop (all pipeline-boundary writes); `gatekeeper_corrected`\narrives with the S4 blocking claim\u2192citation gatekeeper; the HITL resume\nflow stamps `human_approved` when a reviewer cleared the draft unchanged\n(a decision, not an edit \u2014 May's ruling 2026-07-18, ADR-0009 amendment)\nand `human_edited` only when the letter text actually changed.",
         "enum": [
@@ -299,6 +407,105 @@
           "records"
         ],
         "title": "AuditRecordsResponse",
+        "type": "object"
+      },
+      "CaseAssessment": {
+        "properties": {
+          "age_years": {
+            "anyOf": [
+              {
+                "maximum": 9998.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Years"
+          },
+          "blockers": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Blockers",
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/AssessmentCriterion"
+            },
+            "maxItems": 16,
+            "title": "Findings",
+            "type": "array"
+          },
+          "next_action": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Action"
+          },
+          "pathway": {
+            "anyOf": [
+              {
+                "enum": [
+                  "no_pa_required",
+                  "step_therapy",
+                  "swallowing",
+                  "feeding_tube"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pathway"
+          },
+          "policy_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Sha256"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision",
+          "findings",
+          "ready",
+          "pathway",
+          "blockers",
+          "policy_sha256",
+          "age_years",
+          "next_action"
+        ],
+        "title": "CaseAssessment",
         "type": "object"
       },
       "CaseCreateRequest": {
@@ -1479,6 +1686,62 @@
           }
         },
         "summary": "Read Case",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/patients/{patient_ref}/cases/{case_id}/assessment": {
+      "get": {
+        "operationId": "read_case_assessment_api_patients__patient_ref__cases__case_id__assessment_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_ref",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9\\-]+$",
+              "title": "Patient Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseAssessment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Case Assessment",
         "tags": [
           "cases"
         ]

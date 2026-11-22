@@ -14,24 +14,31 @@ from cases.assessment_records import Citation, Finding
 from models.case_evidence import CaseRecord, SourceVersion
 
 DRUGS = ("omeprazole", "pantoprazole", "rabeprazole")
-LABELS = {
+ACTIONS = {
     "diagnosis": "Document an indication compatible with the pediatric GERD policy.",
-    "age": "Age at request determines automatic processing below age six.",
+    "age": "Confirm the patient's age on the claim date of service.",
     **{
         d: f"Document the reason for {d} failure, contraindication, or intolerance"
         + (" for a prescription formulation." if d == "omeprazole" else ".")
         for d in DRUGS
     },
-    "swallowing": "Unable to swallow whole tablets or capsules due to age, oral/motor difficulty, or dysphagia.",
-    "feeding_tube": "Medications administered via feeding tube.",
+    "swallowing": "Obtain a patient-specific swallowing evaluation addressing whole tablets or capsules.",
+    "feeding_tube": "Obtain the chart record documenting medication administration via feeding tube.",
     "attestation": "Obtain the requested prescriber attestation for swallowing limitation.",
     "source_review": "Review chart statements outside the supported observation format.",
 }
-ACTIONS = {
-    **LABELS,
-    "age": "Confirm the patient's age on the request date.",
-    "swallowing": "Obtain a patient-specific swallowing evaluation addressing whole tablets or capsules.",
-    "feeding_tube": "Obtain the chart record documenting medication administration via feeding tube.",
+LABELS = {
+    "diagnosis": "Diagnosis compatible with the pediatric GERD policy.",
+    "age": "Patient age on the claim date of service.",
+    **{
+        d: f"Documented failure, contraindication, or intolerance to {d} with a stated reason."
+        for d in DRUGS
+    },
+    "omeprazole": "Documented failure, contraindication, or intolerance to prescription omeprazole with a stated reason.",
+    "swallowing": "Inability to swallow whole tablets or capsules.",
+    "feeding_tube": "Medication administration via feeding tube.",
+    "attestation": "Signed prescriber attestation for the reported swallowing limitation.",
+    "source_review": "Clinical review of unrecognized chart statements.",
 }
 AGE = re.compile(r"age at request: (\d{1,3}) years?\.")
 TRIAL = re.compile(
@@ -57,7 +64,7 @@ STATEMENTS = {
 def classify(line: str) -> tuple[tuple[str, str], ...]:
     text = line.strip().casefold()
     age = AGE.fullmatch(text)
-    if age and int(age[1]) <= 125:
+    if age:
         return (("age", str(int(age[1]))),)
     trial = TRIAL.fullmatch(line.strip())
     if trial:

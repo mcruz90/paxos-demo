@@ -50,6 +50,8 @@ class Assessment:
     blockers: tuple[str, ...]
     next_action: str | None
 
+    age_years: int | None = None
+
     @property
     def revision(self) -> int:
         return self.case.revision

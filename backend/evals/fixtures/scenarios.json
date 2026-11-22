@@ -117,7 +117,7 @@
           "rule_type": "diagnostic",
           "ground_truth_status": "found",
           "confidence": 0.99,
-          "evidence_summary": "DOB 09/22/2017; age 7 at time of request; step therapy criteria applicable",
+          "evidence_summary": "DOB 01/15/2019; age 7 on the claim date of service 05/14/2026; step therapy criteria applicable",
           "grounding": {
             "doc_ref": "clinical_01_age_6_or_older.txt",
             "section": "Finding"

@@ -32,6 +32,11 @@
     "esomeprazole_uhc_pediatric": {
       "anchor_id": "esomeprazole_uhc_pediatric",
       "drug_key": "esomeprazole",
+      "auto_process": {
+        "under_years": 6,
+        "source": "golden/policies/_raw/esomeprazole_uhc_pediatric.txt",
+        "quote": "will process automatically for patients under the age of 6"
+      },
       "drug_aliases": [
         "Nexium for Oral Suspension (esomeprazole)",
         "Nexium for Oral Suspension",
