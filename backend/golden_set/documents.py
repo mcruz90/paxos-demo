@@ -15,7 +15,7 @@ from golden_set.templates import (
     DENIAL_LETTER,
     RX_SNIPPET,
     SNIPPET_CONFLICT,
-    SNIPPET_MET,
+    SNIPPET_FINDING,
     SNIPPET_NEEDS_REVIEW,
     criteria_denial_line,
     render_criteria_section,
@@ -123,8 +123,9 @@ def _render_snippet(crit: CriterionSpec, ident: PatientIdentity, date: str) -> s
         "member_id": ident.member_id,
         "label": crit.label,
     }
-    if crit.status == "met":
-        return SNIPPET_MET.format_map({**common, "evidence": crit.evidence})
+    if crit.status in ("met", "not_required"):
+        status = "CONFIRMED" if crit.status == "met" else "NOT REQUIRED"
+        return SNIPPET_FINDING.format_map({**common, "status": status, "evidence": crit.evidence})
     if crit.status == "needs_review":
         return SNIPPET_NEEDS_REVIEW.format_map({**common, "review_note": crit.review_note})
     # conflict

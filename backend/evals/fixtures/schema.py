@@ -95,7 +95,7 @@ class ScenarioCriterion(BaseModel):
     key: str
     label: str
     rule_type: RuleType
-    ground_truth_status: CriterionStatus
+    ground_truth_status: CriterionStatus | Literal["not_required"]
     evidence_summary: str = ""
     # S3 Slice 1: ground-truth confidence (0-1) that the finding is correct
     # and complete enough to act on without human input. Required — a labeled

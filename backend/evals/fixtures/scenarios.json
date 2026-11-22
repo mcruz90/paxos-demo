@@ -129,9 +129,9 @@
           "key": "ppi_step_therapy",
           "label": "Documented failure of omeprazole, pantoprazole, and rabeprazole",
           "rule_type": "temporal",
-          "ground_truth_status": "needs_review",
-          "confidence": 0.78,
-          "evidence_summary": "No tablet trials documented for omeprazole, pantoprazole or rabeprazole. The prescriber requested liquid from the start on pathway B.",
+          "ground_truth_status": "not_required",
+          "confidence": 0.98,
+          "evidence_summary": "No tablet trials documented for omeprazole, pantoprazole or rabeprazole. The documented swallowing limitation satisfies the policy's ONE of the following requirement.",
           "grounding": {
             "doc_ref": "clinical_02_ppi_step_therapy.txt",
             "section": "Finding"

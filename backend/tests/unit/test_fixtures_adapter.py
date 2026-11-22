@@ -11,6 +11,7 @@ Validates:
 Run from backend/:
     uv run pytest tests/unit/test_fixtures_adapter.py -v
 """
+
 from __future__ import annotations
 
 import pytest
@@ -26,6 +27,7 @@ from models.schemas import AppealRequest, CriterionStatus, ScenarioConfig
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _get(scenario_id: str) -> EvalScenario:
     fixture = load_scenarios_fixture()
@@ -128,7 +130,8 @@ def test_ozempic_appeal_request_criterion_status_preserved() -> None:
     """ground_truth_status values must round-trip through the adapter."""
     scenario = _get("ozempic_cigna_clinical_pa")
     req = eval_scenario_to_appeal_request(scenario)
-    for adapted, golden in zip(req.criteria_results, scenario.criteria):
+    applicable = [c for c in scenario.criteria if c.ground_truth_status != "not_required"]
+    for adapted, golden in zip(req.criteria_results, applicable, strict=True):
         assert adapted.status == CriterionStatus(golden.ground_truth_status)
 
 
@@ -175,6 +178,7 @@ def test_coding_error_scenario_config_has_empty_criteria() -> None:
 def test_livdelzi_criteria_rule_types_preserved() -> None:
     """All 7 RuleType values that appear in golden criteria must survive the adapter."""
     from models.schemas import RuleType
+
     scenario = _get("livdelzi_cigna_hepatology_clinical_pa")
     req = eval_scenario_to_appeal_request(scenario)
     adapted_types = {cr.rule.type for cr in req.criteria_results}
@@ -212,7 +216,8 @@ def test_appeal_request_criterion_confidence_round_trips(scenario_id: str) -> No
     assessed' and mis-tiers the case."""
     scenario = _get(scenario_id)
     req = eval_scenario_to_appeal_request(scenario)
-    for adapted, golden in zip(req.criteria_results, scenario.criteria):
+    applicable = [c for c in scenario.criteria if c.ground_truth_status != "not_required"]
+    for adapted, golden in zip(req.criteria_results, applicable, strict=True):
         assert adapted.confidence == golden.confidence
 
 
@@ -222,7 +227,8 @@ def test_initial_pa_request_criterion_confidence_round_trips(scenario_id: str) -
 
     scenario = _get(scenario_id)
     req = eval_scenario_to_initial_pa_request(scenario)
-    for adapted, golden in zip(req.criteria_results, scenario.criteria):
+    applicable = [c for c in scenario.criteria if c.ground_truth_status != "not_required"]
+    for adapted, golden in zip(req.criteria_results, applicable, strict=True):
         assert adapted.confidence == golden.confidence
 
 

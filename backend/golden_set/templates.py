@@ -61,8 +61,8 @@ Contact Member Services at the number on the back of your insurance card.
 # Clinical snippet templates — one per criterion, per status
 # ---------------------------------------------------------------------------
 
-# "met" — criterion is satisfied in the clinical record
-SNIPPET_MET = """\
+# A documented finding can establish satisfaction or explain why a criterion is optional.
+SNIPPET_FINDING = """\
 {banner}
 
 CLINICAL PROGRESS NOTE
@@ -71,7 +71,7 @@ Provider: {prescriber_name} ({prescriber_specialty})
 Patient: {patient_name} | DOB: {patient_dob} | Member ID: {member_id}
 
 Criterion: {label}
-Status: CONFIRMED
+Status: {status}
 Finding: {evidence}
 
 {banner}"""

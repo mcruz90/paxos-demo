@@ -11,6 +11,7 @@ Validates:
 Run from backend/:
     uv run pytest tests/unit/test_scenarios_fixture.py -v
 """
+
 from __future__ import annotations
 
 import json
@@ -21,9 +22,7 @@ import pytest
 from evals.fixtures.schema import ScenariosFixture, load_scenarios_fixture
 from models.schemas import CriterionStatus
 
-_FIXTURE_PATH = (
-    Path(__file__).parent.parent.parent / "evals" / "fixtures" / "scenarios.json"
-)
+_FIXTURE_PATH = Path(__file__).parent.parent.parent / "evals" / "fixtures" / "scenarios.json"
 
 _REQUIRED_SCENARIO_IDS = {
     "ozempic_cigna_clinical_pa",
@@ -118,14 +117,13 @@ def test_clinical_pa_has_criteria(scenario_id: str) -> None:
 
 @pytest.mark.parametrize("scenario_id", sorted(_CLINICAL_PA_IDS))
 def test_clinical_pa_criteria_ground_truth_status_is_valid(scenario_id: str) -> None:
-    """Every criterion ground_truth_status must match CriterionStatus enum values."""
+    """Every criterion ground_truth_status must use the eval gold vocabulary."""
     fixture = load_scenarios_fixture()
     scenario = next(s for s in fixture.scenarios if s.scenario_id == scenario_id)
-    valid_statuses = {s.value for s in CriterionStatus}
+    valid_statuses = {s.value for s in CriterionStatus} | {"not_required"}
     for crit in scenario.criteria:
         assert crit.ground_truth_status in valid_statuses, (
-            f"{scenario_id} criterion {crit.key!r}: "
-            f"invalid status {crit.ground_truth_status!r}"
+            f"{scenario_id} criterion {crit.key!r}: invalid status {crit.ground_truth_status!r}"
         )
 
 
@@ -145,19 +143,17 @@ def test_clinical_pa_criteria_have_confidence_labels(scenario_id: str) -> None:
             f"{scenario_id} criterion {crit.key!r}: missing confidence label"
         )
         assert 0.0 <= crit.confidence <= 1.0, (
-            f"{scenario_id} criterion {crit.key!r}: "
-            f"confidence {crit.confidence} outside [0, 1]"
+            f"{scenario_id} criterion {crit.key!r}: confidence {crit.confidence} outside [0, 1]"
         )
 
 
 @pytest.mark.parametrize("scenario_id", sorted(_CLINICAL_PA_IDS))
-def test_clinical_pa_has_at_least_one_needs_review_or_conflict(scenario_id: str) -> None:
-    """clinical_pa scenarios must have ≥1 criterion that is not 'found' — that is the denial basis."""
+def test_clinical_pa_has_a_documented_determination_or_blocking_criterion(scenario_id: str) -> None:
+    """A partial approval can limit duration despite meeting the applicable criteria."""
     fixture = load_scenarios_fixture()
     scenario = next(s for s in fixture.scenarios if s.scenario_id == scenario_id)
-    non_found = [c for c in scenario.criteria if c.ground_truth_status != CriterionStatus.found]
-    assert non_found, (
-        f"{scenario_id}: all criteria are 'found' — no denial basis present"
+    assert scenario.determination_summary or any(
+        c.ground_truth_status in {"needs_review", "conflict"} for c in scenario.criteria
     )
 
 
@@ -198,9 +194,7 @@ def test_coding_error_has_discrepancy_signals(scenario_id: str) -> None:
     """coding_error scenarios must have at least one discrepancy_signal."""
     fixture = load_scenarios_fixture()
     scenario = next(s for s in fixture.scenarios if s.scenario_id == scenario_id)
-    assert scenario.discrepancy_signals, (
-        f"{scenario_id}: discrepancy_signals list is empty"
-    )
+    assert scenario.discrepancy_signals, f"{scenario_id}: discrepancy_signals list is empty"
 
 
 @pytest.mark.parametrize("scenario_id", sorted(_CODING_ERROR_IDS))
@@ -257,8 +251,7 @@ def test_all_discrepancy_signals_have_source_ref() -> None:
     for scenario in fixture.scenarios:
         for sig in scenario.discrepancy_signals:
             assert sig.source_ref, (
-                f"scenario={scenario.scenario_id!r} signal={sig.signal_id!r}: "
-                "source_ref is empty"
+                f"scenario={scenario.scenario_id!r} signal={sig.signal_id!r}: source_ref is empty"
             )
 
 

@@ -1,7 +1,7 @@
 """Anchor seeds and scenario profiles for the three golden-set anchors.
 
 AnchorSeed: the drug × plan × payer identity for one denial scenario.
-CriterionSpec: one PA criterion with its status (met / needs_review / conflict)
+CriterionSpec: one PA criterion with its status (met / needs_review / conflict / not_required)
                and the anchor-specific evidence text or conflict claims.
 ScenarioProfile: the ordered set of criteria for one anchor.
 
@@ -11,6 +11,7 @@ SEEDS and PROFILES are keyed by anchor_id.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 
 @dataclass(frozen=True)
@@ -34,8 +35,8 @@ class CriterionSpec:
     key: str
     label: str
     rule_type: str  # "diagnostic" | "temporal" | "math" | "safety" | "provider" | "custom"
-    status: str  # "met" | "needs_review" | "conflict"
-    # For "met" criteria — what evidence was documented
+    status: Literal["met", "needs_review", "conflict", "not_required"]
+    # For "met" or "not_required" criteria — what evidence was documented
     evidence: str = field(default="")
     # For "needs_review" criteria — what is missing or incomplete
     review_note: str = field(default="")
@@ -179,10 +180,10 @@ PROFILES: dict[str, ScenarioProfile] = {
                 key="ppi_step_therapy",
                 label="Documented failure of omeprazole, pantoprazole, and rabeprazole",
                 rule_type="temporal",
-                status="needs_review",
-                review_note=(
+                status="not_required",
+                evidence=(
                     "No tablet trials documented for omeprazole, pantoprazole or rabeprazole. "
-                    "The prescriber requested liquid from the start on pathway B."
+                    "The documented swallowing limitation satisfies the policy's ONE of the following requirement."
                 ),
             ),
             CriterionSpec(
