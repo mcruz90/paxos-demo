@@ -39,6 +39,8 @@ def assess(*documents, **overrides):
         drug="Nexium oral suspension",
         diagnosis="K21.0",
         as_of=date(2026, 8, 1),
+        dob=date(2017, 8, 1),
+        service_date=date(2026, 8, 1),
     )
     return assess_case(CASE, documents, **(request | overrides))
 
@@ -102,10 +104,55 @@ def test_step_path_requires_documented_outcome_for_every_agent():
 
 
 def test_age_and_under_six_auto_process():
-    assert not assess(source(TUBE)).ready
-    result = assess(source("Age at request: 5 years.\nDiagnosis: K21.0."))
-    assert result.ready is False and result.pathway == "no_pa_required"
-    assert not assess(source(AGE + "\nAge at request: 5 years.\n" + TUBE)).ready
+    from cases.assessment import assess_case
+
+    missing = assess_case(
+        CASE,
+        [source(AGE + "\n" + TUBE)],
+        plan_id="UHC-CHOICE-2024",
+        drug="Nexium oral suspension",
+        diagnosis="K21.0",
+        as_of=date(2026, 8, 1),
+    )
+    assert by_id(missing)["age"].status == "missing"
+    assert not missing.ready
+
+
+@pytest.mark.parametrize(
+    ("day", "years", "path"),
+    [
+        (date(2025, 10, 14), 5, "no_pa_required"),
+        (date(2025, 10, 15), 6, "feeding_tube"),
+        (date(2026, 10, 15), 7, "feeding_tube"),
+    ],
+)
+def test_age_boundary(day, years, path):
+    result = assess(source("Diagnosis: K21.0.\n" + TUBE), dob=date(2019, 10, 15), service_date=day)
+    assert (result.age_years, result.pathway) == (years, path)
+
+
+def test_under_threshold_overrides_unrelated_conflicts():
+    result = assess(source(SWALLOW + "\n" + CRUSHED), dob=date(2021, 8, 1))
+    assert not result.ready and not result.blockers and result.pathway == "no_pa_required"
+    assert (
+        result.next_action
+        == "Ask the payer to reprocess the claim under the pediatric auto-process rule."
+    )
+
+
+@pytest.mark.parametrize(
+    ("dates", "status"),
+    [
+        ({"dob": date(2020, 1, 1)}, "conflict"),
+        ({"dob": date(2027, 1, 1)}, "conflict"),
+        ({"service_date": None}, "missing"),
+        ({"dob": None}, "missing"),
+    ],
+)
+def test_unverified_age_blocks_appeal(dates, status):
+    result = assess(source(AGE + "\n" + TUBE), **dates)
+    assert by_id(result)["age"].status == status and "age" in result.blockers
+    assert not result.ready and result.pathway is None
 
 
 @pytest.mark.parametrize("override", [{"drug": "unrelated"}, {"as_of": None}])
