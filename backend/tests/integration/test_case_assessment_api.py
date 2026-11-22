@@ -23,16 +23,16 @@ def test_bound_fixture_returns_only_its_case_and_revision(browser, monkeypatch):
     response = client.get(path + "/assessment")
     assert response.status_code == 200, response.text
     data = response.json()
-    assert data["age_years"] == 7 and set(data["blockers"]) == {
-        "swallowing",
-        "pantoprazole",
-        "rabeprazole",
-        "feeding_tube",
-    }
-    assert not data["ready"] and data["revision"] == case["revision"]
+    assert data["age_years"] == 7 and data["blockers"] == []
+    assert data["ready"] and data["revision"] == case["revision"]
+    assert data["pathway"] == "swallowing"
+    rows = {row["criterion_id"]: row for row in data["findings"]}
+    assert rows["swallowing"]["status"] == "met"
+    for drug in ("omeprazole", "pantoprazole", "rabeprazole"):
+        assert rows[drug]["status"] == "missing" and rows[drug]["next_action"]
     assert all(
         value not in response.text
-        for value in ("2019-01-15", "2026-05-14", "service_date", '"dob"')
+        for value in ("2019-01-15", "2026-10-23", "service_date", '"dob"')
     )
     inputs = reader.read(CaseRecord(**case))
     sources = {source.source_version_id: source for source in inputs.sources}
