@@ -3,7 +3,7 @@
 Stub payer determination — deterministic, evidence-based:
   - non-empty criteria evidence, all `found`      → approved
   - empty evidence or any `needs_review`          → pended (info request);
-    resolves after one bounded pend cycle (stub assumes docs were supplied)
+    remains pending until the evidence changes
   - any `conflict`                                → denied → AppealHandoff
 
 The handoff is a pointer (scenario + case_ref); launching the appeal stays a
@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from agents.nodes.crd_check import run_crd_check
 from agents.nodes.determination import (
-    MAX_PEND_CYCLES,
     derive_determination,
     make_appeal_handoff,
     run_determination,
@@ -77,22 +76,16 @@ def test_empty_evidence_is_pended_first_pass() -> None:
     assert outcome.decision is PaDecision.pended
 
 
-def test_pended_resolves_after_pend_cycle() -> None:
-    """Stub semantics: one pend cycle means the info request was answered —
-    re-determination approves (absent conflicts). Bounded by MAX_PEND_CYCLES
-    so the graph always terminates."""
-    outcome = derive_determination(
-        [_criterion(CriterionStatus.needs_review)],
-        pend_cycles=MAX_PEND_CYCLES,
-        submission_ref="PAS-abc123",
-    )
-    assert outcome.decision is PaDecision.approved
+def test_completed_cycle_alone_leaves_unresolved_evidence_pended() -> None:
+    for evidence in ([], [_criterion(CriterionStatus.needs_review)]):
+        outcome = derive_determination(evidence, pend_cycles=1, submission_ref="PAS-abc123")
+        assert outcome.decision is PaDecision.pended
 
 
 def test_conflict_evidence_is_denied_even_after_pend() -> None:
     outcome = derive_determination(
         [_criterion(CriterionStatus.conflict)],
-        pend_cycles=MAX_PEND_CYCLES,
+        pend_cycles=1,
         submission_ref="PAS-abc123",
     )
     assert outcome.decision is PaDecision.denied
@@ -139,12 +132,17 @@ def test_run_determination_denied_sets_handoff() -> None:
     assert updated["appeal_handoff"].case_ref == "PA-2026-0847"
 
 
-def test_run_determination_pended_increments_pend_cycles() -> None:
-    state = _submitted_state([_criterion(CriterionStatus.needs_review)])
-    updated = run_determination(state)
-    assert updated["outcome"] is not None
-    assert updated["outcome"].decision is PaDecision.pended
-    assert updated["pend_cycles"] == state["pend_cycles"] + 1
+def test_replaying_unresolved_determination_preserves_state() -> None:
+    for evidence in ([], [_criterion(CriterionStatus.needs_review)]):
+        state = _submitted_state(evidence)
+        first = run_determination(state)
+        assert first["outcome"] is not None
+        assert first["outcome"].decision is PaDecision.pended
+        second = run_determination(first)
+        assert second["outcome"] is not None
+        assert second["outcome"].decision is PaDecision.pended
+        assert second == first
+        assert first["pend_cycles"] == state["pend_cycles"]
 
 
 def test_run_determination_state_purity() -> None:
