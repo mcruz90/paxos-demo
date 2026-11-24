@@ -5,6 +5,7 @@ from datetime import date
 from hashlib import sha256
 from typing import Protocol
 
+from cases.duration_approval import DurationDecision, pediatric_duration_decision
 from golden_set.identities import get_identity
 from models.case_evidence import CaseRecord, SourceVersion
 from models.tenancy import SEEDED_TENANT_ID
@@ -19,6 +20,7 @@ class AssessmentInputs:
     dob: date | None
     service_date: date | None
     policy_date: date | None
+    duration_decision: DurationDecision | None = None
 
 
 class SourceReader(Protocol):
@@ -67,4 +69,5 @@ class PediatricFixtureReader:
             date.fromisoformat(identity.patient_dob),
             claim_date,
             claim_date,
+            pediatric_duration_decision(),
         )

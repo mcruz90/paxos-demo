@@ -461,3 +461,21 @@ All paths below extend `/api/patients/{patient_ref}/cases/{case_id}`. Each opera
 A blank query lists the bound fixture corpus. A nonblank query does case-insensitive substring matching across title, category and available text. An unbound case returns an empty result set. Use the result ID to select one item. For `full_text`, `[start, end)` indexes Unicode code points and `content_sha256` hashes the UTF-8 note. For `metadata_only`, the digest hashes the visible title and the span and excerpt are null.
 
 The client supplies a request ID of 1–128 letters, digits or characters from `._:-`. Repeating the same attach or remove returns the original response. Changing the target, operation or expected revision under the same ID yields 409. A new write against a stale revision also yields 409. An inaccessible case, query, result or attachment yields 404. Malformed bodies yield 422. Attaching or removing evidence preserves the assessment response. [ADR 0022](adr/0022-discovery-attachments.md)
+
+### Case assessment and partial approval
+
+`GET /api/patients/{patient_ref}/cases/{case_id}/assessment` reads the scoped
+case revision. For the bound pediatric anchor, `duration_approval` records the
+original request in milligrams per day and once-daily doses, both durations in
+days, and the dated determination with its source and excerpt. The payer's
+authorization period has its own quote and policy location. Initial-PA
+readiness and pathway continue to describe the original coverage criteria.
+
+The appeal history records the filing date, upheld date and peer-to-peer offer.
+Each fact points to its own field in the synthetic pediatric seed through
+`appeal_date_source`, `upheld_date_source` and `peer_to_peer_offered_source`.
+The top-level `next_action` addresses the remaining duration. With a documented
+fill, `supply_end_date` is the last covered day (fill day counts as day one).
+Without a documented fill, both fill and supply end dates are null and staff
+are asked to confirm the fill date. The label check is pending. Cases without
+an applicable finding return `duration_approval: null`.

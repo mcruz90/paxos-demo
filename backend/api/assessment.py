@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from cases.assessment import assess_case
 from cases.assessment_records import MAX_AGE_YEARS, Assessment, Finding
 from cases.assessment_sources import SourceReader
+from cases.duration_approval import DurationApproval
 from models.case_evidence import CaseRecord, Digest, RecordId, Revision
 
 
@@ -43,6 +44,7 @@ class CaseAssessment(BaseModel):
     pathway: Literal["no_pa_required", "step_therapy", "swallowing", "feeding_tube"] | None
     blockers: tuple[RecordId, ...] = Field(max_length=16)
     policy_sha256: Digest | None
+    duration_approval: DurationApproval | None = None
     age_years: int | None = Field(ge=0, le=MAX_AGE_YEARS)
     next_action: Text | None
 
@@ -91,6 +93,7 @@ def public_assessment(case: CaseRecord, reader: SourceReader) -> CaseAssessment:
             as_of=inputs.policy_date,
             dob=inputs.dob,
             service_date=inputs.service_date,
+            duration_decision=inputs.duration_decision,
         )
     return CaseAssessment.model_validate(
         {
@@ -101,6 +104,7 @@ def public_assessment(case: CaseRecord, reader: SourceReader) -> CaseAssessment:
             "blockers": result.blockers,
             "policy_sha256": result.policy_sha256,
             "age_years": result.age_years,
+            "duration_approval": result.duration_approval,
             "next_action": result.next_action,
         }
     )

@@ -11,7 +11,15 @@ SEEDS and PROFILES are keyed by anchor_id.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Literal
+
+
+@dataclass(frozen=True)
+class AppealHistory:
+    appeal_date: date
+    upheld_date: date
+    peer_to_peer_offered: bool
 
 
 @dataclass(frozen=True)
@@ -27,6 +35,7 @@ class AnchorSeed:
     partial_approval: bool = False
     prescription_date: str | None = None
     prescription_directions: str = ""
+    history: AppealHistory | None = None
     # Identity is resolved by anchor_id from golden/identities.json — no fragile index.
 
 
@@ -80,6 +89,11 @@ SEEDS: dict[str, AnchorSeed] = {
         partial_approval=True,
         prescription_date="2026-10-21",
         prescription_directions="20 mg once daily for 56 days",
+        history=AppealHistory(
+            appeal_date=date(2026, 11, 3),
+            upheld_date=date(2026, 11, 13),
+            peer_to_peer_offered=True,
+        ),
         icd_code="K21.0",
     ),
     "livdelzi_cigna_hepatology": AnchorSeed(

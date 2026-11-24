@@ -498,6 +498,16 @@
             "title": "Blockers",
             "type": "array"
           },
+          "duration_approval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DurationApproval"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "findings": {
             "items": {
               "$ref": "#/components/schemas/AssessmentCriterion"
@@ -1020,6 +1030,179 @@
           "ref"
         ],
         "title": "DoneEvent",
+        "type": "object"
+      },
+      "DurationApproval": {
+        "properties": {
+          "appeal_date": {
+            "format": "date",
+            "title": "Appeal Date",
+            "type": "string"
+          },
+          "appeal_date_source": {
+            "default": "backend/golden_set/seeds.py#SEEDS[esomeprazole_uhc_pediatric].history.appeal_date",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Appeal Date Source",
+            "type": "string"
+          },
+          "approved_days": {
+            "maximum": 366.0,
+            "minimum": 1.0,
+            "title": "Approved Days",
+            "type": "integer"
+          },
+          "determination_date": {
+            "format": "date",
+            "title": "Determination Date",
+            "type": "string"
+          },
+          "determination_excerpt": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Determination Excerpt",
+            "type": "string"
+          },
+          "determination_source": {
+            "default": "Pediatric anchor determination letter, DETERMINATION section",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Determination Source",
+            "type": "string"
+          },
+          "fill_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fill Date"
+          },
+          "fill_source": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fill Source"
+          },
+          "finding": {
+            "const": "Approved duration is shorter than requested.",
+            "default": "Approved duration is shorter than requested.",
+            "title": "Finding",
+            "type": "string"
+          },
+          "label_status": {
+            "const": "label check pending",
+            "default": "label check pending",
+            "title": "Label Status",
+            "type": "string"
+          },
+          "payer_requirement": {
+            "default": "Authorization will be issued for 12 months",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Payer Requirement",
+            "type": "string"
+          },
+          "peer_to_peer_offered": {
+            "title": "Peer To Peer Offered",
+            "type": "boolean"
+          },
+          "peer_to_peer_offered_source": {
+            "default": "backend/golden_set/seeds.py#SEEDS[esomeprazole_uhc_pediatric].history.peer_to_peer_offered",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Peer To Peer Offered Source",
+            "type": "string"
+          },
+          "policy_location": {
+            "default": "backend/golden/policies/_raw/esomeprazole_uhc_pediatric.txt:86",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Policy Location",
+            "type": "string"
+          },
+          "quantity_unit": {
+            "const": "once-daily doses",
+            "default": "once-daily doses",
+            "title": "Quantity Unit",
+            "type": "string"
+          },
+          "request_source": {
+            "default": "Pediatric anchor prescription, Directions",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Request Source",
+            "type": "string"
+          },
+          "requested_daily_mg": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000.0,
+            "title": "Requested Daily Mg",
+            "type": "integer"
+          },
+          "requested_days": {
+            "maximum": 366.0,
+            "minimum": 1.0,
+            "title": "Requested Days",
+            "type": "integer"
+          },
+          "requested_quantity": {
+            "maximum": 366.0,
+            "minimum": 1.0,
+            "title": "Requested Quantity",
+            "type": "integer"
+          },
+          "supply_end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supply End Date"
+          },
+          "upheld_date": {
+            "format": "date",
+            "title": "Upheld Date",
+            "type": "string"
+          },
+          "upheld_date_source": {
+            "default": "backend/golden_set/seeds.py#SEEDS[esomeprazole_uhc_pediatric].history.upheld_date",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Upheld Date Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requested_daily_mg",
+          "requested_days",
+          "requested_quantity",
+          "approved_days",
+          "determination_date",
+          "determination_excerpt",
+          "appeal_date",
+          "upheld_date",
+          "peer_to_peer_offered",
+          "fill_date",
+          "fill_source",
+          "supply_end_date"
+        ],
+        "title": "DurationApproval",
         "type": "object"
       },
       "ErrorEvent": {

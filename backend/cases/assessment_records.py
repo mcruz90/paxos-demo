@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
+from cases.duration_approval import DurationApproval
 from models.case_evidence import CaseRecord, SourceVersion
 
 MAX_AGE_YEARS = 125
@@ -53,6 +54,7 @@ class Assessment:
     next_action: str | None
 
     age_years: int | None = None
+    duration_approval: DurationApproval | None = None
 
     @property
     def revision(self) -> int:

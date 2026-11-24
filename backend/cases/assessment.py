@@ -7,11 +7,13 @@ not assessment inputs. No artifact, adjudication or case mutation occurs.
 
 import json
 from collections.abc import Iterable
+from dataclasses import replace
 from datetime import date
 from hashlib import sha256
 
 from agents.requirements_lookup import AutoProcessRule, resolve_pack
 from cases.assessment_records import MAX_AGE_YEARS, Assessment, Finding
+from cases.duration_approval import DurationDecision, duration_approval
 from cases.pediatric_findings import (
     DRUGS,
     LABELS,
@@ -140,6 +142,7 @@ def assess_case(
     as_of: date | None,
     dob: date | None = None,
     service_date: date | None = None,
+    duration_decision: DurationDecision | None = None,
 ) -> Assessment:
     """Derive findings for the pinned pediatric appeal. Other valid packs require review."""
     facts = observations(case, sources)
@@ -163,4 +166,9 @@ def assess_case(
             ("policy_review",),
             "Review the matched payer requirements with the case records.",
         )
-    return _pediatric(case, text, facts, dob, service_date, pack.auto_process.under_years)
+    result = _pediatric(case, text, facts, dob, service_date, pack.auto_process.under_years)
+    if duration_decision and result.ready:
+        approval = duration_approval(duration_decision)
+        if approval:
+            return replace(result, duration_approval=approval, next_action=approval.appeal_action())
+    return result
