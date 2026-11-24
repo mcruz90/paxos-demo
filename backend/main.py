@@ -36,6 +36,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from api.auth import router as auth_router
 from api.cases import router as cases_router
 from api.observations import router as observations_router
+from cases.assessment_sources import PediatricFixtureReader
 from models.schemas import (
     AppealRequest,
     InitialPaRequest,
@@ -74,6 +75,8 @@ app = FastAPI(
     version="0.1.0",
 )
 
+app.state.assessment_reader = PediatricFixtureReader(os.getenv("PEDIATRIC_FIXTURE_CASE_ID"))
+
 # The SSE routes return StreamingResponse, so their event shapes are invisible
 # to FastAPI's default schema generation. Register them explicitly so the
 # generated TypeScript wire types include typed SSE events (openapi_ext, ADR-0012).
@@ -109,22 +112,11 @@ app.include_router(cases_router)
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    """Authorize /api/* on EITHER Bearer key OR session cookie (ADR-0013).
+    """Authorize API requests before body validation (ADR-0013, ADR-0017).
 
-    Runs before body validation so a bad token gets 401, not 422. Resolves the
-    caller's identity onto ``request.state.session_user_id`` ("" for Bearer /
-    service callers) so a route can attribute an action without re-parsing auth.
-
-    - ``POST /api/auth/login`` is unauthenticated — the credential-issuing route.
-    - Bearer requests are exempt from CSRF (service/CI identity, no browser).
-    - Cookie-authenticated writes (non-GET) require an ``X-CSRF-Token`` header
-      matching the session's token (double-submit defense).
-
-    It also resolves the caller's :class:`TenancyScope` onto
-    ``request.state.tenancy_scope`` (ADR-0017): a Bearer/service caller is
-    platform-plane (sees all); a cookie session is scoped to its ``tenant_id``
-    claim; the pre-auth default is fail-closed (no tenant, no rows), so a read
-    path can never see rows without an explicitly resolved scope.
+    Login is public. Bearer callers have platform scope and are CSRF-exempt.
+    Cookie writes require the session's CSRF token. Routes receive the session
+    actor and tenant scope on request.state, with a fail-closed default.
     """
     if not request.url.path.startswith("/api/"):
         return await call_next(request)
@@ -146,7 +138,7 @@ async def auth_middleware(request: Request, call_next):
     # (a) Bearer path — unchanged, CSRF-exempt. Service calls are platform-plane.
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
-        token = auth_header[len("Bearer "):]
+        token = auth_header[len("Bearer ") :]
         secret = _get_secret_key()
         if not secret or not hmac.compare_digest(token, secret):
             return JSONResponse({"detail": "Invalid API key"}, status_code=401)
@@ -156,15 +148,11 @@ async def auth_middleware(request: Request, call_next):
     # (b) Session-cookie path — scoped to the session's tenant claim.
     session = get_session(request.cookies.get(COOKIE_NAME, ""))
     if session is None:
-        return JSONResponse(
-            {"detail": "Missing or invalid Authorization header"}, status_code=401
-        )
+        return JSONResponse({"detail": "Missing or invalid Authorization header"}, status_code=401)
     if request.method != "GET" and not hmac.compare_digest(
         request.headers.get(CSRF_HEADER, ""), session.csrf_token
     ):
-        return JSONResponse(
-            {"detail": "Missing or invalid CSRF token"}, status_code=403
-        )
+        return JSONResponse({"detail": "Missing or invalid CSRF token"}, status_code=403)
     request.state.session_user_id = session.user_id
     request.state.tenancy_scope = TenancyScope.for_tenant(session.tenant_id)
     return await call_next(request)
@@ -203,17 +191,18 @@ def _build_llm_backend() -> LLMBackend:
 
     if backend_name == "mock":
         from ml.mock_backend import MockLLMBackend
+
         return MockLLMBackend()
 
     if backend_name == "groq":
         # Lazy import so groq package errors only surface at runtime,
         # not on import (allows CI lint to run without GROQ_API_KEY).
         from ml.groq_backend import GroqBackend
+
         return GroqBackend(api_key=os.environ["GROQ_API_KEY"])
 
     raise ValueError(
-        f"Unknown LLM_BACKEND: {backend_name!r}. "
-        f"Available: {', '.join(_AVAILABLE_BACKENDS)}."
+        f"Unknown LLM_BACKEND: {backend_name!r}. Available: {', '.join(_AVAILABLE_BACKENDS)}."
     )
 
 

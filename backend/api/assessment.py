@@ -1,6 +1,5 @@
 """Bounded public view of a case assessment and its trusted source dependency."""
 
-import os
 from dataclasses import asdict
 from typing import Annotated, Literal
 
@@ -9,14 +8,12 @@ from pydantic import BaseModel, Field
 
 from cases.assessment import assess_case
 from cases.assessment_records import MAX_AGE_YEARS, Assessment, Finding
-from cases.assessment_sources import PediatricFixtureReader, SourceReader
+from cases.assessment_sources import SourceReader
 from models.case_evidence import CaseRecord, Digest, RecordId, Revision
 
 
 def assessment_reader(request: Request) -> SourceReader:
-    return getattr(request.app.state, "assessment_reader", None) or PediatricFixtureReader(
-        os.getenv("PEDIATRIC_FIXTURE_CASE_ID")
-    )
+    return request.app.state.assessment_reader
 
 
 Text = Annotated[str, Field(min_length=1, max_length=1024)]

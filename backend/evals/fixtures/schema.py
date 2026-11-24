@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from models.schemas import CriterionStatus, RuleType
 
@@ -144,6 +144,18 @@ class EvalScenario(BaseModel):
     eval_dimensions: list[EvalDimension] = []
     # Step 5: adversarial input text (redteam scenarios only)
     redteam_input_text: str | None = None
+
+    @model_validator(mode="after")
+    def validate_primary_argument(self) -> Self:
+        key = self.expected_outcome.primary_argument_key
+        if key is None:
+            return self
+        matches = [row for row in self.criteria if row.key == key]
+        if not matches:
+            raise ValueError(f"primary_argument_key {key!r} is unknown in {self.scenario_id}")
+        if any(row.ground_truth_status == "not_required" for row in matches):
+            raise ValueError(f"primary_argument_key {key!r} names a not_required criterion")
+        return self
 
 
 class ScenariosFixture(BaseModel):
