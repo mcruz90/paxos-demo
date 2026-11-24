@@ -92,7 +92,7 @@ def test_retrieval_resolves_by_plan_id_cigna_ozempic() -> None:
 
 
 def test_retrieval_resolves_by_plan_id_uhc_esomeprazole() -> None:
-    """plan_id UHC-CHOICE-2024 must resolve to the UHC PPI step-therapy pack."""
+    """plan_id UHC-CHOICE-2026 must resolve to the UHC PPI step-therapy pack."""
     req = AppealRequest(
         scenario_id="esomeprazole-uhc-pediatric-clinical-pa",
         drug="Nexium for Oral Suspension (esomeprazole)",
@@ -100,7 +100,7 @@ def test_retrieval_resolves_by_plan_id_uhc_esomeprazole() -> None:
         denial_text="Authorization denied.",
         denial_reason="step therapy not met",
         plan="UnitedHealthcare Choice Plus",
-        plan_id="UHC-CHOICE-2024",
+        plan_id="UHC-CHOICE-2026",
         criteria_results=[],
     )
     updated = run_retrieval(_state(req))

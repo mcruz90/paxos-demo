@@ -1,7 +1,7 @@
 """Anchor seeds and scenario profiles for the three golden-set anchors.
 
 AnchorSeed: the drug × plan × payer identity for one denial scenario.
-CriterionSpec: one PA criterion with its status (met / needs_review / conflict)
+CriterionSpec: one PA criterion with its status (met / needs_review / conflict / not_required)
                and the anchor-specific evidence text or conflict claims.
 ScenarioProfile: the ordered set of criteria for one anchor.
 
@@ -11,17 +11,31 @@ SEEDS and PROFILES are keyed by anchor_id.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
+from typing import Literal
+
+
+@dataclass(frozen=True)
+class AppealHistory:
+    appeal_date: date
+    upheld_date: date
+    peer_to_peer_offered: bool
 
 
 @dataclass(frozen=True)
 class AnchorSeed:
     anchor_id: str
-    drug: str           # Drug name — must be [A-Za-z\s\(\)]* (no digits) for ETL regex
+    drug: str  # Drug name — must be [A-Za-z\s\(\)]* (no digits) for ETL regex
     payer: str
     plan_id: str
-    diagnosis: str      # Human-readable, no digits (ETL _DIAGNOSIS_RE limitation)
+    diagnosis: str  # Human-readable, no digits (ETL _DIAGNOSIS_RE limitation)
     denial_reason: str  # No periods (ETL _DENIAL_REASON_RE stops at ".")
-    icd_code: str       # ICD-10 alphanumeric, e.g. "E11.9"
+    icd_code: str  # ICD-10 alphanumeric, e.g. "E11.9"
+    determination_date: str = "2024-03-14"
+    partial_approval: bool = False
+    prescription_date: str | None = None
+    prescription_directions: str = ""
+    history: AppealHistory | None = None
     # Identity is resolved by anchor_id from golden/identities.json — no fragile index.
 
 
@@ -29,9 +43,9 @@ class AnchorSeed:
 class CriterionSpec:
     key: str
     label: str
-    rule_type: str      # "diagnostic" | "temporal" | "math" | "safety" | "provider" | "custom"
-    status: str         # "met" | "needs_review" | "conflict"
-    # For "met" criteria — what evidence was documented
+    rule_type: str  # "diagnostic" | "temporal" | "math" | "safety" | "provider" | "custom"
+    status: Literal["met", "needs_review", "conflict", "not_required"]
+    # For "met" or "not_required" criteria — what evidence was documented
     evidence: str = field(default="")
     # For "needs_review" criteria — what is missing or incomplete
     review_note: str = field(default="")
@@ -68,11 +82,17 @@ SEEDS: dict[str, AnchorSeed] = {
         anchor_id="esomeprazole_uhc_pediatric",
         drug="Nexium for Oral Suspension (esomeprazole)",
         payer="UnitedHealthcare Choice Plus",
-        plan_id="UHC-CHOICE-2024",
+        plan_id="UHC-CHOICE-2026",
         diagnosis="Pediatric Gastroesophageal Reflux Disease with oral-motor dysphagia",
-        denial_reason=(
-            "step therapy requirements not met; "
-            "swallowing limitation documentation conflicts with clinical chart notes"
+        denial_reason="28 of 56 days approved at the prescribed 20 mg once daily",
+        determination_date="2026-10-28",
+        partial_approval=True,
+        prescription_date="2026-10-21",
+        prescription_directions="20 mg once daily for 56 days",
+        history=AppealHistory(
+            appeal_date=date(2026, 11, 3),
+            upheld_date=date(2026, 11, 13),
+            peer_to_peer_offered=True,
         ),
         icd_code="K21.0",
     ),
@@ -156,8 +176,8 @@ PROFILES: dict[str, ScenarioProfile] = {
                 rule_type="diagnostic",
                 status="met",
                 evidence=(
-                    "Upper GI endoscopy 11/15/2023: mild esophagitis (Los Angeles Grade A). "
-                    "ICD-10 K21.0 confirmed. pH impedance study pending."
+                    "2026-09-21: Diet and positioning measures started. Endoscopy on 2026-10-14 "
+                    "showed LA Grade B erosive esophagitis. GI confirmed K21.0 on 2026-10-21."
                 ),
             ),
             CriterionSpec(
@@ -166,35 +186,29 @@ PROFILES: dict[str, ScenarioProfile] = {
                 rule_type="diagnostic",
                 status="met",
                 evidence=(
-                    "Patient DOB 09/22/2017; age 7 at time of request (02/2025). "
-                    "UHC auto-process rule (no PA required under age 6) does NOT apply; "
-                    "step therapy criteria are applicable."
+                    "DOB 2019-01-15. Age 7 on the claim date of service 2026-10-23. PA "
+                    "requested that day on the swallowing-limitation pathway."
                 ),
             ),
             CriterionSpec(
                 key="ppi_step_therapy",
                 label="Documented failure of omeprazole, pantoprazole, and rabeprazole",
                 rule_type="temporal",
-                status="needs_review",
-                review_note=(
-                    "Chart documents omeprazole 10 mg daily x 8 weeks (failed — reflux "
-                    "symptoms persisted). Pantoprazole not documented. Rabeprazole not "
-                    "documented. UHC step therapy requires failure of all three agents; "
-                    "two of three agents are missing from the prior-treatment history."
+                status="not_required",
+                evidence=(
+                    "No tablet trials documented for omeprazole, pantoprazole or rabeprazole. "
+                    "The documented swallowing limitation satisfies the policy's ONE of the following requirement."
                 ),
             ),
             CriterionSpec(
                 key="swallowing_limitation",
                 label="Documented oral-motor dysphagia or swallowing limitation",
                 rule_type="custom",
-                status="conflict",
-                conflict_claim_1=(
-                    "Speech-language pathology report 12/02/2023: oral-motor dysphagia "
-                    "confirmed; patient unable to safely swallow tablets or capsules."
-                ),
-                conflict_claim_2=(
-                    "Office visit note 01/15/2024 (Dr. Ekwueme): 'Patient tolerating "
-                    "crushed omeprazole tablet mixed with food without difficulty.'"
+                status="met",
+                evidence=(
+                    "SLP on 2026-10-07 documented oral-motor dysphagia. Tablets and capsules "
+                    "are unsafe. GI on 2026-10-21 recorded weight 23 kg and prescribed Nexium "
+                    "suspension 20 mg once daily for 56 days."
                 ),
             ),
         ),

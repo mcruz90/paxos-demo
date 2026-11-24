@@ -1,10 +1,8 @@
 """agents/initial_pa_graph.py — LangGraph StateGraph for the initial-PA lifecycle.
 
-Runs the initial-PA flow per docs/architecture/05-state-lifecycle.md:
-    pa_ingestion → crd_check → [PA required?] → pa_assembly → pas_submit
-                        └─ no / unknown ──→ finalize  → determination ⟲ (pended,
-                                  (early exit;       bounded) → finalize
-                                   unknown = a person decides)
+When PA is required, assemble the request, submit it and determine once.
+An unresolved submission returns a pending outcome. A negative or unknown
+coverage requirement exits after the CRD check.
 
 Denied determinations carry an AppealHandoff pointer on the done event; the
 appeal is never auto-launched (human-gated). No LLM runs in this path.
@@ -41,7 +39,6 @@ from models.schemas import (
     InitialPaEvent,
     InitialPaRequest,
     InitialPaState,
-    PaDecision,
     StepEvent,
 )
 
@@ -110,15 +107,6 @@ def _after_crd_check(state: InitialPaState) -> str:
     return "finalize"
 
 
-def _after_determination(state: InitialPaState) -> str:
-    """Conditional edge: pended → re-enter determination (bounded by the
-    node's pend-cycle rule); approved/denied → finalize."""
-    outcome = state["outcome"]
-    if outcome is not None and outcome.decision is PaDecision.pended:
-        return "determination"
-    return "finalize"
-
-
 def _build_graph() -> StateGraph:
     graph: StateGraph = StateGraph(InitialPaState)
     graph.add_node("ingestion", _ingestion_node)
@@ -137,12 +125,7 @@ def _build_graph() -> StateGraph:
     )
     graph.add_edge("assemble", "pas_submit")
     graph.add_edge("pas_submit", "determination")
-    graph.add_conditional_edges(
-        "determination",
-        _after_determination,
-        # A pend re-enters determination only — it never re-submits the PA.
-        {"determination": "determination", "finalize": "finalize"},
-    )
+    graph.add_edge("determination", "finalize")
     graph.add_edge("finalize", END)
     return graph
 
@@ -163,13 +146,7 @@ async def run_initial_pa_pipeline(
     before the terminal event is yielded (idempotent on case + attempt —
     ADR-0009).
 
-    Args:
-        request: A fully-validated :class:`InitialPaRequest`. No LLM backend
-            parameter — this path never invokes a model.
-
-    Yields:
-        :class:`StepEvent`, :class:`InitialPaDoneEvent`, or
-        :class:`ErrorEvent` objects.
+    Yields step events followed by the terminal event for this request.
     """
     case_id = derive_case_id(request.case_ref, request.scenario_id)
     correlation_id = derive_correlation_id(case_id, request.attempt)

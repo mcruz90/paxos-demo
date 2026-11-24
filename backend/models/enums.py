@@ -84,9 +84,9 @@ class AuditProvenance(StrEnum):
 class PaDecision(StrEnum):
     """Payer determination decision on an initial-PA submission (S2 Slice 1).
 
-    The initial-PA lifecycle branches on this: approved ends the flow,
-    pended loops back to determination, denied hands off to the appeal
-    pipeline (05-state-lifecycle.md).
+    The submission finalizes after one determination. Unresolved evidence
+    stays pended on replay. A denial includes a pointer for a human to
+    start an appeal (05-state-lifecycle.md).
     """
 
     approved = "approved"

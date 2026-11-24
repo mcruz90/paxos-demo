@@ -426,7 +426,7 @@ export const scenarios: Record<string, ScenarioConfig> = {
     drug: 'Nexium (esomeprazole) 10mg for Oral Suspension',
     manufacturer: 'AstraZeneca',
     plan: 'UnitedHealthcare Choice Plus',
-    planId: 'UHC-CHOICE-2024',
+    planId: 'UHC-CHOICE-2026',
     categoryKey: 'gastroenterology',
     categoryLabel: 'Gastroenterology',
     diagnosis: 'Gastroesophageal Reflux Disease with Erosive Esophagitis — Pediatric (K21.0)',

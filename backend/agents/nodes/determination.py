@@ -3,14 +3,10 @@
 Node contract: (InitialPaState) -> InitialPaState
 Deterministic, evidence-based stub — no LLM, no network. A real payer
 determination arrives asynchronously on the rail; this stub derives it from
-the submitted evidence so the lifecycle's three branches (approved / pended
-loop / denied → appeal handoff) are exercised end-to-end:
+the submitted evidence:
 
   - non-empty evidence, all ``found``       → approved
-  - empty evidence or any ``needs_review``  → pended (info request); the
-    stub assumes the request is answered, so re-determination after one
-    pend cycle approves (bounded by MAX_PEND_CYCLES — the graph always
-    terminates)
+  - empty evidence or any ``needs_review``  → pended (info request)
   - any ``conflict``                        → denied → AppealHandoff
 
 The handoff is a pointer (scenario + case_ref) into the appeal lifecycle;
@@ -27,8 +23,6 @@ from models.schemas import (
     PaDecision,
     PaOutcome,
 )
-
-MAX_PEND_CYCLES = 1
 
 
 def derive_determination(
@@ -58,7 +52,7 @@ def derive_determination(
         )
 
     needs_more = not criteria_evidence or CriterionStatus.needs_review in statuses
-    if needs_more and pend_cycles < MAX_PEND_CYCLES:
+    if needs_more:
         return PaOutcome(
             decision=PaDecision.pended,
             determinationId=determination_id,
@@ -66,14 +60,11 @@ def derive_determination(
             note="Pended — payer requested additional documentation.",
         )
 
-    note = "Approved — submitted evidence satisfies the payer's criteria."
-    if pend_cycles:
-        note = "Approved — documentation supplied after pend satisfied the payer's criteria."
     return PaOutcome(
         decision=PaDecision.approved,
         determinationId=determination_id,
         timeToTherapy="3 business days (stub rail)",
-        note=note,
+        note="Approved — submitted evidence satisfies the payer's criteria.",
     )
 
 
@@ -97,8 +88,7 @@ def run_determination(state: InitialPaState) -> InitialPaState:
         state: Initial-PA state with ``submission`` and ``submission_ref`` set.
 
     Returns:
-        Updated state with ``outcome`` set; ``pend_cycles`` incremented when
-        pended; ``appeal_handoff`` set when denied. Input state is not mutated.
+        Updated state with the outcome and, for a denial, an appeal handoff.
     """
     submission = state["submission"]
     assert submission is not None  # pas_submit always runs before determination
@@ -108,8 +98,6 @@ def run_determination(state: InitialPaState) -> InitialPaState:
     )
 
     new_state: InitialPaState = {**state, "outcome": outcome}
-    if outcome.decision is PaDecision.pended:
-        new_state = {**new_state, "pend_cycles": state["pend_cycles"] + 1}
     if outcome.decision is PaDecision.denied:
         request = state["request"]
         new_state = {

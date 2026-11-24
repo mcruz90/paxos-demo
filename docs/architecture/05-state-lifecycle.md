@@ -60,10 +60,9 @@ stateDiagram-v2
         assemble --> pas_submit : transmit (PAS rail)
         pas_submit --> determination : paOutcome
         determination --> [*] : approved — patient on therapy
-        determination --> pended : payer pends
-        pended --> determination
+        determination --> [*] : pended — unresolved evidence
     }
-    initial_pa --> appeal : paOutcome denied — appealHandoff launches appeal scenario
+    initial_pa --> appeal : paOutcome denied — human starts appeal from appealHandoff
     state appeal {
         [*] --> generate : 4-node pipeline drafts appeal
         generate --> review : human review
@@ -160,21 +159,20 @@ stateDiagram-v2
     crd_check --> pa_assembly : PA required
     pa_assembly --> pas_submit : canonical PaSubmission → rail adapter
     pas_submit --> determination
-    determination --> determination : pended (bounded — never re-submits)
-    determination --> done_event : approved / denied (+ appealHandoff pointer)
+    determination --> done_event : approved, pended, or denied (denial includes appealHandoff)
     pa_ingestion --> error_event : unhandled exception (broad catch)
     crd_check --> error_event : unhandled exception (broad catch)
     done_event --> [*]
     error_event --> [*]
 ```
 
-**Stub determination semantics** (deterministic, evidence-based — a real
-determination arrives asynchronously on the rail): non-empty evidence all
-`found` → approved; empty or any `needs_review` → pended, resolving after
-one bounded pend cycle (`MAX_PEND_CYCLES = 1`, stub assumes the info request
-was answered); any `conflict` → denied → `AppealHandoff` pointer carrying
-`case_ref`. **The appeal is never auto-launched** — the handoff is a
-pointer; launching it is a separate human-gated request.
+**Stub determination semantics.** The current submission finalizes after one
+determination. Any `conflict` yields a denial with an `AppealHandoff` carrying
+`case_ref`. A person can use that pointer to start a separate appeal. Otherwise,
+empty evidence or any `needs_review` yields `pended`, and non-empty evidence
+with every criterion `found` yields `approved`. Replaying the same unresolved
+evidence leaves the PA pending. Advancing it requires new evidence or an
+explicit payer response. Payer-response handling is outside this submission flow.
 
 **Stub CRD semantics:** the pa_requirements registry stands in for the
 payer's CRD endpoint. A compatible policy yields a PA-required verdict. An

@@ -61,6 +61,10 @@ def test_create_replay_read_and_events_use_stored_actor(browser):
     assert client.post(ROOT, json=KEY).json() == case
     path = ROOT + "/" + case["case_id"]
     assert client.get(path).json() == case
+    assessment = client.get(path + "/assessment")
+    assert assessment.status_code == 200
+    assert assessment.json()["blockers"] == ["sources"]
+    assert assessment.json()["revision"] == case["revision"]
     events = client.get(path + "/events").json()
     assert len(events) == 1
     assert events[0]["actor_id"] == "staff-x"
@@ -107,6 +111,7 @@ def test_missing_or_revoked_grants_hide_case_and_events(browser, change):
             else:
                 conn.execute("UPDATE clearauth_case_principals SET active = false")
     assert client.get(path).status_code == 404
+    assert client.get(path + "/assessment").json() == client.get(path).json()
     assert client.get(path + "/events").status_code == 404
     create_path = ROOT.replace("PAT-X", "PAT-Y") if change == "patient" else ROOT
     assert client.post(create_path, json={"idempotency_key": "denied"}).status_code == 404
@@ -151,6 +156,7 @@ def test_authorized_second_patient_cannot_read_first_patient_case(browser):
         conn.execute("INSERT INTO clearauth_panel_patients VALUES ('tenant-x','group-x','PAT-Y')")
     path = ROOT.replace("PAT-X", "PAT-Y") + "/" + case["case_id"]
     assert client.get(path).status_code == 404
+    assert client.get(path + "/assessment").json() == client.get(path).json()
     assert client.get(path + "/events").status_code == 404
     # Authorization for both patients does not change creation-key identity.
     assert client.post(ROOT.replace("PAT-X", "PAT-Y"), json=KEY).status_code == 409

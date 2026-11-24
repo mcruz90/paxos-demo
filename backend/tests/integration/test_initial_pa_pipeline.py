@@ -162,9 +162,7 @@ def _criterion(status: CriterionStatus) -> CriterionResult:
 async def test_approved_path_runs_full_rail_flow() -> None:
     """All-found evidence → crd_check → assemble → pas_submit → determination
     → done(approved), with a PAS submission_ref from the stub rail."""
-    events = await _collect(
-        _ozempic_request(criteria_results=[_criterion(CriterionStatus.found)])
-    )
+    events = await _collect(_ozempic_request(criteria_results=[_criterion(CriterionStatus.found)]))
     step_names = [e.step for e in events if isinstance(e, StepEvent)]
     assert step_names == ["crd_check", "assemble", "pas_submit", "determination"]
 
@@ -177,21 +175,18 @@ async def test_approved_path_runs_full_rail_flow() -> None:
 
 
 @pytest.mark.asyncio
-async def test_pended_loop_re_runs_determination_then_resolves() -> None:
-    """needs_review evidence → payer pends → the loop re-enters determination
-    (bounded) and the stub resolves it — per the pended loop in
-    05-state-lifecycle.md."""
+async def test_unresolved_submission_finalizes_with_one_pending_determination() -> None:
     events = await _collect(
         _ozempic_request(criteria_results=[_criterion(CriterionStatus.needs_review)])
     )
     step_names = [e.step for e in events if isinstance(e, StepEvent)]
-    assert step_names.count("determination") == 2, f"steps: {step_names}"
+    assert step_names.count("determination") == 1, f"steps: {step_names}"
     assert step_names.count("pas_submit") == 1, "a pend must not re-submit the PA"
 
     done = events[-1]
     assert isinstance(done, InitialPaDoneEvent)
     assert done.outcome is not None
-    assert done.outcome.decision is PaDecision.approved
+    assert done.outcome.decision is PaDecision.pended
 
 
 # ---------------------------------------------------------------------------

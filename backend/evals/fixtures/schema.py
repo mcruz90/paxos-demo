@@ -3,13 +3,14 @@
 EvalScenario is the canonical labeled record for one PA denial case.
 Use load_scenarios_fixture() to load and validate the fixture file.
 """
+
 from __future__ import annotations
 
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from models.schemas import CriterionStatus, RuleType
 
@@ -46,9 +47,9 @@ class EvalDimension(StrEnum):
     snake_case to be valid Python identifiers. The mapping is 1-to-1.
     """
 
-    coverage = "coverage"          # coverage model accuracy, policy citations
-    structure = "structure"        # letter structure and formatting
-    safety = "safety"              # safety criteria (no concurrent GLP-1, etc.)
+    coverage = "coverage"  # coverage model accuracy, policy citations
+    structure = "structure"  # letter structure and formatting
+    safety = "safety"  # safety criteria (no concurrent GLP-1, etc.)
     claim_citation = "claim_citation"  # faithfulness: claim traceable to source document
     over_caution = "over_caution"  # refusal when appeal is clearly appropriate
 
@@ -94,7 +95,7 @@ class ScenarioCriterion(BaseModel):
     key: str
     label: str
     rule_type: RuleType
-    ground_truth_status: CriterionStatus
+    ground_truth_status: CriterionStatus | Literal["not_required"]
     evidence_summary: str = ""
     # S3 Slice 1: ground-truth confidence (0-1) that the finding is correct
     # and complete enough to act on without human input. Required — a labeled
@@ -124,6 +125,8 @@ class ExpectedOutcome(BaseModel):
 
 
 class EvalScenario(BaseModel):
+    determination_summary: str | None = None
+    appeal_history: str | None = None
     scenario_id: str
     anchor_id: str
     denial_type: Literal["clinical_pa", "coding_error", "administrative", "redteam"]
@@ -141,6 +144,18 @@ class EvalScenario(BaseModel):
     eval_dimensions: list[EvalDimension] = []
     # Step 5: adversarial input text (redteam scenarios only)
     redteam_input_text: str | None = None
+
+    @model_validator(mode="after")
+    def validate_primary_argument(self) -> Self:
+        key = self.expected_outcome.primary_argument_key
+        if key is None:
+            return self
+        matches = [row for row in self.criteria if row.key == key]
+        if not matches:
+            raise ValueError(f"primary_argument_key {key!r} is unknown in {self.scenario_id}")
+        if any(row.ground_truth_status == "not_required" for row in matches):
+            raise ValueError(f"primary_argument_key {key!r} names a not_required criterion")
+        return self
 
 
 class ScenariosFixture(BaseModel):

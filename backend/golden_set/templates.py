@@ -40,20 +40,18 @@ Specialty: {prescriber_specialty}
 Address: {prescriber_address}
 Phone: {prescriber_phone}
 
-RE: PRIOR AUTHORIZATION DENIAL
+RE: {subject}
 Drug: {drug}
 Diagnosis: {diagnosis}.
 ICD-10 Code: {icd_code}
 Plan: {payer} | Plan ID: {plan_id}
 
-DETERMINATION: DENIED
+DETERMINATION: {determination}
 
-Authorization for {drug} has been denied for the treatment of {diagnosis}.
+{decision_text}
 
-Denied: {denial_reason}.
+{decision_basis}
 
-CLINICAL BASIS FOR DENIAL:
-{criteria_section}
 You have the right to appeal this determination within 180 days of this notice.
 Contact Member Services at the number on the back of your insurance card.
 
@@ -63,8 +61,8 @@ Contact Member Services at the number on the back of your insurance card.
 # Clinical snippet templates — one per criterion, per status
 # ---------------------------------------------------------------------------
 
-# "met" — criterion is satisfied in the clinical record
-SNIPPET_MET = """\
+# A documented finding can establish satisfaction or explain why a criterion is optional.
+SNIPPET_FINDING = """\
 {banner}
 
 CLINICAL PROGRESS NOTE
@@ -73,7 +71,7 @@ Provider: {prescriber_name} ({prescriber_specialty})
 Patient: {patient_name} | DOB: {patient_dob} | Member ID: {member_id}
 
 Criterion: {label}
-Status: CONFIRMED
+Status: {status}
 Finding: {evidence}
 
 {banner}"""
@@ -127,7 +125,7 @@ Pharmacy: {payer} Specialty Pharmacy Network
 Patient: {patient_name} | Member ID: {member_id}
 Prescriber: {prescriber_name} | NPI: {prescriber_npi}
 
-Drug: {drug}
+Drug: {drug}{directions}
 Diagnosis: {diagnosis}
 ICD-10: {icd_code}
 Plan ID: {plan_id}

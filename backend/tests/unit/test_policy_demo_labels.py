@@ -37,7 +37,7 @@ _DEMO_REQUESTS = [
         id="livdelzi",
     ),
     pytest.param(
-        "UHC-CHOICE-2024",
+        "UHC-CHOICE-2026",
         "Nexium (esomeprazole) 10mg for Oral Suspension",
         "Gastroesophageal Reflux Disease with Erosive Esophagitis — Pediatric (K21.0)",
         "Nexium suspension",
@@ -78,8 +78,8 @@ _HOLDS = [
     ("CIGNA-CNF360-2024", "Wegovy (semaglutide) 0.5mg injection", "E11.9", "product_mismatch"),
     ("CIGNA-CNF360-2024", "semaglutide 0.5mg injection", "E11.9", "product_mismatch"),
     ("CIGNA-CNF360-2024", "Ozempic (tirzepatide) 0.5mg injection", "E11.9", "product_mismatch"),
-    ("UHC-CHOICE-2024", "Nexium (esomeprazole) 10mg capsule", "K21.0", "product_mismatch"),
-    ("UHC-CHOICE-2024", "Nexium (esomeprazole) 10mg", "K21.0", "product_mismatch"),
+    ("UHC-CHOICE-2026", "Nexium (esomeprazole) 10mg capsule", "K21.0", "product_mismatch"),
+    ("UHC-CHOICE-2026", "Nexium (esomeprazole) 10mg", "K21.0", "product_mismatch"),
     ("CIGNA-CNF360-2024", "Ozempic", "Type 2 Diabetes Mellitus (E10.9)", "indication_mismatch"),
     (
         "CIGNA-CNF360-2024",
@@ -88,7 +88,7 @@ _HOLDS = [
         "indication_mismatch",
     ),
     (
-        "UHC-CHOICE-2024",
+        "UHC-CHOICE-2026",
         "Nexium suspension",
         "GERD with erosive esophagitis (K21.9)",
         "indication_mismatch",

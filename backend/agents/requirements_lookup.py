@@ -23,10 +23,17 @@ _STRENGTH = re.compile(
 _PRODUCT_WITH_INGREDIENT = re.compile(r"([^()]+) \(([^()]+)\)(.*)")
 
 
+class AutoProcessRule(BaseModel):
+    under_years: int = Field(strict=True, ge=1, le=125)
+    source: str = Field(min_length=1)
+    quote: str = Field(min_length=1)
+
+
 class _PaPack(BaseModel):
     plan_id: str
     criteria_text: str = Field(min_length=1)
     drug_aliases: list[str] = Field(min_length=1)
+    auto_process: AutoProcessRule | None = None
     indications: list[str] = Field(min_length=1)
     icd10_codes: list[str] = Field(default_factory=list)
     icd10_categories: list[str] = Field(default_factory=list)
@@ -101,14 +108,14 @@ def _hold(reason: str, next_action: str) -> tuple[str, PaResolution]:
     return f"Policy hold ({reason}). {next_action}", "generic"
 
 
-def resolve_requirements(
+def resolve_pack(
     plan_id: str,
     drug: str,
     *,
     diagnosis: str = "",
     as_of: date | None = None,
-) -> tuple[str, PaResolution]:
-    """Return payer criteria for one compatible policy, or a named hold and next action.
+) -> tuple[_PaPack | str, PaResolution]:
+    """Return the matched policy pack, or a named hold and next action.
 
     The second tuple item distinguishes criteria ("plan_id") from the hold message
     ("generic"). Products match a whole label after strength and order
@@ -137,4 +144,11 @@ def resolve_requirements(
     if len(candidates) > 1:
         return _hold("ambiguous_policy", "Verify the applicable policy version with the payer.")
 
-    return candidates[0].criteria_text, "plan_id"
+    return candidates[0], "plan_id"
+
+
+def resolve_requirements(
+    plan_id: str, drug: str, *, diagnosis: str = "", as_of: date | None = None
+) -> tuple[str, PaResolution]:
+    pack, resolution = resolve_pack(plan_id, drug, diagnosis=diagnosis, as_of=as_of)
+    return (pack if isinstance(pack, str) else pack.criteria_text), resolution

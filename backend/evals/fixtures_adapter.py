@@ -45,11 +45,11 @@ class FixturesAdapterError(ValueError):
 @dataclass(frozen=True)
 class _AnchorMeta:
     manufacturer: str
-    config_file: str   # frontend configFile key, e.g. "ozempic_cigna_base.json"
-    drug_key: str      # short drug key for retrieval lookup
+    config_file: str  # frontend configFile key, e.g. "ozempic_cigna_base.json"
+    drug_key: str  # short drug key for retrieval lookup
     category_key: str
     category_label: str
-    diagnosis: str     # canonical clinical diagnosis string (matches MOCK_APPEAL_TEXT / ETL output)
+    diagnosis: str  # canonical clinical diagnosis string (matches MOCK_APPEAL_TEXT / ETL output)
 
 
 _ANCHOR_META: dict[str, _AnchorMeta] = {
@@ -125,8 +125,18 @@ def _criterion_to_result(c: ScenarioCriterion) -> CriterionResult:
     )
 
 
+def _applicable_results(scenario: EvalScenario) -> list[CriterionResult]:
+    return [
+        _criterion_to_result(c)
+        for c in scenario.criteria
+        if c.ground_truth_status != "not_required"
+    ]
+
+
 def _derive_denial_reason(scenario: EvalScenario) -> str:
     """Derive a short denial_reason from the unmet criterion or the first discrepancy signal."""
+    if scenario.determination_summary:
+        return scenario.determination_summary
     primary_key = scenario.expected_outcome.primary_argument_key
     if primary_key:
         for c in scenario.criteria:
@@ -139,6 +149,10 @@ def _derive_denial_reason(scenario: EvalScenario) -> str:
 
 def _derive_denial_text(scenario: EvalScenario, reason: str) -> str:
     """Synthesize a minimal denial text suitable for the synthesis prompt context."""
+    if scenario.determination_summary:
+        return "\n".join(
+            filter(None, (scenario.payer, scenario.drug, reason, scenario.appeal_history))
+        )
     return render_minimal_denial(
         payer=scenario.payer,
         drug=scenario.drug,
@@ -170,7 +184,7 @@ def eval_scenario_to_appeal_request(eval_scenario: EvalScenario) -> AppealReques
         denial_reason=denial_reason[:500],
         plan=eval_scenario.payer,
         plan_id=eval_scenario.plan_id,
-        criteria_results=[_criterion_to_result(c) for c in eval_scenario.criteria],
+        criteria_results=_applicable_results(eval_scenario),
         company_names=[eval_scenario.payer],
     )
 
@@ -195,7 +209,7 @@ def eval_scenario_to_initial_pa_request(eval_scenario: EvalScenario) -> InitialP
         plan=eval_scenario.payer,
         plan_id=eval_scenario.plan_id,
         requested_therapy=eval_scenario.drug,
-        criteria_results=[_criterion_to_result(c) for c in eval_scenario.criteria],
+        criteria_results=_applicable_results(eval_scenario),
     )
 
 
@@ -220,7 +234,7 @@ def eval_scenario_to_scenario_config(eval_scenario: EvalScenario) -> ScenarioCon
         diagnosis=meta.diagnosis,
         denialReason=_derive_denial_reason(eval_scenario)[:500],
         clientType=ClientType.patient,
-        criteriaResults=[_criterion_to_result(c) for c in eval_scenario.criteria],
+        criteriaResults=_applicable_results(eval_scenario),
         drugKey=meta.drug_key,
         company_names=[eval_scenario.payer],
     )

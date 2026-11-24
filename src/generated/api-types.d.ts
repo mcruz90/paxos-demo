@@ -207,6 +207,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/patients/{patient_ref}/cases/{case_id}/assessment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Case Assessment */
+        get: operations["read_case_assessment_api_patients__patient_ref__cases__case_id__assessment_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_ref}/cases/{case_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Attachments */
+        get: operations["list_attachments_api_patients__patient_ref__cases__case_id__attachments_get"];
+        put?: never;
+        /** Attach Result */
+        post: operations["attach_result_api_patients__patient_ref__cases__case_id__attachments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_ref}/cases/{case_id}/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Attachment */
+        delete: operations["remove_attachment_api_patients__patient_ref__cases__case_id__attachments__attachment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_ref}/cases/{case_id}/discovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Queries */
+        get: operations["list_queries_api_patients__patient_ref__cases__case_id__discovery_get"];
+        put?: never;
+        /** Search Sources */
+        post: operations["search_sources_api_patients__patient_ref__cases__case_id__discovery_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_ref}/cases/{case_id}/discovery/{query_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Results */
+        get: operations["read_results_api_patients__patient_ref__cases__case_id__discovery__query_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/patients/{patient_ref}/cases/{case_id}/events": {
         parameters: {
             query?: never;
@@ -332,6 +419,56 @@ export interface components {
              */
             tenant_id: string;
         };
+        /** AssessmentCitation */
+        AssessmentCitation: {
+            /** End */
+            end: number;
+            /** Excerpt */
+            excerpt: string | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "patient" | "context";
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Source Version Id */
+            source_version_id: string;
+            /** Start */
+            start: number;
+        };
+        /** AssessmentCriterion */
+        AssessmentCriterion: {
+            /** Criterion Id */
+            criterion_id: string;
+            /** Evidence */
+            evidence: components["schemas"]["AssessmentCitation"][];
+            /** Next Action */
+            next_action: string | null;
+            /** Requirement */
+            requirement: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "met" | "missing" | "conflict";
+        };
+        /** AttachResult */
+        AttachResult: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Request Id */
+            request_id: string;
+            /** Result Id */
+            result_id: string;
+        };
+        /** AttachmentRequest */
+        AttachmentRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Request Id */
+            request_id: string;
+        };
         /**
          * AuditProvenance
          * @description What the outbound artifact was when it left the system (S2 Slice 4).
@@ -454,6 +591,40 @@ export interface components {
             /** Records */
             records: components["schemas"]["AuditRecord"][];
         };
+        /** CaseAssessment */
+        CaseAssessment: {
+            /** Age Years */
+            age_years: number | null;
+            /** Blockers */
+            blockers: string[];
+            duration_approval?: components["schemas"]["DurationApproval"] | null;
+            /** Findings */
+            findings: components["schemas"]["AssessmentCriterion"][];
+            /** Next Action */
+            next_action: string | null;
+            /** Pathway */
+            pathway: ("no_pa_required" | "step_therapy" | "swallowing" | "feeding_tube") | null;
+            /** Policy Sha256 */
+            policy_sha256: string | null;
+            /** Ready */
+            ready: boolean;
+            /** Revision */
+            revision: number;
+        };
+        /** CaseAttachment */
+        CaseAttachment: {
+            /** Actor Id */
+            actor_id: string;
+            /**
+             * Attached At
+             * Format: date-time
+             */
+            attached_at: string;
+            /** Attachment Id */
+            attachment_id: string;
+            /** Item */
+            item: components["schemas"]["FullTextResult"] | components["schemas"]["MetadataResult"];
+        };
         /** CaseCreateRequest */
         CaseCreateRequest: {
             /** Idempotency Key */
@@ -561,6 +732,68 @@ export interface components {
          * @enum {string}
          */
         CriterionStatus: "found" | "needs_review" | "conflict";
+        /** DiscoveryConflict */
+        DiscoveryConflict: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "stale_case_revision" | "idempotency_conflict";
+            /**
+             * Detail
+             * @constant
+             */
+            detail: "case_conflict";
+        };
+        /** DiscoveryNotFound */
+        DiscoveryNotFound: {
+            /**
+             * Detail
+             * @constant
+             */
+            detail: "case_not_found";
+        };
+        /** DiscoveryQuerySummary */
+        DiscoveryQuerySummary: {
+            /** Created At */
+            created_at: string | null;
+            /** Item Count */
+            item_count: number;
+            /** Query */
+            query: string;
+            /** Query Id */
+            query_id: string;
+            /** Revision */
+            revision: number;
+        };
+        /** DiscoveryResults */
+        DiscoveryResults: {
+            /** Items */
+            items: (components["schemas"]["FullTextResult"] | components["schemas"]["MetadataResult"])[];
+            /** Query */
+            query: string;
+            /** Query Id */
+            query_id: string;
+            /** Revision */
+            revision: number;
+        };
+        /** DiscoverySearch */
+        DiscoverySearch: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Query */
+            query: string;
+            /** Request Id */
+            request_id?: string | null;
+        };
+        /** DiscoveryUnavailable */
+        DiscoveryUnavailable: {
+            /**
+             * Detail
+             * @constant
+             */
+            detail: "case_service_unavailable";
+        };
         /** DoneEvent */
         DoneEvent: {
             /**
@@ -596,6 +829,95 @@ export interface components {
             /** @default null */
             tier: components["schemas"]["CaseTier"] | null;
         };
+        /** DurationApproval */
+        DurationApproval: {
+            /**
+             * Appeal Date
+             * Format: date
+             */
+            appeal_date: string;
+            /**
+             * Appeal Date Source
+             * @default backend/golden_set/seeds.py#SEEDS[esomeprazole_uhc_pediatric].history.appeal_date
+             */
+            appeal_date_source: string;
+            /** Approved Days */
+            approved_days: number;
+            /**
+             * Determination Date
+             * Format: date
+             */
+            determination_date: string;
+            /** Determination Excerpt */
+            determination_excerpt: string;
+            /**
+             * Determination Source
+             * @default Pediatric anchor determination letter, DETERMINATION section
+             */
+            determination_source: string;
+            /** Fill Date */
+            fill_date: string | null;
+            /** Fill Source */
+            fill_source: string | null;
+            /**
+             * Finding
+             * @default Approved duration is shorter than requested.
+             * @constant
+             */
+            finding: "Approved duration is shorter than requested.";
+            /**
+             * Label Status
+             * @default label check pending
+             * @constant
+             */
+            label_status: "label check pending";
+            /**
+             * Payer Requirement
+             * @default Authorization will be issued for 12 months
+             */
+            payer_requirement: string;
+            /** Peer To Peer Offered */
+            peer_to_peer_offered: boolean;
+            /**
+             * Peer To Peer Offered Source
+             * @default backend/golden_set/seeds.py#SEEDS[esomeprazole_uhc_pediatric].history.peer_to_peer_offered
+             */
+            peer_to_peer_offered_source: string;
+            /**
+             * Policy Location
+             * @default backend/golden/policies/_raw/esomeprazole_uhc_pediatric.txt:86
+             */
+            policy_location: string;
+            /**
+             * Quantity Unit
+             * @default once-daily doses
+             * @constant
+             */
+            quantity_unit: "once-daily doses";
+            /**
+             * Request Source
+             * @default Pediatric anchor prescription, Directions
+             */
+            request_source: string;
+            /** Requested Daily Mg */
+            requested_daily_mg: number;
+            /** Requested Days */
+            requested_days: number;
+            /** Requested Quantity */
+            requested_quantity: number;
+            /** Supply End Date */
+            supply_end_date: string | null;
+            /**
+             * Upheld Date
+             * Format: date
+             */
+            upheld_date: string;
+            /**
+             * Upheld Date Source
+             * @default backend/golden_set/seeds.py#SEEDS[esomeprazole_uhc_pediatric].history.upheld_date
+             */
+            upheld_date_source: string;
+        };
         /** ErrorEvent */
         ErrorEvent: {
             /**
@@ -616,6 +938,41 @@ export interface components {
              * @default 0
              */
             retry_count: number;
+        };
+        /** FullTextResult */
+        FullTextResult: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            availability: "full_text";
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "clinical_note" | "document_index";
+            /** Content Sha256 */
+            content_sha256: string;
+            /**
+             * End
+             * @description Exclusive Unicode code-point offset
+             */
+            end: number;
+            /** Excerpt */
+            excerpt: string;
+            /** Result Id */
+            result_id: string;
+            /** Source Id */
+            source_id: string;
+            /** Source Version Id */
+            source_version_id: string;
+            /**
+             * Start
+             * @description Inclusive Unicode code-point offset
+             */
+            start: number;
+            /** Title */
+            title: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -750,13 +1107,42 @@ export interface components {
             /** User Id */
             user_id: string;
         };
+        /** MetadataResult */
+        MetadataResult: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            availability: "metadata_only";
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "clinical_note" | "document_index";
+            /** Content Sha256 */
+            content_sha256: string;
+            /** End */
+            end?: null;
+            /** Excerpt */
+            excerpt?: null;
+            /** Result Id */
+            result_id: string;
+            /** Source Id */
+            source_id: string;
+            /** Source Version Id */
+            source_version_id: string;
+            /** Start */
+            start?: null;
+            /** Title */
+            title: string;
+        };
         /**
          * PaDecision
          * @description Payer determination decision on an initial-PA submission (S2 Slice 1).
          *
-         *     The initial-PA lifecycle branches on this: approved ends the flow,
-         *     pended loops back to determination, denied hands off to the appeal
-         *     pipeline (05-state-lifecycle.md).
+         *     The submission finalizes after one determination. Unresolved evidence
+         *     stays pended on replay. A denial includes a pointer for a human to
+         *     start an appeal (05-state-lifecycle.md).
          * @enum {string}
          */
         PaDecision: "approved" | "pended" | "denied";
@@ -1149,6 +1535,408 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_case_assessment_api_patients__patient_ref__cases__case_id__assessment_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_ref: string;
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseAssessment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_attachments_api_patients__patient_ref__cases__case_id__attachments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_ref: string;
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseAttachment"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryNotFound"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryConflict"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryUnavailable"];
+                };
+            };
+        };
+    };
+    attach_result_api_patients__patient_ref__cases__case_id__attachments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_ref: string;
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachResult"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseAttachment"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryNotFound"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryConflict"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryUnavailable"];
+                };
+            };
+        };
+    };
+    remove_attachment_api_patients__patient_ref__cases__case_id__attachments__attachment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_ref: string;
+                case_id: string;
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseAttachment"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryNotFound"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryConflict"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryUnavailable"];
+                };
+            };
+        };
+    };
+    list_queries_api_patients__patient_ref__cases__case_id__discovery_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                patient_ref: string;
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryQuerySummary"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryNotFound"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryConflict"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryUnavailable"];
+                };
+            };
+        };
+    };
+    search_sources_api_patients__patient_ref__cases__case_id__discovery_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_ref: string;
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscoverySearch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryResults"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryNotFound"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryConflict"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryUnavailable"];
+                };
+            };
+        };
+    };
+    read_results_api_patients__patient_ref__cases__case_id__discovery__query_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_ref: string;
+                case_id: string;
+                query_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryResults"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryNotFound"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryConflict"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryUnavailable"];
                 };
             };
         };

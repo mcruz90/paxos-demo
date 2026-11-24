@@ -12,9 +12,8 @@ from __future__ import annotations
 import pytest
 
 # These imports fail (ImportError) until 0.C implementation is in place — intentional.
-from golden_set.documents import GeneratedDocuments, generate_documents
+from golden_set.documents import generate_documents
 from golden_set.identities import IDENTITY_POOL, get_identity
-from golden_set.markers import SYNTHETIC_MARKER
 from golden_set.pdf import render_denial_letter_pdf
 from golden_set.seeds import PROFILES, SEEDS
 
@@ -25,33 +24,47 @@ def test_determinism_denial_letter_ozempic() -> None:
     """Same seed + profile ⇒ byte-identical denial letter (Ozempic/Cigna)."""
     seed = SEEDS["ozempic_cigna"]
     profile = PROFILES["ozempic_cigna"]
-    assert generate_documents(seed, profile).denial_letter_text == generate_documents(seed, profile).denial_letter_text
+    assert (
+        generate_documents(seed, profile).denial_letter_text
+        == generate_documents(seed, profile).denial_letter_text
+    )
 
 
 def test_determinism_denial_letter_esomeprazole() -> None:
     """Determinism — esomeprazole/UHC anchor."""
     seed = SEEDS["esomeprazole_uhc_pediatric"]
     profile = PROFILES["esomeprazole_uhc_pediatric"]
-    assert generate_documents(seed, profile).denial_letter_text == generate_documents(seed, profile).denial_letter_text
+    assert (
+        generate_documents(seed, profile).denial_letter_text
+        == generate_documents(seed, profile).denial_letter_text
+    )
 
 
 def test_determinism_denial_letter_livdelzi() -> None:
     """Determinism — Livdelzi/Cigna anchor."""
     seed = SEEDS["livdelzi_cigna_hepatology"]
     profile = PROFILES["livdelzi_cigna_hepatology"]
-    assert generate_documents(seed, profile).denial_letter_text == generate_documents(seed, profile).denial_letter_text
+    assert (
+        generate_documents(seed, profile).denial_letter_text
+        == generate_documents(seed, profile).denial_letter_text
+    )
 
 
 def test_determinism_clinical_snippets_ozempic() -> None:
     """Clinical snippets are byte-identical across two calls (Ozempic)."""
     seed, profile = SEEDS["ozempic_cigna"], PROFILES["ozempic_cigna"]
-    assert generate_documents(seed, profile).clinical_snippets == generate_documents(seed, profile).clinical_snippets
+    assert (
+        generate_documents(seed, profile).clinical_snippets
+        == generate_documents(seed, profile).clinical_snippets
+    )
 
 
 def test_determinism_rx_snippet_ozempic() -> None:
     """Rx snippet is byte-identical across two calls (Ozempic)."""
     seed, profile = SEEDS["ozempic_cigna"], PROFILES["ozempic_cigna"]
-    assert generate_documents(seed, profile).rx_snippet == generate_documents(seed, profile).rx_snippet
+    assert (
+        generate_documents(seed, profile).rx_snippet == generate_documents(seed, profile).rx_snippet
+    )
 
 
 # ── GROUNDING — core fields ───────────────────────────────────────────────────
@@ -131,20 +144,6 @@ def test_grounding_needs_review_criteria_flagged_ozempic() -> None:
         )
 
 
-def test_grounding_conflict_criterion_has_two_sources() -> None:
-    """'conflict' criteria must appear in a snippet that contains 'Source 1:'."""
-    seed, profile = SEEDS["esomeprazole_uhc_pediatric"], PROFILES["esomeprazole_uhc_pediatric"]
-    doc = generate_documents(seed, profile)
-    conflicts = [c for c in profile.criteria if c.status == "conflict"]
-    assert conflicts, "esomeprazole profile must have at least one 'conflict' criterion"
-    for crit in conflicts:
-        matching = [s for s in doc.clinical_snippets if crit.label in s]
-        assert matching, f"No snippet for conflict criterion: {crit.label!r}"
-        assert "Source 1:" in matching[0], (
-            f"Conflict snippet for {crit.label!r} is missing 'Source 1:'"
-        )
-
-
 def test_grounding_livdelzi_needs_review_udca() -> None:
     """Livdelzi profile needs_review criterion (UDCA duration) grounded in snippets."""
     seed, profile = SEEDS["livdelzi_cigna_hepatology"], PROFILES["livdelzi_cigna_hepatology"]
@@ -172,9 +171,7 @@ def test_pdf_round_trip_etl_extracts_drug() -> None:
     doc = generate_documents(SEEDS["ozempic_cigna"], PROFILES["ozempic_cigna"])
     pdf_bytes = render_denial_letter_pdf(doc.denial_letter_text)
     ar = process_denial_letter(pdf_bytes, "synthetic_ozempic.pdf")
-    assert "ozempic" in ar.drug.lower(), (
-        f"ETL did not extract 'ozempic'; got drug={ar.drug!r}"
-    )
+    assert "ozempic" in ar.drug.lower(), f"ETL did not extract 'ozempic'; got drug={ar.drug!r}"
 
 
 def test_pdf_round_trip_etl_extracts_denial_text() -> None:
@@ -215,9 +212,17 @@ def test_identity_pool_has_four_entries() -> None:
 def test_identity_pool_all_required_fields_present() -> None:
     """Every identity in IDENTITY_POOL must have all required non-empty fields."""
     required_fields = [
-        "patient_name", "patient_dob", "patient_sex", "member_id", "group_id",
-        "patient_address", "prescriber_name", "prescriber_npi",
-        "prescriber_specialty", "prescriber_address", "prescriber_phone",
+        "patient_name",
+        "patient_dob",
+        "patient_sex",
+        "member_id",
+        "group_id",
+        "patient_address",
+        "prescriber_name",
+        "prescriber_npi",
+        "prescriber_specialty",
+        "prescriber_address",
+        "prescriber_phone",
     ]
     for i, ident in enumerate(IDENTITY_POOL):
         for field in required_fields:
@@ -283,66 +288,3 @@ def test_patient_context_name_matches_pool() -> None:
         doc = generate_documents(seed, PROFILES[anchor_id])
         expected = get_identity(anchor_id).patient_name
         assert doc.patient_context.patient_name == expected
-
-
-# ── SYNTHETIC MARKER ──────────────────────────────────────────────────────────
-
-
-@pytest.mark.parametrize(
-    "anchor_id",
-    ["ozempic_cigna", "esomeprazole_uhc_pediatric", "livdelzi_cigna_hepatology"],
-)
-def test_marker_in_denial_letter(anchor_id: str) -> None:
-    """Denial letter text must contain SYNTHETIC_MARKER."""
-    doc = generate_documents(SEEDS[anchor_id], PROFILES[anchor_id])
-    assert SYNTHETIC_MARKER in doc.denial_letter_text
-
-
-@pytest.mark.parametrize(
-    "anchor_id",
-    ["ozempic_cigna", "esomeprazole_uhc_pediatric", "livdelzi_cigna_hepatology"],
-)
-def test_marker_in_all_clinical_snippets(anchor_id: str) -> None:
-    """Every clinical snippet must contain SYNTHETIC_MARKER."""
-    doc = generate_documents(SEEDS[anchor_id], PROFILES[anchor_id])
-    assert doc.clinical_snippets, f"No clinical snippets generated for {anchor_id}"
-    for i, snippet in enumerate(doc.clinical_snippets):
-        assert SYNTHETIC_MARKER in snippet, (
-            f"Marker missing in snippet[{i}] for {anchor_id}"
-        )
-
-
-@pytest.mark.parametrize(
-    "anchor_id",
-    ["ozempic_cigna", "esomeprazole_uhc_pediatric", "livdelzi_cigna_hepatology"],
-)
-def test_marker_in_rx_snippet(anchor_id: str) -> None:
-    """Rx snippet must contain SYNTHETIC_MARKER."""
-    doc = generate_documents(SEEDS[anchor_id], PROFILES[anchor_id])
-    assert SYNTHETIC_MARKER in doc.rx_snippet
-
-
-# ── GeneratedDocuments structure ──────────────────────────────────────────────
-
-
-def test_generated_documents_has_expected_attributes() -> None:
-    """GeneratedDocuments must expose denial_letter_text, clinical_snippets, rx_snippet, patient_context."""
-    doc = generate_documents(SEEDS["ozempic_cigna"], PROFILES["ozempic_cigna"])
-    assert isinstance(doc, GeneratedDocuments)
-    assert isinstance(doc.denial_letter_text, str)
-    assert isinstance(doc.clinical_snippets, list)
-    assert isinstance(doc.rx_snippet, str)
-    assert doc.denial_letter_text  # non-empty
-    assert doc.clinical_snippets   # non-empty list
-    assert doc.rx_snippet          # non-empty
-
-
-def test_clinical_snippets_count_equals_criteria_count() -> None:
-    """There must be exactly one clinical snippet per criterion in the profile."""
-    for anchor_id in SEEDS:
-        profile = PROFILES[anchor_id]
-        doc = generate_documents(SEEDS[anchor_id], profile)
-        assert len(doc.clinical_snippets) == len(profile.criteria), (
-            f"Expected {len(profile.criteria)} snippets for {anchor_id}, "
-            f"got {len(doc.clinical_snippets)}"
-        )

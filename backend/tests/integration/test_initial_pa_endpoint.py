@@ -29,6 +29,7 @@ def client(monkeypatch) -> TestClient:
     # Deliberately NO LLM_BACKEND — the initial-PA route must not need one.
     monkeypatch.delenv("LLM_BACKEND", raising=False)
     from main import app
+
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -147,3 +148,29 @@ def test_pa_submit_writes_one_audit_record(client: TestClient) -> None:
     records = all_records(TenancyScope.platform())
     assert len(records) == 1
     assert records[0].correlation_id == "PA-2026-0847:a1"
+
+
+@pytest.mark.parametrize("empty", [False, True], ids=["needs-review", "empty"])
+def test_identical_submissions_preserve_pending_result_and_audit(client, empty) -> None:
+    from audit.store import all_records
+    from security.tenancy import TenancyScope
+
+    payload = _valid_payload()
+    payload["criteria_results"][0]["status"] = "needs_review"
+    if empty:
+        payload["criteria_results"] = []
+
+    def submit():
+        response = client.post("/api/pa/submit", json=payload, headers=_auth_headers())
+        assert response.status_code == 200
+        events = _parse_sse_events(response.text)
+        assert events[-1]["event"] == "done"
+        return events[-1]["data"]
+
+    first = submit()
+    records = all_records(TenancyScope.platform())
+    assert len(records) == 1
+    second = submit()
+    assert first["outcome"]["decision"] == "pended"
+    assert second == first
+    assert all_records(TenancyScope.platform()) == records

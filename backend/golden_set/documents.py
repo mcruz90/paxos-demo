@@ -15,16 +15,12 @@ from golden_set.templates import (
     DENIAL_LETTER,
     RX_SNIPPET,
     SNIPPET_CONFLICT,
-    SNIPPET_MET,
+    SNIPPET_FINDING,
     SNIPPET_NEEDS_REVIEW,
     criteria_denial_line,
     render_criteria_section,
 )
 from models.schemas import PatientContext
-
-# Fixed synthetic date used throughout the golden corpus.
-# Changing this date bumps determinism tests — update seed/profile docs if you do.
-_SYNTHESIS_DATE = "2024-03-14"
 
 
 @dataclass
@@ -49,6 +45,23 @@ def _identity_to_context(ident: PatientIdentity) -> PatientContext:
         prescriber_address=ident.prescriber_address,
         prescriber_phone=ident.prescriber_phone,
     )
+
+
+def _decision_fields(seed: AnchorSeed, criteria_lines: list[str]) -> dict[str, str]:
+    if seed.partial_approval:
+        return {
+            "subject": "PRIOR AUTHORIZATION PARTIAL APPROVAL",
+            "determination": "PARTIAL APPROVAL",
+            "decision_text": f"Authorization for {seed.drug}: {seed.denial_reason}.",
+            "decision_basis": "The remaining 28 days of the requested course are denied.",
+        }
+    return {
+        "subject": "PRIOR AUTHORIZATION DENIAL",
+        "determination": "DENIED",
+        "decision_text": f"Authorization for {seed.drug} has been denied for the treatment of {seed.diagnosis}.",
+        "decision_basis": f"Denied: {seed.denial_reason}.\n\nCLINICAL BASIS FOR DENIAL:\n"
+        + render_criteria_section(criteria_lines).rstrip("\n"),
+    }
 
 
 def _render_denial_letter(
@@ -94,8 +107,7 @@ def _render_denial_letter(
             "diagnosis": seed.diagnosis,
             "icd_code": seed.icd_code,
             "plan_id": seed.plan_id,
-            "denial_reason": seed.denial_reason,
-            "criteria_section": render_criteria_section(criteria_lines),
+            **_decision_fields(seed, criteria_lines),
         }
     )
 
@@ -111,8 +123,9 @@ def _render_snippet(crit: CriterionSpec, ident: PatientIdentity, date: str) -> s
         "member_id": ident.member_id,
         "label": crit.label,
     }
-    if crit.status == "met":
-        return SNIPPET_MET.format_map({**common, "evidence": crit.evidence})
+    if crit.status in ("met", "not_required"):
+        status = "CONFIRMED" if crit.status == "met" else "NOT REQUIRED"
+        return SNIPPET_FINDING.format_map({**common, "status": status, "evidence": crit.evidence})
     if crit.status == "needs_review":
         return SNIPPET_NEEDS_REVIEW.format_map({**common, "review_note": crit.review_note})
     # conflict
@@ -128,6 +141,9 @@ def _render_snippet(crit: CriterionSpec, ident: PatientIdentity, date: str) -> s
 def _render_rx_snippet(seed: AnchorSeed, ident: PatientIdentity, date: str) -> str:
     return RX_SNIPPET.format_map(
         {
+            "directions": f"\nDirections: {seed.prescription_directions}"
+            if seed.prescription_directions
+            else "",
             "banner": SYNTHETIC_BANNER,
             "date": date,
             "payer": seed.payer,
@@ -147,7 +163,7 @@ def generate_documents(
     seed: AnchorSeed,
     profile: ScenarioProfile,
     *,
-    date: str = _SYNTHESIS_DATE,
+    date: str | None = None,
 ) -> GeneratedDocuments:
     """Generate synthetic denial letter, clinical snippets, and Rx snippet.
 
@@ -156,9 +172,11 @@ def generate_documents(
     """
     ident = get_identity(seed.anchor_id)
     patient_context = _identity_to_context(ident)
+    rx_date = date or seed.prescription_date or seed.determination_date
+    date = date or seed.determination_date
     denial_letter = _render_denial_letter(seed, profile, ident, date)
     clinical_snippets = [_render_snippet(c, ident, date) for c in profile.criteria]
-    rx_snippet = _render_rx_snippet(seed, ident, date)
+    rx_snippet = _render_rx_snippet(seed, ident, rx_date)
     return GeneratedDocuments(
         denial_letter_text=denial_letter,
         clinical_snippets=clinical_snippets,
