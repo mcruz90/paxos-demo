@@ -65,11 +65,13 @@ export function AssessmentEvidenceRailBody({
   activeCriterionId,
   activeSourceVersionId,
   sourceBodies,
+  onOpenDiscovery,
 }: {
   assessment: CaseAssessment
   activeCriterionId: string | null
   activeSourceVersionId: string | null
   sourceBodies?: Record<string, string>
+  onOpenDiscovery?: () => void
 }) {
   const docs = buildAssessmentSourceDocs(assessment, sourceBodies)
   const selectedDoc =
@@ -77,11 +79,36 @@ export function AssessmentEvidenceRailBody({
     findDocForCriterion(docs, activeCriterionId)
 
   if (docs.length === 0) {
-    return <p className="text-xs text-slate-500 italic p-4">No backend source citations in this assessment.</p>
+    return (
+      <div className="p-4 space-y-2">
+        <p className="text-xs text-slate-500 italic">No backend source citations in this assessment.</p>
+        {onOpenDiscovery && (
+          <button
+            type="button"
+            onClick={onOpenDiscovery}
+            className="px-2.5 py-1 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20"
+          >
+            Find evidence
+          </button>
+        )}
+      </div>
+    )
   }
 
   return (
     <div className="h-full overflow-y-auto p-4 space-y-4">
+      {onOpenDiscovery && (
+        <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-800/70">
+          <span className="text-[11px] text-slate-400">Need additional records?</span>
+          <button
+            type="button"
+            onClick={onOpenDiscovery}
+            className="px-2.5 py-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/20"
+          >
+            Find evidence
+          </button>
+        </div>
+      )}
       {selectedDoc && (
         <div className="space-y-2.5">
           <div className="flex items-center gap-2 text-xs text-slate-300 border-b border-slate-800 pb-2">

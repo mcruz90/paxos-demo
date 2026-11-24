@@ -89,3 +89,10 @@ export function findDocForCriterion(
   if (!criterionId) return docs[0]
   return docs.find(d => d.spans.some(s => s.criterionId === criterionId)) ?? docs[0]
 }
+
+export {
+  createDiscoveryController,
+  formatAttachmentSpan,
+  inspectDiscoveryItem,
+  mapDiscoveryError,
+} from './caseDiscovery'

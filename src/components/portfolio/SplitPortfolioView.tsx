@@ -11,7 +11,7 @@ import {
   allExceptionsResolved, buildDispatchArtifact, filterClients, groupByAction, logActivity,
 } from './caseQueue'
 import { type CriterionActions } from './CriterionRow'
-import { EvidencePane } from './EvidencePane'
+import { EvidencePane, type EvidenceRailView } from './EvidencePane'
 import { buildCriterionResolverContext, buildDisputeResolverContext } from './exceptionResolver'
 import { ExceptionResolverModal, type ResolutionPath } from './ExceptionResolverModal'
 import { resolveExplicitCaseTransition } from './exceptionStatusTransition'
@@ -22,6 +22,7 @@ import { QueueHeader } from './QueueHeader'
 import { attachExcerptsOnly, reassessCriterionWithDelta } from './reassessment'
 import { phiFromContext } from './redaction'
 import { useCaseAssessment } from './useCaseAssessment'
+import { useCaseDiscovery } from './useCaseDiscovery'
 
 // Three-column case queue: case list · selected-case workspace · citation
 // ground truth. Owns per-case local coordinator state (dispatches/overrides);
@@ -65,7 +66,7 @@ export function SplitPortfolioView({
   const [caseStates, setCaseStates] = useState<Record<string, LocalCaseState>>({})
   const [showCitations, setShowCitations] = useState(true)
   const [activeCiteIndex, setActiveCiteIndex] = useState<number | null>(null)
-  const [citeView, setCiteView] = useState<'source' | 'citations'>('source')
+  const [citeView, setCiteView] = useState<EvidenceRailView>('source')
   const [activeDocId, setActiveDocId] = useState<string | null>(null)
   const [resolver, setResolver] = useState<
     { mode: 'criterion'; criterion: CriterionResult; initialPath?: ResolutionPath } | { mode: 'dispute' } | null
@@ -100,6 +101,7 @@ export function SplitPortfolioView({
   }
   const selectedAssessment = selectedClient ? effectiveAssessments[selectedClient.scenarioId] ?? null : null
   const selectedSourceBodies = selectedClient ? sourceBodiesByScenario?.[selectedClient.scenarioId] : undefined
+  const selectedDiscovery = useCaseDiscovery(selectedClient, live, selectedAssessment?.revision ?? null)
 
   // Applies local criterion/activity state updates only — case status changes
   // happen exclusively through explicit named user actions (never timers).
@@ -205,7 +207,7 @@ export function SplitPortfolioView({
           scenario={selectedScenario} phi={selectedClient ? phiFromContext(resolvePatientContext(selectedScenario, selectedClient)) : null}
           showCitations={showCitations} onToggleCitations={() => setShowCitations(v => !v)} citeView={citeView} setCiteView={setCiteView}
           activeCiteIndex={activeCiteIndex} onSelectCiteIndex={setActiveCiteIndex} activeDocId={activeDocId} onSelectDoc={setActiveDocId}
-          assessment={selectedAssessment} sourceBodies={selectedSourceBodies}
+          assessment={selectedAssessment} sourceBodies={selectedSourceBodies} discovery={selectedDiscovery}
         />
       )}
     </>

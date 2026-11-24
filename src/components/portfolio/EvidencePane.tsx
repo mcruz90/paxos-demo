@@ -4,12 +4,15 @@ import { type ScenarioConfig } from '../../types'
 import { buildAssessmentSourceDocs } from './assessmentEvidence'
 import { AssessmentEvidenceRailBody } from './AssessmentEvidenceView'
 import { CitationPane } from './CitationPane'
+import { type CaseDiscoveryRailProps, DiscoveryEvidencePanel } from './DiscoveryEvidencePanel'
 import { type PhiDictionary } from './redaction'
 import { defaultDocId, ensureSourceDocuments } from './sourceDocuments'
 import { SourceDocViewer } from './SourceDocViewer'
 
+export type EvidenceRailView = 'source' | 'citations' | 'discovery'
+
 // Col 3 of the split view: single unified header bar (Document Switcher dropdown
-// + Source Chart / Criteria Snippets toggle) above the chart or excerpt cards.
+// + Source Chart / Criteria Snippets / Discover toggle) above the rail body.
 export function EvidencePane({
   scenario,
   phi,
@@ -23,19 +26,21 @@ export function EvidencePane({
   onSelectDoc,
   assessment,
   sourceBodies,
+  discovery,
 }: {
   scenario: ScenarioConfig
   phi: PhiDictionary | null
   showCitations: boolean
   onToggleCitations: () => void
-  citeView: 'source' | 'citations'
-  setCiteView: (v: 'source' | 'citations') => void
+  citeView: EvidenceRailView
+  setCiteView: (v: EvidenceRailView) => void
   activeCiteIndex: number | null
   onSelectCiteIndex: (idx: number | null) => void
   activeDocId: string | null
   onSelectDoc: (docId: string | null) => void
   assessment?: CaseAssessment | null
   sourceBodies?: Record<string, string>
+  discovery?: CaseDiscoveryRailProps
 }) {
   const docs = ensureSourceDocuments(scenario)
   const wiredDocs = assessment ? buildAssessmentSourceDocs(assessment, sourceBodies) : null
@@ -87,14 +92,22 @@ export function EvidencePane({
               </select>
             </div>
           ) : (
-            <span className="text-xs font-semibold text-slate-300 truncate">Criteria Evidence Snippets</span>
+            <span className="text-xs font-semibold text-slate-300 truncate">
+              {citeView === 'discovery' ? 'Evidence Discovery' : 'Criteria Evidence Snippets'}
+            </span>
           )}
 
-          {docCount > 0 && (
+          {(docCount > 0 || discovery) && (
             <div className="inline-flex items-center gap-0.5 rounded-md bg-slate-950 border border-slate-800 p-0.5 shrink-0">
               {([
-                { view: 'source' as const,    label: 'Chart' },
+                { view: 'source' as const, label: 'Chart' },
                 { view: 'citations' as const, label: 'Snippets' },
+                ...(discovery
+                  ? [{
+                      view: 'discovery' as const,
+                      label: discovery.attachments.length > 0 ? `Discover (${discovery.attachments.length})` : 'Discover',
+                    }]
+                  : []),
               ]).map(({ view, label }) => (
                 <button
                   key={view}
@@ -115,12 +128,15 @@ export function EvidencePane({
         </div>
 
         <div className="flex-1 min-h-0 w-[360px] 2xl:w-[440px]">
-          {assessment && citeView === 'source' ? (
+          {discovery && citeView === 'discovery' ? (
+            <DiscoveryEvidencePanel discovery={discovery} sourceBodies={sourceBodies} />
+          ) : assessment && citeView === 'source' ? (
             <AssessmentEvidenceRailBody
               assessment={assessment}
               activeCriterionId={activeCriterionId}
               activeSourceVersionId={shownDocId || null}
               sourceBodies={sourceBodies}
+              onOpenDiscovery={discovery ? () => setCiteView('discovery') : undefined}
             />
           ) : docCount && citeView === 'source' ? (
             <SourceDocViewer
