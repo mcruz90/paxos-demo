@@ -238,6 +238,62 @@
         "title": "AssessmentCriterion",
         "type": "object"
       },
+      "AttachResult": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "maximum": 9.223372036854776e+18,
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "result_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Result Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "request_id",
+          "result_id"
+        ],
+        "title": "AttachResult",
+        "type": "object"
+      },
+      "AttachmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "maximum": 9.223372036854776e+18,
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "request_id"
+        ],
+        "title": "AttachmentRequest",
+        "type": "object"
+      },
       "AuditProvenance": {
         "description": "What the outbound artifact was when it left the system (S2 Slice 4).\n\nAI-accountability provenance (CLAUDE.md \u00a7AI Output Accountability): the\naudit trail must record what was actually verified before an artifact\nreached a payer, not just that a pipeline ran. `as_is` = machine output,\nno human in the loop (all pipeline-boundary writes); `gatekeeper_corrected`\narrives with the S4 blocking claim\u2192citation gatekeeper; the HITL resume\nflow stamps `human_approved` when a reviewer cleared the draft unchanged\n(a decision, not an edit \u2014 May's ruling 2026-07-18, ADR-0009 amendment)\nand `human_edited` only when the letter text actually changed.",
         "enum": [
@@ -515,6 +571,56 @@
         "title": "CaseAssessment",
         "type": "object"
       },
+      "CaseAttachment": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "attached_at": {
+            "format": "date-time",
+            "title": "Attached At",
+            "type": "string"
+          },
+          "attachment_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "item": {
+            "discriminator": {
+              "mapping": {
+                "full_text": "#/components/schemas/FullTextResult",
+                "metadata_only": "#/components/schemas/MetadataResult"
+              },
+              "propertyName": "availability"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FullTextResult"
+              },
+              {
+                "$ref": "#/components/schemas/MetadataResult"
+              }
+            ],
+            "title": "Item"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "item",
+          "actor_id",
+          "attached_at"
+        ],
+        "title": "CaseAttachment",
+        "type": "object"
+      },
       "CaseCreateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -781,6 +887,78 @@
         "title": "CriterionStatus",
         "type": "string"
       },
+      "DiscoveryResults": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "full_text": "#/components/schemas/FullTextResult",
+                  "metadata_only": "#/components/schemas/MetadataResult"
+                },
+                "propertyName": "availability"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FullTextResult"
+                },
+                {
+                  "$ref": "#/components/schemas/MetadataResult"
+                }
+              ]
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "query": {
+            "maxLength": 256,
+            "title": "Query",
+            "type": "string"
+          },
+          "query_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Query Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query_id",
+          "query",
+          "revision",
+          "items"
+        ],
+        "title": "DiscoveryResults",
+        "type": "object"
+      },
+      "DiscoverySearch": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "maximum": 9.223372036854776e+18,
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "query": {
+            "maxLength": 256,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "query"
+        ],
+        "title": "DiscoverySearch",
+        "type": "object"
+      },
       "DoneEvent": {
         "properties": {
           "correlation_id": {
@@ -871,6 +1049,88 @@
           "message"
         ],
         "title": "ErrorEvent",
+        "type": "object"
+      },
+      "FullTextResult": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "const": "full_text",
+            "default": "full_text",
+            "title": "Availability",
+            "type": "string"
+          },
+          "category": {
+            "enum": [
+              "clinical_note",
+              "document_index"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "content_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Sha256",
+            "type": "string"
+          },
+          "end": {
+            "description": "Exclusive Unicode code-point offset",
+            "minimum": 1.0,
+            "title": "End",
+            "type": "integer"
+          },
+          "excerpt": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "result_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Result Id",
+            "type": "string"
+          },
+          "source_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_version_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "title": "Source Version Id",
+            "type": "string"
+          },
+          "start": {
+            "description": "Inclusive Unicode code-point offset",
+            "minimum": 0.0,
+            "title": "Start",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "excerpt",
+          "source_id",
+          "source_version_id",
+          "category",
+          "title",
+          "content_sha256",
+          "result_id"
+        ],
+        "title": "FullTextResult",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1099,6 +1359,79 @@
           "user_id"
         ],
         "title": "MeResponse",
+        "type": "object"
+      },
+      "MetadataResult": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "const": "metadata_only",
+            "default": "metadata_only",
+            "title": "Availability",
+            "type": "string"
+          },
+          "category": {
+            "enum": [
+              "clinical_note",
+              "document_index"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "content_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Sha256",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "null"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "null"
+          },
+          "result_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Result Id",
+            "type": "string"
+          },
+          "source_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_version_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "title": "Source Version Id",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "null"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "source_version_id",
+          "category",
+          "title",
+          "content_sha256",
+          "result_id"
+        ],
+        "title": "MetadataResult",
         "type": "object"
       },
       "PaDecision": {
@@ -1751,6 +2084,342 @@
         "summary": "Read Case Assessment",
         "tags": [
           "cases"
+        ]
+      }
+    },
+    "/api/patients/{patient_ref}/cases/{case_id}/attachments": {
+      "get": {
+        "operationId": "list_attachments_api_patients__patient_ref__cases__case_id__attachments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_ref",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9\\-]+$",
+              "title": "Patient Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CaseAttachment"
+                  },
+                  "title": "Response List Attachments Api Patients  Patient Ref  Cases  Case Id  Attachments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Attachments",
+        "tags": [
+          "discovery"
+        ]
+      },
+      "post": {
+        "operationId": "attach_result_api_patients__patient_ref__cases__case_id__attachments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_ref",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9\\-]+$",
+              "title": "Patient Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachResult"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseAttachment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach Result",
+        "tags": [
+          "discovery"
+        ]
+      }
+    },
+    "/api/patients/{patient_ref}/cases/{case_id}/attachments/{attachment_id}": {
+      "delete": {
+        "operationId": "remove_attachment_api_patients__patient_ref__cases__case_id__attachments__attachment_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_ref",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9\\-]+$",
+              "title": "Patient Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseAttachment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Attachment",
+        "tags": [
+          "discovery"
+        ]
+      }
+    },
+    "/api/patients/{patient_ref}/cases/{case_id}/discovery": {
+      "post": {
+        "operationId": "search_sources_api_patients__patient_ref__cases__case_id__discovery_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_ref",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9\\-]+$",
+              "title": "Patient Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoverySearch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryResults"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Sources",
+        "tags": [
+          "discovery"
+        ]
+      }
+    },
+    "/api/patients/{patient_ref}/cases/{case_id}/discovery/{query_id}": {
+      "get": {
+        "operationId": "read_results_api_patients__patient_ref__cases__case_id__discovery__query_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_ref",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9\\-]+$",
+              "title": "Patient Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "query_id",
+            "required": true,
+            "schema": {
+              "maxLength": 36,
+              "minLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "title": "Query Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryResults"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Results",
+        "tags": [
+          "discovery"
         ]
       }
     },

@@ -35,6 +35,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from api.auth import router as auth_router
 from api.cases import router as cases_router
+from api.discovery import router as discovery_router
 from api.observations import router as observations_router
 from cases.assessment_sources import PediatricFixtureReader
 from models.schemas import (
@@ -104,6 +105,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(observations_router)
 app.include_router(cases_router)
+app.include_router(discovery_router)
 
 # ---------------------------------------------------------------------------
 # Auth middleware — must run before body parsing so bad tokens get 401, not 422

@@ -4,7 +4,9 @@ from typing import Literal
 
 
 class CaseConflict(ValueError):
-    def __init__(self, code: Literal["idempotency_conflict", "case_already_exists"]):
+    def __init__(
+        self, code: Literal["idempotency_conflict", "case_already_exists", "stale_case_revision"]
+    ):
         self.code = code
         super().__init__(code)
 

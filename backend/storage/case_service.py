@@ -8,6 +8,7 @@ from storage.case_authorization import CaseAccessDenied, resolve_case_access
 from storage.case_repository import CaseRepository
 from storage.config import DatabaseConfig
 from storage.connection import checked_connection
+from storage.discovery import DiscoveryStore
 
 
 class CaseService:
@@ -40,3 +41,10 @@ class CaseService:
                 raise CaseAccessDenied()
             result = repo.events_for_case(grant, case_id)
         return result
+
+    @contextmanager
+    def discovery(
+        self, patient_ref: str, case_id: str, *, write: bool = False
+    ) -> Iterator[DiscoveryStore]:
+        with self._authorized(patient_ref) as (repo, grant):
+            yield DiscoveryStore(repo.connection, grant, case_id, write)

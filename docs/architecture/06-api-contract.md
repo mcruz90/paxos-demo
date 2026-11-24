@@ -443,3 +443,19 @@ only case_created at revision 1. No evidence, artifacts, approvals or exports ar
 exposed here. See [runtime contracts](14-case-evidence-runtime.md) for transaction,
 revocation and provisioning boundaries. The application database is not migrated
 by server startup, and these routes have not been wired to the UI.
+
+## Case discovery and attachments
+
+All paths below extend `/api/patients/{patient_ref}/cases/{case_id}`. Each operation requires a session and a current patient-panel grant. Writes also require the session CSRF header and an integer `expected_revision` between 1 and 9223372036854775807. Additional body fields are rejected.
+
+| Method and path | Request | Success (200) |
+|---|---|---|
+| POST `/discovery` | `query` (0–256 characters), `expected_revision` | Persisted query ID, query, revision and ordered items |
+| GET `/discovery/{query_id}` | — | Original query and items |
+| POST `/attachments` | `result_id`, `request_id`, `expected_revision` | Attachment ID, exact item, actor ID and timestamp |
+| DELETE `/attachments/{attachment_id}` | JSON body with `request_id`, `expected_revision` | Original attachment, now removed from the active list |
+| GET `/attachments` | — | Active attachments in timestamp and ID order |
+
+A blank query lists the bound fixture corpus. A nonblank query does case-insensitive substring matching across title, category and available text. An unbound case returns an empty result set. Use the result ID to select one item. For `full_text`, `[start, end)` indexes Unicode code points and `content_sha256` hashes the UTF-8 note. For `metadata_only`, the digest hashes the visible title and the span and excerpt are null.
+
+The client supplies a request ID of 1–128 letters, digits or characters from `._:-`. Repeating the same attach or remove returns the original response. Changing the target, operation or expected revision under the same ID yields 409. A new write against a stale revision also yields 409. An inaccessible case, query, result or attachment yields 404. Malformed bodies yield 422. Attaching or removing evidence preserves the assessment response. [ADR 0022](adr/0022-discovery-attachments.md)
