@@ -11,6 +11,7 @@ pytestmark = pytest.mark.postgres
 
 
 def test_bound_fixture_returns_only_its_case_and_revision(browser, monkeypatch):
+    from api.assessment import assessment_reader
     from cases.assessment_sources import PediatricFixtureReader
     from main import app
     from models.case_evidence import CaseRecord
@@ -18,8 +19,13 @@ def test_bound_fixture_returns_only_its_case_and_revision(browser, monkeypatch):
     client, _ = browser
     case = client.post(ROOT, json=KEY).json()
     reader = PediatricFixtureReader(case["case_id"], case["tenant_id"], case["patient_ref"])
-    monkeypatch.setattr(app.state, "assessment_reader", reader, raising=False)
     path = ROOT + "/" + case["case_id"]
+    monkeypatch.setitem(
+        app.dependency_overrides, assessment_reader, lambda: PediatricFixtureReader()
+    )
+    unbound = client.get(path + "/assessment").json()
+    assert unbound["blockers"] == ["sources"] and not unbound["findings"]
+    monkeypatch.setitem(app.dependency_overrides, assessment_reader, lambda: reader)
     response = client.get(path + "/assessment")
     assert response.status_code == 200, response.text
     data = response.json()
