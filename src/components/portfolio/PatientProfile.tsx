@@ -2,13 +2,15 @@ import { type ReactNode, useState } from 'react'
 import { CheckCircle2, Clock, PanelLeftClose, PanelLeftOpen, User } from 'lucide-react'
 import { patientProfiles } from '../../data/patients'
 import { getCaseStage } from '../../data/scenarios'
+import { type CaseAssessment } from '../../lib/wire'
 import { type Client, type ScenarioConfig } from '../../types'
 import { StageBadge, StatusBadge } from '../ui'
+import { formatAgeAtRequest, formatAssessmentReadinessLabel } from './caseAssessment'
 import { type Patient, type PatientProfileData } from './patient'
 import { WorkqueueRibbon } from './WorkqueueRibbon'
 
 function ageFromDob(dob?: string): string | null {
-  const m = dob?.match(/(\d{4})$/)
+  const m = dob?.match(/^(\d{4})/) ?? dob?.match(/(\d{4})$/)
   if (!m) return null
   const age = 2026 - Number(m[1])
   return age >= 0 && age <= 120 ? `${age}` : null
@@ -37,10 +39,12 @@ function CollapsedStoryboardRail({ activeClient, displayName, onExpand }: {
   )
 }
 
-function StoryboardHeader({ patient, scenario, activeClient, onCollapse }: {
-  patient: Patient; scenario: ScenarioConfig; activeClient?: Client; onCollapse: () => void
+function StoryboardHeader({ patient, scenario, activeClient, assessment, onCollapse }: {
+  patient: Patient; scenario: ScenarioConfig; activeClient?: Client; assessment?: CaseAssessment | null; onCollapse: () => void
 }) {
-  const ageStr = ageFromDob(patient.dob)
+  const ageStr = assessment
+    ? assessment.age_years !== null ? `${assessment.age_years}` : null
+    : ageFromDob(patient.dob)
   const sexStr = scenario.patientContext?.patientSex
   return (
     <div className="pb-3.5 border-b border-slate-800 text-center space-y-1.5 relative">
@@ -61,6 +65,9 @@ function StoryboardHeader({ patient, scenario, activeClient, onCollapse }: {
       </h2>
       <div className="text-xs text-slate-400 space-y-0.5">
         {patient.dob && <p>DOB {patient.dob} · <span className="font-mono">{patient.patientRef}</span></p>}
+        {assessment && (
+          <p className="text-slate-300 font-medium">{formatAgeAtRequest(assessment.age_years)} (claim DOS)</p>
+        )}
         <p className="leading-snug">{scenario.plan} · {scenario.planId}</p>
       </div>
       {activeClient && (
@@ -75,8 +82,8 @@ function StoryboardHeader({ patient, scenario, activeClient, onCollapse }: {
   )
 }
 
-function StoryboardDetails({ patient, scenario, activeScenarioId, profile, onSelectCase }: {
-  patient: Patient; scenario: ScenarioConfig; activeScenarioId: string; profile?: PatientProfileData; onSelectCase: (sid: string) => void
+function StoryboardDetails({ patient, scenario, activeScenarioId, profile, assessment, onSelectCase }: {
+  patient: Patient; scenario: ScenarioConfig; activeScenarioId: string; profile?: PatientProfileData; assessment?: CaseAssessment | null; onSelectCase: (sid: string) => void
 }) {
   const history = profile?.paHistory ?? []
   const diagnoses = profile?.clinical?.diagnoses ?? [{ code: '', label: scenario.diagnosis }]
@@ -86,6 +93,25 @@ function StoryboardDetails({ patient, scenario, activeScenarioId, profile, onSel
 
   return (
     <>
+      {assessment && (
+        <div className="space-y-1.5 pb-2 border-b border-slate-800">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-bold text-slate-200">Assessment Criteria</p>
+            <span className="text-[10px] font-mono text-slate-400">rev {assessment.revision}</span>
+          </div>
+          <p className="text-[11px] text-slate-300">{formatAssessmentReadinessLabel(assessment)}</p>
+          <div className="space-y-1">
+            {assessment.findings.map(row => (
+              <div key={row.criterion_id} className="flex items-center justify-between gap-2 text-[11px]">
+                <span className="font-mono text-slate-300 truncate">{row.criterion_id}</span>
+                <span className={row.status === 'met' ? 'text-emerald-400' : row.status === 'conflict' ? 'text-red-300' : 'text-amber-300'}>
+                  {row.status === 'met' ? 'Met' : row.status === 'conflict' ? 'Conflict' : 'Missing'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="space-y-1">
         <p className="text-xs font-bold text-slate-200">Active Problems</p>
         <div className="space-y-1 text-xs text-slate-300 leading-snug">
@@ -137,11 +163,11 @@ function StoryboardDetails({ patient, scenario, activeScenarioId, profile, onSel
 }
 
 export function PatientProfile({
-  patient, scenario, activeScenarioId, clients, onSelectClient, onSelectCase, onBackToQueue, onInspectInBuild, workspace,
+  patient, scenario, activeScenarioId, clients, onSelectClient, onSelectCase, onBackToQueue, onInspectInBuild, assessment, workspace,
 }: {
   patient: Patient; scenario: ScenarioConfig; activeScenarioId: string; clients: Client[]
   onSelectClient: (id: number) => void; onSelectCase: (scenarioId: string) => void
-  onBackToQueue: () => void; onInspectInBuild?: (scenarioId: string) => void; workspace: ReactNode
+  onBackToQueue: () => void; onInspectInBuild?: (scenarioId: string) => void; assessment?: CaseAssessment | null; workspace: ReactNode
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const profile = patientProfiles[patient.patientRef]
@@ -155,8 +181,8 @@ export function PatientProfile({
           <CollapsedStoryboardRail activeClient={activeClient} displayName={patient.displayName} onExpand={() => setCollapsed(false)} />
         ) : (
           <aside id="tour-epic-storyboard" className="w-60 shrink-0 border-r border-slate-800 epic-storyboard bg-slate-900/40 overflow-y-auto p-4 space-y-4">
-            <StoryboardHeader patient={patient} scenario={scenario} activeClient={activeClient} onCollapse={() => setCollapsed(true)} />
-            <StoryboardDetails patient={patient} scenario={scenario} activeScenarioId={activeScenarioId} profile={profile} onSelectCase={onSelectCase} />
+            <StoryboardHeader patient={patient} scenario={scenario} activeClient={activeClient} assessment={assessment} onCollapse={() => setCollapsed(true)} />
+            <StoryboardDetails patient={patient} scenario={scenario} activeScenarioId={activeScenarioId} profile={profile} assessment={assessment} onSelectCase={onSelectCase} />
           </aside>
         )}
         <div className="flex-1 flex overflow-hidden min-w-0">{workspace}</div>

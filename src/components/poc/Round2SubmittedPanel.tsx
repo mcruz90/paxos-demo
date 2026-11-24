@@ -16,9 +16,9 @@ export function Round2SubmittedPanel() {
                   </div>
                 </div>
                 <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4">
-                  <p className="text-xs text-slate-400 mb-2 font-semibold uppercase tracking-wide">Clinical basis cited</p>
-                  <p className="text-sm text-slate-300">{scenario.round2Appeal?.guidelineRef}</p>
-                  <p className="text-xs text-slate-500 mt-1">PMID: {scenario.round2Appeal?.guidelinePMID} · Required dose: {scenario.round2Appeal?.requiredDose}</p>
+                  <p className="text-xs text-slate-400 mb-2 font-semibold uppercase tracking-wide">{scenario.round2Appeal?.guidelineRef ? 'Clinical basis cited' : 'Appeal basis cited'}</p>
+                  <p className="text-sm text-slate-300">{scenario.round2Appeal?.guidelineRef ?? scenario.round2Appeal?.keyArgument}</p>
+                  <p className="text-xs text-slate-500 mt-1">{scenario.round2Appeal?.guidelinePMID ? `PMID: ${scenario.round2Appeal.guidelinePMID} · ` : ''}Requested course: {scenario.round2Appeal?.requiredDose}</p>
                 </div>
                 <TransmissionReceipt plan={scenario.plan} />
                 <button onClick={onReset}

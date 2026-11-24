@@ -20,11 +20,11 @@ export function deriveCounterOfferComparison(
   const payerOfferRegimen = scenario.payerCounterOffer.approvedDose
   if (scenario.id === 'pediatric-esomeprazole') {
     return {
-      orderedRegimen: 'Nexium 20mg/day oral suspension (≥20 kg pediatric dosing)',
-      orderedClinicalBasis: 'Confirmed LA Grade B erosive esophagitis + swallowing-limitation bypass',
-      payerOfferRegimen: '10mg/day partial approval (50% dose reduction)',
-      payerOfferGap: 'Sub-therapeutic for child ≥20 kg — incomplete mucosal healing risk',
-      guidelineFloor: `NASPGHAN/ESPGHAN 2018 (PMID ${r2?.guidelinePMID ?? '29470322'}) · 20mg/day labeled dose`,
+      orderedRegimen: 'Nexium suspension 20 mg once daily × 56 days (23 kg)',
+      orderedClinicalBasis: 'LA Grade B erosive esophagitis (2026-10-14) + swallowing-limitation pathway (SLP 2026-10-07)',
+      payerOfferRegimen: '28 of 56 days partial approval (2026-10-28; upheld 2026-11-13)',
+      payerOfferGap: 'Duration limit: 28 of 56 days approved; peer-to-peer review offered',
+      guidelineFloor: 'Policy states authorization will be issued for 12 months (56-day course requested)',
     }
   }
   return {

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { AlertTriangle, Check, CheckCircle2, Clock, FileSearch, HelpCircle, Zap } from 'lucide-react'
-import { type CriterionResult } from '../../types'
+import { type CriterionResult, type ReviewCriterionResult } from '../../types'
 import { ruleIcons } from '../ui'
 import { type LocalCaseState } from './caseQueue'
+import { type WiredCriterionMeta } from './caseAssessment'
 import { AttachedExcerptsBanner, FindingsDeltaCard } from './CriterionDeltaCards'
 import { classifyCriterionTaxonomy, derivePathwayBranch } from './previewHelpers'
 
@@ -91,21 +92,54 @@ function CriterionResolveBar({ criterion, actions, isConflict }: { criterion: Cr
   )
 }
 
+function WiredCriterionDetails({ meta }: { meta: WiredCriterionMeta }) {
+  return (
+    <div className="mt-1.5 space-y-1.5 text-xs">
+      <div className="rounded-lg border border-slate-800/80 bg-slate-950/40 px-2.5 py-1.5">
+        <span className="font-semibold text-slate-300">Payer requirement:</span>{' '}
+        <span className="text-slate-400">{meta.requirement}</span>
+      </div>
+      <div className="rounded-lg border border-slate-800/80 bg-slate-950/60 px-2.5 py-1.5">
+        <span className="font-semibold text-slate-300">Patient finding:</span>{' '}
+        <span className={meta.isLocationOnly ? 'text-amber-300 italic' : 'text-slate-200'}>{meta.findingSummary}</span>
+      </div>
+      {meta.contextEvidence.length > 0 && (
+        <div className="rounded-lg border border-sky-500/25 bg-sky-500/5 px-2.5 py-1.5 text-[11px] text-sky-200">
+          <span className="font-semibold text-sky-300">Context only (not proof):</span>{' '}
+          {meta.contextEvidence.map(c => c.excerpt ?? `${c.source_version_id} [${c.start}..${c.end})`).join(' · ')}
+        </div>
+      )}
+      {meta.nextAction && (
+        <p className="text-[11px] text-amber-300">
+          <span className="font-semibold">Next action:</span> {meta.nextAction}
+        </p>
+      )}
+    </div>
+  )
+}
+
 // Interactive checklist row: quiet neutral slate for met criteria, distinct rose for
 // safety contradictions, Decision 0008 status taxonomy, and boolean AND/OR pathway tags.
 export function CriterionRow({ index, criterion, localState, actions, isSelected, onSelect }: {
-  index?: number; criterion: CriterionResult; localState: LocalCaseState; actions: CriterionActions; isSelected: boolean; onSelect: () => void
+  index?: number; criterion: ReviewCriterionResult; localState: LocalCaseState; actions: CriterionActions; isSelected: boolean; onSelect: () => void
 }) {
   const [expandedNote, setExpandedNote] = useState(false)
+  const wired = criterion.assessment
   const isDispatched = localState.dispatched.includes(criterion.rule.label)
   const isPending = localState.pendingDispatch.includes(criterion.rule.label)
   const isOverriding = localState.pendingOverride === criterion.rule.label
   const overrideNote = localState.overrides[criterion.rule.label]
   const taxonomy = classifyCriterionTaxonomy(criterion, localState)
   const branch = derivePathwayBranch(criterion)
-  const isConflict = taxonomy.code === 'conflict'
-  const isOpenException = !overrideNote && !isDispatched && criterion.status !== 'found'
-  const canExpandNote = !isOpenException && criterion.note.length > 140
+  const isConflict = wired ? wired.backendStatus === 'conflict' : taxonomy.code === 'conflict'
+  const isOpenException = wired ? wired.backendStatus !== 'met' : !overrideNote && !isDispatched && criterion.status !== 'found'
+  const canExpandNote = !wired && !isOpenException && criterion.note.length > 140
+  const statusLabel = wired
+    ? wired.backendStatus === 'met' ? '✓ Met' : wired.backendStatus === 'conflict' ? 'Conflict' : 'Missing'
+    : taxonomy.code === 'met' ? '✓ Met' : taxonomy.label
+  const statusCls = wired
+    ? wired.backendStatus === 'met' ? TAXONOMY_CLS.met : wired.backendStatus === 'conflict' ? TAXONOMY_CLS.conflict : TAXONOMY_CLS.not_documented
+    : TAXONOMY_CLS[taxonomy.code]
   const bgCls = isConflict
     ? 'epic-card-rose bg-red-500/10 border-red-500/40 hover:border-red-500/60'
     : isOpenException
@@ -128,22 +162,36 @@ export function CriterionRow({ index, criterion, localState, actions, isSelected
               {index !== undefined ? `${index}. ` : ''}{criterion.rule.label}
             </button>
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${branch.badgeCls}`}>{branch.operator}</span>
-              <span className={`text-[11px] whitespace-nowrap ${TAXONOMY_CLS[taxonomy.code]}`}>
-                {taxonomy.code === 'met' ? '✓ Met' : taxonomy.label}
-              </span>
+              {wired && (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-700 bg-slate-900 text-slate-300">
+                  {wired.criterionId}
+                </span>
+              )}
+              {wired?.isBlocker && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border border-red-500/40 bg-red-500/15 text-red-300">
+                  Blocker
+                </span>
+              )}
+              {!wired && <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${branch.badgeCls}`}>{branch.operator}</span>}
+              <span className={`text-[11px] whitespace-nowrap ${statusCls}`}>{statusLabel}</span>
             </div>
           </div>
-          <p className={`text-xs text-slate-400 leading-snug ${canExpandNote && !expandedNote ? 'line-clamp-2' : ''}`}>{criterion.note}</p>
-          {canExpandNote && (
-            <button
-              type="button"
-              aria-expanded={expandedNote}
-              onClick={e => { e.stopPropagation(); setExpandedNote(v => !v) }}
-              className="text-[11px] text-blue-400 hover:underline mt-0.5"
-            >
-              {expandedNote ? 'Show less' : 'Show full finding'}
-            </button>
+          {wired ? (
+            <WiredCriterionDetails meta={wired} />
+          ) : (
+            <>
+              <p className={`text-xs text-slate-400 leading-snug ${canExpandNote && !expandedNote ? 'line-clamp-2' : ''}`}>{criterion.note}</p>
+              {canExpandNote && (
+                <button
+                  type="button"
+                  aria-expanded={expandedNote}
+                  onClick={e => { e.stopPropagation(); setExpandedNote(v => !v) }}
+                  className="text-[11px] text-blue-400 hover:underline mt-0.5"
+                >
+                  {expandedNote ? 'Show less' : 'Show full finding'}
+                </button>
+              )}
+            </>
           )}
           <div className="flex items-center gap-1.5 mt-1">
             <span className="text-slate-500 inline-flex items-center text-xs">{ruleIcons[criterion.rule.type]}</span>

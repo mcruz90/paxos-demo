@@ -23,6 +23,13 @@ import type {
   PaSubmitEvent,
   AuditRecordsResponse,
   PendingReviewsResponse,
+  CaseAssessment,
+  CaseAttachment,
+  CaseRecord,
+  AttachResult,
+  AttachmentRequest,
+  DiscoveryResults,
+  DiscoverySearch,
   LoginRequest,
   LoginResponse,
   MeResponse,
@@ -49,21 +56,31 @@ export class ApiError extends Error {
   }
 }
 
-/** POST JSON with cookie auth + optional CSRF header. The returned `Response`
- * is read as JSON by unary callers and as an SSE body by the stream callers —
- * the request itself is identical either way. */
-async function post(path: string, body: unknown, opts?: RequestOpts): Promise<Response> {
+/** Send a JSON request (`POST` or `DELETE`) with cookie auth + optional CSRF header. */
+async function sendJson(
+  method: 'POST' | 'DELETE',
+  path: string,
+  body: unknown,
+  opts?: RequestOpts,
+): Promise<Response> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (opts?.csrfToken) headers['X-CSRF-Token'] = opts.csrfToken
   const response = await fetch(BASE_URL + path, {
-    method: 'POST',
+    method,
     credentials: 'include',
     headers,
     body: JSON.stringify(body),
     signal: opts?.signal,
   })
-  if (!response.ok) throw new ApiError(response.status, `POST ${path} failed: ${response.status}`)
+  if (!response.ok) throw new ApiError(response.status, `${method} ${path} failed: ${response.status}`)
   return response
+}
+
+/** POST JSON with cookie auth + optional CSRF header. The returned `Response`
+ * is read as JSON by unary callers and as an SSE body by the stream callers —
+ * the request itself is identical either way. */
+function post(path: string, body: unknown, opts?: RequestOpts): Promise<Response> {
+  return sendJson('POST', path, body, opts)
 }
 
 async function getJson<T>(path: string, opts?: RequestOpts): Promise<T> {
@@ -127,4 +144,73 @@ export function getAuditRecords(opts?: RequestOpts): Promise<AuditRecordsRespons
 
 export function getPendingReviews(opts?: RequestOpts): Promise<PendingReviewsResponse> {
   return getJson<PendingReviewsResponse>('/api/reviews/pending', opts)
+}
+
+function caseBasePath(patientRef: string, caseId: string): string {
+  return `/api/patients/${encodeURIComponent(patientRef)}/cases/${encodeURIComponent(caseId)}`
+}
+
+export function getCaseAssessment(
+  patientRef: string,
+  caseId: string,
+  opts?: RequestOpts,
+): Promise<CaseAssessment> {
+  return getJson<CaseAssessment>(`${caseBasePath(patientRef, caseId)}/assessment`, opts)
+}
+
+export function getCaseRecord(
+  patientRef: string,
+  caseId: string,
+  opts?: RequestOpts,
+): Promise<CaseRecord> {
+  return getJson<CaseRecord>(caseBasePath(patientRef, caseId), opts)
+}
+
+export async function searchCaseDiscovery(
+  patientRef: string,
+  caseId: string,
+  body: DiscoverySearch,
+  opts?: RequestOpts,
+): Promise<DiscoveryResults> {
+  return (await post(`${caseBasePath(patientRef, caseId)}/discovery`, body, opts)).json() as Promise<DiscoveryResults>
+}
+
+export function getDiscoveryResults(
+  patientRef: string,
+  caseId: string,
+  queryId: string,
+  opts?: RequestOpts,
+): Promise<DiscoveryResults> {
+  return getJson<DiscoveryResults>(
+    `${caseBasePath(patientRef, caseId)}/discovery/${encodeURIComponent(queryId)}`,
+    opts,
+  )
+}
+
+export function listCaseAttachments(
+  patientRef: string,
+  caseId: string,
+  opts?: RequestOpts,
+): Promise<CaseAttachment[]> {
+  return getJson<CaseAttachment[]>(`${caseBasePath(patientRef, caseId)}/attachments`, opts)
+}
+
+export async function attachDiscoveryResult(
+  patientRef: string,
+  caseId: string,
+  body: AttachResult,
+  opts?: RequestOpts,
+): Promise<CaseAttachment> {
+  return (await post(`${caseBasePath(patientRef, caseId)}/attachments`, body, opts)).json() as Promise<CaseAttachment>
+}
+
+export async function removeCaseAttachment(
+  patientRef: string,
+  caseId: string,
+  attachmentId: string,
+  body: AttachmentRequest,
+  opts?: RequestOpts,
+): Promise<CaseAttachment> {
+  const path = `${caseBasePath(patientRef, caseId)}/attachments/${encodeURIComponent(attachmentId)}`
+  return (await sendJson('DELETE', path, body, opts)).json() as Promise<CaseAttachment>
 }

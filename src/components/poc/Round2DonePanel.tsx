@@ -14,7 +14,7 @@ export function Round2DonePanel() {
                       </div>
                       <div>
                         <h2 className="text-base font-bold text-violet-300">Round 2 Counter-Argument Ready</h2>
-                        <p className="text-xs text-violet-300/70">Dose threshold · NASPGHAN 2018 · PMID {scenario.round2Appeal?.guidelinePMID}</p>
+                        <p className="text-xs text-violet-300/70">Duration dispute · 28 of 56 days{scenario.round2Appeal?.guidelinePMID ? ` · PMID ${scenario.round2Appeal.guidelinePMID}` : ''}</p>
                       </div>
                     </div>
                     {/* Round 2 letter — white paper card matching the appeal/PA request panels */}
@@ -36,32 +36,33 @@ export function Round2DonePanel() {
                           <div className="px-12 py-10 text-slate-900 text-sm leading-relaxed space-y-5">
                             <h1 className="text-lg font-bold font-display">Prior Authorization Counter-Argument</h1>
                             <div className="text-xs text-slate-600 border-b border-slate-200 pb-4 space-y-1">
-                              <p><strong>RE:</strong> Dose Dispute — {scenario.drug} · Partial Authorization</p>
+                              <p><strong>RE:</strong> Duration Dispute — {scenario.drug} · Partial Authorization</p>
                               <p><strong>To:</strong> Medical Director, {scenario.plan}</p>
-                              <p><strong>Counter-offer on file:</strong> {offer.approvedDose} (approved) vs. {r2.requiredDose} (requested)</p>
+                              <p><strong>Partial approval on file:</strong> {offer.approvedDose} vs. {r2.requiredDose} (requested)</p>
                             </div>
                             <p>Dear Medical Director,</p>
                             <p>
                               Thank you for your partial authorization dated <strong>{offer.date}</strong> for <strong>{scenario.drug}</strong>.
-                              We write to formally contest the approved dose limitation of{' '}
-                              <span className="text-amber-700 font-semibold">{offer.approvedDose}</span>, which falls below the evidence-based therapeutic threshold for this indication.
+                              We write to formally contest the duration limitation of{' '}
+                              <span className="text-amber-700 font-semibold">{offer.approvedDose}</span> and request authorization for the full prescribed 56-day course.
                             </p>
                             <div className="space-y-4">
                               <div onMouseEnter={() => setHoveredCite(0)} onMouseLeave={() => setHoveredCite(null)} className={sectionCls(0)}>
-                                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Clinical Basis for Dose Increase</p>
+                                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Basis for Full 56-Day Course</p>
                                 <p>{r2.keyArgument}</p>
                               </div>
-                              <div onMouseEnter={() => setHoveredCite(1)} onMouseLeave={() => setHoveredCite(null)} className={sectionCls(1)}>
-                                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Supporting Guideline</p>
-                                <p>{r2.guidelineRef}</p>
-                                <p className="text-slate-500 mt-0.5">PubMed PMID: {r2.guidelinePMID}</p>
-                              </div>
+                              {r2.guidelineRef && (
+                                <div onMouseEnter={() => setHoveredCite(1)} onMouseLeave={() => setHoveredCite(null)} className={sectionCls(1)}>
+                                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Supporting Guideline</p>
+                                  <p>{r2.guidelineRef}</p>
+                                  {r2.guidelinePMID && <p className="text-slate-500 mt-0.5">PubMed PMID: {r2.guidelinePMID}</p>}
+                                </div>
+                              )}
                               <div onMouseEnter={() => setHoveredCite(2)} onMouseLeave={() => setHoveredCite(null)} className={sectionCls(2)}>
                                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Requested Authorization</p>
                                 <p>
                                   We respectfully request authorization be revised to{' '}
-                                  <span className="text-emerald-700 font-semibold">{r2.requiredDose}</span> for {scenario.diagnosis}.
-                                  Approval at the sub-therapeutic dose previously authorized does not meet the evidence-based standard of care and places the patient at continued clinical risk.
+                                  <span className="text-emerald-700 font-semibold">{r2.requiredDose}</span> for {scenario.diagnosis}, consistent with the policy statement that authorization will be issued for 12 months.
                                 </p>
                               </div>
                             </div>
@@ -95,23 +96,23 @@ export function Round2DonePanel() {
                           {[
                             {
                               idx: 0,
-                              label: 'Clinical Guideline',
-                              title: scenario.round2Appeal.guidelineRef,
-                              meta: `PubMed PMID: ${scenario.round2Appeal.guidelinePMID}`,
-                              quote: `Labeled dose for pediatric erosive esophagitis (≥20kg): ${scenario.round2Appeal.requiredDose} — below which mucosal healing may be incomplete.`,
+                              label: 'Policy & Prescribed Course',
+                              title: scenario.round2Appeal.guidelineRef ?? `${scenario.plan} (${scenario.planId}) — Authorization Period`,
+                              meta: scenario.round2Appeal.guidelinePMID ? `PubMed PMID: ${scenario.round2Appeal.guidelinePMID}` : `${scenario.planId} · Policy citation`,
+                              quote: `Prescribed course: ${scenario.round2Appeal.requiredDose}. Policy states authorization will be issued for 12 months.`,
                             },
                             {
                               idx: 1,
                               label: 'Speech-Language Pathology Evaluation',
                               title: 'Oral-Motor Dysphagia — Tablet/Capsule PPIs Cannot Be Safely Swallowed',
-                              meta: 'Pediatric SLP · May 2026',
-                              quote: 'Oral-motor dysphagia with aspiration risk on solid oral dosage forms — the UHC PPI policy accepts a swallowing limitation as a step-therapy bypass.',
+                              meta: 'Pediatric SLP · 2026-10-07',
+                              quote: 'Oral-motor dysphagia; tablets and capsules unsafe; liquid required from the start on the swallowing-limitation pathway.',
                             },
                             {
                               idx: 2,
-                              label: 'Payer Counter-Offer on File',
+                              label: 'Payer Partial Approval on File',
                               title: `Approved ${scenario.payerCounterOffer?.approvedDose} → requested ${scenario.round2Appeal.requiredDose}`,
-                              meta: `Counter-offer dated ${scenario.payerCounterOffer?.date}`,
+                              meta: `Partial approval dated ${scenario.payerCounterOffer?.date}`,
                               quote: scenario.round2Appeal.keyArgument,
                             },
                           ].map(({ idx, label, title, meta, quote }) => {

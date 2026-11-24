@@ -15,9 +15,9 @@ describe('deriveCounterOfferComparison', () => {
   it('extracts prescribed vs counter-offer regimen comparison for pediatric-esomeprazole', () => {
     const cmp = deriveCounterOfferComparison(scenarios['pediatric-esomeprazole'])
     expect(cmp).not.toBeNull()
-    expect(cmp!.orderedRegimen).toContain('20mg/day')
-    expect(cmp!.payerOfferRegimen).toContain('10mg/day')
-    expect(cmp!.guidelineFloor).toContain('NASPGHAN/ESPGHAN')
+    expect(cmp!.orderedRegimen).toContain('56 days')
+    expect(cmp!.payerOfferRegimen).toContain('28 of 56 days')
+    expect(cmp!.guidelineFloor).toContain('12 months')
     expect(cmp!.payerOfferGap.length).toBeGreaterThan(10)
   })
 })

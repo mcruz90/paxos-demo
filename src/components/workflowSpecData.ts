@@ -94,7 +94,7 @@ export const WSPEC_ESOMEPRAZOLE: WorkflowSpecData = {
   ],
   edgeCases: [
     { c: 'Suspension requested despite age ≥ 6', h: 'Step therapy applies; needs step-therapy failure or swallowing-limitation bypass.' },
-    { c: 'Payer counter-offer with sub-therapeutic dose (10mg vs 20mg)', h: 'Complex Round 2 → cite Nexium label / NASPGHAN 20mg/day dosing at ≥20kg.' },
+    { c: 'Payer partial approval with duration limit (28 of 56 days)', h: 'Complex Round 2 → appeal for full 56-day course / peer-to-peer citing 12-month policy.' },
   ],
   escalations: [
     { trig: 'Step-therapy exception requested', to: 'Complex' },

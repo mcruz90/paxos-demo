@@ -1,4 +1,5 @@
 import { AlertTriangle, Check, CheckCircle2, Clock, FileText, Printer, ScrollText } from 'lucide-react'
+import { type CaseAssessment } from '../../lib/wire'
 import { type CaseStatus, type Client, type ScenarioConfig } from '../../types'
 import { type ExplicitCaseTransition } from './exceptionStatusTransition'
 import { formatPolicyMatch } from './letterNarrative'
@@ -16,11 +17,13 @@ export function buildLetterActionStatus({
   hasUnresolvedRemaining,
   editedNarrative,
   gateResolution,
+  assessment,
 }: {
   clientStatus: CaseStatus
   hasUnresolvedRemaining: boolean
   editedNarrative?: string
   gateResolution?: string | null
+  assessment?: CaseAssessment | null
 }): LetterActionStatus {
   const isEdited = !!(editedNarrative && editedNarrative.trim().length > 0)
   const trimmedResolution = gateResolution?.trim() ?? ''
@@ -29,7 +32,19 @@ export function buildLetterActionStatus({
     : 'Unsaved local draft — not validated'
   const validationState = 'not evaluated'
   let approvalEligibility = 'Not evaluated — no server artifact (demo approval only)'
-  if (clientStatus === 'submitted') {
+  if (assessment) {
+    if (assessment.pathway === 'no_pa_required') {
+      approvalEligibility = assessment.next_action
+        ? `No PA required for this request — ${assessment.next_action}`
+        : 'No PA required for this request'
+    } else if (!assessment.ready) {
+      approvalEligibility = assessment.blockers.length > 0
+        ? `Blocked (${assessment.blockers.join(', ')})`
+        : 'Not ready — backend assessment blocked'
+    } else {
+      approvalEligibility = 'Ready — not approved'
+    }
+  } else if (clientStatus === 'submitted') {
     approvalEligibility = 'Submitted (demo local state)'
   } else if (hasUnresolvedRemaining) {
     approvalEligibility = 'Not eligible — unresolved exceptions in checklist'
@@ -179,7 +194,7 @@ function StatusReceiptBar({
       <div className="flex items-center justify-between gap-3 p-2.5 bg-violet-500/10 border border-violet-500/25 rounded-xl">
         <div className="flex items-center gap-2 text-xs text-violet-300 min-w-0">
           <AlertTriangle className="w-4 h-4 text-violet-400 shrink-0" />
-          <span className="truncate"><strong>Payer Counter-Offer Received</strong> — dispute dosing or accept partial approval above.</span>
+          <span className="truncate"><strong>Payer Partial Approval Received</strong> — dispute the duration limit or accept partial approval above.</span>
         </div>
       </div>
     )
@@ -187,31 +202,61 @@ function StatusReceiptBar({
   return <p className="text-xs text-slate-400 text-center">Syncing clinical records from Epic FHIR…</p>
 }
 
+function BackendAssessmentFooter({ assessment }: { assessment: CaseAssessment }) {
+  if (assessment.pathway === 'no_pa_required') {
+    return (
+      <div className="p-2.5 rounded-xl border border-sky-500/30 bg-sky-500/10 text-xs text-sky-200 flex items-center justify-between gap-3">
+        <span>
+          <strong>No PA required for this request</strong>
+          {assessment.next_action ? ` · ${assessment.next_action}` : ''}
+        </span>
+      </div>
+    )
+  }
+  return (
+    <div className="p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-200 space-y-0.5">
+      <p>
+        <strong>Blocked</strong>
+        {assessment.blockers.length > 0 ? `: ${assessment.blockers.join(', ')}` : ' — review required'}
+      </p>
+      {assessment.next_action && <p className="text-amber-300">Next action: {assessment.next_action}</p>}
+    </div>
+  )
+}
+
 // Fixed action footer under the case workspace. The HITL contract lives here:
 // filing is only reachable when the generated letter is on screen — never from
 // the checklist alone, and never before generation has handed off to review.
 export function CaseActionFooter({
-  client, scenario, hasUnresolvedRemaining, letterOnScreen, letterReviewed, editedNarrative, gateResolution, pendingTransition, onConfirmStatusTransition, onPrint, onQuickApprove, onGoToLetter, onViewActivity,
+  client, scenario, hasUnresolvedRemaining, letterOnScreen, letterReviewed, editedNarrative, gateResolution, pendingTransition, onConfirmStatusTransition, onPrint, onQuickApprove, onGoToLetter, onViewActivity, assessment,
 }: {
   client: Client; scenario?: ScenarioConfig; hasUnresolvedRemaining: boolean; letterOnScreen: boolean
   letterReviewed: boolean; editedNarrative?: string; gateResolution?: string | null
   pendingTransition?: ExplicitCaseTransition | null; onConfirmStatusTransition?: () => void
   onPrint: () => void; onQuickApprove: () => void; onGoToLetter: () => void; onViewActivity: () => void
+  assessment?: CaseAssessment | null
 }) {
   const statusInfo = buildLetterActionStatus({
     clientStatus: client.status,
     hasUnresolvedRemaining,
     editedNarrative,
     gateResolution,
+    assessment,
   })
+  const blocked = assessment ? !assessment.ready : hasUnresolvedRemaining
   return (
     <div className="px-6 py-3 border-t border-slate-800 bg-slate-900/50 shrink-0 select-none">
       {letterOnScreen && <LetterActionStatusStrip status={statusInfo} />}
-      {hasUnresolvedRemaining ? (
+      {assessment && assessment.ready && !letterOnScreen && (
+        <p className="text-[11px] text-emerald-300 mb-1.5">Backend assessment: Ready — not approved</p>
+      )}
+      {assessment && !assessment.ready ? (
+        <BackendAssessmentFooter assessment={assessment} />
+      ) : blocked ? (
         <p className="text-xs text-slate-400 text-center">Resolve open clinical exceptions above before filing the submission packet.</p>
       ) : pendingTransition && onConfirmStatusTransition ? (
         <PendingTransitionFooter transition={pendingTransition} onConfirm={onConfirmStatusTransition} />
-      ) : client.status === 'ready_for_review' ? (
+      ) : client.status === 'ready_for_review' || assessment?.ready ? (
         <ReadyForReviewFooter letterOnScreen={letterOnScreen} letterReviewed={letterReviewed} onPrint={onPrint} onQuickApprove={onQuickApprove} onGoToLetter={onGoToLetter} />
       ) : (
         <StatusReceiptBar client={client} scenario={scenario} onPrint={onPrint} onViewActivity={onViewActivity} />

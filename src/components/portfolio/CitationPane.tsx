@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { BookmarkPlus, FileText } from 'lucide-react'
+import { type CaseAssessment } from '../../lib/wire'
 import { type ScenarioConfig } from '../../types'
+import { describeAssessmentCitation } from './assessmentEvidence'
 import { presentationForSource } from './documentKindPresentation'
 
 // One evidence citation rendered as a document excerpt: kind letterhead +
@@ -46,6 +48,61 @@ function DocumentExcerpt({
   )
 }
 
+function WiredAssessmentCitations({
+  assessment,
+  highlightedIndex,
+  onSelectIndex,
+}: {
+  assessment: CaseAssessment
+  highlightedIndex: number | null
+  onSelectIndex: (idx: number | null) => void
+}) {
+  return (
+    <>
+      {assessment.findings.map((row, idx) => {
+        const isHighlighted = highlightedIndex === idx
+        return (
+          <button
+            key={row.criterion_id}
+            type="button"
+            data-cite-index={idx}
+            aria-pressed={isHighlighted}
+            onClick={() => onSelectIndex(isHighlighted ? null : idx)}
+            className={[
+              'w-full block rounded-xl border p-3 transition-all cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400',
+              isHighlighted
+                ? 'bg-emerald-500/10 border-emerald-500/40 ring-1 ring-emerald-500/30'
+                : 'bg-slate-800/20 border-slate-800 hover:border-slate-700/60',
+            ].join(' ')}
+          >
+            <span className="flex items-start gap-1.5 mb-2">
+              <span className={`text-[11px] font-bold mt-0.5 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-slate-500'}`}>{idx + 1}</span>
+              <span className={`text-xs font-mono font-semibold leading-tight ${isHighlighted ? 'text-white' : 'text-slate-300'}`}>{row.criterion_id}</span>
+            </span>
+            {row.evidence.length === 0 ? (
+              <span className="block text-xs text-slate-500 italic pl-3">No backend citation on file</span>
+            ) : (
+              <span className="block space-y-2">
+                {row.evidence.map((cite, cIdx) => {
+                  const d = describeAssessmentCitation(cite, row)
+                  return (
+                    <span key={cIdx} className="block rounded-md border-l-2 border-slate-700 bg-slate-950/50 pl-3 pr-2 py-2 text-xs">
+                      <span className="block text-[10px] font-mono text-slate-400">{d.locationLabel} · {d.roleLabel}</span>
+                      <span className={`block mt-1 ${d.isLocationOnly ? 'text-amber-300 italic' : 'text-slate-200'}`}>
+                        {d.isLocationOnly ? `location only (${d.locationLabel}) — no text` : `"${d.excerptText}"`}
+                      </span>
+                    </span>
+                  )
+                })}
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </>
+  )
+}
+
 // Right pane: citation excerpts on file for each criterion, synced with the
 // hovered/selected criterion in the workspace.
 export function CitationPane({
@@ -53,11 +110,13 @@ export function CitationPane({
   highlightedIndex,
   onSelectIndex,
   compactHeader = false,
+  assessment,
 }: {
   scenario: ScenarioConfig
   highlightedIndex: number | null
   onSelectIndex: (idx: number | null) => void
   compactHeader?: boolean
+  assessment?: CaseAssessment | null
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -83,7 +142,9 @@ export function CitationPane({
       )}
 
       <div ref={containerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-        {scenario.criteriaResults.map((cr, idx) => {
+        {assessment ? (
+          <WiredAssessmentCitations assessment={assessment} highlightedIndex={highlightedIndex} onSelectIndex={onSelectIndex} />
+        ) : scenario.criteriaResults.map((cr, idx) => {
           const cite = scenario.citations[cr.rule.label]
           const isHighlighted = highlightedIndex === idx
 

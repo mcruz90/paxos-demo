@@ -133,7 +133,7 @@ const PAYLOAD_PREVIEWS: Record<string, SamplePayloadPreview> = {
   'meridian-health': {
     rawFormat: 'Epic FHIR R4 Bundle + HL7 ORU^R01',
     rawSnippet: 'Condition.code="K21.0" · MedicationRequest="Nexium 20mg Susp" · Observation.value="LA Grade B"',
-    normalizedJson: { drug: 'Nexium Susp (esomeprazole) · RxCUI 283742', diagnosis: 'Pediatric GERD (K21.0)', plan_id: 'UHC-CHOICE-2024', lab_values: 'EGD LA Grade B; weight ≥20 kg' },
+    normalizedJson: { drug: 'Nexium Susp (esomeprazole) · RxCUI 283742', diagnosis: 'Pediatric GERD (K21.0)', plan_id: 'UHC-CHOICE-2026', lab_values: 'EGD LA Grade B; 23 kg; 20 mg × 56d' },
     deidTokenPreview: '{{GASTROENTEROLOGIST_NAME_1}} · {{PATIENT_NAME_1}} · Date Shift: -42d',
   },
 }

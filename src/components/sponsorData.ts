@@ -120,7 +120,7 @@ export const SPONSOR_BRANDS: SponsorBrand[] = [
     postAppealApprovedPct: 62,
     denialReasons: [
       { reason: 'Tablet PPI step-therapy required (swallowing bypass missed)', pct: 46, policyGapNote: 'SLP dysphagia evaluation omitted from initial fax packet' },
-      { reason: 'Partial approval dosing cap (10mg vs. 20mg at ≥20 kg)', pct: 29, policyGapNote: 'Weight-based erosive esophagitis label triggers Round 2 appeal' },
+      { reason: 'Partial approval duration cap (28 of 56 days)', pct: 29, policyGapNote: 'Policy states 12-month authorization; triggers Round 2 appeal / peer-to-peer' },
       { reason: 'Endoscopy / K21.0 erosive confirmation missing', pct: 15, policyGapNote: 'Procedure note attached separately from GI clinic note' },
       { reason: 'Conservative dietary trial documentation', pct: 10, policyGapNote: '≥2-week pediatric GERD conservative note buried in HPI' },
     ],

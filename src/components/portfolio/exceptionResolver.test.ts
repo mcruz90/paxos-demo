@@ -12,13 +12,13 @@ const humira = scenarios['humira-cigna']
 const ozempic = scenarios['novo-ozempic']
 
 describe('buildDisputeResolverContext', () => {
-  it('builds the dosing-dispute context from the payer counter-offer + round-2 fixture', () => {
+  it('builds the duration-dispute context from the payer counter-offer + round-2 fixture', () => {
     const ctx = buildDisputeResolverContext(esomeprazole)!
     expect(ctx).not.toBeNull()
-    expect(ctx.policyNote).toContain('10mg/day')
+    expect(ctx.policyNote).toContain('28 of 56 days')
     // Evidence options come from the researched round2Appeal data, not invention
     expect(ctx.options.length).toBeGreaterThanOrEqual(2)
-    expect(ctx.options.some(o => o.detail.includes('20mg'))).toBe(true)
+    expect(ctx.options.some(o => o.detail.includes('56 days'))).toBe(true)
   })
 
   it('does not preselect any option in dispute or criterion mode', () => {
@@ -30,18 +30,33 @@ describe('buildDisputeResolverContext', () => {
     expect(critCtx.options.every(o => o.preselected === false)).toBe(true)
   })
 
-  it('surfaces the real guideline citation as a discoverable hit (PMID from fixture)', () => {
-    const ctx = buildDisputeResolverContext(esomeprazole)!
+  it('surfaces a guideline citation as a discoverable hit when the fixture carries one', () => {
+    const withGuideline = {
+      ...esomeprazole,
+      round2Appeal: {
+        ...esomeprazole.round2Appeal!,
+        guidelineRef: 'Test Clinical Guideline (2024)',
+        guidelinePMID: '12345678',
+      },
+    }
+    const ctx = buildDisputeResolverContext(withGuideline)!
     expect(ctx.guidelineHits).toHaveLength(1)
-    expect(ctx.guidelineHits[0].id).toBe('guideline:29470322')
+    expect(ctx.guidelineHits[0].id).toBe('guideline:12345678')
     expect(ctx.guidelineHits[0].category).toBe('Clinical Guideline')
-    expect(ctx.guidelineHits[0].effectiveDate).toBe('2018')
+    expect(ctx.guidelineHits[0].effectiveDate).toBe('2024')
     expect(ctx.guidelineHits[0].accessLevel).toBe('Local golden-set corpus')
-    expect(ctx.guidelineHits[0].pmid).toBe('29470322')
-    expect(ctx.guidelineHits[0].ref).toContain('NASPGHAN')
+    expect(ctx.guidelineHits[0].pmid).toBe('12345678')
+    expect(ctx.guidelineHits[0].ref).toBe('Test Clinical Guideline (2024)')
     // Real PMID ⇒ real, clickable PubMed URL for the clinician to read in full
-    expect(ctx.guidelineHits[0].url).toBe('https://pubmed.ncbi.nlm.nih.gov/29470322/')
-    expect(ctx.options.some(o => o.id === 'guideline:29470322')).toBe(true)
+    expect(ctx.guidelineHits[0].url).toBe('https://pubmed.ncbi.nlm.nih.gov/12345678/')
+    expect(ctx.options.some(o => o.id === 'guideline:12345678')).toBe(true)
+  })
+
+  it('omits guideline hits for the pediatric duration-dispute anchor (no unverified PMID)', () => {
+    const ctx = buildDisputeResolverContext(esomeprazole)!
+    expect(ctx.guidelineHits).toHaveLength(0)
+    expect(ctx.options.length).toBeGreaterThanOrEqual(2)
+    expect(JSON.stringify(ctx)).not.toMatch(/29470322|NASPGHAN|ESPGHAN/i)
   })
 
   it('builds doc-chat suggestions from the researched fixture, never invention', () => {

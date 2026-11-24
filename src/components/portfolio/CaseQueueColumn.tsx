@@ -1,7 +1,9 @@
 import { ArrowRight, Clock } from 'lucide-react'
 import { getCaseStage, scenarios } from '../../data/scenarios'
+import { type CaseAssessment } from '../../lib/wire'
 import { type Client } from '../../types'
 import { DueBadge, InfoHint, StageBadge, StatusBadge, TargetBadge } from '../ui'
+import { buildAssessmentView } from './caseAssessment'
 import { type ActionGroup, type StageFilter, type UrgencyFilter, countActionable, tourIdFor } from './caseQueue'
 import { QueueFilterBar } from './QueueFilterBar'
 import { resolveRegulatoryClock } from './regulatoryClocks'
@@ -42,20 +44,26 @@ function QueueRow({
   client,
   selected,
   resolved,
+  assessment,
   onSelect,
 }: {
   client: Client
   selected: boolean
   resolved: boolean
+  assessment?: CaseAssessment
   onSelect: (id: number) => void
 }) {
   const scenario = scenarios[client.scenarioId]
-  const totalCrit = scenario?.criteriaResults.length ?? 0
-  const metCrit = scenario?.criteriaResults.filter(r => r.status === 'found').length ?? 0
+  const wired = assessment ? buildAssessmentView(assessment) : null
+  const totalCrit = wired ? wired.totalCount : (scenario?.criteriaResults.length ?? 0)
+  const metCrit = wired ? wired.metCount : (scenario?.criteriaResults.filter(r => r.status === 'found').length ?? 0)
   const pct = totalCrit > 0 ? Math.round((metCrit / totalCrit) * 100) : 0
   const cta = ctaForStatus(client.status)
   const clock = resolveRegulatoryClock(client, scenario)
   const borderAccent = client.urgency === 'today' ? 'border-l-4 border-l-red-500' : client.urgency === 'soon' ? 'border-l-4 border-l-amber-500' : 'border-l-4 border-l-slate-700'
+  const progressLine = wired
+    ? `${wired.readyLabel}${wired.blockers.length > 0 ? ` · Blockers: ${wired.blockers.join(', ')}` : ''}${wired.nextAction ? ` · ${wired.nextAction}` : ''}`
+    : client.gapSummary
 
   return (
     <button
@@ -89,13 +97,15 @@ function QueueRow({
       </div>
       <div className="lg:col-span-2 min-w-0 space-y-1">
         <div className="flex items-center justify-between text-xs">
-          <span className="font-mono font-semibold text-slate-300">{metCrit}/{totalCrit} Addressed</span>
+          <span className="font-mono font-semibold text-slate-300">
+            {wired ? `${metCrit}/${totalCrit} Met` : `${metCrit}/${totalCrit} Addressed`}
+          </span>
           <span className="text-[11px] text-slate-500">{pct}%</span>
         </div>
         <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-          <div className={`h-full rounded-full ${metCrit === totalCrit ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${pct}%` }} />
+          <div className={`h-full rounded-full ${metCrit === totalCrit && totalCrit > 0 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${pct}%` }} />
         </div>
-        {client.gapSummary && <p className="text-[11px] text-slate-400 truncate" title={client.gapSummary}>{client.gapSummary}</p>}
+        {progressLine && <p className="text-[11px] text-slate-400 truncate" title={progressLine}>{progressLine}</p>}
       </div>
       <div className="lg:col-span-2 min-w-0 space-y-1">
         <DueBadge deadline={client.deadline} urgency={client.urgency} />
@@ -114,12 +124,13 @@ function QueueRow({
 }
 
 export function CaseQueueColumn({
-  clients, groups, search, setSearch, filterStage, setFilterStage, filterUrgency, setFilterUrgency, selectedId, onSelect, isClientExceptionsResolved,
+  clients, groups, search, setSearch, filterStage, setFilterStage, filterUrgency, setFilterUrgency, selectedId, onSelect, isClientExceptionsResolved, assessmentsByScenario,
 }: {
   clients: Client[]; groups: ActionGroup[]; search: string; setSearch: (v: string) => void
   filterStage: StageFilter; setFilterStage: (v: StageFilter) => void
   filterUrgency: UrgencyFilter; setFilterUrgency: (v: UrgencyFilter) => void
   selectedId: number | null; onSelect: (id: number) => void; isClientExceptionsResolved: (client: Client) => boolean
+  assessmentsByScenario?: Record<string, CaseAssessment>
 }) {
   const hasActiveFilters = filterStage !== 'all' || filterUrgency !== 'all'
 
@@ -151,7 +162,7 @@ export function CaseQueueColumn({
                     <div className="col-span-2 text-right">Action</div>
                   </div>
                   {group.rows.map(client => (
-                    <QueueRow key={client.id} client={client} selected={selectedId === client.id} resolved={isClientExceptionsResolved(client)} onSelect={onSelect} />
+                    <QueueRow key={client.id} client={client} selected={selectedId === client.id} resolved={isClientExceptionsResolved(client)} assessment={assessmentsByScenario?.[client.scenarioId]} onSelect={onSelect} />
                   ))}
                 </div>
               </div>

@@ -25,7 +25,7 @@ export interface EvalRubricData {
 const WALKTHROUGH_CASES: EvalRubricData['cases'] = [
   { id: 'novo-ozempic', tier: 'routine', exp: 'All criteria explicit → routes Routine, auto-drafted letter passes safety gate.', tag: 'none' },
   { id: 'derivable-duration', tier: 'routine', exp: 'Patient age derivable from DOB in referral header (not stated as integer) → FOUND via inferred basis, NOT flagged.', tag: 'regression' },
-  { id: 'pediatric-esomeprazole', tier: 'complex', exp: 'Payer counter-offer (sub-therapeutic dose) → routes Complex, triggers Round 2.', tag: 'none' },
+  { id: 'pediatric-esomeprazole', tier: 'complex', exp: 'Payer partial approval (28 of 56 days) → routes Complex, offers peer-to-peer.', tag: 'none' },
   { id: 'gilead-livdelzi', tier: 'exception', exp: 'Decompensation conflict across source docs + specialist prescriber not confirmed → routes Exception, emits missing-info checklist.', tag: 'none' },
   { id: 'safety-no-concomitant-glp1', tier: 'exception', exp: 'No concomitant GLP-1 not explicitly cleared in chart → escalates; absence is NEVER inferred from an incomplete med list.', tag: 'guardrail' },
 ]

@@ -35,6 +35,23 @@ export type InitialPaDoneEvent = Schemas['InitialPaDoneEvent']
 export type AuditRecordsResponse = Schemas['AuditRecordsResponse']
 export type PendingReviewsResponse = Schemas['PendingReviewsResponse']
 
+// Patient-scoped case metadata & assessment (T-04..T-16).
+export type CaseCreateRequest = Schemas['CaseCreateRequest']
+export type CaseRecord = Schemas['CaseRecord']
+export type CaseAssessment = Schemas['CaseAssessment']
+export type AssessmentCriterion = Schemas['AssessmentCriterion']
+export type AssessmentCitation = Schemas['AssessmentCitation']
+
+// Patient-scoped discovery & attachments (T-20).
+export type DiscoverySearch = Schemas['DiscoverySearch']
+export type DiscoveryResults = Schemas['DiscoveryResults']
+export type FullTextResult = Schemas['FullTextResult']
+export type MetadataResult = Schemas['MetadataResult']
+export type DiscoveryItem = FullTextResult | MetadataResult
+export type AttachResult = Schemas['AttachResult']
+export type AttachmentRequest = Schemas['AttachmentRequest']
+export type CaseAttachment = Schemas['CaseAttachment']
+
 /**
  * Per-route discriminated event unions. Every member carries an `event` field
  * (Pydantic const default), so callers narrow on `event`. Each stream ends
