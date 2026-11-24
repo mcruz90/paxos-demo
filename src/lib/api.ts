@@ -23,6 +23,7 @@ import type {
   PaSubmitEvent,
   AuditRecordsResponse,
   PendingReviewsResponse,
+  CaseAssessment,
   LoginRequest,
   LoginResponse,
   MeResponse,
@@ -127,4 +128,13 @@ export function getAuditRecords(opts?: RequestOpts): Promise<AuditRecordsRespons
 
 export function getPendingReviews(opts?: RequestOpts): Promise<PendingReviewsResponse> {
   return getJson<PendingReviewsResponse>('/api/reviews/pending', opts)
+}
+
+export function getCaseAssessment(
+  patientRef: string,
+  caseId: string,
+  opts?: RequestOpts,
+): Promise<CaseAssessment> {
+  const path = `/api/patients/${encodeURIComponent(patientRef)}/cases/${encodeURIComponent(caseId)}/assessment`
+  return getJson<CaseAssessment>(path, opts)
 }

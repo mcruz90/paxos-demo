@@ -1,3 +1,4 @@
+import type { AssessmentCitation, CaseAssessment } from '../../lib/wire'
 import type { CriterionResult, EhrVerification, ScenarioConfig, WorkflowPlan } from '../../types'
 
 // ---------------------------------------------------------------------------
@@ -52,6 +53,12 @@ export interface ResolverContext {
   docChat?: DocChatFixture
   // Side-by-side conflicting chart sources for contradiction criteria.
   conflictSources?: { source: string; claim: string }[]
+  // Backend assessment metadata for wired unmet criteria. Context evidence is
+  // surfaced for reference only and never offered as proof.
+  criterionId?: string
+  isBlocker?: boolean
+  backendNextAction?: string | null
+  contextEvidence?: AssessmentCitation[]
 }
 
 export function summarizeGap(policyNote: string, maxChars = 115): string {
@@ -70,7 +77,8 @@ function pubmedUrl(pmid: string): string {
   return `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`
 }
 
-function buildGuidelineHit(round2: NonNullable<ScenarioConfig['round2Appeal']>): ResolverGuidelineHit {
+function buildGuidelineHit(round2: NonNullable<ScenarioConfig['round2Appeal']>): ResolverGuidelineHit | null {
+  if (!round2.guidelineRef || !round2.guidelinePMID) return null
   const yearMatch = round2.guidelineRef.match(/\b(19|20)\d{2}\b/)
   return {
     id: `guideline:${round2.guidelinePMID}`,
@@ -84,43 +92,53 @@ function buildGuidelineHit(round2: NonNullable<ScenarioConfig['round2Appeal']>):
   }
 }
 
-// Dispute mode: the payer counter-offered (e.g. sub-therapeutic dose) and the
+// Dispute mode: the payer counter-offered (e.g. partial duration approval) and the
 // operator assembles the round-2 evidence packet. Null when there is nothing
 // to dispute.
 export function buildDisputeResolverContext(scenario: ScenarioConfig): ResolverContext | null {
   const offer = scenario.payerCounterOffer
   if (!offer) return null
   const round2 = scenario.round2Appeal
+  const guidelineHit = round2 ? buildGuidelineHit(round2) : null
 
   const options: ResolverEvidenceOption[] = []
   if (round2) {
     options.push({
-      id: 'labeled-dose',
-      title: `Labeled dosing supports ${round2.requiredDose}`,
+      id: 'requested-course',
+      title: `Prescribed course supports ${round2.requiredDose}`,
       detail: round2.keyArgument,
       preselected: false,
     })
-    options.push({
-      id: `guideline:${round2.guidelinePMID}`,
-      title: `Clinical guideline (PMID ${round2.guidelinePMID})`,
-      detail: `${round2.guidelineRef} — supports ${round2.requiredDose}.`,
-      preselected: false,
-    })
+    if (round2.guidelineRef && round2.guidelinePMID) {
+      options.push({
+        id: `guideline:${round2.guidelinePMID}`,
+        title: `Clinical guideline (PMID ${round2.guidelinePMID})`,
+        detail: `${round2.guidelineRef} — supports ${round2.requiredDose}.`,
+        preselected: false,
+      })
+    } else {
+      options.push({
+        id: 'partial-approval-basis',
+        title: 'Partial approval & policy authorization period',
+        detail: offer.newDenialReason,
+        preselected: false,
+      })
+    }
   }
 
   const policyNote = `${offer.summary} ${offer.newDenialReason}`
   return {
-    title: `Dispute payer counter-offer — ${scenario.drug}`,
+    title: `Dispute payer partial approval — ${scenario.drug}`,
     gapSummary: summarizeGap(policyNote),
     policyNote,
     options,
-    guidelineHits: round2 ? [buildGuidelineHit(round2)] : [],
+    guidelineHits: guidelineHit ? [guidelineHit] : [],
     docChat: round2
       ? {
           suggestions: [
-            { q: 'What dose does the evidence support for this patient?',
-              a: `${round2.requiredDose} — per ${round2.guidelineRef}` },
-            { q: 'Why is the approved dose insufficient?',
+            { q: 'What course does the request cover?',
+              a: round2.guidelineRef ? `${round2.requiredDose} — per ${round2.guidelineRef}` : round2.requiredDose },
+            { q: 'Why is the 28-day partial approval disputed?',
               a: round2.keyArgument },
           ],
         }
@@ -134,6 +152,7 @@ export function buildDisputeResolverContext(scenario: ScenarioConfig): ResolverC
 export function buildCriterionResolverContext(
   scenario: ScenarioConfig,
   criterion: CriterionResult,
+  assessment?: CaseAssessment | null,
 ): ResolverContext {
   const options: ResolverEvidenceOption[] = []
   if (criterion.suggestedAction) {
@@ -154,16 +173,29 @@ export function buildCriterionResolverContext(
     })
   }
 
+  const wired = criterion.assessment
+  const findingRow = wired ? undefined : assessment?.findings.find(f => f.criterion_id === criterion.rule.label)
+  const criterionId = wired?.criterionId ?? findingRow?.criterion_id
+  const backendNextAction = wired?.nextAction ?? findingRow?.next_action ?? undefined
+  const isBlocker = wired?.isBlocker ?? (criterionId ? assessment?.blockers.includes(criterionId) : false)
+  const contextEvidence = wired?.contextEvidence ?? findingRow?.evidence.filter(e => e.role === 'context')
+
   const round2 = scenario.round2Appeal
+  const guidelineHit = round2 ? buildGuidelineHit(round2) : null
+  const basePolicyNote = wired ? `${wired.requirement} — ${wired.findingSummary}` : criterion.note
   return {
     title: `Resolve exception — ${criterion.rule.label}`,
-    gapSummary: summarizeGap(criterion.note),
-    policyNote: criterion.note,
+    gapSummary: summarizeGap(basePolicyNote),
+    policyNote: basePolicyNote,
     options,
-    guidelineHits: round2 ? [buildGuidelineHit(round2)] : [],
+    guidelineHits: guidelineHit ? [guidelineHit] : [],
     workflow: criterion.workflowPlan,
     ehrVerify,
     conflictSources: criterion.conflictSources,
+    criterionId,
+    isBlocker,
+    backendNextAction,
+    contextEvidence,
     docChat: ehrVerify
       ? {
           suggestions: [

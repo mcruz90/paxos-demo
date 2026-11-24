@@ -68,7 +68,7 @@ export function previewQueueUnderPolicy(
       dispositionLabel = 'Human Investigation Required'
       badgeTone = 'rose'
     } else if (c.status === 'payer_response') {
-      dispositionLabel = 'Round 2 Counter-Offer Review'
+      dispositionLabel = 'Round 2 Partial Approval Review'
       badgeTone = 'violet'
     } else if (c.status === 'awaiting_documentation') {
       dispositionLabel = 'Awaiting Query · Complex Review'

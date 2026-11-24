@@ -90,7 +90,7 @@ export function buildDispatchArtifact(
 
 export const ACTION_GROUPS: { status: CaseStatus; label: string; hint: string }[] = [
   { status: 'exception',              label: 'Needs investigation',    hint: 'Missing clinical information — review and resolve' },
-  { status: 'payer_response',         label: 'Respond to payer',       hint: 'Counter-offer received — review and file the next round' },
+  { status: 'payer_response',         label: 'Respond to payer',       hint: 'Partial approval received — review and file the next round' },
   { status: 'ready_for_review',       label: 'Review & approve',       hint: 'AI work complete — review and authorize the send' },
   { status: 'awaiting_documentation', label: 'Awaiting documentation', hint: 'Document request sent — waiting for provider response' },
   { status: 'submitted',              label: 'Awaiting payer',         hint: 'Filed — no action needed until the payer responds' },
@@ -230,7 +230,7 @@ export function tourIdFor(client: Client): string | undefined {
   return {
     'novo-ozempic-initial':   'tour-case-initial-pa',
     'novo-ozempic':           'tour-case-ozempic',
-    'pediatric-esomeprazole': 'tour-case-infant',
+    'pediatric-esomeprazole': 'tour-case-pediatric',
     'gilead-livdelzi':        'tour-case-livdelzi',
   }[client.scenarioId]
 }

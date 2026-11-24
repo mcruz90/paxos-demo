@@ -3,11 +3,13 @@ import { Activity } from 'lucide-react'
 import { type UnitCapability } from '../../capabilities'
 import { resolvePatientContext } from '../../data/patientContext'
 import { patientProfiles } from '../../data/patients'
+import { type CaseAssessment } from '../../lib/wire'
 import { type CaseStatus, type Client, type ScenarioConfig } from '../../types'
 import { type LiveShellSession } from '../live/SessionGate'
 import { openAppealPdf, openPaRequestPdf } from '../poc/letter'
 import { CaseActionFooter } from './CaseActionFooter'
-import { type LocalCaseState, checklistProgress, countLocallyResolved, unresolvedCriteria } from './caseQueue'
+import { buildAssessmentView, deriveReadinessGate } from './caseAssessment'
+import { type LocalCaseState, checklistProgress } from './caseQueue'
 import { ChartQaTab } from './ChartQaTab'
 import { type CriterionActions } from './CriterionRow'
 import { type ExplicitCaseTransition } from './exceptionStatusTransition'
@@ -52,6 +54,7 @@ export function PreviewPane({
   client, scenario, localState, actions, onQuickApprove, onPayerDecision, onSaveNarrative,
   pendingTransition, onConfirmStatusTransition,
   selectedCiteIndex, onSelectCiteIndex, activeTab, setActiveTab, activeDocId, onViewDoc, onOpenDisputeResolver, generateCap, live,
+  assessment, assessmentError,
 }: {
   client: Client | null; scenario: ScenarioConfig | null; localState: LocalCaseState; actions: CriterionActions
   onOpenCase?: (scenarioId: string, status: CaseStatus) => void
@@ -60,6 +63,7 @@ export function PreviewPane({
   selectedCiteIndex: number | null; onSelectCiteIndex: (idx: number | null) => void
   activeTab: PreviewTab; setActiveTab: (tab: PreviewTab) => void; activeDocId: string | null; onViewDoc: (docId: string) => void
   onOpenDisputeResolver?: () => void; generateCap: UnitCapability; live?: LiveShellSession
+  assessment?: CaseAssessment | null; assessmentError?: string | null
 }) {
   const [letterGen, setLetterGen] = useState<'idle' | 'review'>('idle')
   const [generatedLetter, setGeneratedLetter] = useState<string | undefined>(undefined)
@@ -84,9 +88,11 @@ export function PreviewPane({
   }
 
   const isInitial = scenario.lifecycle === 'initial_pa'
-  const unresolved = unresolvedCriteria(scenario)
-  const hasUnresolvedRemaining = unresolved.length > 0 && countLocallyResolved(unresolved, localState) < unresolved.length
-  const progress = checklistProgress(scenario, localState)
+  const hasUnresolvedRemaining = deriveReadinessGate(assessment, scenario, localState)
+  const wiredView = assessment ? buildAssessmentView(assessment) : null
+  const progress = wiredView
+    ? { satisfied: wiredView.metCount, total: wiredView.totalCount, awaitingDocs: 0 }
+    : checklistProgress(scenario, localState)
   const patientContext = resolvePatientContext(scenario, client)
   const scenarioWithContext = { ...scenario, patientContext }
   const docs = ensureSourceDocuments(scenario)
@@ -121,6 +127,11 @@ export function PreviewPane({
       )}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-4 select-text">
+        {assessmentError && (
+          <div className="rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+            Backend assessment unavailable: {assessmentError}
+          </div>
+        )}
         {activeTab === 'letter' ? (
           client.status === 'ready_for_review' && letterGen !== 'review' ? (
             generateCap === 'live' && live ? (
@@ -138,7 +149,7 @@ export function PreviewPane({
         ) : activeTab === 'documents' ? (
           <ChartQaTab client={client} scenario={scenario} docs={docs} qaSuggestions={qaSuggestions} activeDocId={activeDocId} onViewDoc={onViewDoc} activity={localState.activity} localState={localState} />
         ) : (
-          <PreviewChecklistTab timeline={scenario.timeline} activity={localState.activity} sortedCriteria={sortedCriteria} progress={progress} localState={localState} actions={actions} selectedCiteIndex={selectedCiteIndex} onSelectCiteIndex={onSelectCiteIndex} />
+          <PreviewChecklistTab timeline={scenario.timeline} activity={localState.activity} sortedCriteria={sortedCriteria} progress={progress} localState={localState} actions={actions} selectedCiteIndex={selectedCiteIndex} onSelectCiteIndex={onSelectCiteIndex} assessment={assessment} />
         )}
         <div className="h-4" />
       </div>
@@ -150,6 +161,7 @@ export function PreviewPane({
         pendingTransition={pendingTransition} onConfirmStatusTransition={onConfirmStatusTransition}
         onPrint={handlePrint} onQuickApprove={() => onQuickApprove(client.scenarioId)}
         onGoToLetter={() => setActiveTab('letter')} onViewActivity={() => setActiveTab('documents')}
+        assessment={assessment}
       />
     </div>
   )

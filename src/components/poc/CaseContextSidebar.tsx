@@ -96,8 +96,8 @@ function getConfidence(responseType: string) {
   switch (responseType) {
     case 'partial_approval':
       return {
-        label: 'Dispute likely to succeed',
-        rationale: 'Partial approvals with dosing below the drug label are frequently overturned on appeal — the labeled dose is strong clinical evidence.',
+        label: 'Partial approval — duration dispute',
+        rationale: 'The appeal cites the policy (authorization is issued for 12 months) and the prescribed 56-day course.',
         borderClass: 'bg-emerald-950/30 border-emerald-500/20',
         textClass: 'text-emerald-400',
         iconClass: 'text-emerald-400',

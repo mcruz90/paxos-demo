@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { type UnitCapability } from '../../capabilities'
 import { resolvePatientContext } from '../../data/patientContext'
 import { scenarios } from '../../data/scenarios'
+import { type CaseAssessment } from '../../lib/wire'
 import { type CaseStatus, type Client, type CriterionResult } from '../../types'
 import { type LiveShellSession } from '../live/SessionGate'
 import { CaseQueueColumn } from './CaseQueueColumn'
@@ -20,6 +21,7 @@ import { PreviewPane, type PreviewTab } from './PreviewPane'
 import { QueueHeader } from './QueueHeader'
 import { attachExcerptsOnly, reassessCriterionWithDelta } from './reassessment'
 import { phiFromContext } from './redaction'
+import { useCaseAssessment } from './useCaseAssessment'
 
 // Three-column case queue: case list · selected-case workspace · citation
 // ground truth. Owns per-case local coordinator state (dispatches/overrides);
@@ -27,6 +29,7 @@ import { phiFromContext } from './redaction'
 export function SplitPortfolioView({
   clients, onOpenCase, onQuickApprove, onPayerDecision, onUpdateClientStatus,
   generateCap, live, onCaseOpenChange, onInspectInBuild, activeScenarioOverride, queueResetNonce,
+  assessmentsByScenario, sourceBodiesByScenario,
 }: {
   clients: Client[]
   onOpenCase: (scenarioId: string, status: CaseStatus) => void
@@ -35,6 +38,8 @@ export function SplitPortfolioView({
   onUpdateClientStatus: (scenarioId: string, status: CaseStatus) => void
   generateCap: UnitCapability; live?: LiveShellSession; onCaseOpenChange?: (open: boolean) => void
   onInspectInBuild?: (scenarioId: string) => void; activeScenarioOverride?: string | null; queueResetNonce?: number
+  assessmentsByScenario?: Record<string, CaseAssessment>
+  sourceBodiesByScenario?: Record<string, Record<string, string>>
 }) {
   const [search, setSearch] = useState('')
   const [filterStage, setFilterStage] = useState<StageFilter>('all')
@@ -87,6 +92,14 @@ export function SplitPortfolioView({
   const selectedClient = matches.find(c => c.id === selectedId) ?? null
   const selectedScenario = selectedClient ? (scenarios[selectedClient.scenarioId] ?? null) : null
   const selectedLocalState = selectedClient ? getLocalCaseState(selectedClient.scenarioId) : EMPTY_LOCAL_CASE_STATE
+  const assessmentTarget = selectedClient ?? clients.find(c => c.scenarioId === 'pediatric-esomeprazole') ?? null
+  const { assessment: liveAssessment, error: assessmentError } = useCaseAssessment(assessmentTarget, live)
+  const effectiveAssessments: Record<string, CaseAssessment> = {
+    ...(assessmentsByScenario ?? {}),
+    ...(assessmentTarget && liveAssessment ? { [assessmentTarget.scenarioId]: liveAssessment } : {}),
+  }
+  const selectedAssessment = selectedClient ? effectiveAssessments[selectedClient.scenarioId] ?? null : null
+  const selectedSourceBodies = selectedClient ? sourceBodiesByScenario?.[selectedClient.scenarioId] : undefined
 
   // Applies local criterion/activity state updates only — case status changes
   // happen exclusively through explicit named user actions (never timers).
@@ -133,7 +146,7 @@ export function SplitPortfolioView({
 
   const resolverCtx = resolver && selectedScenario
     ? resolver.mode === 'criterion'
-      ? buildCriterionResolverContext(selectedScenario, resolver.criterion)
+      ? buildCriterionResolverContext(selectedScenario, resolver.criterion, selectedAssessment)
       : buildDisputeResolverContext(selectedScenario)
     : null
 
@@ -151,7 +164,7 @@ export function SplitPortfolioView({
       else updateSelectedCaseState(prev => reassessCriterionWithDelta(prev, crit, excerpts, justification, now()))
     } else {
       updateSelectedCaseState(prev => logActivity(prev, {
-        at: now(), action: 'Counter-offer disputed', detail: 'Round-2 evidence packet assembled',
+        at: now(), action: 'Partial approval disputed', detail: 'Round-2 evidence packet assembled',
         artifact: { title: 'Dispute evidence packet', body: justification },
       }))
       onPayerDecision(selectedClient.scenarioId, 'disputed'); setActiveTab('letter')
@@ -160,7 +173,7 @@ export function SplitPortfolioView({
   }
 
   const pendingTransition =
-    selectedClient && selectedScenario
+    !selectedAssessment && selectedClient && selectedScenario
       ? resolveExplicitCaseTransition(selectedClient.status, selectedScenario, selectedLocalState)
       : null
 
@@ -184,7 +197,7 @@ export function SplitPortfolioView({
           selectedCiteIndex={activeCiteIndex} onSelectCiteIndex={setActiveCiteIndex} activeTab={activeTab} setActiveTab={setActiveTab}
           activeDocId={activeDocId} onViewDoc={viewDoc}
           onOpenDisputeResolver={selectedScenario?.round2Appeal ? () => setResolver({ mode: 'dispute' }) : undefined}
-          generateCap={generateCap} live={live}
+          generateCap={generateCap} live={live} assessment={selectedAssessment} assessmentError={assessmentError}
         />
       </div>
       {selectedScenario && (
@@ -192,6 +205,7 @@ export function SplitPortfolioView({
           scenario={selectedScenario} phi={selectedClient ? phiFromContext(resolvePatientContext(selectedScenario, selectedClient)) : null}
           showCitations={showCitations} onToggleCitations={() => setShowCitations(v => !v)} citeView={citeView} setCiteView={setCiteView}
           activeCiteIndex={activeCiteIndex} onSelectCiteIndex={setActiveCiteIndex} activeDocId={activeDocId} onSelectDoc={setActiveDocId}
+          assessment={selectedAssessment} sourceBodies={selectedSourceBodies}
         />
       )}
     </>
@@ -206,13 +220,14 @@ export function SplitPortfolioView({
             patient={patientForClient(clients, selectedClient)} scenario={selectedScenario} activeScenarioId={selectedClient.scenarioId}
             clients={clients} onSelectClient={setSelectedId}
             onSelectCase={sid => { const c = clients.find(x => x.scenarioId === sid); if (c) setSelectedId(c.id) }}
-            onBackToQueue={() => setSelectedId(null)} onInspectInBuild={onInspectInBuild} workspace={workspace}
+            onBackToQueue={() => setSelectedId(null)} onInspectInBuild={onInspectInBuild} assessment={selectedAssessment} workspace={workspace}
           />
         ) : (
           <CaseQueueColumn
             clients={clients} groups={groups} search={search} setSearch={setSearch} filterStage={filterStage}
             setFilterStage={setFilterStage} filterUrgency={filterUrgency} setFilterUrgency={setFilterUrgency}
             selectedId={selectedId} onSelect={setSelectedId} isClientExceptionsResolved={isClientExceptionsResolved}
+            assessmentsByScenario={effectiveAssessments}
           />
         )}
       </div>

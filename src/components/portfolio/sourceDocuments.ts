@@ -89,13 +89,13 @@ export function ensureSourceDocuments(scenario: ScenarioConfig): SourceDocument[
   if (scenario.payerCounterOffer) {
     docs.unshift({
       id: 'doc-payer-counter-offer',
-      title: `${scenario.plan} — Partial Approval / Counter-Offer`,
+      title: `${scenario.plan} — Partial Approval`,
       source: `${scenario.plan} Coverage Determination Letter`,
       meta: `${scenario.planId} · Citation excerpt (no full document) · ${scenario.payerCounterOffer.date}`,
       blocks: [
         { text: `Citation Excerpt — no full source document on file: ${scenario.payerCounterOffer.summary}` },
-        { text: `Dosing determination: ${scenario.payerCounterOffer.newDenialReason}` },
-        { text: `Approved dose: ${scenario.payerCounterOffer.approvedDose}` },
+        { text: `Determination: ${scenario.payerCounterOffer.newDenialReason}` },
+        { text: `Partial approval: ${scenario.payerCounterOffer.approvedDose}` },
       ],
     })
   }

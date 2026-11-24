@@ -1,3 +1,5 @@
+import type { WiredCriterionMeta } from './components/portfolio/caseAssessment'
+
 export type View = 'landing' | 'portfolio' | 'poc' | 'build_home' | 'library' | 'evals' | 'onboarding' | 'platform' | 'failures' | 'specs' | 'instructions' | 'rubric' | 'inspector' | 'sponsor' | 'automation'
 export type Role = 'Operate' | 'Build' | 'Scale' | 'Sponsor'
 export type IntakePhase = 'upload' | 'analyzing' | 'extracted'
@@ -45,6 +47,7 @@ export interface CriterionResult {
   // (schemas.py) — parity-tested in test_schema_parity.py. Absent = not
   // assessed (routes to the exception tier, never assumed 1.0).
   confidence?: number
+  assessment?: WiredCriterionMeta
 }
 
 export interface TimelineEvent {
@@ -91,7 +94,7 @@ export interface ScenarioConfig {
   overriddenFields?: { label: string; base: string; override: string }[]
   // Multi-round appeal support
   payerCounterOffer?: { date: string; summary: string; newDenialReason: string; approvedDose: string }
-  round2Appeal?: { keyArgument: string; guidelineRef: string; guidelinePMID: string; requiredDose: string }
+  round2Appeal?: { keyArgument: string; guidelineRef?: string; guidelinePMID?: string; requiredDose: string }
   // ── Initial-PA lifecycle (lifecycle === 'initial_pa') ─────────────────────
   // Absent ⇒ this is an appeal scenario and the fields below do not apply.
   lifecycle?: CaseLifecycle
@@ -173,6 +176,7 @@ export interface Client {
   // (cases). Absent ⇒ the case stands alone as its own patient. NOTE: real
   // patient↔case tenancy is a backend gap (O9/G1); this is demo-only grouping.
   patientRef?: string
+  backendCaseId?: string
   // Absent ⇒ 'medication' (the current default across all cases).
   paTargetType?: PaTargetType
   requestType?: 'exception' | 'coverage_determination'
@@ -191,10 +195,7 @@ export interface Client {
   urgency: Urgency
 }
 
-// ---------------------------------------------------------------------------
 // Layer 1 — Universal Rule Primitives
-// ---------------------------------------------------------------------------
-
 export interface UniversalPrimitive {
   type: RuleType
   schemaClass: string

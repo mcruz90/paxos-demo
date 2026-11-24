@@ -1,5 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import { AlertTriangle, Mail, X } from 'lucide-react'
+import { ResolverAssessmentPanel } from './AssessmentEvidenceView'
 import { type AttachedExcerpt } from './caseQueue'
 import { type ResolverContext, assembleJustification } from './exceptionResolver'
 import { EvidenceDiscoveryConsole } from './EvidenceDiscoveryConsole'
@@ -132,6 +133,12 @@ export function ExceptionResolverModal({
         </div>
         <div className="flex-1 flex flex-col lg:flex-row gap-5 p-5 overflow-y-auto min-h-[420px]">
           <div className="flex-1 min-w-0 flex flex-col gap-4">
+            <ResolverAssessmentPanel
+              criterionId={ctx.criterionId}
+              isBlocker={ctx.isBlocker}
+              backendNextAction={ctx.backendNextAction}
+              contextEvidence={ctx.contextEvidence}
+            />
             {ctx.conflictSources && ctx.conflictSources.length > 0 && <ConflictComparisonCard conflictSources={ctx.conflictSources} />}
             <EvidenceDiscoveryConsole ctx={ctx} selected={selected} onAttach={attach} />
           </div>
