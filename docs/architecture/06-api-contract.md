@@ -452,7 +452,8 @@ All paths below extend `/api/patients/{patient_ref}/cases/{case_id}`. Each opera
 
 | Method and path | Request | Success (200) |
 |---|---|---|
-| POST `/discovery` | `query` (0–256 characters), `expected_revision` | Persisted query ID, query, revision and ordered items |
+| POST `/discovery` | `query` (0–256 characters), `expected_revision`, optional `request_id` | Persisted query ID, query, revision and ordered items |
+| GET `/discovery` | Optional `limit` (1–50, default 50) | Newest queries first with ID, text, revision, creation time and item count. Older queries without recorded times appear last. |
 | GET `/discovery/{query_id}` | — | Original query and items |
 | POST `/attachments` | `result_id`, `request_id`, `expected_revision` | Attachment ID, exact item, actor ID and timestamp |
 | DELETE `/attachments/{attachment_id}` | JSON body with `request_id`, `expected_revision` | Original attachment, now removed from the active list |
@@ -460,7 +461,9 @@ All paths below extend `/api/patients/{patient_ref}/cases/{case_id}`. Each opera
 
 A blank query lists the bound fixture corpus. A nonblank query does case-insensitive substring matching across title, category and available text. An unbound case returns an empty result set. Use the result ID to select one item. For `full_text`, `[start, end)` indexes Unicode code points and `content_sha256` hashes the UTF-8 note. For `metadata_only`, the digest hashes the visible title and the span and excerpt are null.
 
-The client supplies a request ID of 1–128 letters, digits or characters from `._:-`. Repeating the same attach or remove returns the original response. Changing the target, operation or expected revision under the same ID yields 409. A new write against a stale revision also yields 409. An inaccessible case, query, result or attachment yields 404. Malformed bodies yield 422. Attaching or removing evidence preserves the assessment response. [ADR 0022](adr/0022-discovery-attachments.md)
+Search accepts an optional request ID. An identical keyed search replays the original snapshot even if the case revision has advanced. Omitting the ID creates a fresh snapshot.
+
+Attachment commands require a request ID of 1–128 letters, digits or characters from `._:-`. Repeating the same attach or remove returns the original response. Changing the query text, attachment target or operation, or expected revision under the same scoped ID returns 409 with `code=idempotency_conflict`. A new write against a stale revision returns 409 with `code=stale_case_revision`. Both retain `detail=case_conflict`. An inaccessible case, query, result or attachment yields 404. Malformed bodies yield 422. Attaching or removing evidence preserves the assessment response. [ADR 0022](adr/0022-discovery-attachments.md)
 
 ### Case assessment and partial approval
 

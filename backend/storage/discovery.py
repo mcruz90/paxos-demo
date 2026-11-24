@@ -9,7 +9,13 @@ from pydantic import TypeAdapter
 from cases.discovery import DiscoveryAdapter
 from cases.store_errors import CaseConflict
 from models.case_evidence import CaseRecord
-from models.discovery import CaseAttachment, DiscoveryItem, DiscoveryResults, DiscoverySearch
+from models.discovery import (
+    CaseAttachment,
+    DiscoveryItem,
+    DiscoveryQuerySummary,
+    DiscoveryResults,
+    DiscoverySearch,
+)
 from models.schemas import CaseAccess
 from storage.case_authorization import CaseAccessDenied
 
@@ -61,12 +67,23 @@ class DiscoveryStore:
             raise CaseConflict("stale_case_revision")
 
     def search(self, body: DiscoverySearch, adapter: DiscoveryAdapter) -> DiscoveryResults:
+        if body.request_id is not None:
+            prior = self.conn.execute(
+                "SELECT query_id::text,query,revision FROM discovery_queries WHERE "
+                + _SCOPE
+                + " AND actor_id=%s AND request_id=%s",
+                (*self.scope, self.actor, body.request_id),
+            ).fetchone()
+            if prior is not None:
+                if prior[1:] != (body.query, body.expected_revision):
+                    raise CaseConflict("idempotency_conflict")
+                return self.results(prior[0])
         self.check_revision(body.expected_revision)
         query_id = str(uuid4())
         self.conn.execute(
-            "INSERT INTO discovery_queries (tenant_id,patient_ref,case_id,query_id,query,revision) "
-            "VALUES (%s,%s,%s,%s,%s,%s)",
-            (*self.scope, query_id, body.query, self.case.revision),
+            "INSERT INTO discovery_queries (tenant_id,patient_ref,case_id,query_id,query,revision,"
+            "actor_id,request_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+            (*self.scope, query_id, body.query, self.case.revision, self.actor, body.request_id),
         )
         for ordinal, source in enumerate(adapter.search(self.case, body.query)):
             self.conn.execute(
@@ -75,6 +92,28 @@ class DiscoveryStore:
                 (*self.scope, query_id, uuid4(), ordinal, Jsonb(source.model_dump())),
             )
         return self.results(query_id)
+
+    def queries(self, limit: int) -> tuple[DiscoveryQuerySummary, ...]:
+        rows = self.conn.execute(
+            "SELECT query_id::text,query,revision,created_at,"
+            "(SELECT count(*) FROM discovery_results r WHERE "
+            "(r.tenant_id,r.patient_ref,r.case_id,r.query_id)="
+            "(q.tenant_id,q.patient_ref,q.case_id,q.query_id)) "
+            "FROM discovery_queries q WHERE "
+            + _SCOPE
+            + " ORDER BY created_at DESC NULLS LAST,q.query_id DESC LIMIT %s",
+            (*self.scope, limit),
+        )
+        return tuple(
+            DiscoveryQuerySummary(
+                query_id=qid,
+                query=query,
+                revision=revision,
+                created_at=created_at,
+                item_count=count,
+            )
+            for qid, query, revision, created_at, count in rows
+        )
 
     def results(self, query_id: str) -> DiscoveryResults:
         args = (*self.scope, query_id)

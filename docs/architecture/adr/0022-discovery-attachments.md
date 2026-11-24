@@ -14,6 +14,10 @@ Writes hold the case row lock through commit and check the supplied clinical rev
 
 Attach and remove persist an actor-scoped command receipt with the operation, target, expected revision and attachment identity. After grant resolution, an identical retry returns the original response, including after removal. Any other use of that request ID conflicts. Removal hides the attachment from the active list and preserves its provenance for replay. The case row lock serializes concurrent first submissions of the same command.
 
+A search may supply a request ID scoped to the actor and case, in a separate namespace from attachment commands. Under the same write lock, a retry with identical query text and expected revision reads the original snapshot before checking the current revision. A changed binding returns 409 with code `idempotency_conflict`. A new search against an obsolete revision returns 409 with code `stale_case_revision`. Both preserve `detail: case_conflict`.
+
+The case history endpoint returns up to 50 summaries, newest first with query UUID as the tie-breaker. Migration 0006 timestamps new queries. Earlier rows have an unknown creation time and appear last in UUID order with a null timestamp.
+
 ## Consequences
 
-Reloading the case requires only the database for previous queries and attachments. Re-running a query creates a fresh result set. Separate request IDs express separate commands. Storage grows with searches and attachment history. Future adapters must provide correctly scoped immutable sources and distinguish visible metadata from accessible document text.
+Reloading the case requires only the database for previous queries and attachments. Re-running a query without a request ID creates a fresh result set. Separate request IDs express separate commands. Storage grows with searches and attachment history. Future adapters must provide correctly scoped immutable sources and distinguish visible metadata from accessible document text.

@@ -13,6 +13,7 @@ class DiscoveryWrite(FrozenRecord):
 
 
 class DiscoverySearch(DiscoveryWrite):
+    request_id: RecordId | None = None
     query: str = Field(max_length=256)
 
 
@@ -66,3 +67,24 @@ class CaseAttachment(FrozenRecord):
     item: DiscoveryItem
     actor_id: RecordId
     attached_at: AwareDatetime
+
+
+class DiscoveryQuerySummary(FrozenRecord):
+    query_id: PersistentCaseId
+    query: str
+    revision: int
+    created_at: AwareDatetime | None
+    item_count: int
+
+
+class DiscoveryNotFound(FrozenRecord):
+    detail: Literal["case_not_found"]
+
+
+class DiscoveryUnavailable(FrozenRecord):
+    detail: Literal["case_service_unavailable"]
+
+
+class DiscoveryConflict(FrozenRecord):
+    detail: Literal["case_conflict"]
+    code: Literal["stale_case_revision", "idempotency_conflict"]
