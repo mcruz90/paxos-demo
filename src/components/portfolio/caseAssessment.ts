@@ -3,7 +3,7 @@ import type {
   AssessmentCriterion,
   CaseAssessment,
 } from '../../lib/wire'
-import type { CriterionResult, CriterionStatus, RuleType, ScenarioConfig } from '../../types'
+import type { CriterionStatus, ReviewCriterionResult, RuleType, ScenarioConfig } from '../../types'
 import { type LocalCaseState, countLocallyResolved, unresolvedCriteria } from './caseQueue'
 
 export interface WiredCriterionMeta {
@@ -20,7 +20,7 @@ export interface WiredCriterionMeta {
 
 export interface AssessmentViewModel {
   revision: number
-  criteria: CriterionResult[]
+  criteria: ReviewCriterionResult[]
   ready: boolean
   readyLabel: string
   pathway: CaseAssessment['pathway']
@@ -86,7 +86,7 @@ export function formatAgeAtRequest(ageYears: number | null): string {
 
 export function buildAssessmentView(assessment: CaseAssessment): AssessmentViewModel {
   const blockerSet = new Set(assessment.blockers)
-  const criteria: CriterionResult[] = assessment.findings.map(row => {
+  const criteria: ReviewCriterionResult[] = assessment.findings.map(row => {
     const { patientEvidence, contextEvidence } = splitAssessmentEvidence(row.evidence)
     const isLocationOnly =
       row.criterion_id === 'source_review' ||

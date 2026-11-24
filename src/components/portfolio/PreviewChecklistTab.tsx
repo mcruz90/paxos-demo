@@ -1,6 +1,6 @@
 import { CheckCircle2, Clock } from 'lucide-react'
 import { type CaseAssessment } from '../../lib/wire'
-import { type CriterionResult, type TimelineEvent } from '../../types'
+import { type ReviewCriterionResult, type TimelineEvent } from '../../types'
 import { CaseTimeline } from '../poc/CaseTimeline'
 import { ActivityLog } from './ActivityLog'
 import { buildAssessmentView } from './caseAssessment'
@@ -20,7 +20,7 @@ export function PreviewChecklistTab({
 }: {
   timeline?: TimelineEvent[]
   activity: ActivityEntry[]
-  sortedCriteria: { criterion: CriterionResult; origIdx: number }[]
+  sortedCriteria: { criterion: ReviewCriterionResult; origIdx: number }[]
   progress: { satisfied: number; total: number; awaitingDocs: number }
   localState: LocalCaseState
   actions: CriterionActions

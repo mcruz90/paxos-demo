@@ -1,5 +1,5 @@
 import type { AssessmentCitation, CaseAssessment } from '../../lib/wire'
-import type { CriterionResult, EhrVerification, ScenarioConfig, WorkflowPlan } from '../../types'
+import type { EhrVerification, ReviewCriterionResult, ScenarioConfig, WorkflowPlan } from '../../types'
 
 // ---------------------------------------------------------------------------
 // Exception-resolver context — pure builders behind ExceptionResolverModal.
@@ -151,7 +151,7 @@ export function buildDisputeResolverContext(scenario: ScenarioConfig): ResolverC
 // explicitly attach reviewed evidence without overwriting source facts.
 export function buildCriterionResolverContext(
   scenario: ScenarioConfig,
-  criterion: CriterionResult,
+  criterion: ReviewCriterionResult,
   assessment?: CaseAssessment | null,
 ): ResolverContext {
   const options: ResolverEvidenceOption[] = []

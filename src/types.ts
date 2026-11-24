@@ -47,6 +47,12 @@ export interface CriterionResult {
   // (schemas.py) — parity-tested in test_schema_parity.py. Absent = not
   // assessed (routes to the exception tier, never assumed 1.0).
   confidence?: number
+}
+
+// UI-only: a criterion row built from the backend case assessment carries its
+// wire metadata. Kept out of CriterionResult, which must match the backend
+// model field for field (test_schema_parity.py).
+export interface ReviewCriterionResult extends CriterionResult {
   assessment?: WiredCriterionMeta
 }
 

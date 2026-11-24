@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AlertTriangle, Check, CheckCircle2, Clock, FileSearch, HelpCircle, Zap } from 'lucide-react'
-import { type CriterionResult } from '../../types'
+import { type CriterionResult, type ReviewCriterionResult } from '../../types'
 import { ruleIcons } from '../ui'
 import { type LocalCaseState } from './caseQueue'
 import { type WiredCriterionMeta } from './caseAssessment'
@@ -121,7 +121,7 @@ function WiredCriterionDetails({ meta }: { meta: WiredCriterionMeta }) {
 // Interactive checklist row: quiet neutral slate for met criteria, distinct rose for
 // safety contradictions, Decision 0008 status taxonomy, and boolean AND/OR pathway tags.
 export function CriterionRow({ index, criterion, localState, actions, isSelected, onSelect }: {
-  index?: number; criterion: CriterionResult; localState: LocalCaseState; actions: CriterionActions; isSelected: boolean; onSelect: () => void
+  index?: number; criterion: ReviewCriterionResult; localState: LocalCaseState; actions: CriterionActions; isSelected: boolean; onSelect: () => void
 }) {
   const [expandedNote, setExpandedNote] = useState(false)
   const wired = criterion.assessment
