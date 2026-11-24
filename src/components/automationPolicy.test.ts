@@ -46,7 +46,7 @@ describe('previewQueueUnderPolicy', () => {
     expect(diane.badgeTone).toBe('rose')
 
     const lucas = autoPreview.find(r => r.scenarioId === 'pediatric-esomeprazole')!
-    expect(lucas.dispositionLabel).toBe('Round 2 Counter-Offer Review')
+    expect(lucas.dispositionLabel).toBe('Round 2 Partial Approval Review')
     expect(lucas.badgeTone).toBe('violet')
 
     const holdPreview = previewQueueUnderPolicy(initialClients, false, 20)

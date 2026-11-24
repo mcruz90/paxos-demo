@@ -29,8 +29,17 @@ describe('getPipelineSteps', () => {
     expect(steps[0].explanation).not.toContain('CRD')
   })
 
-  it('uses the pediatric PPI step-therapy / dysphagia framing', () => {
+  it('uses the pediatric PPI duration partial-approval and dysphagia framing', () => {
     const steps = getPipelineSteps(scenarios['pediatric-esomeprazole'])
     expect(steps[1].explanation.toLowerCase()).toContain('dysphagia')
+    const combined = steps.map(s => s.explanation).join(' ')
+    expect(combined).toContain('28 of 56')
+    expect(combined).toContain('56-day')
+    expect(combined).toContain('12 months')
+    expect(combined.toLowerCase()).toContain('partial approval')
+    expect(combined).not.toMatch(/step-therapy denial/i)
+    expect(combined).not.toMatch(/step-therapy exception/i)
+    expect(combined).not.toMatch(/NASPGHAN/i)
+    expect(combined).not.toMatch(/29470322/)
   })
 })
