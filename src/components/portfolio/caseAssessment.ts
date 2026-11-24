@@ -75,7 +75,7 @@ function inferRuleType(criterionId: string): RuleType {
 
 export function formatAssessmentReadinessLabel(assessment: CaseAssessment): string {
   if (assessment.pathway === 'no_pa_required') {
-    return 'No PA required (under-6 auto-process)'
+    return 'No PA required for this request'
   }
   return assessment.ready ? 'Ready — not approved' : 'Blocked — review required'
 }
