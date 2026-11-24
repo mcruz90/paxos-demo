@@ -276,9 +276,11 @@ NOT an `AppealRequest` extension (no denial fields):
 | `attempt` | int ≥ 1 | default 1 — see ADR-0009 |
 | `security_hold`, `security_reason` | bool, str | ETL-set; enforced at the pipeline gate before any node |
 
-**Events:** `step` (`crd_check`, `assemble`, `pas_submit`, `determination` —
-`determination` repeats on a pend cycle; `assemble` onward skipped when the
-CRD early-exits), then exactly one terminal:
+**Events.** After the `crd_check` step, a PA that requires submission emits
+`assemble`, `pas_submit`, and one `determination` step. A CRD early exit skips
+those three steps. A pending determination ends the submission with a `done`
+event. Repeating the same request with unresolved evidence returns the same
+`pended` outcome. The stream emits exactly one terminal event.
 
 ```json
 {

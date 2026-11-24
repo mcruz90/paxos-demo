@@ -1435,7 +1435,7 @@
         "type": "object"
       },
       "PaDecision": {
-        "description": "Payer determination decision on an initial-PA submission (S2 Slice 1).\n\nThe initial-PA lifecycle branches on this: approved ends the flow,\npended loops back to determination, denied hands off to the appeal\npipeline (05-state-lifecycle.md).",
+        "description": "Payer determination decision on an initial-PA submission (S2 Slice 1).\n\nThe submission finalizes after one determination. Unresolved evidence\nstays pended on replay. A denial includes a pointer for a human to\nstart an appeal (05-state-lifecycle.md).",
         "enum": [
           "approved",
           "pended",

@@ -128,9 +128,9 @@ I/O once at module load):
 [backend/agents/initial_pa_graph.py](../../backend/agents/initial_pa_graph.py)
 is a second `StateGraph` (over `InitialPaState`) for the initial-PA
 lifecycle: `pa_ingestion → crd_check → [PA required?] → pa_assembly →
-pas_submit → determination ⟲ → finalize`, with a conditional early exit
-when no PA requirement is on file and a bounded pended self-loop on
-determination (a pend re-enters determination only — it never re-submits).
+pas_submit → determination → finalize`. The CRD check exits early when the
+requirement is unknown or no PA is required. Each submitted PA finalizes after
+one determination. Replaying unresolved evidence returns the same pending outcome.
 **No LLM backend parameter — this path never invokes a model**; its event
 union has no `chunk` member.
 
@@ -140,7 +140,7 @@ union has no `chunk` member.
 | [crd_check.py](../../backend/agents/nodes/crd_check.py) | `(InitialPaState) → InitialPaState` | A compatible policy yields a PA-required verdict in the stub. An unresolved policy yields an unknown verdict and exits before assembly |
 | [pa_assembly.py](../../backend/agents/nodes/pa_assembly.py) | `build_submission(request, pa_context) → PaSubmission` | Canonical structured PA request; the rail shape is the adapter's job |
 | [pas_submit.py](../../backend/agents/nodes/pas_submit.py) | `(InitialPaState) → InitialPaState` | Transmits via [etl/pas_rail/adapter.py](../../backend/etl/pas_rail/adapter.py) — canonical in, X12-278 shape out, deterministic `submission_ref` (a retry never mints a second rail identity). Rail-accurate: appeals never ride PAS |
-| [determination.py](../../backend/agents/nodes/determination.py) | `derive_determination(evidence, pend_cycles, ref) → PaOutcome` | Deterministic evidence-based stub: all-found ⇒ approved; empty/needs_review ⇒ pended (bounded loop, `MAX_PEND_CYCLES=1`); conflict ⇒ denied ⇒ `make_appeal_handoff` pointer (human-gated, never auto-launches the appeal) |
+| [determination.py](../../backend/agents/nodes/determination.py) | `derive_determination(evidence, pend_cycles, ref) → PaOutcome` | Any conflict yields a denial with a human-gated appeal handoff. Otherwise, empty evidence or any `needs_review` yields `pended`, and all-found evidence yields `approved`. |
 
 The [policy compatibility rules](04-data-flow.md#retrieval-resolution-where-flow-2-meets-flow-1)
 are implemented in
