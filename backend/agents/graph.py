@@ -121,6 +121,7 @@ def _build_done_event(state: PipelineState) -> DoneEvent:
 
     ref = hashlib.sha256(full_text.encode()).hexdigest()[:12]
     return DoneEvent(
+        resume_gate=state.get("resume_gate"),
         model=state["model_name"],
         ref=ref,
         structural_scores=scores,
@@ -148,13 +149,26 @@ async def _hold_node(state: PipelineState) -> PipelineState:
     Nothing side-effecting runs before ``interrupt()`` — on resume this node
     re-executes from the top, and ``interrupt()`` returns the human's input:
     ``{"edited_text": <str|None>}``. A non-empty ``edited_text`` replaces the
-    drafted letter as the outbound artifact.
+    drafted letter as the outbound artifact only after passing the gate.
     """
-    review = interrupt({"reason": "exception tier — human review required before submission"})
+    review = interrupt(
+        {
+            "reason": state.get("resume_hold_reason")
+            or "exception tier — human review required before submission"
+        }
+    )
     edited = review.get("edited_text") if isinstance(review, dict) else None
-    if edited:
-        return {**state, "appeal_text": edited}
-    return state
+    if not edited or edited == state["appeal_text"]:
+        return {**state, "resume_gate": "draft_reused", "resume_hold_reason": ""}
+
+    checked = run_gatekeeper({**state, "appeal_text": edited, "errors": []})
+    if checked["passed_gatekeeper"]:
+        return {**checked, "resume_gate": "edit_passed", "resume_hold_reason": ""}
+
+    reason = " ".join(checked["errors"])
+    get_stream_writer()(ErrorEvent(message=reason, resume_gate="edit_failed"))
+    # Preserve the passed draft as the candidate for a later approve-as-is.
+    return {**state, "resume_gate": "edit_failed", "resume_hold_reason": reason}
 
 
 async def _resume_finalize_node(state: PipelineState) -> PipelineState:
@@ -235,9 +249,12 @@ def _build_graph() -> StateGraph:
     )
     graph.add_edge("tier_router", "finalize")
     graph.add_conditional_edges("finalize", _after_finalize, {"hold": "hold", END: END})
-    # hold parks the run (interrupt); on resume it flows to resume_finalize,
-    # which emits the terminal DoneEvent for the human-cleared letter (Slice 4b).
-    graph.add_edge("hold", "resume_finalize")
+    # Rejected edits park again with the original draft. Only a cleared letter can finalize.
+    graph.add_conditional_edges(
+        "hold",
+        lambda state: "hold" if state.get("resume_gate") == "edit_failed" else "resume_finalize",
+        {"hold": "hold", "resume_finalize": "resume_finalize"},
+    )
     graph.add_edge("resume_finalize", END)
     graph.add_edge("exhausted", END)
     return graph

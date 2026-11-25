@@ -41,22 +41,10 @@ def build_audit_record(
     model_name_fallback: str = "",
     reviewed_by: str = "",
 ) -> AuditRecord:
-    """Map a terminal appeal event to its :class:`AuditRecord`.
-
-    Args:
-        event: The stamped terminal event (``DoneEvent`` or ``ErrorEvent``).
-        duration_ms: Run duration measured by the audit boundary.
-        correlation_id: The run's end-to-end ID (ADR-0009).
-        idempotency_key: Dedup key for the audit write (ADR-0009).
-        request: The originating (or checkpointed) :class:`AppealRequest`.
-        provenance: ``as_is`` (machine output) or ``human_edited`` (resume).
-        model_name_fallback: ``model_name`` to record on an error terminal, where
-            no ``DoneEvent.model`` exists — the generating backend's name, or
-            ``""`` on the model-free resume path.
-        reviewed_by: The human reviewer's user_id (resume), else ``""``.
-    """
+    """Record the human decision and the gate verdict for the terminal event."""
     done = event if isinstance(event, DoneEvent) else None
     error = event if isinstance(event, ErrorEvent) else None
+    resume_gate = event.resume_gate if isinstance(event, (DoneEvent, ErrorEvent)) else None
     return AuditRecord(
         correlation_id=correlation_id,
         idempotency_key=idempotency_key,
@@ -75,7 +63,10 @@ def build_audit_record(
         outcome="done" if done else "error",
         model_name=done.model if done else model_name_fallback,
         artifact_ref=done.ref if done else "",
-        gatekeeper_passed=done is not None,
+        resume_gate=resume_gate,
+        gatekeeper_passed=(
+            resume_gate in ("edit_passed", "draft_reused") if resume_gate else done is not None
+        ),
         retry_count=done.retry_count if done else (error.retry_count if error else 0),
         structural_eval_scores=done.structural_scores if done else {},
         pa_resolution=done.pa_resolution if done else "",

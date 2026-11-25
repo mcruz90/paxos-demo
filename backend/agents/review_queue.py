@@ -2,7 +2,7 @@
 
 Backs ``GET /api/reviews/pending``. There is no separate queue structure: the
 **audit trail is the queue index** (ADR-0011). A run awaiting human review is
-an exception-tier ``done`` audit record with no subsequent ``human_edited``
+an exception-tier ``done`` audit record with no subsequent successful ``human_edited``
 record for the same ``correlation_id``, confirmed still parked at its
 checkpoint.
 
@@ -41,7 +41,7 @@ def derive_pending_reviews(
 
     A ``correlation_id`` is pending iff:
       1. it has an exception-tier ``done`` record (the parked draft), AND
-      2. no ``human_edited`` record exists for it (not yet resumed/cleared),
+      2. no successful ``human_edited`` record exists for it (not yet resumed/cleared),
          AND
       3. ``is_parked(correlation_id)`` is True (checkpoint still live).
 
@@ -54,7 +54,9 @@ def derive_pending_reviews(
         One :class:`PendingReviewItem` per pending run, first-seen order.
     """
     cleared = {
-        r.correlation_id for r in records if r.provenance is AuditProvenance.human_edited
+        r.correlation_id
+        for r in records
+        if r.outcome == "done" and r.provenance is AuditProvenance.human_edited
     }
 
     reviews: list[PendingReviewItem] = []

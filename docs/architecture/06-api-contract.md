@@ -162,7 +162,7 @@ events, not HTTP status codes.
 
 Resumes an exception-tier appeal run that parked for human review
 ([ADR-0010](adr/0010-in-memory-checkpointer-exception-interrupt.md)) and
-drives it to a `done` terminal. **Auth:** dual scheme (Bearer or cookie); a
+checks whether the reviewed letter can be cleared. **Auth:** dual scheme (Bearer or cookie); a
 cookie write needs `X-CSRF-Token`. **No LLM in this path** — resume re-enters
 the graph at the `hold` node (no synthesis re-run), so the route serves without
 `LLM_BACKEND` set and the stream carries no `chunk` events.
@@ -174,19 +174,19 @@ the graph at the `hold` node (no synthesis re-run), so the route serves without
 | `correlation_id` | str | 1–200 chars — the parked run's handle (the `correlation_id` on its `done` event = its checkpoint `thread_id`) |
 | `edited_text` | str \| null | ≤ 20000 chars, default `null` — the human-reviewed letter body; `null` clears the machine draft as-is |
 
-**Events:** a single terminal `done` (same shape as the appeal route; `tier`
-stays `exception`, `correlation_id` equals the parked run's — one saga, one
-ID) or `error` when nothing is awaiting review for `correlation_id` (unknown,
-or already resumed — resume is idempotent: a completed run cannot be resumed
-again).
+**Events.** A changed letter runs through the same deterministic gatekeeper as the draft.
+A passing edit returns `done` with `resume_gate=edit_passed`. A rejected edit returns
+`error` with `resume_gate=edit_failed` and the gate reason in `message`. The original
+draft remains parked and available in the review queue. An omitted, null, empty or
+byte-identical edit approves that original draft and returns `done` with
+`resume_gate=draft_reused`. The terminal carries the parked run's correlation ID.
+An unknown or completed reference returns an error and writes no audit record.
 
-**Audit:** the resume writes its **own** `AuditRecord` —
-`provenance=human_edited`, `idempotency_key=<correlation_id>:resume` (distinct
-from the draft's `<case_id>:a<attempt>`, so the human sign-off is not deduped
-against the machine draft; the two share one `correlation_id`). This is the
-first deliberate divergence of correlation_id and idempotency_key that
-[ADR-0009](adr/0009-idempotency-key-and-audit-writes.md) anticipated. A resume
-of a non-parked reference is a client error and writes no record.
+**Audit.** Each resume verdict records `resume_gate` separately from human provenance
+(`human_edited` or `human_approved`). Successful sign-off keeps the
+`<correlation_id>:resume` key. Rejections record a failed gate under that key suffixed
+with `:rejected:<SHA-256 of edited text>` so identical retries deduplicate and a
+later sign-off has its own record.
 
 **Actor attribution ([ADR-0013](adr/0013-fastapi-bff-session-cookie-auth.md)):**
 a **cookie-authenticated** resume stamps the session's `user_id` on the resume
@@ -226,7 +226,7 @@ body (a reviewer-reads-the-draft surface is a deferred Slice 4c decision).
 
 The queue is **derived from the audit trail**, not a separate structure: a
 `correlation_id` is pending iff it has an exception-tier `done` audit record,
-no `human_edited` record for the same id, and is still parked at its checkpoint
+no successful `human_edited` record for the same id, and is still parked at its checkpoint
 (confirmed via the checkpointer's public `get_state(...).next` — the same check
 `run_resume` uses). See
 [ADR-0011](adr/0011-audit-trail-as-review-queue-index.md).
@@ -251,8 +251,7 @@ no `human_edited` record for the same id, and is still parked at its checkpoint
 - `tier` is always `exception` today (only that tier parks); carried
   explicitly so the shape survives if another tier ever gains a checkpoint.
 - `parked_at` is the timestamp of the exception `done` audit record.
-- A run **disappears** from this list once resumed (its `human_edited` record
-  is written) or once its checkpoint is gone; an unknown/never-parked
+- A run **disappears** from this list after successful review or once its checkpoint is gone; an unknown/never-parked
   `correlation_id` never appears — the queue is not a crawl of stray
   checkpoints.
 

@@ -19,6 +19,9 @@ from models.enums import CaseTier
 PaResolution = Literal["plan_id", "drug_alias", "generic", ""]
 
 
+ResumeGate = Literal["edit_passed", "edit_failed", "draft_reused"]
+
+
 class StepEvent(BaseModel):
     event: Literal["step"] = "step"
     step: str
@@ -31,6 +34,7 @@ class ChunkEvent(BaseModel):
 
 
 class DoneEvent(BaseModel):
+    resume_gate: ResumeGate | None = None
     event: Literal["done"] = "done"
     model: str
     ref: str
@@ -53,6 +57,7 @@ class DoneEvent(BaseModel):
 
 
 class ErrorEvent(BaseModel):
+    resume_gate: ResumeGate | None = None
     event: Literal["error"] = "error"
     message: str
     retry_count: int = 0

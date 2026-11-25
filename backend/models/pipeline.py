@@ -16,7 +16,7 @@ from typing import NotRequired, TypedDict
 
 from models.domain import AppealHandoff, PaOutcome, PaRequired
 from models.enums import CaseTier
-from models.events import PaResolution
+from models.events import PaResolution, ResumeGate
 from models.requests import AppealRequest, InitialPaRequest, PaSubmission
 
 
@@ -28,6 +28,8 @@ class PipelineState(TypedDict):
     policy_hold: NotRequired[str]
     appeal_text: str
     model_name: str
+    resume_hold_reason: NotRequired[str]
+    resume_gate: NotRequired[ResumeGate]
     passed_gatekeeper: bool
     retry_count: int
     errors: list[str]
