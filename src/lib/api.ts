@@ -50,10 +50,24 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly code?: string,
   ) {
     super(message)
     this.name = 'ApiError'
   }
+}
+
+async function toApiError(response: Response, label: string): Promise<ApiError> {
+  let code: string | undefined
+  try {
+    const body = (await response.json()) as { code?: unknown } | null
+    if (body && typeof body === 'object' && typeof body.code === 'string') {
+      code = body.code
+    }
+  } catch {
+    // Non-JSON or empty error bodies are valid; fall back to status-only ApiError.
+  }
+  return new ApiError(response.status, `${label} failed: ${response.status}`, code)
 }
 
 /** Send a JSON request (`POST` or `DELETE`) with cookie auth + optional CSRF header. */
@@ -72,7 +86,7 @@ async function sendJson(
     body: JSON.stringify(body),
     signal: opts?.signal,
   })
-  if (!response.ok) throw new ApiError(response.status, `${method} ${path} failed: ${response.status}`)
+  if (!response.ok) throw await toApiError(response, `${method} ${path}`)
   return response
 }
 
@@ -89,7 +103,7 @@ async function getJson<T>(path: string, opts?: RequestOpts): Promise<T> {
     credentials: 'include',
     signal: opts?.signal,
   })
-  if (!response.ok) throw new ApiError(response.status, `GET ${path} failed: ${response.status}`)
+  if (!response.ok) throw await toApiError(response, `GET ${path}`)
   return (await response.json()) as T
 }
 

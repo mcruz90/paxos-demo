@@ -33,7 +33,7 @@ export interface DiscoveryApiDeps {
   searchCaseDiscovery: (
     patientRef: string,
     caseId: string,
-    body: { expected_revision: number; query: string },
+    body: { expected_revision: number; query: string; request_id?: string },
     opts?: RequestOpts,
   ) => Promise<DiscoveryResults>
   listCaseAttachments: (patientRef: string, caseId: string, opts?: RequestOpts) => Promise<CaseAttachment[]>
@@ -62,20 +62,39 @@ interface ControllerRuntime {
   update: (patch: Partial<DiscoveryState>) => void
   getOrCreateRequestId: (key: string) => string
   clearRequestId: (key: string) => void
+  getSearchRequestId: (query: string, expectedRevision: number) => string
+  clearPendingSearch: () => void
   inFlight: Map<string, Promise<void>>
 }
 
+const STALE_CASE_MESSAGE = 'the case changed: reload'
+const IDEMPOTENCY_CONFLICT_MESSAGE =
+  'Same request was sent with different details — the action was not applied.'
+
+function getErrorStatus(err: unknown): number | undefined {
+  if (err instanceof ApiError) return err.status
+  const status = (err as { status?: unknown } | null)?.status
+  return typeof status === 'number' ? status : undefined
+}
+
 export function mapDiscoveryError(err: unknown): string {
-  const status = err instanceof ApiError ? err.status : (err as { status?: number } | null)?.status
-  if (status === 409) return 'the case changed: reload'
+  const status = getErrorStatus(err)
+  const code = err instanceof ApiError ? err.code : (err as { code?: unknown } | null)?.code
+  if (status === 409) {
+    return code === 'idempotency_conflict' ? IDEMPOTENCY_CONFLICT_MESSAGE : STALE_CASE_MESSAGE
+  }
   if (status === 404) return 'not available'
   if (status === 503) return 'Discovery service temporarily unavailable — please try again.'
   return err instanceof Error && err.message ? err.message : 'Unable to complete discovery request'
 }
 
 function isAuthError(err: unknown): boolean {
-  const status = err instanceof ApiError ? err.status : (err as { status?: number } | null)?.status
-  return status === 401
+  return getErrorStatus(err) === 401
+}
+
+function isRetryableSearchError(err: unknown): boolean {
+  const status = getErrorStatus(err)
+  return status === undefined || status >= 500
 }
 
 export function inspectDiscoveryItem(
@@ -128,13 +147,22 @@ async function executeSearch(rt: ControllerRuntime, query: string): Promise<void
   rt.update({ isSearching: true, discoveryError: null, actionError: null })
   try {
     const expectedRevision = await resolveRevision(rt)
-    if (expectedRevision === null) { rt.update({ isSearching: false, discoveryError: 'not available' }); return }
+    if (expectedRevision === null) {
+      rt.clearPendingSearch()
+      rt.update({ isSearching: false, discoveryError: 'not available' })
+      return
+    }
     const res = await rt.api.searchCaseDiscovery(
-      rt.patientRef, rt.caseId, { expected_revision: expectedRevision, query }, rt.getOpts?.(),
+      rt.patientRef,
+      rt.caseId,
+      { expected_revision: expectedRevision, query, request_id: rt.getSearchRequestId(query, expectedRevision) },
+      rt.getOpts?.(),
     )
+    rt.clearPendingSearch()
     rt.update({ results: res, revision: res.revision, isSearching: false, staleQuery: false, inspectedItem: null })
   } catch (err) {
-    if (isAuthError(err)) { rt.onAuthExpire?.(); return }
+    if (!isRetryableSearchError(err)) rt.clearPendingSearch()
+    if (isAuthError(err)) { rt.update({ isSearching: false }); rt.onAuthExpire?.(); return }
     rt.update({ isSearching: false, discoveryError: mapDiscoveryError(err) })
   }
 }
@@ -199,6 +227,31 @@ function executeRemove(rt: ControllerRuntime, attachment: CaseAttachment): Promi
   return task
 }
 
+function createPendingSearchTracker(makeId: () => string) {
+  let pending: { query: string; expectedRevision: number; requestId: string } | null = null
+  return {
+    getOrCreate: (query: string, expectedRevision: number): string => {
+      if (pending && pending.query === query && pending.expectedRevision === expectedRevision) {
+        return pending.requestId
+      }
+      pending = { query, expectedRevision, requestId: makeId() }
+      return pending.requestId
+    },
+    clear: () => { pending = null },
+  }
+}
+
+async function executeLoadAttachments(rt: ControllerRuntime): Promise<void> {
+  rt.update({ isLoadingAttachments: true, attachmentsError: null })
+  try {
+    const list = await rt.api.listCaseAttachments(rt.patientRef, rt.caseId, rt.getOpts?.())
+    rt.update({ attachments: list, isLoadingAttachments: false, attachmentsError: null })
+  } catch (err) {
+    if (isAuthError(err)) { rt.onAuthExpire?.(); return }
+    rt.update({ isLoadingAttachments: false, attachmentsError: mapDiscoveryError(err) })
+  }
+}
+
 export function createDiscoveryController(deps: {
   patientRef: string
   caseId: string
@@ -211,6 +264,7 @@ export function createDiscoveryController(deps: {
 }) {
   const makeId = deps.makeRequestId ?? defaultUuid
   const requestIds = new Map<string, string>()
+  const searchTracker = createPendingSearchTracker(makeId)
   let state: DiscoveryState = {
     revision: deps.initialRevision, results: null, attachments: [], attachmentsError: null,
     discoveryError: null, actionError: null, isSearching: false, isLoadingAttachments: false,
@@ -223,24 +277,17 @@ export function createDiscoveryController(deps: {
     update: patch => { state = { ...state, ...patch }; deps.onChange?.(state) },
     getOrCreateRequestId: key => { const id = requestIds.get(key) ?? makeId(); requestIds.set(key, id); return id },
     clearRequestId: key => { requestIds.delete(key) },
-  }
-  const loadAttachments = async () => {
-    rt.update({ isLoadingAttachments: true, attachmentsError: null })
-    try {
-      const list = await rt.api.listCaseAttachments(rt.patientRef, rt.caseId, rt.getOpts?.())
-      rt.update({ attachments: list, isLoadingAttachments: false, attachmentsError: null })
-    } catch (err) {
-      if (isAuthError(err)) { rt.onAuthExpire?.(); return }
-      rt.update({ isLoadingAttachments: false, attachmentsError: mapDiscoveryError(err) })
-    }
+    getSearchRequestId: searchTracker.getOrCreate,
+    clearPendingSearch: searchTracker.clear,
   }
   return {
     getState: rt.getState,
     setRevision: (rev: number | null) => {
+      if (rev !== state.revision) rt.clearPendingSearch()
       rt.update({ revision: rev, staleQuery: !!(state.results && rev !== null && state.results.revision !== rev) })
     },
     inspect: (item: DiscoveryItem | null) => rt.update({ inspectedItem: item }),
-    loadAttachments,
+    loadAttachments: () => executeLoadAttachments(rt),
     search: (query: string) => executeSearch(rt, query),
     attach: (item: DiscoveryItem) => executeAttach(rt, item),
     remove: (attachment: CaseAttachment) => executeRemove(rt, attachment),

@@ -91,7 +91,7 @@ function DiscoveryResultCard({
       {isMeta ? (
         <p className="text-[11px] text-amber-300 italic">metadata only: not read</p>
       ) : (
-        <p className="text-[11px] text-slate-400 line-clamp-2">&ldquo;{item.excerpt}&rdquo;</p>
+        <p data-testid="discovery-result-excerpt" className="text-[11px] text-slate-400 line-clamp-2">&ldquo;{item.excerpt}&rdquo;</p>
       )}
       <div className="flex items-center gap-2 pt-1">
         {!isMeta && (

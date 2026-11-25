@@ -13,7 +13,7 @@ type DiscoveryApiSurface = {
   searchCaseDiscovery: (
     patientRef: string,
     caseId: string,
-    body: { expected_revision: number; query: string },
+    body: { expected_revision: number; query: string; request_id?: string | null },
     opts?: api.RequestOpts,
   ) => Promise<unknown>
   getDiscoveryResults: (patientRef: string, caseId: string, queryId: string, opts?: api.RequestOpts) => Promise<unknown>
@@ -55,7 +55,7 @@ describe('G-07 discovery & attachment API routes', () => {
     expect((record as { revision: number }).revision).toBe(3)
   })
 
-  it('POSTs non-idempotent DiscoverySearch without request_id and GETs results by query_id', async () => {
+  it('POSTs DiscoverySearch with request_id and GETs results by query_id', async () => {
     expect(typeof discoveryApi.searchCaseDiscovery).toBe('function')
     expect(typeof discoveryApi.getDiscoveryResults).toBe('function')
     const payload = { query_id: QUERY_ID, query: 'esomeprazole', revision: 2, items: [] }
@@ -64,14 +64,21 @@ describe('G-07 discovery & attachment API routes', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    await discoveryApi.searchCaseDiscovery!(PATIENT_REF, CASE_ID, { expected_revision: 2, query: 'esomeprazole' }, { csrfToken: 'csrf-1' })
+    await discoveryApi.searchCaseDiscovery!(
+      PATIENT_REF,
+      CASE_ID,
+      { expected_revision: 2, query: 'esomeprazole', request_id: 'req-search-1' },
+      { csrfToken: 'csrf-1' },
+    )
     const [postUrl, postInit] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(postUrl).toBe(`/api/patients/${PATIENT_REF}/cases/${CASE_ID}/discovery`)
     expect(postInit.method).toBe('POST')
     expect(postInit.credentials).toBe('include')
     expect((postInit.headers as Record<string, string>)['Content-Type']).toBe('application/json')
     expect((postInit.headers as Record<string, string>)['X-CSRF-Token']).toBe('csrf-1')
-    expect(JSON.parse(postInit.body as string)).toEqual({ expected_revision: 2, query: 'esomeprazole' })
+    const sentBody = JSON.parse(postInit.body as string) as { expected_revision: number; query: string; request_id: string }
+    expect(sentBody).toEqual({ expected_revision: 2, query: 'esomeprazole', request_id: 'req-search-1' })
+    expect(sentBody.request_id).toMatch(/^[A-Za-z0-9._:-]{1,128}$/)
 
     await discoveryApi.getDiscoveryResults!(PATIENT_REF, CASE_ID, QUERY_ID)
     expect(fetchMock.mock.calls[1][0]).toBe(`/api/patients/${PATIENT_REF}/cases/${CASE_ID}/discovery/${QUERY_ID}`)
@@ -168,5 +175,49 @@ describe('G-07 discovery & attachment API routes', () => {
       .catch(e => e)
     expect(err503).toBeInstanceOf(api.ApiError)
     expect((err503 as api.ApiError).status).toBe(503)
+  })
+
+  it('parses optional error code from JSON error bodies and ignores non-JSON bodies', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(new Response('{"detail":"case_conflict","code":"stale_case_revision"}', { status: 409 })),
+      ),
+    )
+    const staleErr = await discoveryApi
+      .attachDiscoveryResult!(PATIENT_REF, CASE_ID, { expected_revision: 1, request_id: 'r1', result_id: RESULT_ID })
+      .catch(e => e)
+    expect(staleErr).toBeInstanceOf(api.ApiError)
+    expect((staleErr as api.ApiError).status).toBe(409)
+    expect((staleErr as api.ApiError).code).toBe('stale_case_revision')
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(new Response('{"detail":"case_conflict","code":"idempotency_conflict"}', { status: 409 })),
+      ),
+    )
+    const idemErr = await discoveryApi
+      .listCaseAttachments!(PATIENT_REF, CASE_ID)
+      .catch(e => e)
+    expect(idemErr).toBeInstanceOf(api.ApiError)
+    expect((idemErr as api.ApiError).status).toBe(409)
+    expect((idemErr as api.ApiError).code).toBe('idempotency_conflict')
+
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{"detail":"case_conflict"}', { status: 409 }))))
+    const noCodeErr = await discoveryApi
+      .searchCaseDiscovery!(PATIENT_REF, CASE_ID, { expected_revision: 1, query: 'q', request_id: 'req-1' })
+      .catch(e => e)
+    expect(noCodeErr).toBeInstanceOf(api.ApiError)
+    expect((noCodeErr as api.ApiError).status).toBe(409)
+    expect((noCodeErr as api.ApiError).code).toBeUndefined()
+
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('Bad Gateway', { status: 503 }))))
+    const htmlErr = await discoveryApi
+      .searchCaseDiscovery!(PATIENT_REF, CASE_ID, { expected_revision: 1, query: 'q', request_id: 'req-1' })
+      .catch(e => e)
+    expect(htmlErr).toBeInstanceOf(api.ApiError)
+    expect((htmlErr as api.ApiError).status).toBe(503)
+    expect((htmlErr as api.ApiError).code).toBeUndefined()
   })
 })
