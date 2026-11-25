@@ -554,6 +554,8 @@ export interface components {
              */
             prompt_tokens: number;
             provenance: components["schemas"]["AuditProvenance"];
+            /** Resume Gate */
+            resume_gate?: ("edit_passed" | "edit_failed" | "draft_reused") | null;
             /**
              * Retry Count
              * @default 0
@@ -819,6 +821,11 @@ export interface components {
             /** Ref */
             ref: string;
             /**
+             * Resume Gate
+             * @default null
+             */
+            resume_gate: ("edit_passed" | "edit_failed" | "draft_reused") | null;
+            /**
              * Retry Count
              * @default 0
              */
@@ -987,6 +994,11 @@ export interface components {
             event: "error";
             /** Message */
             message: string;
+            /**
+             * Resume Gate
+             * @default null
+             */
+            resume_gate: ("edit_passed" | "edit_failed" | "draft_reused") | null;
             /**
              * Retry Count
              * @default 0

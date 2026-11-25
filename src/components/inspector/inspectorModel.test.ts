@@ -61,6 +61,7 @@ describe('buildRunMetadata', () => {
       ref: 'art_9f2a',
       model: 'groq/llama-3.3-70b-versatile',
       pa_resolution: 'plan_id',
+      resume_gate: null,
       retry_count: 0,
       tier: 'complex',
       structural_scores: { drug_name_present: 1 },
