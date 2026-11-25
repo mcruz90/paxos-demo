@@ -16,7 +16,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from models.enums import AuditProvenance, CaseLifecycle, CaseTier
-from models.events import PaResolution
+from models.events import PaResolution, ResumeGate
 from models.tenancy import SEEDED_TENANT_ID
 
 
@@ -55,6 +55,7 @@ class AuditRecord(BaseModel):
     # sha256 prefix of the outbound artifact: DoneEvent.ref (appeal letter)
     # or the PAS submission_ref (initial PA). "" on error runs.
     artifact_ref: str = ""
+    resume_gate: ResumeGate | None = None
     gatekeeper_passed: bool = False
     retry_count: int = 0
     structural_eval_scores: dict[str, float] = Field(default_factory=dict)

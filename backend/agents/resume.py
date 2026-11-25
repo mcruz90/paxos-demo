@@ -15,6 +15,7 @@ never rebuilds or duplicates it.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from collections.abc import AsyncIterator
 from typing import cast
@@ -55,26 +56,10 @@ async def run_resume(
     edited_text: str | None,
     reviewed_by: str = "",
 ) -> AsyncIterator[AppealEvent]:
-    """Resume a parked exception-tier run for a human reviewer (S3 Slice 4b).
+    """Apply a human review to the parked draft and audit its gate verdict.
 
-    Drives the checkpointed run (parked at ``hold`` by Slice 4a) from
-    ``correlation_id`` — its ``thread_id`` — to a ``done`` terminal, applying
-    ``edited_text`` if the reviewer changed the letter. Writes a DISTINCT audit
-    record (``idempotency_key=<corr>:resume``, same ``correlation_id``) so the
-    trail keeps both the machine draft and the human sign-off; its provenance
-    is ``resume_provenance``'s call — ``human_approved`` for an unchanged
-    draft, ``human_edited`` for changed text.
-
-    Args:
-        correlation_id: The parked run's handle (from its terminal DoneEvent).
-        edited_text: Human-edited letter body, or None to clear the draft as-is.
-        reviewed_by: Session user_id of the human who cleared the run, stamped on
-            the resume audit record. "" for a Bearer/service caller (no named
-            reviewer — the service identity, ADR-0013).
-
-    Yields:
-        :class:`DoneEvent` on success, or :class:`ErrorEvent` if nothing is
-        awaiting review for ``correlation_id`` (unknown, or already resumed).
+    Rejected edits leave the original draft available for another review.
+    An unknown or completed reference returns an error without an audit write.
     """
     config: RunnableConfig = {"configurable": {"thread_id": correlation_id}}
     snapshot = _PIPELINE.get_state(config)
@@ -93,16 +78,16 @@ async def run_resume(
     provenance = resume_provenance(edited_text, snapshot.values.get("appeal_text", ""))
 
     def build_record(event: AppealEvent, duration_ms: int) -> AuditRecord:
-        # A human reviewed the letter before it was cleared for submission —
-        # the accountability record of that review, with provenance saying
-        # whether they approved it unchanged or actually edited it. The resume
-        # path invokes no model, so the error model_name fallback is "" (the
-        # default in audit/records.py).
+        key = idempotency_key
+        if isinstance(event, ErrorEvent) and event.resume_gate == "edit_failed" and edited_text:
+            # Identical rejected edits deduplicate without consuming the eventual sign-off key.
+            digest = hashlib.sha256(edited_text.encode()).hexdigest()
+            key = f"{key}:rejected:{digest}"
         return build_audit_record(
             event=event,
             duration_ms=duration_ms,
             correlation_id=correlation_id,
-            idempotency_key=idempotency_key,
+            idempotency_key=key,
             request=request,
             provenance=provenance,
             reviewed_by=reviewed_by,
@@ -121,7 +106,7 @@ async def _resume_events(
     edited_text: str | None,
     correlation_id: str,
 ) -> AsyncIterator[AppealEvent]:
-    """Resume the checkpointed graph and forward its terminal DoneEvent.
+    """Resume the checkpointed graph and forward its terminal event.
 
     Same guaranteed-terminal discipline as ``_generate_events``: a node
     exception is converted to a terminal ``error`` rather than escaping the

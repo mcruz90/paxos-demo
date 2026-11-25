@@ -97,7 +97,9 @@ async def test_resume_emits_done_and_reaches_clean_end() -> None:
 async def test_resume_as_is_writes_distinct_human_approved_record() -> None:
     corr, _ = await _park("resume-audit")
     assert len(all_records(TenancyScope.platform())) == 1
-    assert all_records(TenancyScope.platform())[0].provenance is AuditProvenance.as_is  # the machine draft
+    assert (
+        all_records(TenancyScope.platform())[0].provenance is AuditProvenance.as_is
+    )  # the machine draft
 
     [e async for e in run_resume(corr, edited_text=None)]
 
@@ -113,19 +115,29 @@ async def test_resume_as_is_writes_distinct_human_approved_record() -> None:
 
 @pytest.mark.asyncio
 async def test_resume_with_changed_text_writes_human_edited_record() -> None:
-    corr, _ = await _park("resume-audit-edited")
+    corr, draft = await _park("resume-audit-edited")
     [e async for e in run_resume(corr, edited_text="Materially revised letter body.")]
 
     records = all_records(TenancyScope.platform())
     assert len(records) == 2
     assert records[1].provenance is AuditProvenance.human_edited
 
+    parked = _PIPELINE.get_state({"configurable": {"thread_id": corr}})
+    assert "too short" in parked.interrupts[0].value["reason"]
+    [e async for e in run_resume(corr, edited_text="Materially revised letter body.")]
+    assert len(all_records(TenancyScope.platform())) == 2
+
+    [approved] = [e async for e in run_resume(corr, edited_text=None)]
+    assert isinstance(approved, DoneEvent)
+    assert approved.ref == draft.ref
+    assert approved.resume_gate == "draft_reused"
+
 
 @pytest.mark.asyncio
 async def test_resume_applies_human_edited_text() -> None:
     corr, draft = await _park("resume-edit")
     edited = (
-        "Dear Medical Director, on human review the appeal body was revised to "
+        "Dear Medical Director, the Ozempic appeal for Type 2 Diabetes Mellitus was revised to "
         "materially different, clinically accurate language before submission. "
     ) * 4
     events = [e async for e in run_resume(corr, edited_text=edited)]
@@ -137,7 +149,9 @@ async def test_resume_applies_human_edited_text() -> None:
 async def test_resume_unknown_run_errors_without_audit() -> None:
     events = [e async for e in run_resume("never-parked:a1", edited_text=None)]
     assert events[-1].event == "error"
-    assert len(all_records(TenancyScope.platform())) == 0, "a resume of a non-existent run is not an auditable pipeline run"
+    assert len(all_records(TenancyScope.platform())) == 0, (
+        "a resume of a non-existent run is not an auditable pipeline run"
+    )
 
 
 @pytest.mark.asyncio
@@ -147,7 +161,9 @@ async def test_resume_twice_is_idempotent() -> None:
     second = [e async for e in run_resume(corr, edited_text=None)]
 
     assert second[-1].event == "error", "a completed run cannot be resumed again"
-    assert len(all_records(TenancyScope.platform())) == 2, "draft + one resume record; no double-write"
+    assert len(all_records(TenancyScope.platform())) == 2, (
+        "draft + one resume record; no double-write"
+    )
 
 
 # ---------------------------------------------------------------------------

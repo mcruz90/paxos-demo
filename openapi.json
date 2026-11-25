@@ -399,6 +399,22 @@
           "provenance": {
             "$ref": "#/components/schemas/AuditProvenance"
           },
+          "resume_gate": {
+            "anyOf": [
+              {
+                "enum": [
+                  "edit_passed",
+                  "edit_failed",
+                  "draft_reused"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume Gate"
+          },
           "retry_count": {
             "default": 0,
             "title": "Retry Count",
@@ -1124,6 +1140,23 @@
             "title": "Ref",
             "type": "string"
           },
+          "resume_gate": {
+            "anyOf": [
+              {
+                "enum": [
+                  "edit_passed",
+                  "edit_failed",
+                  "draft_reused"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resume Gate"
+          },
           "retry_count": {
             "default": 0,
             "title": "Retry Count",
@@ -1454,6 +1487,23 @@
           "message": {
             "title": "Message",
             "type": "string"
+          },
+          "resume_gate": {
+            "anyOf": [
+              {
+                "enum": [
+                  "edit_passed",
+                  "edit_failed",
+                  "draft_reused"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resume Gate"
           },
           "retry_count": {
             "default": 0,
