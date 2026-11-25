@@ -153,6 +153,14 @@ describe('G-07 discovery rail UI, Unicode slicing, errors, and readiness isolati
     expect(searchingHtml).toMatch(/<button[^>]*disabled[^>]*>[\s\S]*?Find evidence/)
   })
 
+  it('renders data-testid="discovery-result-excerpt" only on full_text results and not on metadata_only results', () => {
+    const fullOnlyHtml = renderRail({ results: { ...DISCOVERY_RESULTS, items: [FULL_TEXT_ITEM] } })
+    expect(fullOnlyHtml).toContain('data-testid="discovery-result-excerpt"')
+
+    const metaOnlyHtml = renderRail({ results: { ...DISCOVERY_RESULTS, items: [METADATA_ITEM] } })
+    expect(metaOnlyHtml).not.toContain('data-testid="discovery-result-excerpt"')
+  })
+
   it('renders metadata_only as "metadata only: not read" with no excerpt even if sourceBodies exists', () => {
     const text = visibleText(renderRail({ inspectedItem: METADATA_ITEM }, { 'ext-index-v1': 'SECRET UNREAD TEXT MUST NOT APPEAR' }))
     expect(text.toLowerCase()).toContain('metadata only: not read')
