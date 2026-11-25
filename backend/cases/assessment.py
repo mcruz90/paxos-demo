@@ -13,6 +13,8 @@ from hashlib import sha256
 
 from agents.requirements_lookup import AutoProcessRule, resolve_pack
 from cases.assessment_records import MAX_AGE_YEARS, Assessment, Finding
+from cases.dose_fixture import DoseDocuments
+from cases.dose_review import dose_review
 from cases.duration_approval import DurationDecision, duration_approval
 from cases.pediatric_findings import (
     DRUGS,
@@ -132,6 +134,27 @@ def _appeal(case: CaseRecord, text: str, rows: dict[str, Finding], years: int | 
     )
 
 
+def _policy_hold(
+    case: CaseRecord,
+    blocker: str,
+    action: str,
+    documents: DoseDocuments | None,
+    text: str | None = None,
+    digest: str | None = None,
+) -> Assessment:
+    return Assessment(
+        case,
+        text,
+        digest,
+        (),
+        False,
+        None,
+        (blocker,),
+        action,
+        dose_review=dose_review(documents, False),
+    )
+
+
 def assess_case(
     case: CaseRecord,
     sources: Iterable[SourceVersion],
@@ -143,12 +166,13 @@ def assess_case(
     dob: date | None = None,
     service_date: date | None = None,
     duration_decision: DurationDecision | None = None,
+    dose_documents: DoseDocuments | None = None,
 ) -> Assessment:
     """Derive findings for the pinned pediatric appeal. Other valid packs require review."""
     facts = observations(case, sources)
     pack, _ = resolve_pack(plan_id, drug, diagnosis=diagnosis, as_of=as_of)
     if isinstance(pack, str):
-        return Assessment(case, None, None, (), False, None, ("policy",), pack)
+        return _policy_hold(case, "policy", pack, dose_documents)
     text = pack.criteria_text
     digest = sha256(text.encode()).hexdigest()
     if (
@@ -156,17 +180,16 @@ def assess_case(
         or pack.auto_process is None
         or _rule_digest(pack.auto_process) != _RULE_DIGEST
     ):
-        return Assessment(
+        return _policy_hold(
             case,
+            "policy_review",
+            "Review the matched payer requirements with the case records.",
+            dose_documents,
             text,
             digest,
-            (),
-            False,
-            None,
-            ("policy_review",),
-            "Review the matched payer requirements with the case records.",
         )
     result = _pediatric(case, text, facts, dob, service_date, pack.auto_process.under_years)
+    result = replace(result, dose_review=dose_review(dose_documents, True))
     if duration_decision and result.ready:
         approval = duration_approval(duration_decision)
         if approval:
