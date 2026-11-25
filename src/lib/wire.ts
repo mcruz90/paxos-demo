@@ -51,6 +51,7 @@ export type DiscoveryItem = FullTextResult | MetadataResult
 export type AttachResult = Schemas['AttachResult']
 export type AttachmentRequest = Schemas['AttachmentRequest']
 export type CaseAttachment = Schemas['CaseAttachment']
+export type DiscoveryConflict = Schemas['DiscoveryConflict']
 
 /**
  * Per-route discriminated event unions. Every member carries an `event` field
