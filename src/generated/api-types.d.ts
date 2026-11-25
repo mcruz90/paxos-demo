@@ -597,6 +597,7 @@ export interface components {
             age_years: number | null;
             /** Blockers */
             blockers: string[];
+            dose_review?: components["schemas"]["DoseReview"] | null;
             duration_approval?: components["schemas"]["DurationApproval"] | null;
             /** Findings */
             findings: components["schemas"]["AssessmentCriterion"][];
@@ -828,6 +829,59 @@ export interface components {
             };
             /** @default null */
             tier: components["schemas"]["CaseTier"] | null;
+        };
+        /** DoseCitation */
+        DoseCitation: {
+            /** Excerpt */
+            excerpt: string;
+            /** Locator */
+            locator: string;
+        };
+        /** DoseReview */
+        DoseReview: {
+            /** Answer Requires Review */
+            answer_requires_review: boolean;
+            /** Finding */
+            finding: string;
+            /**
+             * Label Status
+             * @default current label check pending
+             * @constant
+             */
+            label_status: "current label check pending";
+            letter: components["schemas"]["DoseCitation"];
+            next_action: components["schemas"]["DraftPayerQuestion"];
+            policy: components["schemas"]["DoseCitation"] | null;
+            prescription: components["schemas"]["DoseCitation"];
+            /**
+             * Status
+             * @default staff_review_hold
+             * @constant
+             */
+            status: "staff_review_hold";
+            /**
+             * Synthetic
+             * @default true
+             * @constant
+             */
+            synthetic: true;
+        };
+        /** DraftPayerQuestion */
+        DraftPayerQuestion: {
+            /**
+             * Owner
+             * @default assigned case reviewer
+             * @constant
+             */
+            owner: "assigned case reviewer";
+            /** Question */
+            question: string;
+            /**
+             * Status
+             * @default draft
+             * @constant
+             */
+            status: "draft";
         };
         /** DurationApproval */
         DurationApproval: {
