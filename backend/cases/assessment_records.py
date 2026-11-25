@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
+from cases.dose_review import DoseReview
 from cases.duration_approval import DurationApproval
 from models.case_evidence import CaseRecord, SourceVersion
 
@@ -55,6 +56,8 @@ class Assessment:
 
     age_years: int | None = None
     duration_approval: DurationApproval | None = None
+
+    dose_review: DoseReview | None = None
 
     @property
     def revision(self) -> int:

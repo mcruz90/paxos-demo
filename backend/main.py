@@ -76,7 +76,9 @@ app = FastAPI(
     version="0.1.0",
 )
 
-app.state.assessment_reader = PediatricFixtureReader(os.getenv("PEDIATRIC_FIXTURE_CASE_ID"))
+app.state.assessment_reader = PediatricFixtureReader(
+    os.getenv("PEDIATRIC_FIXTURE_CASE_ID"), dose_case_id=os.getenv("DOSE_FIXTURE_CASE_ID")
+)
 
 # The SSE routes return StreamingResponse, so their event shapes are invisible
 # to FastAPI's default schema generation. Register them explicitly so the

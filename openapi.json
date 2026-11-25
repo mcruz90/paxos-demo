@@ -498,6 +498,16 @@
             "title": "Blockers",
             "type": "array"
           },
+          "dose_review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DoseReview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "duration_approval": {
             "anyOf": [
               {
@@ -1143,6 +1153,116 @@
           "ref"
         ],
         "title": "DoneEvent",
+        "type": "object"
+      },
+      "DoseCitation": {
+        "properties": {
+          "excerpt": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "locator": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Locator",
+            "type": "string"
+          }
+        },
+        "required": [
+          "locator",
+          "excerpt"
+        ],
+        "title": "DoseCitation",
+        "type": "object"
+      },
+      "DoseReview": {
+        "properties": {
+          "answer_requires_review": {
+            "title": "Answer Requires Review",
+            "type": "boolean"
+          },
+          "finding": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Finding",
+            "type": "string"
+          },
+          "label_status": {
+            "const": "current label check pending",
+            "default": "current label check pending",
+            "title": "Label Status",
+            "type": "string"
+          },
+          "letter": {
+            "$ref": "#/components/schemas/DoseCitation"
+          },
+          "next_action": {
+            "$ref": "#/components/schemas/DraftPayerQuestion"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DoseCitation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prescription": {
+            "$ref": "#/components/schemas/DoseCitation"
+          },
+          "status": {
+            "const": "staff_review_hold",
+            "default": "staff_review_hold",
+            "title": "Status",
+            "type": "string"
+          },
+          "synthetic": {
+            "const": true,
+            "default": true,
+            "title": "Synthetic",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "finding",
+          "prescription",
+          "letter",
+          "policy",
+          "answer_requires_review",
+          "next_action"
+        ],
+        "title": "DoseReview",
+        "type": "object"
+      },
+      "DraftPayerQuestion": {
+        "properties": {
+          "owner": {
+            "const": "assigned case reviewer",
+            "default": "assigned case reviewer",
+            "title": "Owner",
+            "type": "string"
+          },
+          "question": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          },
+          "status": {
+            "const": "draft",
+            "default": "draft",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "DraftPayerQuestion",
         "type": "object"
       },
       "DurationApproval": {

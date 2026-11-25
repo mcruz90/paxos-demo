@@ -482,3 +482,16 @@ fill, `supply_end_date` is the last covered day (fill day counts as day one).
 Without a documented fill, both fill and supply end dates are null and staff
 are asked to confirm the fill date. The label check is pending. Cases without
 an applicable finding return `duration_approval: null`.
+
+### Synthetic dose review
+
+The case assessment can include an optional `dose_review` for the separately
+bound E-01 case. Set `DOSE_FIXTURE_CASE_ID` to the server-created case ID for
+synthetic patient PT-4202 in the seeded tenant. The reader checks revision 1.
+A documented difference between once-daily doses yields a staff review hold
+with separate prescription, determination letter and policy citations. When
+the applicable Quantity Limits section cannot be verified, the finding says so
+and the policy citation is null. The review includes one draft written question
+for the assigned case reviewer. A payer reply requires reconciliation. Reading
+the assessment sends nothing and creates no events. Matching doses omit the
+field, including a shorter approved duration. Initial-PA readiness is independent.
