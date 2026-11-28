@@ -35,7 +35,9 @@ def test_live_seed_replay_and_bound_routes(isolated_database, monkeypatch, capsy
     monkeypatch.setattr(case_service, "checked_connection", connect)
     client = TestClient(app, base_url="https://testserver")
     try:
-        login = client.post("/api/auth/login", json={"username": "reviewer", "password": "synthetic-password"})
+        login = client.post(
+            "/api/auth/login", json={"username": "reviewer", "password": "synthetic-password"}
+        )
         assert login.status_code == 200
         client.headers["X-CSRF-Token"] = login.json()["csrf_token"]
         replay = client.post(ROOT, json={"idempotency_key": "journey-anchor-pediatric"})
@@ -45,7 +47,9 @@ def test_live_seed_replay_and_bound_routes(isolated_database, monkeypatch, capsy
         assert assessment.status_code == 200 and assessment.json()["pathway"] == "swallowing"
         discovery = client.post(path + "/discovery", json={"expected_revision": 1, "query": ""})
         assert discovery.status_code == 200
-        assert "gi-2026-10-21-v1" in {item["source_version_id"] for item in discovery.json()["items"]}
+        assert "gi-2026-10-21-v1" in {
+            item["source_version_id"] for item in discovery.json()["items"]
+        }
     finally:
         client.close()
     with connect(config) as conn:

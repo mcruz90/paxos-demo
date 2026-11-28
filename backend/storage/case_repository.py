@@ -1,7 +1,8 @@
 """Scoped case I/O. Caller owns outer transaction; commit before reporting success."""
 
 import json
-from uuid import uuid4
+from collections.abc import Callable
+from uuid import UUID, uuid4
 
 import psycopg
 from psycopg.pq import TransactionStatus
@@ -38,8 +39,9 @@ ORDER BY e.event_sequence
 
 
 class CaseRepository:
-    def __init__(self, connection: psycopg.Connection):
+    def __init__(self, connection: psycopg.Connection, *, new_case_id: Callable[[], UUID] = uuid4):
         self.connection = connection
+        self._new_case_id = new_case_id
 
     def create_case(self, scope: CaseAccess, command: CaseCreateRequest) -> CaseRecord:
         """Stage case+event atomically; identical retries replay the original version."""
@@ -60,7 +62,7 @@ class CaseRepository:
                 replay = cur.fetchone()
                 if replay is not None:
                     return validate_create_replay(CaseRecord.model_validate(replay), scope)
-                case_id = uuid4()
+                case_id = self._new_case_id()
                 record = self._insert_case(cur, scope, case_id)
                 self._insert_event(cur, scope, command, case_id)
                 return record
