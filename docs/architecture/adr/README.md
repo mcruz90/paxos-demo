@@ -32,6 +32,7 @@ pass. New decisions get new ADRs at decision time.
 | [0018](0018-crd-registry-miss-goes-to-a-person.md) | A CRD registry miss is "unknown", and a person decides (never "PA not required") | Accepted |
 | [0019](0019-drug-alias-match-lends-no-criteria.md) | A drug-name match lends no criteria; the case goes to a person | Accepted |
 | [0020](0020-local-postgresql-case-store.md) | Dedicated local PostgreSQL with explicit SQL migrations | Accepted (local synthetic) |
+| [0024](0024-programmatic-tool-calling-boundaries.md) | Programmatic Tool Calling (PTC) boundaries & Best-Practice Split | Accepted |
 
 ## Statuses
 
